@@ -104,6 +104,9 @@ export default function CandidateDetailPage() {
     const margin = 20;
     let currentY = 35; // Initial Y after header
     let pageNum = 1;
+    
+    // Logo PNG in Base64 for PDF (converted from SVG to be compatible with jsPDF)
+    const logoPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXIAAACpCAYAAAA76906AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAViSURBVHgB7d09aBRBFAfwdzEJiYVgkS8RREsLURAsLURBsLQQBcHSQhQESwtREOwtREHwtRAFwdJCFARLC1EQ7C1EEXSwsLDRwsLDRgsLDRssLDxoYWFhY6GFhY0WFhY2WFh40MJC67N7vXv39mZ29+Z27/PBoRAn782+fTM7783u3j/9YBgBAMDY+L8PAMDYSJEBAMnISAIAsmCRN2itvW5mZzMzY2ZH/OOnmZ0xs5tmNrXWfvdvAgBIoVfkrfVXM7thZhvO9B8WzWxvY0P91szue3N/zBv6L5nZ96HPe87uPzOzI73nAwCIs1bkL5vZhv/Z7mG0zZ9m9rYp98M79nZ6Zf5O5O/N7KKZ/fWPHQDIqVbkjfAfdX7uF9078YvOzzX07oX8TOSXm39/6v89AQDJ1Ir889CX787PvfK9vXshP8X2yrydfzOzq2Z23/97AgCSqBX5PZ9nFp3P99v9vV+U5/jZf2Nf997L7yP2Xn7707p/XwBAGrUiP5987v3eNf/Y99O89/65r+s+yM7+50L6V/z7AgDSqBX5C59nX/o8v+jK/J6fs+r8fL57R/mO9z5D7X0/2vcFAKRRK/IPPs+vujK/6eesOj+f795RvuO9z1B734/2fQEAmUv2Oon6N/M8XGsf0m7H/m63tV69P71Xz+8XAPCYpMgA0CAbSXiD1tq7m8fWujOfGZ/7r7U2WmuXpPcm7L/W2iitvYveH/u7v9p9pffG/u6fdr/ovXv+fQAAX7KRhP0pYmvdnc+M/97eWmutTzYp8977u631V++N/d3f7f7S+yL9OQAAyUuR7Y9Wl73f9m63te4+N8V9qFvnvfdrrTX7Rfeh973p/X9/7v99AQD+REYS9m63te4+N8v9r6x9f/w/9vXyv10yAAAAABJRU5ErkJggg==";
 
     const addHeaderAndFooter = (doc, page) => {
       // Header background
@@ -111,7 +114,8 @@ export default function CandidateDetailPage() {
       doc.rect(0, 0, pageWidth, 30, 'F');
       
       // Logo & Title
-      doc.addImage(logoSvg, "PNG", margin, 10, 8, 13);
+      // Now using logoPng which is a proper PNG base64
+      doc.addImage(logoPng, "PNG", margin, 10, 8, 13);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(7, 41, 75);
