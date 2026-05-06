@@ -105,15 +105,17 @@ export default function CandidateDetailPage() {
     let currentY = 35; // Initial Y after header
     let pageNum = 1;
 
-    const addHeaderAndFooter = async (doc, page, headerImg) => {
+    const addHeaderAndFooter = async (doc, page, headerImg, headerRatio) => {
       // Header from captured block
       if (headerImg) {
-        doc.addImage(headerImg, "PNG", margin, 10, pageWidth - (margin * 2), 15);
+        const headerWidth = pageWidth - (margin * 2);
+        const headerHeight = headerWidth * headerRatio;
+        doc.addImage(headerImg, "PNG", margin, 4, headerWidth, headerHeight);
       }
       
-      // Separator line
+      // Separator line (Moved up)
       doc.setDrawColor(226, 232, 240);
-      doc.line(margin, 28, pageWidth - margin, 28);
+      doc.line(margin, 20, pageWidth - margin, 20);
 
       // Footer
       doc.setFontSize(8);
@@ -135,8 +137,8 @@ export default function CandidateDetailPage() {
       if (currentY + imgHeight > pageHeight - 20) {
         pdf.addPage();
         pageNum++;
-        await addHeaderAndFooter(pdf, pageNum, headerImgData);
-        currentY = 35;
+        await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
+        currentY = 26;
       }
 
       pdf.addImage(imgData, "PNG", margin, currentY, imgWidth, imgHeight);
@@ -144,14 +146,18 @@ export default function CandidateDetailPage() {
     };
 
     let headerImgData = null;
+    let headerImgRatio = 0;
     try {
       // Capture header once
       const headerBlock = document.getElementById("sc-block-header");
       const headerCanvas = await html2canvas(headerBlock, { scale: 2, backgroundColor: "#ffffff" });
       headerImgData = headerCanvas.toDataURL("image/png");
+      headerImgRatio = headerCanvas.height / headerCanvas.width;
 
-      await addHeaderAndFooter(pdf, pageNum, headerImgData);
+      await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
       
+      currentY = 26; // Start content higher
+
       // Add blocks sequentially
       await addBlockToPdf("sc-block-profile");
       await addBlockToPdf("sc-block-scores");
@@ -603,10 +609,9 @@ export default function CandidateDetailPage() {
         }}
       >
         {/* Header Block (Captured separately and added to every page) */}
-        <div id="sc-block-header" style={{ padding: "10mm 25mm 5mm 25mm", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <img src="/logo-onbord.svg" alt="Onbord" style={{ width: "24px", height: "40px" }} />
-            <h2 style={{ fontSize: "22px", fontWeight: "900", color: "#07294b", margin: 0, letterSpacing: "-0.03em" }}>ONBORD</h2>
+        <div id="sc-block-header" style={{ padding: "3mm 25mm 2mm 25mm", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <img src="/logo-onbord.svg" alt="Onbord" style={{ height: "30px", width: "auto" }} />
           </div>
           <div style={{ textAlign: "right" }}>
             <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 4px 0", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em" }}>Scorecard Officielle</p>
@@ -667,27 +672,27 @@ export default function CandidateDetailPage() {
 
         {/* Summary Block */}
         {candidate.ai_summary && (
-          <div id="sc-block-summary" style={{ padding: "0 25mm 15mm 25mm" }}>
-            <div style={{ padding: "20px", borderRadius: "15px", border: "1px solid #f1f5f9", background: "#fafafa" }}>
-              <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "12px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "8px" }}>
+          <div id="sc-block-summary" style={{ padding: "0 25mm 12mm 25mm" }}>
+            <div style={{ padding: "22px", borderRadius: "15px", border: "1px solid #f1f5f9", background: "#fafafa" }}>
+              <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "12px", textTransform: "uppercase" }}>
                 Synthèse du profil
               </h3>
-              <p style={{ fontSize: "13px", lineHeight: "1.6", color: "#334155", margin: 0 }}>{candidate.ai_summary}</p>
+              <p style={{ fontSize: "14.5px", lineHeight: "1.7", color: "#334155", margin: 0, textAlign: "justify" }}>{candidate.ai_summary}</p>
             </div>
           </div>
         )}
 
         {/* Interview Block */}
         {candidate.interview_summary && (
-          <div id="sc-block-interview" style={{ padding: "0 25mm 15mm 25mm" }}>
-            <div style={{ padding: "20px", borderRadius: "15px", background: "#f0f9ff", border: "1px solid #e0f2fe" }}>
+          <div id="sc-block-interview" style={{ padding: "0 25mm 12mm 25mm" }}>
+            <div style={{ padding: "22px", borderRadius: "15px", background: "#f0f9ff", border: "1px solid #e0f2fe" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
                 <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#0369a1", margin: 0, textTransform: "uppercase" }}>Évaluation de l'entretien IA</h3>
                 <div style={{ padding: "4px 10px", borderRadius: "6px", background: "#ffffff", fontSize: "10px", fontWeight: "800", color: "#0369a1", border: "1px solid #bae6fd" }}>
                   {candidate.interview_recommendation === "hire" ? "✓ Favorable" : candidate.interview_recommendation === "maybe" ? "⚡ À considérer" : "✕ Défavorable"}
                 </div>
               </div>
-              <p style={{ fontSize: "13px", lineHeight: "1.6", color: "#0c4a6e", margin: 0 }}>{candidate.interview_summary}</p>
+              <p style={{ fontSize: "14.5px", lineHeight: "1.7", color: "#0c4a6e", margin: 0, textAlign: "justify" }}>{candidate.interview_summary}</p>
             </div>
           </div>
         )}
@@ -698,10 +703,10 @@ export default function CandidateDetailPage() {
             {((candidate.interview_strengths && candidate.interview_strengths.length > 0) || (candidate.green_flags && candidate.green_flags.length > 0)) && (
               <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #f0fdf4", background: "#f0fdf4" }}>
                 <h3 style={{ fontSize: "11px", fontWeight: "900", color: "#166534", marginBottom: "12px", textTransform: "uppercase" }}>Points Forts</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {[...(candidate.interview_strengths || []), ...(candidate.green_flags || [])].slice(0, 8).map((s, i) => (
-                    <div key={i} style={{ fontSize: "12px", display: "flex", gap: "8px", color: "#14532d" }}>
-                      <span style={{ color: "#22c55e" }}>•</span> {s}
+                    <div key={i} style={{ fontSize: "13.5px", display: "flex", gap: "8px", color: "#14532d", lineHeight: "1.4" }}>
+                      <span style={{ color: "#22c55e", fontWeight: "bold" }}>•</span> {s}
                     </div>
                   ))}
                 </div>
@@ -710,10 +715,10 @@ export default function CandidateDetailPage() {
             {((candidate.interview_weaknesses && candidate.interview_weaknesses.length > 0) || (candidate.red_flags && candidate.red_flags.length > 0)) && (
               <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #fef2f2", background: "#fef2f2" }}>
                 <h3 style={{ fontSize: "11px", fontWeight: "900", color: "#991b1b", marginBottom: "12px", textTransform: "uppercase" }}>Points de Vigilance</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {[...(candidate.interview_weaknesses || []), ...(candidate.red_flags || [])].slice(0, 8).map((w, i) => (
-                    <div key={i} style={{ fontSize: "12px", display: "flex", gap: "8px", color: "#7f1d1d" }}>
-                      <span style={{ color: "#ef4444" }}>•</span> {w}
+                    <div key={i} style={{ fontSize: "13.5px", display: "flex", gap: "8px", color: "#7f1d1d", lineHeight: "1.4" }}>
+                      <span style={{ color: "#ef4444", fontWeight: "bold" }}>•</span> {w}
                     </div>
                   ))}
                 </div>
