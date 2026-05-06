@@ -12,7 +12,9 @@ import {
 } from "@/lib/actions/candidate";
 import EmailModal from "@/components/candidates/EmailModal";
 import { createClient } from "@/lib/supabase/client";
-import { Clock } from "lucide-react";
+import { Clock, Download, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 function getScoreColor(score) {
   if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: "Excellent" };
@@ -45,6 +47,7 @@ export default function CandidateDetailPage() {
   const [mailLogs, setMailLogs] = useState([]);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     loadCandidate();
@@ -87,6 +90,39 @@ export default function CandidateDetailPage() {
       router.push(`/demandes/${jobId}`);
     }
     setActionLoading(false);
+  }
+
+  async function downloadScorecard() {
+    setDownloading(true);
+    const element = document.getElementById("scorecard-template");
+    
+    // Temporarily show the element to capture it
+    const originalStyle = element.style.display;
+    element.style.display = "block";
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Scorecard_${candidate.first_name}_${candidate.last_name}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Erreur lors de la génération du PDF.");
+    } finally {
+      element.style.display = originalStyle;
+      setDownloading(false);
+    }
   }
 
   if (loading) {
@@ -240,6 +276,15 @@ export default function CandidateDetailPage() {
             style={{ color: "var(--primary)" }}
           >
             <Mail size={16} /> Générer un mail
+          </button>
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={downloadScorecard}
+            disabled={downloading || actionLoading}
+            style={{ color: "var(--primary)" }}
+          >
+            {downloading ? <Loader2 size={16} className="spin" /> : <FileDown size={16} />}
+            Scorecard PDF
           </button>
           <button
             className="btn btn-sm"
@@ -498,6 +543,112 @@ export default function CandidateDetailPage() {
           onLogged={() => getMailLogs(jobId).then(res => res.success && setMailLogs(res.logs.filter(l => l.candidate_id === candidatId)))}
         />
       )}
+      {/* Hidden Scorecard Template for PDF Export */}
+      <div 
+        id="scorecard-template" 
+        style={{ 
+          display: "none", 
+          width: "210mm", // A4 Width
+          padding: "20mm",
+          background: "white",
+          color: "#0f172a",
+          fontFamily: "'Inter', sans-serif"
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", borderBottom: "2px solid #e2e8f0", paddingBottom: "20px" }}>
+          <div>
+            <h2 style={{ fontSize: "24px", fontWeight: "800", color: "#3b82f6", margin: 0, letterSpacing: "-0.02em" }}>ONBORD</h2>
+            <p style={{ fontSize: "12px", color: "#64748b", margin: "4px 0 0 0", fontWeight: "600", textTransform: "uppercase" }}>Rapport d'évaluation candidat</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>Date du rapport</p>
+            <p style={{ fontSize: "14px", fontWeight: "600", margin: 0 }}>{new Date().toLocaleDateString("fr-FR")}</p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "30px", marginBottom: "40px" }}>
+          <div style={{ 
+            width: "100px", height: "100px", borderRadius: "20px", 
+            background: "#3b82f6", color: "white", 
+            display: "flex", alignItems: "center", justifyContent: "center", 
+            fontSize: "40px", fontWeight: "700" 
+          }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1 }}>
+            <h1 style={{ fontSize: "28px", fontWeight: "800", margin: "0 0 8px 0" }}>{candidate.first_name} {candidate.last_name}</h1>
+            <p style={{ fontSize: "16px", color: "#475569", margin: "0 0 12px 0" }}>{candidate.email}</p>
+            <div style={{ display: "inline-block", padding: "6px 12px", borderRadius: "8px", background: "#f1f5f9", fontSize: "12px", fontWeight: "700", color: "#475569" }}>
+              Status: {statusBadge.label}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "40px" }}>
+          <div style={{ padding: "20px", borderRadius: "16px", background: "#f8fafc", textAlign: "center", border: "1px solid #e2e8f0" }}>
+            <p style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>Score CV</p>
+            <div style={{ fontSize: "32px", fontWeight: "800", color: scoreStyle?.color || "#3b82f6" }}>{candidate.score_cv || "—"}</div>
+          </div>
+          <div style={{ padding: "20px", borderRadius: "16px", background: "#f8fafc", textAlign: "center", border: "1px solid #e2e8f0" }}>
+            <p style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>Score Entretien</p>
+            <div style={{ fontSize: "32px", fontWeight: "800", color: interviewScoreStyle?.color || "#3b82f6" }}>{candidate.score_interview || "—"}</div>
+          </div>
+          <div style={{ padding: "24px", borderRadius: "16px", background: globalScoreStyle?.bg || "#f8fafc", textAlign: "center", border: `2px solid ${globalScoreStyle?.color || "#3b82f6"}` }}>
+            <p style={{ fontSize: "12px", fontWeight: "800", color: globalScoreStyle?.color || "#3b82f6", marginBottom: "8px", textTransform: "uppercase" }}>Score Global</p>
+            <div style={{ fontSize: "36px", fontWeight: "900", color: globalScoreStyle?.color || "#3b82f6" }}>{candidate.score_global || "—"}</div>
+          </div>
+        </div>
+
+        {candidate.ai_summary && (
+          <div style={{ marginBottom: "30px" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "12px", paddingBottom: "8px", borderBottom: "1px solid #e2e8f0" }}>Analyse du profil</h3>
+            <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>{candidate.ai_summary}</p>
+          </div>
+        )}
+
+        {candidate.interview_summary && (
+          <div style={{ marginBottom: "30px", padding: "20px", borderRadius: "12px", background: "#f0f9ff", border: "1px solid #bae6fd" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", margin: 0 }}>Résumé de l'entretien IA</h3>
+              <div style={{ padding: "4px 10px", borderRadius: "6px", background: "white", fontSize: "12px", fontWeight: "700", color: "#0369a1" }}>
+                Recommandation: {candidate.interview_recommendation === "hire" ? "Favorable" : candidate.interview_recommendation === "maybe" ? "Passable" : "Défavorable"}
+              </div>
+            </div>
+            <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#0c4a6e", margin: 0 }}>{candidate.interview_summary}</p>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
+          {(candidate.interview_strengths || candidate.green_flags) && (
+            <div>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#15803d", marginBottom: "12px" }}>Points forts</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {[...(candidate.interview_strengths || []), ...(candidate.green_flags || [])].slice(0, 6).map((s, i) => (
+                  <div key={i} style={{ fontSize: "13px", display: "flex", gap: "8px", color: "#166534" }}>
+                    <span style={{ color: "#22c55e" }}>✓</span> {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(candidate.interview_weaknesses || candidate.red_flags) && (
+            <div>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#b91c1c", marginBottom: "12px" }}>Points de vigilance</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {[...(candidate.interview_weaknesses || []), ...(candidate.red_flags || [])].slice(0, 6).map((w, i) => (
+                  <div key={i} style={{ fontSize: "13px", display: "flex", gap: "8px", color: "#991b1b" }}>
+                    <span style={{ color: "#ef4444" }}>×</span> {w}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: "50px", textAlign: "center", borderTop: "1px solid #f1f5f9", paddingTop: "20px" }}>
+          <p style={{ fontSize: "10px", color: "#94a3b8" }}>Généré par Onbord - L'IA au service de votre recrutement</p>
+        </div>
+      </div>
     </div>
   );
 }
