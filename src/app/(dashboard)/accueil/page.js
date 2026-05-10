@@ -49,7 +49,7 @@ function JobCard({ job }) {
               {job.location || "Localisation non précisée"} · {job.contract_type || "CDI"}
             </p>
           </div>
-          <Link href={`/demandes/${job.id}`} style={{ color: "var(--muted-foreground)", flexShrink: 0 }}>
+          <Link href={`/jobs/${job.id}`} style={{ color: "var(--muted-foreground)", flexShrink: 0 }}>
             <ChevronRight size={18} />
           </Link>
         </div>
@@ -83,7 +83,7 @@ function JobCard({ job }) {
             {job.location || "Localisation non précisée"} · {job.contract_type || "CDI"}
           </p>
         </div>
-        <Link href={`/demandes/${job.id}`} style={{ color: "var(--muted-foreground)", flexShrink: 0 }}>
+        <Link href={`/jobs/${job.id}`} style={{ color: "var(--muted-foreground)", flexShrink: 0 }}>
           <ChevronRight size={18} />
         </Link>
       </div>
@@ -143,7 +143,7 @@ function JobCard({ job }) {
             <p style={{ fontSize: "13px", fontWeight: "600", color: info.color }}>{info.actionMsg}</p>
           </div>
           <Link
-            href={`/demandes/${job.id}`}
+            href={`/jobs/${job.id}`}
             style={{
               background: info.color, color: "white",
               padding: "7px 14px", borderRadius: "8px",
@@ -169,7 +169,7 @@ function JobCard({ job }) {
       {info.stage === 4 && (
         <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
           <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>✓ {info.actionMsg}</p>
-          <Link href={`/demandes/${job.id}`} style={{ background: "#22c55e", color: "white", padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600", textDecoration: "none" }}>
+          <Link href={`/jobs/${job.id}`} style={{ background: "#22c55e", color: "white", padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600", textDecoration: "none" }}>
             Voir la shortlist
           </Link>
         </div>
@@ -230,18 +230,18 @@ export default function Accueil() {
           <h1 style={{ fontSize: "24px", fontWeight: "800", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Tableau de bord</h1>
           <p style={{ color: "var(--muted-foreground)", fontSize: "14px", marginTop: "4px" }}>Vue d'ensemble de vos recrutements en cours.</p>
         </div>
-        <Link href="/nouvelle-demande" className="btn btn-primary">
-          Nouvelle demande
+        <Link href="/jobs/nouveau" className="btn btn-primary">
+          Nouveau job
         </Link>
       </div>
 
       {/* ===== 4 GLOBAL METRICS ===== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
         {[
-          { label: "Demandes actives", value: stats?.activeJobs ?? 0, color: "#6366f1" },
-          { label: "Candidats analysés", value: stats?.totalCandidates ?? 0, color: "#0d9488" },
-          { label: "Entretiens IA complétés", value: stats?.interviewsDone ?? 0, color: "#8b5cf6" },
-          { label: "Recrutements finalisés", value: stats?.finalized ?? 0, color: "#22c55e" },
+          { label: "Jobs actifs", value: stats?.activeJobs ?? 0, color: "var(--foreground)" },
+          { label: "Candidats analysés", value: stats?.totalCandidates ?? 0, color: "var(--foreground)" },
+          { label: "Entretiens IA complétés", value: stats?.interviewsDone ?? 0, color: "var(--foreground)" },
+          { label: "Recrutements finalisés", value: stats?.finalized ?? 0, color: "var(--foreground)" },
         ].map((m, i) => (
           <div key={i} className="card" style={{ padding: "20px 24px" }}>
             <p style={{ fontSize: "34px", fontWeight: "800", color: "var(--foreground)", lineHeight: 1, letterSpacing: "-0.03em", marginBottom: "6px" }}>{m.value}</p>
@@ -257,23 +257,23 @@ export default function Accueil() {
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
           <h2 style={{ fontSize: "16px", fontWeight: "700", color: "var(--foreground)" }}>
-            Demandes en cours
+            Jobs en cours
             {activeJobs.length > 0 && (
               <span style={{ marginLeft: "8px", fontSize: "13px", fontWeight: "600", background: "var(--primary-light)", color: "var(--primary)", padding: "2px 10px", borderRadius: "20px" }}>
                 {activeJobs.length}
               </span>
             )}
           </h2>
-          <Link href="/demandes" style={{ fontSize: "13px", color: "var(--primary)", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-            Toutes les demandes <ArrowRight size={13} />
+          <Link href="/jobs" style={{ fontSize: "13px", color: "var(--muted-foreground)", fontWeight: "500", display: "flex", alignItems: "center", gap: "4px" }}>
+            Voir tous les jobs <ArrowRight size={13} />
           </Link>
         </div>
 
         {activeJobs.length === 0 ? (
           <div className="card" style={{ textAlign: "center", padding: "56px 32px" }}>
-            <p style={{ fontSize: "16px", fontWeight: "600", color: "var(--foreground)", marginBottom: "8px" }}>Aucune demande active</p>
-            <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginBottom: "24px" }}>Créez votre première demande de recrutement pour démarrer.</p>
-            <Link href="/nouvelle-demande" className="btn btn-primary">Créer une demande</Link>
+            <p style={{ fontSize: "16px", fontWeight: "600", color: "var(--foreground)", marginBottom: "8px" }}>Aucun job actif</p>
+            <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginBottom: "24px" }}>Créez votre premier job pour démarrer.</p>
+            <Link href="/jobs/nouveau" className="btn btn-primary">Créer un job</Link>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: "20px" }}>

@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
-  User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp
+  User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star
 } from "lucide-react";
 import {
   getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
@@ -48,6 +48,9 @@ export default function CandidateDetailPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [savedToPool, setSavedToPool] = useState(false);
+  const [savingToPool, setSavingToPool] = useState(false);
+
 
   useEffect(() => {
     loadCandidate();
@@ -66,6 +69,7 @@ export default function CandidateDetailPage() {
 
     if (candRes.success) {
       setCandidate(candRes.candidate);
+      setSavedToPool(candRes.candidate.is_in_pool || false);
     }
     if (logsRes.success) {
       setMailLogs(logsRes.logs.filter(l => l.candidate_id === candidatId));
@@ -87,9 +91,26 @@ export default function CandidateDetailPage() {
     setActionLoading(true);
     const res = await deleteCandidate(candidatId);
     if (res.success) {
-      router.push(`/demandes/${jobId}`);
+      router.push(`/jobs/${jobId}`);
     }
     setActionLoading(false);
+  }
+
+  async function handleTogglePool() {
+    setSavingToPool(true);
+    const supabase = createClient();
+    const newState = !savedToPool;
+    const { error } = await supabase
+      .from("candidates")
+      .update({
+        is_in_pool: newState,
+        pool_added_at: newState ? new Date().toISOString() : null
+      })
+      .eq("id", candidatId);
+    if (!error) {
+      setSavedToPool(newState);
+    }
+    setSavingToPool(false);
   }
 
   async function downloadScorecard() {
@@ -187,7 +208,7 @@ export default function CandidateDetailPage() {
     return (
       <div style={{ textAlign: "center", padding: "4rem" }}>
         <h2>Candidat introuvable</h2>
-        <button className="btn btn-primary" onClick={() => router.push(`/demandes/${jobId}`)}>Retour</button>
+        <button className="btn btn-primary" onClick={() => router.push(`/jobs/${jobId}`)}>Retour</button>
       </div>
     );
   }
@@ -206,7 +227,7 @@ export default function CandidateDetailPage() {
       {/* Back button */}
       <button
         className="btn btn-ghost"
-        onClick={() => router.push(`/demandes/${jobId}`)}
+        onClick={() => router.push(`/jobs/${jobId}`)}
         style={{ marginBottom: "1.5rem" }}
       >
         <ArrowLeft size={18} /> Retour à la liste
@@ -337,6 +358,19 @@ export default function CandidateDetailPage() {
           >
             {downloading ? <Loader2 size={16} className="spin" /> : <FileDown size={16} />}
             Scorecard PDF
+          </button>
+          <button
+            className="btn btn-sm"
+            style={{
+              background: savedToPool ? "#f0f0ff" : "transparent",
+              color: savedToPool ? "var(--primary)" : "var(--muted-foreground)",
+              border: savedToPool ? "1px solid var(--primary)" : "1px solid var(--border)"
+            }}
+            onClick={handleTogglePool}
+            disabled={savingToPool}
+          >
+            {savingToPool ? <Loader2 size={16} className="spin" /> : <Star size={16} fill={savedToPool ? "var(--primary)" : "none"} />}
+            {savedToPool ? "Dans les talents" : "Sauvegarder"}
           </button>
           <button
             className="btn btn-sm"
@@ -729,3 +763,4 @@ export default function CandidateDetailPage() {
     </div>
   );
 }
+

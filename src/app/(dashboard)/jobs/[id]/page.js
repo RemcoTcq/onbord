@@ -380,7 +380,7 @@ export default function JobDetailPage() {
     <div className="fade-in">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem" }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => router.push("/demandes")} title="Retour">
+        <button className="btn btn-ghost btn-icon" onClick={() => router.push("/jobs")} title="Retour">
           <ArrowLeft size={20} />
         </button>
         <div style={{ flex: 1 }}>
@@ -741,7 +741,7 @@ export default function JobDetailPage() {
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                         <Link
-                          href={`/demandes/${jobId}/candidats/${candidate.id}`}
+                          href={`/jobs/${jobId}/candidats/${candidate.id}`}
                           className="btn btn-ghost btn-sm"
                           style={{ fontSize: "12px" }}
                         >
@@ -890,3 +890,4 @@ export default function JobDetailPage() {
     </div>
   );
 }
+

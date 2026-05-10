@@ -155,12 +155,12 @@ export default function NouvelleDemandePage() {
 
       if (goToStep4) {
         if (isDelegated) {
-          router.push(`/demandes/${job.id}`);
+          router.push(`/jobs/${job.id}`);
         } else {
           setCurrentStep(4);
         }
       } else {
-        router.push('/brouillons');
+        router.push('/jobs');
       }
     } catch (err) {
       console.error(err);
@@ -257,7 +257,7 @@ export default function NouvelleDemandePage() {
         setIsImporting(false);
         setCandidates(processedCandidates);
         // Redirection automatique vers la page de la demande
-        router.push(`/demandes/${savedJobId}`);
+        router.push(`/jobs/${savedJobId}`);
       }
     });
   };
@@ -779,7 +779,7 @@ export default function NouvelleDemandePage() {
           ) : currentStep === 4 ? (
             <button 
               className="btn btn-primary"
-              onClick={() => router.push(`/demandes/${savedJobId}`)}
+              onClick={() => router.push(`/jobs/${savedJobId}`)}
             >
               Voir les candidats
             </button>
