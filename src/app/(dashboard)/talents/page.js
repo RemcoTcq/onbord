@@ -148,7 +148,7 @@ export default function TalentsPage() {
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
                 onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
-                onClick={() => router.push(`/jobs/${talent.job_id}/candidats/${talent.id}`)}
+                onClick={() => router.push(`/talents/${talent.id}`)}
               >
                 {/* Left */}
                 <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
