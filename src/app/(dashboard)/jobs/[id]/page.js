@@ -404,7 +404,7 @@ export default function JobDetailPage() {
           background: "var(--primary)", 
           color: "white", 
           padding: "1rem 1.5rem", 
-          borderRadius: "12px", 
+          borderRadius: "6px", 
           marginBottom: "2rem",
           display: "flex",
           alignItems: "center",
@@ -474,7 +474,7 @@ export default function JobDetailPage() {
               <span style={{
                 background: isActive ? "var(--primary)" : "var(--secondary)",
                 color: isActive ? "white" : "var(--muted-foreground)",
-                padding: "2px 8px", borderRadius: "10px", fontSize: "12px", fontWeight: "600"
+                padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: "600"
               }}>
                 {tabCounts[tab.id]}
               </span>
@@ -526,7 +526,7 @@ export default function JobDetailPage() {
               background: sortMenuOpen ? 'var(--primary)' : 'var(--card)',
               color: sortMenuOpen ? 'white' : 'var(--foreground)',
               border: `1px solid ${sortMenuOpen ? 'var(--primary)' : 'var(--border)'}`,
-              borderRadius: '20px', cursor: 'pointer',
+              borderRadius: '4px', cursor: 'pointer',
               fontSize: '13px', fontWeight: '500',
               transition: 'all 150ms', whiteSpace: 'nowrap',
               boxShadow: sortMenuOpen ? '0 4px 12px rgba(var(--primary-rgb, 99,102,241),0.25)' : 'none',
@@ -550,7 +550,7 @@ export default function JobDetailPage() {
               style={{
                 position: 'absolute', top: 'calc(100% + 8px)', left: 0,
                 background: 'var(--card)', border: '1px solid var(--border)',
-                borderRadius: '12px', boxShadow: '0 12px 24px -4px rgba(0,0,0,0.12)',
+                borderRadius: '6px', boxShadow: '0 12px 24px -4px rgba(0,0,0,0.12)',
                 zIndex: 50, minWidth: '200px', overflow: 'hidden', padding: '6px',
               }}
             >
@@ -583,7 +583,7 @@ export default function JobDetailPage() {
                           width: '100%', padding: '8px 10px', border: 'none',
                           background: isActive ? 'var(--accent)' : 'transparent',
                           color: isActive ? 'var(--primary)' : 'var(--foreground)',
-                          borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+                          borderRadius: '4px', cursor: 'pointer', fontSize: '13px',
                           fontWeight: isActive ? '600' : '400',
                           transition: 'background 100ms',
                         }}
@@ -672,8 +672,8 @@ export default function JobDetailPage() {
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <div style={{
-                          width: "36px", height: "36px", borderRadius: "50%",
-                          background: "var(--primary)", color: "white",
+                          width: "36px", height: "36px", borderRadius: "6px",
+                          background: "var(--foreground)", color: "white",
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: "12px", fontWeight: "600", flexShrink: 0
                         }}>
@@ -711,7 +711,7 @@ export default function JobDetailPage() {
                       {candidate.score_cv != null ? (
                         <span style={{
                           display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          padding: "4px 12px", borderRadius: "20px", fontWeight: "700", fontSize: "13px",
+                          padding: "4px 12px", borderRadius: "4px", fontWeight: "700", fontSize: "13px",
                           background: scoreStyle.bg, color: scoreStyle.color
                         }}>
                           {candidate.score_cv}/100
@@ -722,7 +722,7 @@ export default function JobDetailPage() {
                       {candidate.score_interview != null ? (
                         <span style={{
                           display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          padding: "4px 12px", borderRadius: "20px", fontWeight: "700", fontSize: "13px",
+                          padding: "4px 12px", borderRadius: "4px", fontWeight: "700", fontSize: "13px",
                           background: getScoreColor(candidate.score_interview).bg,
                           color: getScoreColor(candidate.score_interview).color
                         }}>
@@ -854,7 +854,7 @@ export default function JobDetailPage() {
           <div style={{ maxWidth: '500px', width: '100%' }}>
             <div style={{
               width: '80px', height: '80px', background: 'var(--primary-light)',
-              color: 'var(--primary)', borderRadius: '24px', display: 'flex',
+              color: 'var(--primary)', borderRadius: '6px', display: 'flex',
               alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem',
               animation: 'pulse 2s infinite ease-in-out'
             }}>
@@ -868,7 +868,7 @@ export default function JobDetailPage() {
               Notre IA analyse chaque profil par rapport à vos critères ({job?.title}) pour identifier les meilleurs matchs.
             </p>
 
-            <div style={{ background: 'var(--secondary)', borderRadius: '12px', height: '12px', width: '100%', overflow: 'hidden', marginBottom: '1rem' }}>
+            <div style={{ background: 'var(--secondary)', borderRadius: '4px', height: '12px', width: '100%', overflow: 'hidden', marginBottom: '1rem' }}>
               <div style={{
                 height: '100%', background: 'var(--primary)',
                 width: `${(importProgress.current / importProgress.total) * 100}%`,

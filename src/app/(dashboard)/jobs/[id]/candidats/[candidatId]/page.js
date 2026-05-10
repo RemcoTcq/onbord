@@ -238,8 +238,8 @@ export default function CandidateDetailPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1.5rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
             <div style={{
-              width: "64px", height: "64px", borderRadius: "50%",
-              background: "var(--primary)", color: "white",
+              width: "64px", height: "64px", borderRadius: "6px",
+              background: "var(--foreground)", color: "white",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "20px", fontWeight: "700", flexShrink: 0
             }}>
@@ -261,7 +261,7 @@ export default function CandidateDetailPage() {
             {scoreStyle && (
               <div style={{ textAlign: "center" }}>
                 <div style={{
-                  width: "64px", height: "64px", borderRadius: "50%",
+                  width: "64px", height: "64px", borderRadius: "6px",
                   background: scoreStyle.bg, color: scoreStyle.color,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "18px", fontWeight: "800", flexShrink: 0
@@ -274,7 +274,7 @@ export default function CandidateDetailPage() {
             {interviewScoreStyle && (
               <div style={{ textAlign: "center" }}>
                 <div style={{
-                  width: "64px", height: "64px", borderRadius: "50%",
+                  width: "64px", height: "64px", borderRadius: "6px",
                   background: interviewScoreStyle.bg, color: interviewScoreStyle.color,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "18px", fontWeight: "800", flexShrink: 0
@@ -287,7 +287,7 @@ export default function CandidateDetailPage() {
             {globalScoreStyle && (
               <div style={{ textAlign: "center" }}>
                 <div style={{
-                  width: "80px", height: "80px", borderRadius: "50%",
+                  width: "80px", height: "80px", borderRadius: "6px",
                   background: globalScoreStyle.bg, color: globalScoreStyle.color,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "24px", fontWeight: "800", flexShrink: 0,

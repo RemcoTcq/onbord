@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Users, Loader2, Search, Star, Briefcase, Trash2, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -12,6 +12,7 @@ export default function TalentsPage() {
   const [search, setSearch] = useState("");
   const [removingId, setRemovingId] = useState(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => { loadTalents(); }, []);
 
@@ -21,14 +22,23 @@ export default function TalentsPage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      const { data } = await supabase
-        .from("candidates")
-        .select("*, jobs!inner(id, title, user_id)")
-        .eq("jobs.user_id", user.id)
-        .eq("is_in_pool", true)
-        .order("pool_added_at", { ascending: false });
+      // First get user's jobs, then get pool candidates from those jobs
+      const { data: userJobs } = await supabase
+        .from("jobs")
+        .select("id")
+        .eq("user_id", user.id);
 
-      if (data) setTalents(data);
+      if (userJobs && userJobs.length > 0) {
+        const jobIds = userJobs.map(j => j.id);
+        const { data } = await supabase
+          .from("candidates")
+          .select("*, jobs(id, title)")
+          .in("job_id", jobIds)
+          .eq("is_in_pool", true)
+          .order("pool_added_at", { ascending: false });
+
+        if (data) setTalents(data);
+      }
     }
     setLoading(false);
   }
@@ -39,16 +49,22 @@ export default function TalentsPage() {
     if (!confirm("Retirer ce talent du pool ?")) return;
     setRemovingId(candidateId);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("candidates")
-      .update({ is_in_pool: false, pool_added_at: null })
-      .eq("id", candidateId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("candidates")
+        .update({ is_in_pool: false, pool_added_at: null })
+        .eq("id", candidateId);
 
-    if (!error) {
-      setTalents(prev => prev.filter(t => t.id !== candidateId));
-      toast("Talent retiré du pool");
-    } else {
+      if (!error) {
+        setTalents(prev => prev.filter(t => t.id !== candidateId));
+        toast("Talent retiré du pool");
+      } else {
+        console.error("Remove from pool error:", error);
+        toast("Erreur lors de la suppression", "error");
+      }
+    } catch (err) {
+      console.error("Remove from pool catch:", err);
       toast("Erreur lors de la suppression", "error");
     }
     setRemovingId(null);
@@ -84,7 +100,7 @@ export default function TalentsPage() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "12px", color: "var(--muted-foreground)", background: "var(--secondary)", padding: "4px 10px", borderRadius: "4px", fontWeight: "500" }}>
+          <span style={{ fontSize: "12px", color: "var(--muted-foreground)", background: "var(--secondary)", padding: "4px 10px", borderRadius: "2px", fontWeight: "500" }}>
             {talents.length} talent{talents.length > 1 ? "s" : ""}
           </span>
         </div>
@@ -117,86 +133,83 @@ export default function TalentsPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1px", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
           {filtered.map(talent => {
             const isRemoving = removingId === talent.id;
             return (
-              <Link
+              <div
                 key={talent.id}
-                href={`/jobs/${talent.job_id}/candidats/${talent.id}`}
-                style={{ textDecoration: "none", opacity: isRemoving ? 0.5 : 1 }}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "14px 20px", background: "var(--card)",
+                  borderBottom: "1px solid var(--border)", cursor: "pointer",
+                  transition: "background 100ms ease",
+                  opacity: isRemoving ? 0.5 : 1
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
+                onClick={() => router.push(`/jobs/${talent.job_id}/candidats/${talent.id}`)}
               >
-                <div
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "14px 20px", background: "var(--card)",
-                    borderBottom: "1px solid var(--border)", cursor: "pointer",
-                    transition: "background 100ms ease"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
-                  onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
-                >
-                  {/* Left */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      width: "32px", height: "32px", borderRadius: "50%",
-                      background: "var(--foreground)", color: "var(--background)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "11px", fontWeight: "600", flexShrink: 0
-                    }}>
-                      {`${(talent.first_name || "?")[0]}${(talent.last_name || "?")[0]}`.toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)" }}>
-                        {talent.first_name} {talent.last_name}
-                      </p>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
-                        {talent.email && (
-                          <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
-                            <Mail size={10} /> {talent.email}
-                          </span>
-                        )}
-                        {talent.jobs?.title && (
-                          <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
-                            <Briefcase size={10} /> {talent.jobs.title}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                {/* Left */}
+                <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "4px",
+                    background: "var(--foreground)", color: "var(--background)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "11px", fontWeight: "600", flexShrink: 0
+                  }}>
+                    {`${(talent.first_name || "?")[0]}${(talent.last_name || "?")[0]}`.toUpperCase()}
                   </div>
-
-                  {/* Right */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-                    {talent.score_cv != null && (
-                      <div style={{
-                        display: "flex", alignItems: "center", gap: "4px",
-                        fontSize: "12px", fontWeight: "600",
-                        color: talent.score_cv >= 70 ? "#166534" : talent.score_cv >= 40 ? "#92400e" : "#991b1b"
-                      }}>
-                        <Star size={12} /> {talent.score_cv}
-                      </div>
-                    )}
-                    {talent.pool_added_at && (
-                      <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                        {new Date(talent.pool_added_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => handleRemoveFromPool(e, talent.id)}
-                      title="Retirer du pool"
-                      style={{
-                        background: "transparent", border: "none", padding: "4px",
-                        color: "var(--muted-foreground)", cursor: "pointer",
-                        borderRadius: "4px", transition: "all 120ms", display: "flex"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = "var(--destructive)"; e.currentTarget.style.background = "#fee2e2"; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.background = "transparent"; }}
-                    >
-                      {isRemoving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-                    </button>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)" }}>
+                      {talent.first_name} {talent.last_name}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
+                      {talent.email && (
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          <Mail size={10} /> {talent.email}
+                        </span>
+                      )}
+                      {talent.jobs?.title && (
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          <Briefcase size={10} /> {talent.jobs.title}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </Link>
+
+                {/* Right */}
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+                  {talent.score_cv != null && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: "4px",
+                      fontSize: "12px", fontWeight: "600",
+                      color: talent.score_cv >= 70 ? "#166534" : talent.score_cv >= 40 ? "#92400e" : "#991b1b"
+                    }}>
+                      <Star size={12} /> {talent.score_cv}
+                    </div>
+                  )}
+                  {talent.pool_added_at && (
+                    <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                      {new Date(talent.pool_added_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => handleRemoveFromPool(e, talent.id)}
+                    title="Retirer du pool"
+                    style={{
+                      background: "transparent", border: "none", padding: "4px",
+                      color: "var(--muted-foreground)", cursor: "pointer",
+                      borderRadius: "2px", transition: "all 120ms", display: "flex"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "var(--destructive)"; e.currentTarget.style.background = "#fee2e2"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {isRemoving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>

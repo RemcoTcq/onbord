@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Briefcase, Loader2, Trash2, MapPin, Users, Calendar, Plus, Search, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Briefcase, Loader2, Trash2, MapPin, Users, Plus, Search, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteJob } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
@@ -11,9 +12,10 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [tab, setTab] = useState("active"); // "active" | "drafts"
+  const [tab, setTab] = useState("active");
   const [search, setSearch] = useState("");
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => { loadJobs(); }, []);
 
@@ -39,12 +41,16 @@ export default function JobsPage() {
     e.stopPropagation();
     if (!confirm("Supprimer ce job et tous ses candidats ?")) return;
     setDeletingId(jobId);
-    const res = await deleteJob(jobId);
-    if (res.success) {
-      setJobs(prev => prev.filter(j => j.id !== jobId));
-      toast("Job supprimé");
-    } else {
-      toast(res.error || "Erreur lors de la suppression", "error");
+    try {
+      const res = await deleteJob(jobId);
+      if (res.success) {
+        setJobs(prev => prev.filter(j => j.id !== jobId));
+        toast("Job supprimé");
+      } else {
+        toast(res.error || "Erreur lors de la suppression", "error");
+      }
+    } catch (err) {
+      toast("Erreur lors de la suppression", "error");
     }
     setDeletingId(null);
   }
@@ -94,7 +100,7 @@ export default function JobsPage() {
           return (
             <div key={i} className="card" style={{ display: "flex", alignItems: "center", gap: "14px" }}>
               <div style={{
-                width: "36px", height: "36px", borderRadius: "8px",
+                width: "36px", height: "36px", borderRadius: "4px",
                 background: "var(--secondary)", display: "flex",
                 alignItems: "center", justifyContent: "center", flexShrink: 0
               }}>
@@ -158,76 +164,75 @@ export default function JobsPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1px", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
           {filteredJobs.map(job => {
             const candidateCount = job.candidates?.length || 0;
             const isDeleting = deletingId === job.id;
             return (
-              <Link
+              <div
                 key={job.id}
-                href={`/jobs/${job.id}`}
-                style={{ textDecoration: "none", opacity: isDeleting ? 0.5 : 1, pointerEvents: isDeleting ? "none" : "auto" }}
-              >
-                <div style={{
+                style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "14px 20px", background: "var(--card)",
                   borderBottom: "1px solid var(--border)", cursor: "pointer",
-                  transition: "background 100ms ease"
+                  transition: "background 100ms ease",
+                  opacity: isDeleting ? 0.5 : 1,
+                  pointerEvents: isDeleting ? "none" : "auto"
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
                 onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      width: "32px", height: "32px", borderRadius: "6px",
-                      background: tab === "active" ? "var(--foreground)" : "var(--secondary)",
-                      color: tab === "active" ? "var(--background)" : "var(--muted-foreground)",
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-                    }}>
-                      <Briefcase size={14} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {job.title || "Sans titre"}
-                      </p>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "2px" }}>
-                        {job.location && (
-                          <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
-                            <MapPin size={11} /> {job.location}
-                          </span>
-                        )}
-                        {job.contract_type && (
-                          <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                            {job.contract_type}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                onClick={() => router.push(`/jobs/${job.id}`)}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "4px",
+                    background: tab === "active" ? "var(--foreground)" : "var(--secondary)",
+                    color: tab === "active" ? "var(--background)" : "var(--muted-foreground)",
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                  }}>
+                    <Briefcase size={14} />
                   </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "20px", flexShrink: 0 }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                      <Users size={12} /> {candidateCount}
-                    </span>
-                    <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                      {new Date(job.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                    </span>
-                    <button
-                      onClick={(e) => handleDelete(e, job.id)}
-                      title="Supprimer"
-                      style={{
-                        background: "transparent", border: "none", padding: "4px",
-                        color: "var(--muted-foreground)", cursor: "pointer",
-                        borderRadius: "4px", transition: "all 120ms", display: "flex"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.color = "var(--destructive)"; e.currentTarget.style.background = "#fee2e2"; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.background = "transparent"; }}
-                    >
-                      {isDeleting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-                    </button>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {job.title || "Sans titre"}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "2px" }}>
+                      {job.location && (
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          <MapPin size={11} /> {job.location}
+                        </span>
+                      )}
+                      {job.contract_type && (
+                        <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          {job.contract_type}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </Link>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "20px", flexShrink: 0 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--muted-foreground)" }}>
+                    <Users size={12} /> {candidateCount}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                    {new Date(job.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                  </span>
+                  <button
+                    onClick={(e) => handleDelete(e, job.id)}
+                    title="Supprimer"
+                    style={{
+                      background: "transparent", border: "none", padding: "4px",
+                      color: "var(--muted-foreground)", cursor: "pointer",
+                      borderRadius: "2px", transition: "all 120ms", display: "flex"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "var(--destructive)"; e.currentTarget.style.background = "#fee2e2"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {isDeleting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>

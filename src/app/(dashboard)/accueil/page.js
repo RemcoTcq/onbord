@@ -54,7 +54,7 @@ function JobCard({ job }) {
           </Link>
         </div>
         <div style={{ background: "#f8faff", border: "1px solid #e0e7ff", borderRadius: "10px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#6366f1", animation: "pulse 2s infinite", flexShrink: 0 }} />
+          <div style={{ width: "8px", height: "8px", borderRadius: "4px", background: "#6366f1", animation: "pulse 2s infinite", flexShrink: 0 }} />
           <div>
             <p style={{ fontSize: "13px", fontWeight: "600", color: "#3730a3" }}>Onbord s'en occupe</p>
             <p style={{ fontSize: "12px", color: "#6366f1", marginTop: "2px" }}>Votre shortlist sera prête sous 48–72h.</p>
@@ -100,7 +100,7 @@ function JobCard({ job }) {
                 <div style={{ display: "flex", alignItems: "center", width: "100%", marginBottom: "6px" }}>
                   <div style={{ flex: 1, height: "2px", background: done ? info.color : "var(--border)", borderRadius: "1px", transition: "background 0.4s" }} />
                   <div style={{
-                    width: "24px", height: "24px", borderRadius: "50%", flexShrink: 0,
+                    width: "24px", height: "24px", borderRadius: "4px", flexShrink: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: "11px", fontWeight: "700",
                     background: done ? info.color : (active ? info.color + "25" : "var(--border)"),
@@ -139,7 +139,7 @@ function JobCard({ job }) {
       {info.requiresAction && (
         <div style={{ background: info.color + "12", border: `1px solid ${info.color}30`, borderRadius: "10px", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: info.color, flexShrink: 0 }} />
+            <div style={{ width: "7px", height: "7px", borderRadius: "4px", background: info.color, flexShrink: 0 }} />
             <p style={{ fontSize: "13px", fontWeight: "600", color: info.color }}>{info.actionMsg}</p>
           </div>
           <Link
@@ -285,3 +285,4 @@ export default function Accueil() {
     </div>
   );
 }
+
