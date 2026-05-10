@@ -123,6 +123,7 @@ export default function TalentDetailPage() {
             {removing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
             Retirer du pool
           </button>
+        </div>
       </div>
 
       {/* Job associé */}
