@@ -199,8 +199,7 @@ export default function CandidateDetailPage() {
   const initials = `${(candidate.first_name || "?")[0]}${(candidate.last_name || "?")[0]}`.toUpperCase();
   const jobCriteria = candidate.jobs?.extracted_criteria || {};
 
-  // Logo SVG in Base64 for PDF
-  const logoSvg = `data:image/svg+xml;base64,${btoa(`<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg" version="1.2" viewBox="0 0 370 617"><path fill="#07294b" d="m0 1h150c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150-82.84 0-150-67.16-150-150z"/><path fill="#07294b" d="m0 501c0-102.17 82.83-185 185-185h35c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150h-220z"/></svg>`)}`;
+
 
   return (
     <div className="fade-in" style={{ maxWidth: "900px", margin: "0 auto" }}>

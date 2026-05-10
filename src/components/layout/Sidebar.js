@@ -103,6 +103,7 @@ export default function Sidebar() {
       <nav className={styles.nav} style={{ marginTop: '12px' }}>
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const Icon = item.icon;
           return (
             <a
               key={item.href}
@@ -110,6 +111,7 @@ export default function Sidebar() {
               className={`${styles.navItem} ${isActive ? styles.navItemActive : ""}`}
               title={collapsed ? item.label : undefined}
             >
+              <Icon size={17} />
               {!collapsed && <span>{item.label}</span>}
             </a>
           );

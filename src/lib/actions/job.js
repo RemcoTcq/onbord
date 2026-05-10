@@ -75,28 +75,6 @@ Structure JSON attendue :
   }
 }
 
-/**
- * Récupère toutes les demandes marquées comme déléguées (Mode Agence) pour l'admin.
- */
-export async function getAllDelegatedJobs() {
-  try {
-    const { createClient } = await import("../supabase/server");
-    const supabase = await createClient();
-    
-    // On récupère tous les jobs où is_delegated est vrai dans le JSON
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*, profiles:user_id(first_name, last_name, company_name)')
-      .filter('extracted_criteria->is_delegated', 'eq', true)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return { success: true, jobs: data };
-  } catch (error) {
-    console.error("Get All Delegated Jobs Error:", error);
-    return { success: false, error: error.message };
-  }
-}
 
 /**
  * Met à jour le statut de l'agence pour une demande.
