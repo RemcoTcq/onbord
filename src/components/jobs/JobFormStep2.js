@@ -99,46 +99,32 @@ export default function JobFormStep2({ jobData, setJobData }) {
     );
   };
 
-  // Improved Category Matching
   const getDisplayCategory = () => {
     if (!jobData.category) return "";
     const lowerCat = jobData.category.toLowerCase();
     const exactMatch = Object.keys(DOMAIN_HARD_SKILLS).find(d => d.toLowerCase() === lowerCat);
     if (exactMatch) return exactMatch;
-    
-    // Fuzzy match (e.g. "IT" -> "IT & Software")
     const fuzzyMatch = Object.keys(DOMAIN_HARD_SKILLS).find(d => lowerCat.includes(d.toLowerCase()) || d.toLowerCase().includes(lowerCat));
     if (fuzzyMatch) return fuzzyMatch;
-    
     return "Autre";
   };
   
   const displayCategory = getDisplayCategory();
 
-  // Modern Select Wrapper
-  const renderSelect = (value, onChange, options, placeholder) => (
-    <CustomSelect 
-      value={value} 
-      onChange={onChange} 
-      options={options} 
-      placeholder={placeholder} 
-    />
-  );
-
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-      {/* Domaine */}
+      {/* Profil recherché */}
       <div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Profil recherché</h3>
         <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Définissez les compétences et critères du profil idéal</p>
         
         <label className="form-label">Domaine *</label>
-        {renderSelect(
-          displayCategory, 
-          (value) => updateField('category', value), 
-          [...Object.keys(DOMAIN_HARD_SKILLS).map(d => ({ value: d, label: d })), { value: "Autre", label: "Autre (préciser)" }], 
-          "Sélectionnez un domaine"
-        )}
+        <CustomSelect 
+          value={displayCategory} 
+          onChange={(value) => updateField('category', value)} 
+          options={[...Object.keys(DOMAIN_HARD_SKILLS).map(d => ({ value: d, label: d })), { value: "Autre", label: "Autre (préciser)" }]} 
+          placeholder="Sélectionnez un domaine" 
+        />
         {displayCategory === 'Autre' && (
            <input 
              className="input-field fade-in" 
@@ -272,16 +258,16 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Diplôme */}
       <div>
         <label className="form-label">Diplôme</label>
-        {renderSelect(
-          jobData.education_level || "",
-          value => updateField('education_level', value),
-          [
+        <CustomSelect 
+          value={jobData.education_level || ""}
+          onChange={value => updateField('education_level', value)}
+          options={[
             { value: "Master", label: "Master" },
             { value: "Bachelier", label: "Bachelier" },
             { value: "Indifférent", label: "Indifférent" }
-          ],
-          "Sélectionnez..."
-        )}
+          ]}
+          placeholder="Sélectionnez..."
+        />
       </div>
 
       {/* Expérience requise */}
@@ -340,6 +326,9 @@ export default function JobFormStep2({ jobData, setJobData }) {
                   onChange={e => updateField('talents_needed', parseInt(e.target.value) || 3)}
                 />
               )}
+            </div>
+          </div>
+          
           {/* Type de contrat */}
           <div>
             <label className="form-label">Type de contrat</label>
@@ -390,16 +379,16 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
           <div>
             <label className="form-label">Mode de travail</label>
-            {renderSelect(
-              jobData.work_mode || "",
-              value => updateField('work_mode', value),
-              [
+            <CustomSelect 
+              value={jobData.work_mode || ""}
+              onChange={value => updateField('work_mode', value)}
+              options={[
                 { value: "onsite", label: "Présentiel" },
                 { value: "hybrid", label: "Hybride" },
                 { value: "remote", label: "Télétravail" }
-              ],
-              "Sélectionnez le mode..."
-            )}
+              ]}
+              placeholder="Sélectionnez le mode..."
+            />
           </div>
 
           <div>
@@ -412,11 +401,11 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
       <hr className="divider" style={{ margin: '1rem 0' }} />
 
-      {/* Questions personnalisées pour l'entretien IA */}
+      {/* Questions pour l'entretien IA */}
       <div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Questions pour l'entretien IA</h3>
         <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>
-          Définissez des questions spécifiques qu'Alex devra obligatoirement poser lors de l'entretien. Laissez vide pour utiliser uniquement les questions générées automatiquement.
+          Définissez des questions spécifiques qu'Alex devra obligatoirement poser lors de l'entretien.
         </p>
 
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>

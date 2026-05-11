@@ -598,7 +598,10 @@ export default function CandidateDetailPage() {
               <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
                 <GraduationCap size={14} style={{ marginRight: "6px" }} />Profil
               </h4>
-              <p style={{ fontSize: "14px", fontWeight: "500" }}>Exp: {jobCriteria.years_of_experience || "Non précisée"} ({jobCriteria.experience_level})</p>
+              <p style={{ fontSize: "14px", fontWeight: "500" }}>
+                Exp: {jobCriteria.years_of_experience || "Non précisée"} 
+                {jobCriteria.experience_level && !["Etudiant", "Jeune diplômé", "student", "graduate"].includes(jobCriteria.experience_level) && ` (${jobCriteria.experience_level})`}
+              </p>
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.education_level || "Diplôme indifférent"}</p>
             </div>
           </div>
