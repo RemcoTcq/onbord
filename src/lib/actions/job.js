@@ -26,7 +26,6 @@ Structure JSON attendue :
 {
   "title": "Le titre précis du poste",
   "category": "La catégorie générale (ex: IT, Finance, Vente, etc.)",
-  "talent_type": "etudiant ou jeune_diplome",
   "talents_needed": "Nombre de personnes recherchées (ex: 1, 2, 3)",
   "contract_type": "Le type de contrat (CDI, CDD, Freelance, Stage, etc.)",
   "work_mode": "onsite, remote, ou hybrid",
@@ -77,38 +76,3 @@ Structure JSON attendue :
 }
 
 
-/**
- * Met à jour le statut de l'agence pour une demande.
- */
-export async function updateJobAgencyStatus(jobId, newStatus) {
-  try {
-    const { createClient } = await import("../supabase/server");
-    const supabase = await createClient();
-    
-    // 1. Récupérer le job actuel pour avoir ses critères
-    const { data: job, error: getError } = await supabase
-      .from('jobs')
-      .select('extracted_criteria')
-      .eq('id', jobId)
-      .single();
-    
-    if (getError) throw getError;
-
-    // 2. Mettre à jour le JSON
-    const updatedCriteria = {
-      ...job.extracted_criteria,
-      agency_status: newStatus
-    };
-
-    const { error: updateError } = await supabase
-      .from('jobs')
-      .update({ extracted_criteria: updatedCriteria })
-      .eq('id', jobId);
-
-    if (updateError) throw updateError;
-    return { success: true };
-  } catch (error) {
-    console.error("Update Agency Status Error:", error);
-    return { success: false, error: error.message };
-  }
-}

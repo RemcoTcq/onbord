@@ -127,32 +127,11 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-      {/* Type de talent */}
-      <div>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Profil recherché</h3>
-        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Définissez le type de talent et ses compétences</p>
-        
-        <label className="form-label">Type de talent *</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <div 
-            onClick={() => updateField('talent_type', 'etudiant')}
-            style={{ border: `2px solid ${jobData.talent_type === 'etudiant' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.talent_type === 'etudiant' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-          >
-            <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Étudiant</h4>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>En cours d'études</p>
-          </div>
-          <div 
-            onClick={() => updateField('talent_type', 'jeune_diplome')}
-            style={{ border: `2px solid ${jobData.talent_type === 'jeune_diplome' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.talent_type === 'jeune_diplome' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-          >
-            <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Jeune diplômé</h4>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Diplômé récent</p>
-          </div>
-        </div>
-      </div>
-
       {/* Domaine */}
       <div>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Profil recherché</h3>
+        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Définissez les compétences et critères du profil idéal</p>
+        
         <label className="form-label">Domaine *</label>
         {renderSelect(
           displayCategory, 
@@ -361,40 +340,49 @@ export default function JobFormStep2({ jobData, setJobData }) {
                   onChange={e => updateField('talents_needed', parseInt(e.target.value) || 3)}
                 />
               )}
-            </div>
-          </div>
-
-          {/* Type de contrat dynamique */}
+          {/* Type de contrat */}
           <div>
             <label className="form-label">Type de contrat</label>
-            {jobData.talent_type === 'etudiant' ? (
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Jours par semaine (min 2, max 5) :</span>
-                <input 
-                  type="number" 
-                  min="2" 
-                  max="5" 
-                  className="input-field" 
-                  style={{ width: '100px' }} 
-                  value={jobData.contract_type || 2} 
-                  onChange={e => updateField('contract_type', e.target.value)}
-                />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div 
+                onClick={() => updateField('contract_type', 'Temps plein')}
+                style={{ border: `2px solid ${jobData.contract_type === 'Temps plein' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.contract_type === 'Temps plein' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
+              >
+                <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps plein</h4>
+                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>5 jours / semaine</p>
               </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div 
-                  onClick={() => updateField('contract_type', 'Temps plein')}
-                  style={{ border: `2px solid ${jobData.contract_type === 'Temps plein' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.contract_type === 'Temps plein' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-                >
-                  <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps plein</h4>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>5 jours / semaine</p>
-                </div>
-                <div 
-                  onClick={() => updateField('contract_type', 'Temps partiel')}
-                  style={{ border: `2px solid ${jobData.contract_type === 'Temps partiel' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.contract_type === 'Temps partiel' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-                >
-                  <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps partiel</h4>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Min. 3 jours / semaine</p>
+              <div 
+                onClick={() => {
+                  if (typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) return;
+                  updateField('contract_type', '2 jours');
+                }}
+                style={{ border: `2px solid ${(typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: (typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
+              >
+                <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps partiel</h4>
+                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Moins de 5 jours / semaine</p>
+              </div>
+            </div>
+            
+            {(typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) && (
+              <div className="fade-in" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Nombre de jours par semaine :</span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {[2, 3, 4].map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => updateField('contract_type', `${day} jours`)}
+                      style={{
+                        width: '36px', height: '36px', borderRadius: '4px',
+                        border: `1px solid ${jobData.contract_type === `${day} jours` ? 'var(--primary)' : 'var(--border)'}`,
+                        background: jobData.contract_type === `${day} jours` ? 'var(--primary)' : 'white',
+                        color: jobData.contract_type === `${day} jours` ? 'white' : 'var(--foreground)',
+                        fontWeight: '600', cursor: 'pointer'
+                      }}
+                    >
+                      {day}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

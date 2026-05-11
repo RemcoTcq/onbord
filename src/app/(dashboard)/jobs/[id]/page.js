@@ -15,13 +15,11 @@ import {
   scoreCandidate, getMailLogs
 } from "@/lib/actions/candidate";
 import EmailModal from "@/components/candidates/EmailModal";
-import { updateJobAgencyStatus } from "@/lib/actions/job";
 import { parseFile } from "@/lib/actions/parse-file";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { isAdmin } from "@/lib/utils/admin";
 import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
-import AgencyTimeline, { AGENCY_STATUSES } from "@/components/jobs/AgencyTimeline";
 
 const tabs = [
   { id: "all", label: "Tous", icon: Users },
@@ -74,9 +72,6 @@ export default function JobDetailPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
 
-  const isClientDelegatedView = job?.extracted_criteria?.is_delegated && !isAdmin(currentUser);
-  const agencyStatus = job?.extracted_criteria?.agency_status || "searching";
-  const showCandidatesForClient = isClientDelegatedView && agencyStatus === "shortlist_ready";
 
   useEffect(() => {
     loadData();
@@ -111,11 +106,6 @@ export default function JobDetailPage() {
 
   const filteredAndSortedCandidates = candidates
     .filter(c => {
-      // Si on est en mode client délégué et que la shortlist est prête, on ne montre QUE les shortlisted
-      if (isClientDelegatedView && agencyStatus === "shortlist_ready") {
-        return c.status === "shortlisted";
-      }
-
       // Tab filter
       if (activeTab === "shortlisted" && c.status !== "shortlisted") return false;
       if (activeTab === "rejected" && c.status !== "rejected") return false;
@@ -229,23 +219,6 @@ export default function JobDetailPage() {
     setActionLoading(null);
   }
 
-  async function handleAgencyStatusChange(newStatus) {
-    setActionLoading("agency_status");
-    const res = await updateJobAgencyStatus(jobId, newStatus);
-    if (res.success) {
-      setJob(prev => ({
-        ...prev,
-        extracted_criteria: {
-          ...prev.extracted_criteria,
-          agency_status: newStatus
-        }
-      }));
-      toast(`Statut agence mis à jour : ${newStatus}`);
-    } else {
-      toast("Erreur lors de la mise à jour du statut.", "error");
-    }
-    setActionLoading(null);
-  }
 
   async function handleBulkDelete() {
     if (selectedIds.length === 0) return;
@@ -388,9 +361,6 @@ export default function JobDetailPage() {
             <h1 style={{ fontSize: "1.75rem", fontWeight: "bold", color: "var(--foreground)" }}>
               {job?.title || "Demande"}
             </h1>
-            {job?.extracted_criteria?.is_delegated && (
-              <span className="badge" style={{ background: "var(--primary)", color: "white" }}>Mode Agence</span>
-            )}
           </div>
           <p style={{ color: "var(--muted-foreground)", fontSize: "14px", marginTop: "4px" }}>
             {job?.location && `${job.location} · `}{job?.contract_type && `${job.contract_type} · `}{candidates.length} candidat{candidates.length > 1 ? "s" : ""}
@@ -398,58 +368,8 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      {/* ADMIN CONTROL BAR */}
-      {isAdmin(currentUser) && job?.extracted_criteria?.is_delegated && (
-        <div style={{ 
-          background: "var(--primary)", 
-          color: "white", 
-          padding: "1rem 1.5rem", 
-          borderRadius: "6px", 
-          marginBottom: "2rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <ShieldCheck size={20} />
-            <div>
-              <div style={{ fontWeight: "bold", fontSize: "14px" }}>Contrôle Administrateur</div>
-              <div style={{ fontSize: "12px", opacity: 0.9 }}>Mettez à jour l'avancement pour le client</div>
-            </div>
-          </div>
-          
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <select 
-              value={agencyStatus}
-              onChange={(e) => handleAgencyStatusChange(e.target.value)}
-              disabled={actionLoading === "agency_status"}
-              style={{ 
-                background: "rgba(255,255,255,0.1)", 
-                color: "white", 
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "6px",
-                padding: "6px 12px",
-                fontSize: "13px",
-                outline: "none",
-                cursor: "pointer"
-              }}
-            >
-              {AGENCY_STATUSES.map(s => (
-                <option key={s.id} value={s.id} style={{ color: "black" }}>{s.label}</option>
-              ))}
-            </select>
-            {actionLoading === "agency_status" && <Loader2 size={16} className="spin" />}
-          </div>
-        </div>
-      )}
 
-      {isClientDelegatedView && !showCandidatesForClient ? (
-        <div style={{ marginTop: "2rem" }}>
-          <AgencyTimeline currentStatus={agencyStatus} />
-        </div>
-      ) : (
-        <>
+      <>
           {/* Tabs */}
           <div style={{ display: "flex", gap: "0", borderBottom: "1px solid var(--border)", marginBottom: "1.5rem", marginTop: "1.5rem" }}>
         {tabs.map(tab => {
@@ -496,7 +416,6 @@ export default function JobDetailPage() {
           />
         </div>
 
-        {!isClientDelegatedView && (
           <button 
             className="btn btn-outline" 
             style={{ height: "40px", display: "flex", alignItems: "center", gap: "8px" }}
@@ -506,7 +425,6 @@ export default function JobDetailPage() {
             {isImporting ? <Loader2 size={16} className="spin" /> : <UploadCloud size={16} />}
             {isImporting ? "Analyse en cours..." : "Importer CSV"}
           </button>
-        )}
         <input 
           type="file" 
           multiple

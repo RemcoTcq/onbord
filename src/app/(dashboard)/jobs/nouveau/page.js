@@ -24,7 +24,6 @@ export default function NouvelleDemandePage() {
   const [pasteContent, setPasteContent] = useState("");
   const [savedJobId, setSavedJobId] = useState(null);
   const [candidates, setCandidates] = useState([]);
-  const [isDelegated, setIsDelegated] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [isImporting, setIsImporting] = useState(false);
   
@@ -122,9 +121,7 @@ export default function NouvelleDemandePage() {
           contract_type: jobData.contract_type,
           location: jobData.location,
           extracted_criteria: {
-            ...jobData,
-            is_delegated: isDelegated,
-            agency_status: isDelegated ? 'searching' : null
+            ...jobData
           },
           status: goToStep4 ? 'active' : 'draft',
         })
@@ -154,11 +151,7 @@ export default function NouvelleDemandePage() {
       await incrementUserUsage('job');
 
       if (goToStep4) {
-        if (isDelegated) {
-          router.push(`/jobs/${job.id}`);
-        } else {
-          setCurrentStep(4);
-        }
+        setCurrentStep(4);
       } else {
         router.push('/jobs');
       }
@@ -517,7 +510,6 @@ export default function NouvelleDemandePage() {
                  <div>
                    <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--foreground)' }}>{jobData?.title || 'Poste sans titre'}</h3>
                    <p style={{ color: 'var(--muted-foreground)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                     <span className="badge badge-outline">{jobData?.talent_type === 'etudiant' ? 'Étudiant' : 'Jeune diplômé'}</span>
                      <span className="badge badge-outline">{jobData?.category}</span>
                      <span>•</span>
                      <span>{jobData?.location || 'Localisation non précisée'}</span>
@@ -526,8 +518,7 @@ export default function NouvelleDemandePage() {
                  <div style={{ textAlign: 'right' }}>
                    <p style={{ fontWeight: '500', color: 'var(--primary)' }}>{jobData?.work_mode === 'onsite' ? 'Présentiel' : jobData?.work_mode === 'hybrid' ? 'Hybride' : jobData?.work_mode === 'remote' ? 'Télétravail' : 'Mode non précisé'}</p>
                    <p style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>
-                     {jobData?.contract_type} 
-                     {jobData?.talent_type === 'etudiant' && jobData?.contract_type && !jobData.contract_type.toString().includes('jour') ? ' jours/semaine' : ''}
+                     {jobData?.contract_type}
                    </p>
                  </div>
                </div>
@@ -589,27 +580,6 @@ export default function NouvelleDemandePage() {
                          {s.name}
                        </span>
                      )) : <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Non spécifié</span>}
-                   </div>
-                 </div>
-               </div>
-
-               {/* Option de délégation (Mode Agence) */}
-               <div style={{ marginTop: '3rem', padding: '1.5rem', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '12px' }}>
-                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                   <input 
-                     type="checkbox" 
-                     id="delegateCheckbox"
-                     checked={isDelegated}
-                     onChange={(e) => setIsDelegated(e.target.checked)}
-                     style={{ marginTop: '0.25rem', width: '18px', height: '18px', cursor: 'pointer' }}
-                   />
-                   <div>
-                     <label htmlFor="delegateCheckbox" style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--foreground)', cursor: 'pointer', display: 'block' }}>
-                       Déléguer cette recherche à l'équipe Onbord
-                     </label>
-                     <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginTop: '0.25rem' }}>
-                       En cochant cette case, nos experts se chargent de sourcer, trier et qualifier les candidats pour vous. Vous n'aurez accès qu'à une shortlist des meilleurs profils sélectionnés.
-                     </p>
                    </div>
                  </div>
                </div>
@@ -774,7 +744,7 @@ export default function NouvelleDemandePage() {
                 disabled={isSaving}
               >
                 {isSaving && !savedJobId ? <Loader2 size={16} className="spin" /> : null}
-                {isDelegated ? "Confier la mission à Onbord" : "Créer l'offre et ajouter des candidats"}
+                Créer l'offre et ajouter des candidats
               </button>
             </div>
           ) : currentStep === 4 ? (
