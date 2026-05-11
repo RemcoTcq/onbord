@@ -32,6 +32,7 @@ Structure JSON attendue :
   "work_mode": "onsite, remote, ou hybrid",
   "location": "La ville ou région",
   "experience_level": "junior, intermediate, senior, ou expert",
+  "years_of_experience": "Nombre d'années d'expérience requises (ex: 3, 5, 1-3, ou laisser vide)",
   "education_level": "Niveau d'études requis (ex: Bac+5, Master, Bachelier, Indifférent)",
   "hard_skills": [
     { "name": "Nom de la compétence technique", "priority": "must_have" ou "nice_to_have" }

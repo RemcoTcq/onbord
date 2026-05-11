@@ -544,6 +544,7 @@ export default function NouvelleDemandePage() {
                    <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Critères</h4>
                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                      <li style={{ fontSize: '14px' }}><strong>Diplôme:</strong> {jobData?.education_level || 'Indifférent'}</li>
+                     <li style={{ fontSize: '14px' }}><strong>Expérience:</strong> {jobData?.years_of_experience || 'Non précisée'}</li>
                      <li style={{ fontSize: '14px' }}><strong>Nombre de talents:</strong> {jobData?.talents_needed || 1}</li>
                    </ul>
                  </div>

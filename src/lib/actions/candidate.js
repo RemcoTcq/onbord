@@ -71,7 +71,7 @@ ATTENTION SOFT SKILLS : Si les soft skills ne sont pas mentionnées dans le CV o
 L'offre d'emploi :
 Titre : ${jobData.title}
 Domaine : ${jobData.category}
-Expérience requise : ${jobData.experience_level}
+Expérience requise : ${jobData.experience_level} ${jobData.years_of_experience ? `(${jobData.years_of_experience})` : ''}
 Diplôme requis : ${jobData.education_level}
 ${jobData.talent_type === 'etudiant' ? "\nATTENTION CRITIQUE : Il s'agit d'un JOB ÉTUDIANT. Vous ne devez en aucun cas pénaliser le candidat pour un manque d'expérience professionnelle préalable. Évaluez plutôt son adéquation via ses études, ses projets académiques, ses soft skills et sa motivation." : ""}
 

@@ -305,6 +305,17 @@ export default function JobFormStep2({ jobData, setJobData }) {
         )}
       </div>
 
+      {/* Expérience requise */}
+      <div>
+        <label className="form-label">Expérience requise</label>
+        <input 
+          className="input-field" 
+          placeholder="ex: 3 ans, 1-3 ans, 5+ ans" 
+          value={jobData.years_of_experience || ""} 
+          onChange={e => updateField('years_of_experience', e.target.value)} 
+        />
+      </div>
+
       <hr className="divider" style={{ margin: '1rem 0' }} />
 
       {/* Détails du poste */}

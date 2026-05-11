@@ -579,7 +579,7 @@ export default function CandidateDetailPage() {
             <Shield size={18} /> Critères de l'offre
           </h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.5rem" }}>
             <div>
               <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
                 <Briefcase size={14} style={{ marginRight: "6px" }} />Poste
@@ -593,6 +593,13 @@ export default function CandidateDetailPage() {
               </h4>
               <p style={{ fontSize: "14px", fontWeight: "500" }}>{jobCriteria.location || "—"}</p>
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.work_mode || ""}</p>
+            </div>
+            <div>
+              <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
+                <GraduationCap size={14} style={{ marginRight: "6px" }} />Profil
+              </h4>
+              <p style={{ fontSize: "14px", fontWeight: "500" }}>Exp: {jobCriteria.years_of_experience || "Non précisée"} ({jobCriteria.experience_level})</p>
+              <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.education_level || "Diplôme indifférent"}</p>
             </div>
           </div>
 
@@ -638,7 +645,7 @@ export default function CandidateDetailPage() {
           width: "210mm",
           background: "white",
           color: "#0f172a",
-          fontFamily: "'Inter', sans-serif"
+          fontFamily: "var(--font-geist), sans-serif"
         }}
       >
         {/* Header Block (Captured separately and added to every page) */}
