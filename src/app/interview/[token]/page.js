@@ -121,7 +121,7 @@ export default function InterviewPage() {
       ? `\nQuestions obligatoires à poser :\n${customQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
       : "";
 
-    const systemPrompt = `Vous êtes Alex, recruteur IA chez Onbord. Vous menez un entretien pour le poste : ${criteria.title || jobData?.title || "Poste"}.
+    const systemPrompt = `Vous êtes Leo, recruteur IA chez Onbord. Vous menez un entretien pour le poste : ${criteria.title || jobData?.title || "Poste"}.
 Candidat : ${cand?.first_name} ${cand?.last_name}.
 Compétences techniques requises : ${criteria.hard_skills?.map(s => s.name).join(", ") || "Non spécifié"}.
 Soft skills à évaluer : ${criteria.soft_skills?.map(s => s.name).join(", ") || "Non spécifié"}.${customQuestionsSection}
@@ -233,7 +233,7 @@ Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de list
           <Bot size={22} />
         </div>
         <div>
-          <h1 style={{ fontSize: "1rem", fontWeight: "600" }}>Alex — {job?.title || "Poste"}</h1>
+          <h1 style={{ fontSize: "1rem", fontWeight: "600" }}>Leo — {job?.title || "Poste"}</h1>
           <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>Recruteur IA · Onbord</p>
         </div>
       </div>
@@ -242,12 +242,12 @@ Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de list
         {messages.length === 0 && !isTyping && !aiError && (
           <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted-foreground)" }}>
             <Loader2 size={24} style={{ animation: "spin 1s linear infinite", marginBottom: "0.5rem" }} />
-            <p style={{ fontSize: "14px" }}>Alex prépare votre entretien...</p>
+            <p style={{ fontSize: "14px" }}>Leo prépare votre entretien...</p>
           </div>
         )}
         {messages.length === 0 && !isTyping && aiError && (
           <div style={{ textAlign: "center", padding: "3rem" }}>
-            <p style={{ color: "var(--muted-foreground)", marginBottom: "1rem", fontSize: "14px" }}>Une erreur est survenue. Alex n'a pas pu démarrer.</p>
+            <p style={{ color: "var(--muted-foreground)", marginBottom: "1rem", fontSize: "14px" }}>Une erreur est survenue. Leo n'a pas pu démarrer.</p>
             <button 
               className="btn btn-primary btn-sm"
               onClick={() => { hasStarted.current = false; sendToAI([], candidate, job); }}
@@ -263,7 +263,7 @@ Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de list
         ))}
         {isTyping && (
           <div className="chat-bubble assistant" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>Alex est en train d'écrire</span>
+            <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>Leo est en train d'écrire</span>
             <Loader2 size={14} style={{ animation: "spin 1s linear infinite", color: "var(--primary)" }} />
           </div>
         )}

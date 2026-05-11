@@ -474,7 +474,7 @@ export default function CandidateDetailPage() {
                       lineHeight: "1.5"
                     }}>
                       <div style={{ fontSize: "11px", fontWeight: "600", marginBottom: "4px", opacity: 0.8 }}>
-                        {msg.role === "assistant" ? "Alex (IA)" : candidate.first_name}
+                        {msg.role === "assistant" ? "Leo (IA)" : candidate.first_name}
                       </div>
                       {msg.content.replace("[INTERVIEW_TERMINÉE]", "").trim()}
                     </div>

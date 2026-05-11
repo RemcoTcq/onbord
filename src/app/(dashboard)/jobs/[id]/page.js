@@ -20,12 +20,15 @@ import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { isAdmin } from "@/lib/utils/admin";
 import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
+import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
+import { Wand2 } from "lucide-react";
 
 const tabs = [
   { id: "all", label: "Tous", icon: Users },
   { id: "shortlisted", label: "Validés", icon: UserCheck },
   { id: "rejected", label: "Refusés", icon: Ban },
   { id: "interview_completed", label: "Interviewés", icon: MessageSquare },
+  { id: "config_interview", label: "Interview IA", icon: Wand2 },
 ];
 
 function getScoreColor(score) {
@@ -391,20 +394,29 @@ export default function JobDetailPage() {
             >
               <Icon size={16} />
               {tab.label}
-              <span style={{
-                background: isActive ? "var(--primary)" : "var(--secondary)",
-                color: isActive ? "white" : "var(--muted-foreground)",
-                padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: "600"
-              }}>
-                {tabCounts[tab.id]}
-              </span>
+              {tab.id !== "config_interview" && (
+                <span style={{
+                  background: isActive ? "var(--primary)" : "var(--secondary)",
+                  color: isActive ? "white" : "var(--muted-foreground)",
+                  padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: "600"
+                }}>
+                  {tabCounts[tab.id]}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Toolbar: Search + Bulk Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+      {activeTab === "config_interview" ? (
+        <AiInterviewConfig 
+          job={job} 
+          onSave={(config) => setJob({ ...job, ai_interview_config: config })} 
+        />
+      ) : (
+        <>
+          {/* Toolbar: Search + Bulk Actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
         <div style={{ position: "relative", flex: 1, maxWidth: "320px" }}>
           <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
           <input
@@ -746,9 +758,9 @@ export default function JobDetailPage() {
           </table>
         </div>
       )}
-    </>
-  )}
-
+        </>
+      )}
+      </>
       {emailModalOpen && selectedCandidate && (
         <EmailModal
           isOpen={emailModalOpen}

@@ -75,4 +75,56 @@ Structure JSON attendue :
   }
 }
 
+export async function updateJobAiConfig(jobId, config) {
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Non authentifié");
 
+    const { error } = await supabase
+      .from('jobs')
+      .update({ ai_interview_config: config })
+      .eq('id', jobId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("Error updating AI config:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function generateAiInterviewText(type, jobData, tonality = 'Neutre') {
+  const title = jobData?.title || "ce poste";
+  const category = jobData?.category ? `(${jobData.category})` : "";
+  let prompt = "";
+  if (type === 'intro') {
+    prompt = `Rédige un court message d'introduction (maximum 400 caractères) pour une interview IA. Le poste est : ${title}. Le ton doit être ${tonality}. Laisse un espace type "[Nom de l'entreprise]" pour que l'on puisse le remplacer.`;
+  } else if (type === 'outro') {
+    prompt = `Rédige un court message de clôture (maximum 300 caractères) pour une interview IA. Le poste est : ${title}. Le ton doit être ${tonality}. Remercie le candidat et indique qu'on le recontactera bientôt.`;
+  } else if (type === 'context_about') {
+    prompt = `Rédige un court paragraphe (maximum 50 mots) pour briefer une IA sur le contexte de l'entreprise qui recrute pour le poste : ${title} ${category}. Utilise un ton professionnel. Sois générique et laisse des placeholders si besoin.`;
+  } else if (type === 'context_why') {
+    prompt = `Rédige un court paragraphe (maximum 50 mots) pour briefer une IA sur le pourquoi de ce recrutement : ${title} ${category}. Exemple : croissance, nouvelle équipe, etc. Laisse des placeholders.`;
+  } else if (type === 'context_what_matters') {
+    prompt = `Rédige un court paragraphe (maximum 50 mots) pour briefer une IA sur ce qui compte vraiment humainement pour le poste : ${title}. Inspire-toi des soft skills typiques pour ce rôle.`;
+  } else {
+    throw new Error("Type inconnu");
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 300,
+      temperature: 0.7,
+      system: "Tu es un expert en recrutement. Réponds directement avec le texte demandé, sans aucune phrase d'introduction ou de conclusion comme 'Voici le texte :'.",
+      messages: [{ role: "user", content: prompt }],
+    });
+    return { success: true, text: response.content[0].text.trim() };
+  } catch (err) {
+    console.error("Error generating text:", err);
+    return { success: false, error: "Erreur de génération" };
+  }
+}

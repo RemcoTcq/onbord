@@ -405,7 +405,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
       <div>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Questions pour l'entretien IA</h3>
         <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>
-          Définissez des questions spécifiques qu'Alex devra obligatoirement poser lors de l'entretien.
+          Définissez des questions spécifiques que Leo devra obligatoirement poser lors de l'entretien.
         </p>
 
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
