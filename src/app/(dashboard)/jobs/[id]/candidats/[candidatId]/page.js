@@ -5,14 +5,14 @@ import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
-  User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star
+  User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
+  Download, FileDown, FileText, Clock
 } from "lucide-react";
 import {
   getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
 } from "@/lib/actions/candidate";
 import EmailModal from "@/components/candidates/EmailModal";
 import { createClient } from "@/lib/supabase/client";
-import { Clock, Download, FileDown } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -29,8 +29,8 @@ function getStatusBadge(status) {
     shortlisted: { label: "Validé", className: "badge-success" },
     rejected: { label: "Rejeté", className: "badge-destructive" },
     invited: { label: "Invité", className: "badge-primary" },
-    interview_started: { label: "Entretien en cours", className: "badge-warning" },
-    interview_completed: { label: "Entretien terminé", className: "badge-success" },
+    interview_started: { label: "Assessment en cours", className: "badge-warning" },
+    interview_completed: { label: "Assessment terminé", className: "badge-success" },
   };
   return map[status] || { label: status, className: "badge-muted" };
 }
@@ -48,8 +48,6 @@ export default function CandidateDetailPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [downloading, setDownloading] = useState(false);
-  const [savedToPool, setSavedToPool] = useState(false);
-  const [savingToPool, setSavingToPool] = useState(false);
 
 
   useEffect(() => {
@@ -69,7 +67,6 @@ export default function CandidateDetailPage() {
 
     if (candRes.success) {
       setCandidate(candRes.candidate);
-      setSavedToPool(candRes.candidate.is_in_pool || false);
     }
     if (logsRes.success) {
       setMailLogs(logsRes.logs.filter(l => l.candidate_id === candidatId));
@@ -96,22 +93,7 @@ export default function CandidateDetailPage() {
     setActionLoading(false);
   }
 
-  async function handleTogglePool() {
-    setSavingToPool(true);
-    const supabase = createClient();
-    const newState = !savedToPool;
-    const { error } = await supabase
-      .from("candidates")
-      .update({
-        is_in_pool: newState,
-        pool_added_at: newState ? new Date().toISOString() : null
-      })
-      .eq("id", candidatId);
-    if (!error) {
-      setSavedToPool(newState);
-    }
-    setSavingToPool(false);
-  }
+
 
   async function downloadScorecard() {
     setDownloading(true);
@@ -123,22 +105,17 @@ export default function CandidateDetailPage() {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 20;
-    let currentY = 35; // Initial Y after header
+    let currentY = 35;
     let pageNum = 1;
 
     const addHeaderAndFooter = async (doc, page, headerImg, headerRatio) => {
-      // Header from captured block
       if (headerImg) {
         const headerWidth = pageWidth - (margin * 2);
         const headerHeight = headerWidth * headerRatio;
         doc.addImage(headerImg, "PNG", margin, 4, headerWidth, headerHeight);
       }
-      
-      // Separator line (Moved up)
       doc.setDrawColor(226, 232, 240);
       doc.line(margin, 20, pageWidth - margin, 20);
-
-      // Footer
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
       doc.text("Onbord - Rapport d'évaluation intelligent par IA", pageWidth / 2, pageHeight - 10, { align: "center" });
@@ -148,44 +125,35 @@ export default function CandidateDetailPage() {
     const addBlockToPdf = async (blockId) => {
       const block = document.getElementById(blockId);
       if (!block) return;
-
       const canvas = await html2canvas(block, { scale: 2, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
       const imgWidth = pageWidth - (margin * 2);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      // Check if block fits on current page
       if (currentY + imgHeight > pageHeight - 20) {
         pdf.addPage();
         pageNum++;
         await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
         currentY = 26;
       }
-
       pdf.addImage(imgData, "PNG", margin, currentY, imgWidth, imgHeight);
-      currentY += imgHeight + 10; // 10mm spacing between blocks
+      currentY += imgHeight + 10;
     };
 
     let headerImgData = null;
     let headerImgRatio = 0;
     try {
-      // Capture header once
       const headerBlock = document.getElementById("sc-block-header");
       const headerCanvas = await html2canvas(headerBlock, { scale: 2, backgroundColor: "#ffffff" });
       headerImgData = headerCanvas.toDataURL("image/png");
       headerImgRatio = headerCanvas.height / headerCanvas.width;
-
       await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
-      
-      currentY = 26; // Start content higher
-
-      // Add blocks sequentially
+      currentY = 26;
       await addBlockToPdf("sc-block-profile");
       await addBlockToPdf("sc-block-scores");
       await addBlockToPdf("sc-block-summary");
       await addBlockToPdf("sc-block-interview");
       await addBlockToPdf("sc-block-flags");
-
       pdf.save(`Onbord_Scorecard_${candidate.first_name}_${candidate.last_name}.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -220,414 +188,321 @@ export default function CandidateDetailPage() {
   const initials = `${(candidate.first_name || "?")[0]}${(candidate.last_name || "?")[0]}`.toUpperCase();
   const jobCriteria = candidate.jobs?.extracted_criteria || {};
 
-
-
   return (
-    <div className="fade-in" style={{ maxWidth: "900px", margin: "0 auto" }}>
-      {/* Back button */}
-      <button
-        className="btn btn-ghost"
-        onClick={() => router.push(`/jobs/${jobId}`)}
-        style={{ marginBottom: "1.5rem" }}
-      >
-        <ArrowLeft size={18} /> Retour à la liste
-      </button>
-
-      {/* Header Card */}
-      <div className="card" style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1.5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-            <div style={{
-              width: "64px", height: "64px", borderRadius: "6px",
-              background: "var(--foreground)", color: "white",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "20px", fontWeight: "700", flexShrink: 0
-            }}>
-              {initials}
-            </div>
-            <div>
-              <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "var(--foreground)", marginBottom: "4px" }}>
-                {candidate.first_name} {candidate.last_name}
-              </h1>
-              <p style={{ color: "var(--muted-foreground)", fontSize: "14px", marginBottom: "8px" }}>
-                {candidate.email || "Pas d'email renseigné"}
-              </p>
-              <span className={`badge ${statusBadge.className}`}>{statusBadge.label}</span>
-            </div>
-          </div>
-
-          {/* Score Circles */}
-          <div style={{ display: "flex", gap: "1.25rem", alignItems: "center" }}>
-            {scoreStyle && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{
-                  width: "64px", height: "64px", borderRadius: "6px",
-                  background: scoreStyle.bg, color: scoreStyle.color,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "18px", fontWeight: "800", flexShrink: 0
-                }}>
-                  {candidate.score_cv}
-                </div>
-                <p style={{ fontSize: "11px", fontWeight: "600", color: "var(--muted-foreground)", marginTop: "4px" }}>CV</p>
-              </div>
-            )}
-            {interviewScoreStyle && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{
-                  width: "64px", height: "64px", borderRadius: "6px",
-                  background: interviewScoreStyle.bg, color: interviewScoreStyle.color,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "18px", fontWeight: "800", flexShrink: 0
-                }}>
-                  {candidate.score_interview}
-                </div>
-                <p style={{ fontSize: "11px", fontWeight: "600", color: "var(--muted-foreground)", marginTop: "4px" }}>Interview</p>
-              </div>
-            )}
-            {globalScoreStyle && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{
-                  width: "80px", height: "80px", borderRadius: "6px",
-                  background: globalScoreStyle.bg, color: globalScoreStyle.color,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "24px", fontWeight: "800", flexShrink: 0,
-                  border: `3px solid ${globalScoreStyle.color}`
-                }}>
-                  {candidate.score_global}
-                </div>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: globalScoreStyle.color, marginTop: "4px" }}>Global</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
-          {candidate.status === "shortlisted" && !candidate.score_interview && (
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => handleStatusChange("invited")}
-              disabled={actionLoading}
-            >
-              <Mail size={16} /> Inviter à l'entretien IA
-            </button>
-          )}
-          {candidate.status === "interview_completed" && (
-            <button
-              className="btn btn-sm"
-              style={{ background: "#dcfce7", color: "#166534", border: "none" }}
-              onClick={() => handleStatusChange("shortlisted")}
-              disabled={actionLoading}
-            >
-              <CheckCircle2 size={16} /> Valider définitivement
-            </button>
-          )}
-          {candidate.status !== "shortlisted" && candidate.status !== "interview_completed" && candidate.status !== "rejected" && (
-            <button
-              className="btn btn-sm"
-              style={{ background: "#dcfce7", color: "#166534", border: "none" }}
-              onClick={() => handleStatusChange("shortlisted")}
-              disabled={actionLoading}
-            >
-              <CheckCircle2 size={16} /> Valider ce candidat
-            </button>
-          )}
-          {candidate.status !== "rejected" && (
-            <button
-              className="btn btn-sm"
-              style={{ background: "#fef3c7", color: "#92400e", border: "none" }}
-              onClick={() => handleStatusChange("rejected")}
-              disabled={actionLoading}
-            >
-              <XCircle size={16} /> Rejeter
-            </button>
-          )}
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={() => setEmailModalOpen(true)}
-            disabled={actionLoading}
-            style={{ color: "var(--primary)" }}
-          >
-            <Mail size={16} /> Générer un mail
+    <div className="fade-in" style={{ maxWidth: "1200px", margin: "0 auto", paddingBottom: "4rem" }}>
+      {/* Header / Actions */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
+        <button
+          className="btn btn-ghost"
+          onClick={() => router.push(`/jobs/${jobId}`)}
+          style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600" }}
+        >
+          <ArrowLeft size={18} /> Retour aux candidats
+        </button>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button className="btn btn-outline btn-sm" onClick={downloadScorecard} disabled={downloading}>
+            {downloading ? <Loader2 size={16} className="spin" /> : <Download size={16} />} Scorecard PDF
           </button>
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={downloadScorecard}
-            disabled={downloading || actionLoading}
-            style={{ color: "var(--primary)" }}
-          >
-            {downloading ? <Loader2 size={16} className="spin" /> : <FileDown size={16} />}
-            Scorecard PDF
+          <button className="btn btn-primary btn-sm" onClick={() => setEmailModalOpen(true)}>
+            <Mail size={16} /> Contacter
           </button>
-          <button
-            className="btn btn-sm"
-            style={{
-              background: savedToPool ? "#f0f0ff" : "transparent",
-              color: savedToPool ? "var(--primary)" : "var(--muted-foreground)",
-              border: savedToPool ? "1px solid var(--primary)" : "1px solid var(--border)"
-            }}
-            onClick={handleTogglePool}
-            disabled={savingToPool}
-          >
-            {savingToPool ? <Loader2 size={16} className="spin" /> : <Star size={16} fill={savedToPool ? "var(--primary)" : "none"} />}
-            {savedToPool ? "Dans les talents" : "Sauvegarder"}
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ background: "#fee2e2", color: "#991b1b", border: "none", marginLeft: "auto" }}
-            onClick={handleDelete}
-            disabled={actionLoading}
-          >
-            <Trash2 size={16} /> Supprimer
-          </button>
-          {actionLoading && <Loader2 size={16} className="spin" style={{ animation: "spin 1s linear infinite" }} />}
         </div>
       </div>
 
-      {/* CV Analysis Summary */}
-      {candidate.ai_summary && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-            <TrendingUp size={18} /> Analyse du CV
-          </h2>
-          <p style={{ fontSize: "14px", lineHeight: "1.7", color: "var(--foreground)" }}>
-            {candidate.ai_summary}
-          </p>
-        </div>
-      )}
-
-      {/* Interview Results */}
-      {candidate.interview_summary && (
-        <div className="card" style={{ marginBottom: "1.5rem", borderLeft: "4px solid var(--primary)" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-            <MessageSquare size={18} /> Résultat de l'entretien IA
-            {candidate.interview_recommendation && (
-              <span className={`badge ${
-                candidate.interview_recommendation === "hire" ? "badge-success" :
-                candidate.interview_recommendation === "maybe" ? "badge-warning" : "badge-destructive"
-              }`} style={{ marginLeft: "auto" }}>
-                {candidate.interview_recommendation === "hire" ? "À recruter" :
-                 candidate.interview_recommendation === "maybe" ? "À considérer" : "Pas recommandé"}
-              </span>
-            )}
-          </h2>
-          <p style={{ fontSize: "14px", lineHeight: "1.7", color: "var(--foreground)", marginBottom: "1.5rem" }}>
-            {candidate.interview_summary}
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
-            {candidate.interview_strengths && candidate.interview_strengths.length > 0 && (
-              <div>
-                <h4 style={{ fontSize: "13px", fontWeight: "700", color: "#166534", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <CheckCircle2 size={14} /> Points forts en entretien
-                </h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {candidate.interview_strengths.map((s, i) => (
-                    <div key={i} className="flag flag-green">
-                      <CheckCircle2 size={14} style={{ color: "#166534", marginTop: "2px", flexShrink: 0 }} />
-                      <span>{s}</span>
-                    </div>
-                  ))}
-                </div>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "2rem", alignItems: "start" }}>
+        
+        {/* Sidebar */}
+        <aside style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div className="card" style={{ padding: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+              <div style={{
+                width: "48px", height: "48px", borderRadius: "8px",
+                background: "var(--foreground)", color: "white",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "16px", fontWeight: "700"
+              }}>
+                {initials}
               </div>
-            )}
-            {candidate.interview_weaknesses && candidate.interview_weaknesses.length > 0 && (
-              <div>
-                <h4 style={{ fontSize: "13px", fontWeight: "700", color: "#991b1b", marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <XCircle size={14} /> Points faibles en entretien
-                </h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {candidate.interview_weaknesses.map((w, i) => (
-                    <div key={i} className="flag flag-red">
-                      <XCircle size={14} style={{ color: "#991b1b", marginTop: "2px", flexShrink: 0 }} />
-                      <span>{w}</span>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ overflow: "hidden" }}>
+                <h2 style={{ fontSize: "1.1rem", fontWeight: "bold", margin: 0, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                  {candidate.first_name} {candidate.last_name}
+                </h2>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                  {candidate.email}
+                </p>
               </div>
-            )}
-          </div>
-
-          {candidate.interview_messages && candidate.interview_messages.length > 0 && (
-            <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-              <button 
-                className="btn btn-ghost" 
-                style={{ width: "100%", justifyContent: "space-between", fontSize: "14px", fontWeight: "600" }}
-                onClick={() => setShowTranscript(!showTranscript)}
+            </div>
+            {candidate.cv_url && (
+              <a 
+                href={candidate.cv_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm"
+                style={{ width: "100%", marginTop: "0.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
               >
-                <span>Afficher la transcription complète</span>
-                {showTranscript ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <FileText size={14} /> Voir le CV original
+              </a>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Statut</p>
+                <span className={`badge ${statusBadge.className}`} style={{ fontSize: "11px" }}>{statusBadge.label}</span>
+              </div>
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Invité le</p>
+                <p style={{ fontSize: "13px", fontWeight: "500" }}>{candidate.created_at ? new Date(candidate.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Complété le</p>
+                <p style={{ fontSize: "13px", fontWeight: "500" }}>{candidate.assessment_submitted_at ? new Date(candidate.assessment_submitted_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' }) : "En attente"}</p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <button className="btn btn-primary btn-sm" onClick={() => handleStatusChange("shortlisted")} disabled={actionLoading} style={{ width: "100%" }}>
+                Valider le profil
               </button>
+              <button className="btn btn-outline btn-sm" onClick={() => handleStatusChange("rejected")} disabled={actionLoading} style={{ width: "100%" }}>
+                Rejeter
+              </button>
+
+              <button className="btn btn-ghost btn-sm" onClick={handleDelete} disabled={actionLoading} style={{ width: "100%", color: "#991b1b" }}>
+                <Trash2 size={14} /> Supprimer
+              </button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: "1.5rem" }}>
+            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Shield size={14} /> Suivi de l'intégrité
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                <span style={{ color: "var(--muted-foreground)" }}>RGPD</span>
+                <span style={{ fontWeight: "600", color: candidate.gdpr_consent_at ? "#166534" : "#991b1b" }}>{candidate.gdpr_consent_at ? "Accordé" : "Non"}</span>
+              </div>
+              {Array.isArray(candidate.anti_cheat_metrics) && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>Sorties de fenêtre</span>
+                    <span style={{ fontWeight: "600" }}>{candidate.anti_cheat_metrics.filter(e => e.type === 'window_blur' || e.type === 'tab_switch').length}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                    <span style={{ color: "var(--muted-foreground)" }}>Copier-coller</span>
+                    <span style={{ fontWeight: "600" }}>{candidate.anti_cheat_metrics.filter(e => e.type === 'paste').length}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {mailLogs.length > 0 && (
+            <div className="card" style={{ padding: "1.25rem" }}>
+              <h3 style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "1rem" }}>Historique mails</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {mailLogs.slice(0, 3).map(log => (
+                  <div key={log.id} style={{ fontSize: "12px" }}>
+                    <div style={{ fontWeight: "600" }}>{log.mail_type === 'interview_invitation' ? 'Invitation' : log.mail_type === 'selected' ? 'Validation' : 'Refus'}</div>
+                    <div style={{ color: "var(--muted-foreground)" }}>{new Date(log.sent_at).toLocaleDateString('fr-FR')}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* Main Content */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          
+          {/* Overall Score Card */}
+          <div className="card" style={{ padding: "2rem", display: "flex", alignItems: "center", gap: "3rem" }}>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", color: "var(--muted-foreground)", marginBottom: "1.5rem" }}>Score global de l'assessment</h3>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                <span style={{ fontSize: "3.5rem", fontWeight: "800", color: globalScoreStyle?.color || "var(--foreground)", letterSpacing: "-0.04em" }}>
+                  {candidate.score_global || "—"}
+                </span>
+                <span style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--muted-foreground)" }}>%</span>
+              </div>
+              <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
+                Moyenne pondérée basée sur les critères de sélection.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: "1.5rem" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: scoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_cv || "—"}%</div>
+                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>CV</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.score_tests ? getScoreColor(candidate.score_tests).color : "var(--muted-foreground)" }}>{candidate.score_tests || "—"}%</div>
+                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Tests</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: interviewScoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_interview || "—"}%</div>
+                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Interview</div>
+              </div>
+            </div>
+          </div>
+
+          {/* CV Analysis Module */}
+          {candidate.ai_summary && (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <FileText size={18} style={{ color: "var(--primary)" }} /> Analyse du CV
+                </h3>
+              </div>
+              <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.5rem" }}>{candidate.ai_summary}</p>
               
-              {showTranscript && (
-                <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "12px", background: "#f8fafc", padding: "1rem", borderRadius: "var(--radius)", maxHeight: "400px", overflowY: "auto" }}>
-                  {candidate.interview_messages.map((msg, i) => (
-                    <div key={i} style={{ 
-                      alignSelf: msg.role === "assistant" ? "flex-start" : "flex-end",
-                      background: msg.role === "assistant" ? "white" : "var(--primary)",
-                      color: msg.role === "assistant" ? "var(--foreground)" : "white",
-                      padding: "10px 14px",
-                      borderRadius: "12px",
-                      border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
-                      maxWidth: "85%",
-                      fontSize: "13px",
-                      lineHeight: "1.5"
-                    }}>
-                      <div style={{ fontSize: "11px", fontWeight: "600", marginBottom: "4px", opacity: 0.8 }}>
-                        {msg.role === "assistant" ? "Leo (IA)" : candidate.first_name}
+              {/* Score Breakdown per Criterion */}
+              {candidate.cv_score_breakdown && candidate.cv_score_breakdown.length > 0 && (
+                <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Détail par critère</h4>
+                  {candidate.cv_score_breakdown.map((item, idx) => (
+                    <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{item.name}</span>
+                        <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score).color }}>{item.score}%</span>
                       </div>
-                      {msg.content.replace("[INTERVIEW_TERMINÉE]", "").trim()}
+                      {item.reason && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>{item.reason}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                {candidate.green_flags?.length > 0 && (
+                  <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "1px solid #dcfce7" }}>
+                    <p style={{ fontSize: "11px", fontWeight: "700", color: "#166534", textTransform: "uppercase", marginBottom: "8px" }}>Points forts</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {candidate.green_flags.map((f, i) => <div key={i} style={{ fontSize: "12px", color: "#166534" }}>• {f}</div>)}
+                    </div>
+                  </div>
+                )}
+                {candidate.red_flags?.length > 0 && (
+                  <div style={{ background: "#fef2f2", padding: "12px", borderRadius: "8px", border: "1px solid #fee2e2" }}>
+                    <p style={{ fontSize: "11px", fontWeight: "700", color: "#991b1b", textTransform: "uppercase", marginBottom: "8px" }}>Points d'attention</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {candidate.red_flags.map((f, i) => <div key={i} style={{ fontSize: "12px", color: "#991b1b" }}>• {f}</div>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Technical Tests Module */}
+          {candidate.test_sessions && candidate.test_sessions.length > 0 && (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.5rem" }}>
+                <TrendingUp size={18} style={{ color: "var(--primary)" }} /> Tests de compétences
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {candidate.test_sessions.map((session) => {
+                  const sStyle = session.score != null ? getScoreColor(session.score) : { bg: "#f3f4f6", color: "#64748b" };
+                  return (
+                    <div key={session.id} style={{ 
+                      padding: "1rem", background: "white", border: "1px solid var(--border)", 
+                      borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" 
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: "700", fontSize: "14px" }}>{session.assessment_tests?.name}</div>
+                        <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{session.assessment_tests?.category} • {session.completed_at ? `Fini le ${new Date(session.completed_at).toLocaleDateString()}` : 'En attente'}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+                        {session.cheat_flags?.slow_candidate && (
+                          <div style={{ background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ffedd5", display: "flex", alignItems: "center", gap: "4px" }}>
+                            <Clock size={12} /> Plus lent que la moyenne
+                          </div>
+                        )}
+                        {session.cheat_flags?.top_performer && (
+                          <div style={{ background: "#f5f5f5", color: "#0a0a0a", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: "4px" }}>
+                            <Star size={12} fill="currentColor" /> Top Performer
+                          </div>
+                        )}
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: "1.25rem", fontWeight: "800", color: sStyle.color }}>{session.score != null ? `${session.score}%` : "—"}</div>
+                          <div style={{ width: "100px", height: "6px", background: "#f1f5f9", borderRadius: "99px", overflow: "hidden", marginTop: "4px" }}>
+                            <div style={{ width: `${session.score || 0}%`, height: "100%", background: sStyle.color }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* AI Interview Module */}
+          {candidate.interview_summary && (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <MessageSquare size={18} style={{ color: "var(--primary)" }} /> Interview IA
+                </h3>
+
+              </div>
+              <p style={{ fontSize: "14px", lineHeight: "1.6", marginBottom: "1.5rem" }}>{candidate.interview_summary}</p>
+              
+              {/* Interview Score Breakdown */}
+              {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 && (
+                <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Détail par question</h4>
+                  {candidate.interview_score_breakdown.map((item, idx) => (
+                    <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '1rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)' }}>Q: {item.question}</p>
+                          <p style={{ fontSize: '13px', color: 'var(--foreground)', fontStyle: 'italic' }}>R: {item.answer}</p>
+                        </div>
+                        <div style={{ textAlign: 'right', minWidth: '45px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score * 10).color }}>{item.score}/10</span>
+                        </div>
+                      </div>
+                      {item.explanation && (
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: 'var(--muted-foreground)', 
+                          lineHeight: '1.4', 
+                          paddingTop: '8px', 
+                          borderTop: '1px dashed var(--border)',
+                          marginTop: '8px'
+                        }}>
+                          {item.explanation}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {candidate.interview_messages?.length > 0 && (
+                <div style={{ display: "flex", gap: "1rem" }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => setShowTranscript(!showTranscript)}>
+                    {showTranscript ? 'Cacher la transcription' : 'Voir la transcription'}
+                  </button>
+                </div>
+              )}
+              {showTranscript && candidate.interview_messages?.length > 0 && (
+                <div style={{ marginTop: "1.5rem", padding: "1.25rem", background: "#f8fafc", borderRadius: "8px", maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)" }}>
+                   {candidate.interview_messages.map((msg, i) => (
+                    <div key={i} style={{ marginBottom: "16px", fontSize: "13px", lineHeight: "1.5" }}>
+                      <div style={{ fontWeight: "700", color: msg.role === 'assistant' ? 'var(--primary)' : 'var(--foreground)', marginBottom: "4px" }}>
+                        {msg.role === 'assistant' ? 'Leo (IA Recruteur)' : `${candidate.first_name} ${candidate.last_name}`}
+                      </div>
+                      <div style={{ color: "var(--foreground)" }}>{msg.content.replace("[INTERVIEW_TERMINÉE]", "").trim()}</div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
+
         </div>
-      )}
-
-      {/* Flags Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1.5rem" }}>
-        {/* Green Flags */}
-        {candidate.green_flags && candidate.green_flags.length > 0 && (
-          <div className="card" style={{ borderLeft: "4px solid var(--success)" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#166534", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <CheckCircle2 size={16} /> Points forts ({candidate.green_flags.length})
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {candidate.green_flags.map((flag, i) => (
-                <div key={i} className="flag flag-green">
-                  <CheckCircle2 size={14} style={{ color: "#166534", marginTop: "2px", flexShrink: 0 }} />
-                  <span>{flag}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Yellow Flags */}
-        {candidate.yellow_flags && candidate.yellow_flags.length > 0 && (
-          <div className="card" style={{ borderLeft: "4px solid var(--warning)" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#92400e", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <AlertTriangle size={16} /> Points d'attention ({candidate.yellow_flags.length})
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {candidate.yellow_flags.map((flag, i) => (
-                <div key={i} className="flag flag-yellow">
-                  <AlertTriangle size={14} style={{ color: "#92400e", marginTop: "2px", flexShrink: 0 }} />
-                  <span>{flag}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Red Flags */}
-        {candidate.red_flags && candidate.red_flags.length > 0 && (
-          <div className="card" style={{ borderLeft: "4px solid var(--destructive)" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#991b1b", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <XCircle size={16} /> Critères éliminatoires ({candidate.red_flags.length})
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {candidate.red_flags.map((flag, i) => (
-                <div key={i} className="flag flag-red">
-                  <XCircle size={14} style={{ color: "#991b1b", marginTop: "2px", flexShrink: 0 }} />
-                  <span>{flag}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Mail History */}
-      {mailLogs.length > 0 && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Clock size={18} /> Historique des communications
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {mailLogs.map(log => {
-              const config = {
-                interview_invitation: { label: "Invitation interview IA", bg: "#e0e7ff", color: "#4338ca" },
-                selected: { label: "Candidat sélectionné", bg: "#dcfce7", color: "#166534" },
-                rejected: { label: "Candidat refusé", bg: "#fee2e2", color: "#991b1b" }
-              }[log.mail_type] || { label: log.mail_type, bg: "#f3f4f6", color: "#374151" };
-              
-              return (
-                <div key={log.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px", background: "var(--background)", border: "1px solid var(--border)", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ padding: "6px", borderRadius: "8px", background: config.bg, color: config.color, display: "flex" }}>
-                      <Mail size={14} />
-                    </span>
-                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{config.label}</span>
-                  </div>
-                  <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                    le {new Date(log.sent_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Job Criteria Comparison */}
-      {jobCriteria && Object.keys(jobCriteria).length > 0 && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Shield size={18} /> Critères de l'offre
-          </h2>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.5rem" }}>
-            <div>
-              <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
-                <Briefcase size={14} style={{ marginRight: "6px" }} />Poste
-              </h4>
-              <p style={{ fontSize: "14px", fontWeight: "500" }}>{jobCriteria.title || "—"}</p>
-              <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.category || ""}</p>
-            </div>
-            <div>
-              <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
-                <MapPin size={14} style={{ marginRight: "6px" }} />Localisation
-              </h4>
-              <p style={{ fontSize: "14px", fontWeight: "500" }}>{jobCriteria.location || "—"}</p>
-              <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.work_mode || ""}</p>
-            </div>
-            <div>
-              <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
-                <GraduationCap size={14} style={{ marginRight: "6px" }} />Profil
-              </h4>
-              <p style={{ fontSize: "14px", fontWeight: "500" }}>
-                Exp: {jobCriteria.years_of_experience || "Non précisée"} 
-                {jobCriteria.experience_level && !["Etudiant", "Jeune diplômé", "student", "graduate"].includes(jobCriteria.experience_level) && ` (${jobCriteria.experience_level})`}
-              </p>
-              <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>{jobCriteria.education_level || "Diplôme indifférent"}</p>
-            </div>
-          </div>
-
-          <div style={{ marginTop: "1.5rem" }}>
-            <h4 style={{ fontSize: "13px", textTransform: "uppercase", fontWeight: "600", color: "var(--muted-foreground)", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>
-              Compétences requises
-            </h4>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {jobCriteria.hard_skills?.map(s => (
-                <span key={s.name} className={`badge ${s.priority === "must_have" ? "badge-primary" : "badge-outline"}`}>
-                  {s.name}
-                </span>
-              ))}
-              {jobCriteria.soft_skills?.map(s => (
-                <span key={s.name} className={`badge ${s.priority === "must_have" ? "badge-primary" : "badge-outline"}`}>
-                  {s.name}
-                </span>
-              ))}
-              {(!jobCriteria.hard_skills?.length && !jobCriteria.soft_skills?.length) && (
-                <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>Non spécifié</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       {emailModalOpen && candidate && (
         <EmailModal
           isOpen={emailModalOpen}
@@ -651,14 +526,14 @@ export default function CandidateDetailPage() {
           fontFamily: "var(--font-geist), sans-serif"
         }}
       >
-        {/* Header Block (Captured separately and added to every page) */}
+        {/* Header Block */}
         <div id="sc-block-header" style={{ padding: "3mm 25mm 2mm 25mm", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <img src="/logo-onbord.svg" alt="Onbord" style={{ height: "30px", width: "auto" }} />
+            <img src="/logo.png" alt="Onbord" style={{ height: "24px", width: "auto" }} />
           </div>
           <div style={{ textAlign: "right" }}>
             <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 4px 0", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em" }}>Scorecard Officielle</p>
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#0f172a", margin: 0 }}>Généré le {new Date().toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p style={{ fontSize: "13px", fontWeight: "600", color: "#0f172a", margin: 0 }}>Généré le {new Date().toLocaleDateString("fr-FR")}</p>
           </div>
         </div>
 
@@ -669,7 +544,7 @@ export default function CandidateDetailPage() {
               width: "80px", height: "80px", borderRadius: "18px", 
               background: "#07294b", color: "white", 
               display: "flex", alignItems: "center", justifyContent: "center", 
-              fontSize: "32px", fontWeight: "700", flexShrink: 0
+              fontSize: "32px", fontWeight: "700"
             }}>
               {initials}
             </div>
@@ -678,13 +553,8 @@ export default function CandidateDetailPage() {
               <p style={{ fontSize: "14px", color: "#475569", margin: "0 0 10px 0" }}>{candidate.email}</p>
               <div style={{ display: "flex", gap: "8px" }}>
                 <div style={{ padding: "4px 10px", borderRadius: "4px", background: "#f1f5f9", fontSize: "10px", fontWeight: "800", color: "#475569", textTransform: "uppercase" }}>
-                  Status: {statusBadge.label}
+                  Statut: {statusBadge.label}
                 </div>
-                {candidate.jobs?.title && (
-                  <div style={{ padding: "4px 10px", borderRadius: "4px", background: "#eff6ff", fontSize: "10px", fontWeight: "800", color: "#1d4ed8", textTransform: "uppercase" }}>
-                    Poste: {candidate.jobs.title}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -693,84 +563,66 @@ export default function CandidateDetailPage() {
         {/* Scores Block */}
         <div id="sc-block-scores" style={{ padding: "0 25mm 15mm 25mm" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-            <div style={{ padding: "15px", borderRadius: "15px", background: "#ffffff", textAlign: "center", border: "1px solid #e2e8f0" }}>
-              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>Adéquation CV</p>
+            <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>CV</p>
               <div style={{ fontSize: "30px", fontWeight: "900", color: scoreStyle?.color || "#07294b" }}>{candidate.score_cv || "—"}%</div>
             </div>
-            <div style={{ padding: "15px", borderRadius: "15px", background: "#ffffff", textAlign: "center", border: "1px solid #e2e8f0" }}>
-              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>Performance Entretien</p>
+            <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Interview</p>
               <div style={{ fontSize: "30px", fontWeight: "900", color: interviewScoreStyle?.color || "#07294b" }}>{candidate.score_interview || "—"}%</div>
             </div>
-            <div style={{ 
-              padding: "15px", borderRadius: "15px", 
-              background: globalScoreStyle?.bg || "#f8fafc", 
-              textAlign: "center", 
-              border: `2px solid ${globalScoreStyle?.color || "#07294b"}`
-            }}>
-              <p style={{ fontSize: "10px", fontWeight: "900", color: globalScoreStyle?.color || "#07294b", marginBottom: "8px", textTransform: "uppercase" }}>Score Global</p>
-              <div style={{ fontSize: "34px", fontWeight: "900", color: globalScoreStyle?.color || "#07294b" }}>{candidate.score_global || "—"}%</div>
+            <div style={{ padding: "15px", borderRadius: "15px", border: "2px solid #07294b", background: "#f8fafc", textAlign: "center" }}>
+              <p style={{ fontSize: "10px", fontWeight: "900", color: "#07294b", textTransform: "uppercase" }}>Score Global</p>
+              <div style={{ fontSize: "34px", fontWeight: "900", color: "#07294b" }}>{candidate.score_global || "—"}%</div>
             </div>
           </div>
         </div>
 
         {/* Summary Block */}
-        {candidate.ai_summary && (
-          <div id="sc-block-summary" style={{ padding: "0 25mm 12mm 25mm" }}>
-            <div style={{ padding: "22px", borderRadius: "15px", border: "1px solid #f1f5f9", background: "#fafafa" }}>
-              <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "12px", textTransform: "uppercase" }}>
-                Synthèse du profil
-              </h3>
-              <p style={{ fontSize: "14.5px", lineHeight: "1.7", color: "#334155", margin: 0, textAlign: "justify" }}>{candidate.ai_summary}</p>
-            </div>
-          </div>
-        )}
+        <div id="sc-block-summary" style={{ padding: "0 25mm 10mm 25mm" }}>
+          <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", marginBottom: "10px", borderBottom: "1px solid #e2e8f0", paddingBottom: "5px" }}>Analyse IA du profil</h3>
+          <p style={{ fontSize: "12px", lineHeight: "1.6", color: "#334155" }}>{candidate.ai_summary || candidate.interview_summary}</p>
+        </div>
 
         {/* Interview Block */}
-        {candidate.interview_summary && (
-          <div id="sc-block-interview" style={{ padding: "0 25mm 12mm 25mm" }}>
-            <div style={{ padding: "22px", borderRadius: "15px", background: "#f0f9ff", border: "1px solid #e0f2fe" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-                <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#0369a1", margin: 0, textTransform: "uppercase" }}>Évaluation de l'entretien IA</h3>
-                <div style={{ padding: "4px 10px", borderRadius: "6px", background: "#ffffff", fontSize: "10px", fontWeight: "800", color: "#0369a1", border: "1px solid #bae6fd" }}>
-                  {candidate.interview_recommendation === "hire" ? "✓ Favorable" : candidate.interview_recommendation === "maybe" ? "⚡ À considérer" : "✕ Défavorable"}
+        <div id="sc-block-interview" style={{ padding: "0 25mm 10mm 25mm" }}>
+          <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", marginBottom: "15px", borderBottom: "1px solid #e2e8f0", paddingBottom: "5px" }}>Détails de l'Interview</h3>
+          {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {candidate.interview_score_breakdown.map((item, idx) => (
+                <div key={idx} style={{ padding: "10px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: "700", color: "#07294b" }}>Question : {item.question}</span>
+                    <span style={{ fontSize: "11px", fontWeight: "800", color: getScoreColor(item.score * 10).color }}>{item.score}/10</span>
+                  </div>
+                  <p style={{ fontSize: "11px", color: "#475569", fontStyle: "italic", marginBottom: "4px" }}>Réponse : {item.answer}</p>
+                  <p style={{ fontSize: "10px", color: "#64748b", borderTop: "1px dashed #e2e8f0", paddingTop: "4px", marginTop: "4px" }}>{item.explanation}</p>
                 </div>
-              </div>
-              <p style={{ fontSize: "14.5px", lineHeight: "1.7", color: "#0c4a6e", margin: 0, textAlign: "justify" }}>{candidate.interview_summary}</p>
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p style={{ fontSize: "11px", color: "#64748b" }}>Aucun détail d'entretien disponible.</p>
+          )}
+        </div>
 
         {/* Flags Block */}
-        <div id="sc-block-flags" style={{ padding: "0 25mm 15mm 25mm" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "25px" }}>
-            {((candidate.interview_strengths && candidate.interview_strengths.length > 0) || (candidate.green_flags && candidate.green_flags.length > 0)) && (
-              <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #f0fdf4", background: "#f0fdf4" }}>
-                <h3 style={{ fontSize: "11px", fontWeight: "900", color: "#166534", marginBottom: "12px", textTransform: "uppercase" }}>Points Forts</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {[...(candidate.interview_strengths || []), ...(candidate.green_flags || [])].slice(0, 8).map((s, i) => (
-                    <div key={i} style={{ fontSize: "13.5px", display: "flex", gap: "8px", color: "#14532d", lineHeight: "1.4" }}>
-                      <span style={{ color: "#22c55e", fontWeight: "bold" }}>•</span> {s}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {((candidate.interview_weaknesses && candidate.interview_weaknesses.length > 0) || (candidate.red_flags && candidate.red_flags.length > 0)) && (
-              <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #fef2f2", background: "#fef2f2" }}>
-                <h3 style={{ fontSize: "11px", fontWeight: "900", color: "#991b1b", marginBottom: "12px", textTransform: "uppercase" }}>Points de Vigilance</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {[...(candidate.interview_weaknesses || []), ...(candidate.red_flags || [])].slice(0, 8).map((w, i) => (
-                    <div key={i} style={{ fontSize: "13.5px", display: "flex", gap: "8px", color: "#7f1d1d", lineHeight: "1.4" }}>
-                      <span style={{ color: "#ef4444", fontWeight: "bold" }}>•</span> {w}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        <div id="sc-block-flags" style={{ padding: "0 25mm 20mm 25mm" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
+            <div style={{ padding: "12px", borderRadius: "10px", background: "#f0fdf4", border: "1px solid #dcfce7" }}>
+              <h4 style={{ fontSize: "10px", fontWeight: "800", color: "#166534", textTransform: "uppercase", marginBottom: "8px" }}>Points Forts</h4>
+              <ul style={{ margin: 0, paddingLeft: "15px", fontSize: "11px", color: "#166534" }}>
+                {(candidate.green_flags || candidate.interview_strengths || []).map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            </div>
+            <div style={{ padding: "12px", borderRadius: "10px", background: "#fef2f2", border: "1px solid #fee2e2" }}>
+              <h4 style={{ fontSize: "10px", fontWeight: "800", color: "#991b1b", textTransform: "uppercase", marginBottom: "8px" }}>Points d'attention</h4>
+              <ul style={{ margin: 0, paddingLeft: "15px", fontSize: "11px", color: "#991b1b" }}>
+                {(candidate.red_flags || candidate.interview_weaknesses || []).map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

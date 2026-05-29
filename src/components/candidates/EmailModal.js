@@ -6,21 +6,6 @@ import { logMailSent } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
 
 const TEMPLATES = {
-  interview_invitation: {
-    label: "Invitation interview IA",
-    subject: "Invitation à un entretien vidéo pour le poste de {{titre_du_poste}}",
-    body: `Bonjour {{prénom_candidat}},
-
-Merci pour votre intérêt pour le poste de {{titre_du_poste}} chez {{nom_entreprise}}.
-
-Nous avons bien reçu votre candidature et nous souhaiterions en savoir plus sur votre profil. Pour cela, nous vous invitons à réaliser un court entretien en ligne (10-15 minutes), disponible ici : {{lien_interview}}
-
-Cet entretien est disponible quand vous le souhaitez, depuis votre ordinateur.
-
-À très bientôt,
-
-{{prénom_recruteur}} — {{nom_entreprise}}`
-  },
   selected: {
     label: "Candidat sélectionné",
     subject: "Votre candidature chez {{nom_entreprise}}",
@@ -54,7 +39,7 @@ Cordialement,
 };
 
 export default function EmailModal({ isOpen, onClose, candidate, job, currentUser, onLogged, existingLogs = [] }) {
-  const [selectedType, setSelectedType] = useState("interview_invitation");
+  const [selectedType, setSelectedType] = useState("selected");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();

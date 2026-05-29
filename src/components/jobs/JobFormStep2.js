@@ -25,7 +25,6 @@ export default function JobFormStep2({ jobData, setJobData }) {
   const [customHardSkill, setCustomHardSkill] = useState("");
   const [customSoftSkill, setCustomSoftSkill] = useState("");
   const [customLanguage, setCustomLanguage] = useState("");
-  const [customQuestion, setCustomQuestion] = useState("");
 
   const updateField = (field, value) => {
     setJobData(prev => ({ ...prev, [field]: value }));
@@ -298,37 +297,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
             <textarea className="input-field" style={{ minHeight: '120px' }} value={jobData.clean_description || ""} onChange={e => updateField('clean_description', e.target.value)} />
           </div>
           
-          {/* Nombre de talents */}
-          <div>
-            <label className="form-label">Nombre de talents</label>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              {[1, 2, "3+"].map(num => {
-                const currentVal = jobData.talents_needed || 1;
-                const isActive = (num === "3+" && currentVal >= 3) || currentVal === num;
-                return (
-                  <button 
-                    key={num} 
-                    type="button"
-                    onClick={() => updateField('talents_needed', num === "3+" ? 3 : num)}
-                    style={{ width: '40px', height: '40px', borderRadius: '50%', border: `1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}`, background: isActive ? 'var(--primary)' : 'white', color: isActive ? 'white' : 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600' }}
-                  >
-                    {num}
-                  </button>
-                );
-              })}
-              {(jobData.talents_needed || 1) >= 3 && (
-                <input 
-                  type="number" 
-                  min="3" 
-                  className="input-field" 
-                  style={{ width: '80px', marginLeft: '1rem' }} 
-                  value={jobData.talents_needed || 3} 
-                  onChange={e => updateField('talents_needed', parseInt(e.target.value) || 3)}
-                />
-              )}
-            </div>
-          </div>
-          
+
           {/* Type de contrat */}
           <div>
             <label className="form-label">Type de contrat</label>
@@ -399,72 +368,6 @@ export default function JobFormStep2({ jobData, setJobData }) {
         </div>
       </div>
 
-      <hr className="divider" style={{ margin: '1rem 0' }} />
-
-      {/* Questions pour l'entretien IA */}
-      <div>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Questions pour l'entretien IA</h3>
-        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>
-          Définissez des questions spécifiques que Leo devra obligatoirement poser lors de l'entretien.
-        </p>
-
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input
-            className="input-field"
-            placeholder='Ex : "Décrivez votre expérience avec la gestion de projets en équipe."'
-            value={customQuestion}
-            onChange={e => setCustomQuestion(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                if (customQuestion.trim()) {
-                  const current = jobData.custom_questions || [];
-                  updateField('custom_questions', [...current, customQuestion.trim()]);
-                  setCustomQuestion('');
-                }
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              if (customQuestion.trim()) {
-                const current = jobData.custom_questions || [];
-                updateField('custom_questions', [...current, customQuestion.trim()]);
-                setCustomQuestion('');
-              }
-            }}
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-
-        {(jobData.custom_questions || []).length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {(jobData.custom_questions || []).map((q, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                padding: '0.75rem 1rem', background: '#f8fafc',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius)'
-              }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--primary)', minWidth: '20px', marginTop: '1px' }}>{i + 1}.</span>
-                <span style={{ flex: 1, fontSize: '14px', color: 'var(--foreground)', lineHeight: '1.5' }}>{q}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const current = jobData.custom_questions || [];
-                    updateField('custom_questions', current.filter((_, idx) => idx !== i));
-                  }}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', padding: '2px', flexShrink: 0 }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -56,7 +56,7 @@ export async function deleteJob(jobId) {
   }
 }
 
-export async function scoreCandidate(jobId, cvText, jobData, candidateName) {
+export async function scoreCandidate(jobId, cvText, jobData, candidateName, existingCandidateId = null) {
   try {
     const prompt = `Voici le texte extrait du profil candidat à analyser :\n\n${cvText}`;
     
@@ -84,12 +84,21 @@ ${jobData.soft_skills ? jobData.soft_skills.map(s => `- ${s.name} (${s.priority}
 Langues :
 ${jobData.languages ? jobData.languages.map(l => `- ${l.name} (Niveau ${l.level})`).join('\n') : 'Non spécifié'}
 
+CRITÈRES DE SÉLECTION (Utilisez UNIQUEMENT ces critères pour calculer le score final) :
+${jobData.selection_criteria ? jobData.selection_criteria.map(c => `- ${c.name} (Poids: ${c.weight}%)`).join('\n') : 'Non spécifié'}
+
+IMPORTANT : Le score final doit être la moyenne pondérée des scores de 0 à 100 attribués à chaque critère ci-dessus.
+
 Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
 {
   "first_name": "Prénom du candidat (Extrait du profil, ou inconnu)",
   "last_name": "Nom de famille (Extrait du profil, ou inconnu)",
   "email": "Adresse email si trouvée, sinon null",
-  "score": nombre entier de 0 à 100,
+  "score": nombre entier de 0 à 100 (moyenne pondérée),
+  "criteria_breakdown": [
+    { "name": "Nom du critère 1", "score": 0-100, "reason": "Pourquoi cette note ?" },
+    { "name": "Nom du critère 2", "score": 0-100, "reason": "Pourquoi cette note ?" }
+  ],
   "ai_summary": "Un résumé de 3-4 lignes de l'adéquation du profil.",
   "green_flags": ["point fort 1", "point fort 2"],
   "yellow_flags": ["point d'attention 1", "point d'attention 2"],
@@ -132,24 +141,52 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
     let finalFirstName = evaluation.first_name && evaluation.first_name !== 'inconnu' ? evaluation.first_name : candidateName.split(' ')[0] || 'Candidat';
     let finalLastName = evaluation.last_name && evaluation.last_name !== 'inconnu' ? evaluation.last_name : candidateName.split(' ').slice(1).join(' ') || 'Inconnu';
 
-    const { data: candidate, error: candidateError } = await supabase
-      .from('candidates')
-      .insert({
-        job_id: jobId,
-        first_name: finalFirstName,
-        last_name: finalLastName,
-        email: evaluation.email,
-        cv_raw_text: cvText,
-        score_cv: evaluation.score,
-        score_global: evaluation.score,
-        green_flags: evaluation.green_flags,
-        yellow_flags: evaluation.yellow_flags,
-        red_flags: evaluation.red_flags,
-        ai_summary: evaluation.ai_summary,
-        status: 'scored'
-      })
-      .select()
-      .single();
+    let candidate;
+    let candidateError;
+
+    if (existingCandidateId) {
+      // UPDATE existing candidate (self-serve flow: candidate uploaded their own CV)
+      const { data, error } = await supabase
+        .from('candidates')
+        .update({
+          cv_raw_text: cvText,
+          score_cv: evaluation.score,
+          green_flags: evaluation.green_flags,
+          yellow_flags: evaluation.yellow_flags,
+          red_flags: evaluation.red_flags,
+          ai_summary: evaluation.ai_summary,
+          cv_score_breakdown: evaluation.criteria_breakdown,
+          status: 'scored',
+        })
+        .eq('id', existingCandidateId)
+        .select()
+        .single();
+      candidate = data;
+      candidateError = error;
+    } else {
+      // INSERT new candidate (legacy flow: recruiter imports CSV)
+      const { data, error } = await supabase
+        .from('candidates')
+        .insert({
+          job_id: jobId,
+          first_name: finalFirstName,
+          last_name: finalLastName,
+          email: evaluation.email,
+          cv_raw_text: cvText,
+          score_cv: evaluation.score,
+          score_global: evaluation.score,
+          green_flags: evaluation.green_flags,
+          yellow_flags: evaluation.yellow_flags,
+          red_flags: evaluation.red_flags,
+          ai_summary: evaluation.ai_summary,
+          cv_score_breakdown: evaluation.criteria_breakdown,
+          status: 'scored'
+        })
+        .select()
+        .single();
+      candidate = data;
+      candidateError = error;
+    }
 
     if (candidateError) {
       console.error("Supabase Error:", candidateError);
@@ -160,6 +197,95 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
   } catch (error) {
     console.error("Score Candidate Error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create an empty candidate "shell" with a unique token for the self-serve flow.
+ * The recruiter sends the link; the candidate fills their info via the assessment page.
+ */
+export async function createCandidateShell(jobId, firstName, lastName, email) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Non authentifié");
+
+    // Generate a unique interview token
+    const token = crypto.randomUUID().replace(/-/g, '');
+
+    // 5 days from now
+    const expiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: candidate, error } = await supabase
+      .from('candidates')
+      .insert({
+        job_id: jobId,
+        first_name: firstName || 'Candidat',
+        last_name: lastName || '',
+        email: email || null,
+        interview_token: token,
+        interview_expires_at: expiresAt,
+        status: 'invited',
+        assessment_status: 'pending',
+        score_cv: null,
+        score_global: null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, candidate };
+  } catch (err) {
+    console.error("createCandidateShell error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Public action for candidates to apply for a job.
+ * Does not require authentication.
+ */
+export async function applyForJob(jobId, firstName, lastName, email) {
+  try {
+    const supabase = await createClient();
+
+    // Verify job exists
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('id', jobId)
+      .single();
+
+    if (jobError || !job) throw new Error("Offre d'emploi introuvable");
+
+    // Generate a unique interview token
+    const token = crypto.randomUUID().replace(/-/g, '');
+
+    // 5 days from now
+    const expiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: candidate, error } = await supabase
+      .from('candidates')
+      .insert({
+        job_id: jobId,
+        first_name: firstName || 'Candidat',
+        last_name: lastName || '',
+        email: email || null,
+        interview_token: token,
+        interview_expires_at: expiresAt,
+        status: 'invited',
+        assessment_status: 'pending',
+        score_cv: null,
+        score_global: null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, candidate };
+  } catch (err) {
+    console.error("applyForJob error:", err);
+    return { success: false, error: err.message };
   }
 }
 
@@ -191,18 +317,35 @@ export async function getCandidateDetail(candidateId) {
     
     if (error) throw error;
 
-    // Fetch messages if there are any
+    // Get messages from transcript field
     let messages = [];
-    if (candidate && ['interview_started', 'interview_completed'].includes(candidate.status)) {
-      const { data: msgs } = await supabase
-        .from('interview_messages')
-        .select('*')
-        .eq('interview_id', candidateId)
-        .order('sequence_order', { ascending: true });
-      if (msgs) messages = msgs;
+    if (candidate && candidate.interview_transcript) {
+      try {
+        messages = typeof candidate.interview_transcript === 'string' 
+          ? JSON.parse(candidate.interview_transcript) 
+          : candidate.interview_transcript;
+      } catch (e) {
+        console.error("Error parsing transcript:", e);
+        messages = [];
+      }
     }
 
-    return { success: true, candidate: { ...candidate, interview_messages: messages } };
+    // Fetch test sessions
+    let testSessions = [];
+    const { data: tests } = await supabase
+      .from('candidate_test_sessions')
+      .select('*, assessment_tests(name, category)')
+      .eq('candidate_id', candidateId);
+    if (tests) testSessions = tests;
+
+    return { 
+      success: true, 
+      candidate: { 
+        ...candidate, 
+        interview_messages: messages,
+        test_sessions: testSessions
+      } 
+    };
   } catch (error) {
     console.error("Get Candidate Detail Error:", error);
     return { success: false, error: error.message };

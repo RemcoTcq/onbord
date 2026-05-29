@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Loader2, Search, Star, Briefcase, Trash2, Mail } from "lucide-react";
+import { Users, Loader2, Search, Star, Briefcase, Trash2, Mail, FileText, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 
@@ -182,12 +182,30 @@ export default function TalentsPage() {
                 {/* Right */}
                 <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
                   {talent.score_cv != null && (
-                    <div style={{
+                    <div title="Score CV" style={{
                       display: "flex", alignItems: "center", gap: "4px",
                       fontSize: "12px", fontWeight: "600",
                       color: talent.score_cv >= 70 ? "#166534" : talent.score_cv >= 40 ? "#92400e" : "#991b1b"
                     }}>
-                      <Star size={12} /> {talent.score_cv}
+                      <FileText size={12} /> {talent.score_cv}
+                    </div>
+                  )}
+                  {talent.score_tests != null && (
+                    <div title="Score Tests" style={{
+                      display: "flex", alignItems: "center", gap: "4px",
+                      fontSize: "12px", fontWeight: "600",
+                      color: talent.score_tests >= 70 ? "#166534" : talent.score_tests >= 40 ? "#92400e" : "#991b1b"
+                    }}>
+                      <CheckCircle2 size={12} /> {talent.score_tests}
+                    </div>
+                  )}
+                  {talent.score_interview != null && (
+                    <div title="Score Interview" style={{
+                      display: "flex", alignItems: "center", gap: "4px",
+                      fontSize: "12px", fontWeight: "600",
+                      color: talent.score_interview >= 70 ? "#166534" : talent.score_interview >= 40 ? "#92400e" : "#991b1b"
+                    }}>
+                      <Star size={12} /> {talent.score_interview}
                     </div>
                   )}
                   {talent.pool_added_at && (

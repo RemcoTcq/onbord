@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, Loader2, Briefcase, Mail, MapPin,
-  TrendingUp, Trash2, ExternalLink
+  TrendingUp, Trash2, ExternalLink, FileText
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { deleteCandidate } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
 
 
@@ -51,6 +52,19 @@ export default function TalentDetailPage() {
       router.push("/talents");
     } else {
       toast("Erreur", "error");
+    }
+    setRemoving(false);
+  }
+
+  async function handleDeleteTalent() {
+    if (!confirm("Attention : Cette action est irréversible et supprimera TOUTES les données liées à ce talent (CV, scores, entretiens, logs). Continuer ?")) return;
+    setRemoving(true);
+    const res = await deleteCandidate(talentId);
+    if (res.success) {
+      toast("Talent supprimé définitivement");
+      router.push("/talents");
+    } else {
+      toast("Erreur lors de la suppression", "error");
     }
     setRemoving(false);
   }
@@ -111,18 +125,39 @@ export default function TalentDetailPage() {
                   Ajouté aux talents le {new Date(talent.pool_added_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                 </p>
               )}
+              {talent.cv_url && (
+                <a 
+                  href={talent.cv_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost btn-sm"
+                  style={{ marginTop: "8px", padding: "0", height: "auto", fontSize: "12px", color: "var(--primary)", display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <FileText size={12} /> Voir le CV original
+                </a>
+              )}
             </div>
           </div>
 
-          <button
-            className="btn btn-sm"
-            style={{ background: "#fee2e2", color: "#991b1b", border: "none", flexShrink: 0 }}
-            onClick={handleRemoveFromPool}
-            disabled={removing}
-          >
-            {removing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-            Retirer du pool
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="btn btn-sm btn-outline"
+              style={{ flexShrink: 0 }}
+              onClick={handleRemoveFromPool}
+              disabled={removing}
+            >
+              Retirer du pool
+            </button>
+            <button
+              className="btn btn-sm"
+              style={{ background: "#fee2e2", color: "#991b1b", border: "none", flexShrink: 0 }}
+              onClick={handleDeleteTalent}
+              disabled={removing}
+            >
+              {removing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+              Supprimer
+            </button>
+          </div>
         </div>
       </div>
 

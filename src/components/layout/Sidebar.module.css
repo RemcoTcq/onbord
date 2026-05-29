@@ -10,13 +10,13 @@
   flex-direction: column;
   z-index: 50;
   transition: width 200ms ease;
+  overflow-x: hidden;
 }
 
 .sidebar.collapsed {
   width: var(--sidebar-collapsed-width);
 }
 
-/* Logo */
 .logo {
   display: flex;
   align-items: center;
@@ -25,14 +25,20 @@
   flex-shrink: 0;
 }
 
+.logo.collapsed {
+  justify-content: center;
+  padding: 20px 0 16px;
+}
+
 /* New Job Button */
 .newDemandBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 10px 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius);
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   background: var(--foreground);
@@ -40,7 +46,7 @@
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: all 150ms ease;
+  transition: all 200ms ease;
 }
 
 .newDemandBtn:hover {
@@ -49,8 +55,9 @@
 
 .newDemandBtn.collapsed {
   justify-content: center;
-  padding: 8px;
-  margin: 0 8px 8px;
+  padding: 0;
+  width: 40px;
+  margin: 0 auto 8px;
 }
 
 /* Navigation */
@@ -61,6 +68,7 @@
   gap: 1px;
   padding: 0 10px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .navLabel {
@@ -76,14 +84,22 @@
 .navItem {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border-radius: var(--radius);
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 400;
   color: var(--muted-foreground);
-  transition: all 120ms ease;
+  transition: all 200ms ease;
   text-decoration: none;
+}
+
+.navItem.collapsed {
+  justify-content: center;
+  padding: 0;
+  width: 40px;
+  margin: 6px auto;
 }
 
 .navItem:hover {
@@ -95,6 +111,15 @@
   background: var(--secondary);
   color: var(--foreground);
   font-weight: 500;
+}
+
+.navItemActive.collapsed {
+  background: var(--secondary) !important;
+  color: var(--foreground) !important;
+}
+
+.navItemActive.collapsed svg {
+  color: var(--foreground) !important;
 }
 
 .navItemActive svg {
@@ -129,6 +154,11 @@
   border-top: 1px solid var(--border);
   cursor: pointer;
   transition: background 120ms ease;
+}
+
+.userSection.collapsed {
+  justify-content: center;
+  padding: 12px 0;
 }
 
 .userSection:hover {

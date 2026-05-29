@@ -77,3 +77,53 @@ export async function updateSecuritySettings(oldPassword, newPassword, newEmail)
     return { success: false, error: error.message };
   }
 }
+
+export async function updateBranding(data) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: "Non authentifié" };
+    }
+
+    // Verify user plan allows branding (Pro, Enterprise, Beta)
+    const { data: userRow, error: userError } = await supabase
+      .from("users")
+      .select("plan")
+      .eq("id", user.id)
+      .single();
+
+    if (userError || !userRow) {
+      throw new Error("Impossible de vérifier votre profil utilisateur.");
+    }
+
+    const plan = userRow.plan || "core";
+    if (plan !== "pro" && plan !== "enterprise" && plan !== "beta") {
+      return { 
+        success: false, 
+        error: "Votre plan actuel ne permet pas de personnaliser le branding. Veuillez passer au plan supérieur." 
+      };
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        company_logo_url: data.company_logo_url,
+        brand_primary_color: data.brand_primary_color,
+        brand_secondary_color: data.brand_secondary_color,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error) {
+    console.error("Update Branding Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+

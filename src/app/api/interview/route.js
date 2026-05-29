@@ -71,6 +71,7 @@ Poste : ${jobCriteria.title || candidate.jobs?.title || "Non spécifié"}
 Domaine : ${jobCriteria.category || ""}
 Compétences recherchées : ${jobCriteria.hard_skills?.map(s => s.name).join(", ") || "Non spécifié"}
 Soft skills : ${jobCriteria.soft_skills?.map(s => s.name).join(", ") || "Non spécifié"}
+Événements techniques pendant l'entretien (anti-triche) : ${JSON.stringify(candidate.anti_cheat_metrics || [])}
 
 Évaluez le candidat sur les critères suivants :
 - Pertinence et profondeur des réponses
@@ -78,6 +79,10 @@ Soft skills : ${jobCriteria.soft_skills?.map(s => s.name).join(", ") || "Non sp�
 - Qualité de communication et structure (Soft skills)
 - Comportement et attitude (Politesse, écoute, réactivité)
 - Motivation et adéquation culturelle
+- Intégrité et authenticité : Analysez attentivement le style de réponse (robotique, trop parfait ?) et les événements techniques fournis (changements d'onglet "tab_switch", "window_blur", copier-coller "paste", temps de réponse "response_time" suspects). S'il y a des indices de fraude ou d'utilisation d'IA, mentionnez-le explicitement et pénalisez fortement le score.
+
+CRITÈRES DÉCISIFS : ${JSON.stringify(candidate.jobs?.ai_interview_config?.decisive_criteria || [])}
+QUESTIONS IMPOSÉES : ${JSON.stringify(candidate.jobs?.ai_interview_config?.questions || [])}
 
 RÈGLE ABSOLUE : N'utilisez AUCUN emoji (comme 🤔, ✅, ❌, etc.) dans votre réponse. Rédigez du texte brut, neutre et professionnel.
 
@@ -87,8 +92,17 @@ Répondez UNIQUEMENT avec un JSON valide :
   "summary": "Résumé de 3-4 lignes de la performance en entretien.",
   "strengths": ["point fort 1", "point fort 2"],
   "weaknesses": ["point faible 1"],
-  "recommendation": "hire" ou "maybe" ou "pass"
-}`,
+  "recommendation": "hire" ou "maybe" ou "pass",
+  "questions": [
+    {
+      "question": "Résumé court de la question posée par l'IA",
+      "answer": "Résumé court de la réponse du candidat",
+      "score": nombre de 0 à 10,
+      "explanation": "Explication du score pour cette réponse spécifique (max 2 lignes)"
+    }
+  ]
+}
+`,
     messages: [
       {
         role: "user",
@@ -122,6 +136,8 @@ Répondez UNIQUEMENT avec un JSON valide :
       interview_strengths: evaluation.strengths,
       interview_weaknesses: evaluation.weaknesses,
       interview_recommendation: evaluation.recommendation,
+      interview_score_breakdown: evaluation.questions,
+      interview_transcript: JSON.stringify(allMessages),
       status: "interview_completed",
     })
     .eq("id", candidateId);

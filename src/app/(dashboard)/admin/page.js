@@ -119,6 +119,23 @@ export default function AdminPage() {
         <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>Générez des liens d'invitation pour vos clients.</p>
       </div>
 
+      {/* Tabs / Navigation */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "2rem" }}>
+        <button 
+          className="btn btn-primary" 
+          style={{ padding: "10px 20px" }}
+        >
+          Invitations
+        </button>
+        <a 
+          href="/admin/tests" 
+          className="btn btn-ghost" 
+          style={{ padding: "10px 20px", border: "1px solid var(--border)" }}
+        >
+          Tests de compétences
+        </a>
+      </div>
+
       {/* Generator */}
       <div className="card" style={{ marginBottom: "2rem", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: "250px" }}>

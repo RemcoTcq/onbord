@@ -40,7 +40,7 @@ const DEFAULT_CONFIG = {
   evaluation_weights: PRESETS["Technique"]
 };
 
-export default function AiInterviewConfig({ job, onSave }) {
+export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, onChange }) {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [openAccordions, setOpenAccordions] = useState([1, 2, 3, 4]);
   const [activePreset, setActivePreset] = useState("Technique");
@@ -50,6 +50,13 @@ export default function AiInterviewConfig({ job, onSave }) {
   const [newCriterion, setNewCriterion] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const { toast } = useToast();
+
+  // Notify parent of changes
+  useEffect(() => {
+    if (onChange && hasChanges) {
+      onChange(config);
+    }
+  }, [config, onChange, hasChanges]);
 
   useEffect(() => {
     if (job?.ai_interview_config) {
@@ -177,46 +184,48 @@ export default function AiInterviewConfig({ job, onSave }) {
 
   return (
     <div className="fade-in" style={{ paddingBottom: '100px' }}>
-      <div style={{ 
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-        background: 'var(--card)', padding: '1.5rem', borderRadius: 'var(--radius)', 
-        border: '1px solid var(--border)', marginBottom: '2rem' 
-      }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Interview IA Automatisée</h2>
-          <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginTop: '4px' }}>
-            L'IA mènera un entretien avec les candidats pour évaluer leurs compétences et leur motivation.
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: '500', color: config.enabled ? 'var(--primary)' : 'var(--muted-foreground)' }}>
-            {config.enabled ? 'Activée' : 'Désactivée'}
-          </span>
-          <label style={{
-            position: 'relative', display: 'inline-block', width: '50px', height: '26px', cursor: 'pointer'
-          }}>
-            <input 
-              type="checkbox" 
-              checked={config.enabled} 
-              onChange={e => updateConfig({ enabled: e.target.checked })} 
-              style={{ opacity: 0, width: 0, height: 0 }} 
-            />
-            <span style={{
-              position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: config.enabled ? 'var(--primary)' : 'var(--border)',
-              transition: '.4s', borderRadius: '34px'
-            }}>
-              <span style={{
-                position: 'absolute', content: '""', height: '18px', width: '18px',
-                left: config.enabled ? '28px' : '4px', bottom: '4px',
-                backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
-              }}/>
+      {!embedded && (
+        <div style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+          background: 'var(--card)', padding: '1.5rem', borderRadius: 'var(--radius)', 
+          border: '1px solid var(--border)', marginBottom: '2rem' 
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Assessment (Entretien IA)</h2>
+            <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginTop: '4px' }}>
+              L'IA mènera un entretien avec les candidats pour évaluer leurs compétences et leur motivation.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '500', color: config.enabled ? 'var(--primary)' : 'var(--muted-foreground)' }}>
+              {config.enabled ? 'Activée' : 'Désactivée'}
             </span>
-          </label>
+            <label style={{
+              position: 'relative', display: 'inline-block', width: '50px', height: '26px', cursor: 'pointer'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={config.enabled} 
+                onChange={e => updateConfig({ enabled: e.target.checked })} 
+                style={{ opacity: 0, width: 0, height: 0 }} 
+              />
+              <span style={{
+                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: config.enabled ? 'var(--primary)' : 'var(--border)',
+                transition: '.4s', borderRadius: '34px'
+              }}>
+                <span style={{
+                  position: 'absolute', content: '""', height: '18px', width: '18px',
+                  left: config.enabled ? '28px' : '4px', bottom: '4px',
+                  backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
+                }}/>
+              </span>
+            </label>
+          </div>
         </div>
-      </div>
+      )}
 
-      {!config.enabled && (
+      {!embedded && !config.enabled && (
         <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px dashed var(--border)' }}>
           <Wand2 size={48} style={{ color: 'var(--muted-foreground)', opacity: 0.3, margin: '0 auto 1rem' }} />
           <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '0.5rem' }}>Activez l'Interview IA</h3>
@@ -229,7 +238,7 @@ export default function AiInterviewConfig({ job, onSave }) {
         </div>
       )}
 
-      {config.enabled && (
+      {(config.enabled || embedded) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
           {/* Bloc 1 : Questions imposées */}
@@ -554,7 +563,7 @@ export default function AiInterviewConfig({ job, onSave }) {
       )}
 
       {/* Barre de sauvegarde sticky */}
-      {hasChanges && (
+      {!hideSaveBar && hasChanges && (
         <div className="fade-in" style={{
           position: 'fixed', bottom: 0, left: 'var(--sidebar-width)', right: 0,
           background: 'var(--card)', borderTop: '1px solid var(--border)',

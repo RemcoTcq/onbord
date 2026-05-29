@@ -2,13 +2,19 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search } from "lucide-react";
+import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search, Link as LinkIcon, Copy, CheckCircle2 } from "lucide-react";
 import { analyzeJobDescription } from "@/lib/actions/job";
 import { parseFile } from "@/lib/actions/parse-file";
 import { scoreCandidate } from "@/lib/actions/candidate";
 import { createClient } from "@/lib/supabase/client";
 import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
+import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
+import SkillsTestConfig from "@/components/jobs/SkillsTestConfig";
+import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
+import { useToast } from "@/components/ui/Toast";
+import { updateJobAiConfig } from "@/lib/actions/job";
+import { saveAssessmentConfig } from "@/lib/actions/assessment";
 
 export default function NouvelleDemandePage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -23,15 +29,21 @@ export default function NouvelleDemandePage() {
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
   const [pasteContent, setPasteContent] = useState("");
   const [savedJobId, setSavedJobId] = useState(null);
-  const [candidates, setCandidates] = useState([]);
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
-  const [isImporting, setIsImporting] = useState(false);
+  const [savedJob, setSavedJob] = useState(null);
+  const [assessmentModules, setAssessmentModules] = useState({
+    cv_scoring: true,
+    ai_interview: false,
+    skills_test: false,
+  });
+  const [aiConfigPayload, setAiConfigPayload] = useState(null);
+  const [skillsConfigPayload, setSkillsConfigPayload] = useState(null);
   
   const fileInputRef = useRef(null);
   const cvInputRef = useRef(null);
   const textRef = useRef(null);
   const menuRef = useRef(null);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -93,7 +105,7 @@ export default function NouvelleDemandePage() {
     }
   };
 
-  const handleSave = async (goToStep4 = false) => {
+  const handleSave = async (continueToModules = false) => {
     setIsSaving(true);
     setError(null);
     try {
@@ -123,7 +135,7 @@ export default function NouvelleDemandePage() {
           extracted_criteria: {
             ...jobData
           },
-          status: goToStep4 ? 'active' : 'draft',
+          status: continueToModules ? 'active' : 'draft',
         })
         .select()
         .single();
@@ -131,6 +143,7 @@ export default function NouvelleDemandePage() {
       if (jobError) throw jobError;
       
       setSavedJobId(job.id);
+      setSavedJob(job);
 
       // 2. Insert Skills
       const skillsToInsert = [];
@@ -146,12 +159,10 @@ export default function NouvelleDemandePage() {
         if (skillsError) throw skillsError;
       }
 
-      // Incrémenter l'usage (uniquement si actif ?)
-      // On le fait même pour un brouillon pour l'instant car l'analyse a été faite
       await incrementUserUsage('job');
 
-      if (goToStep4) {
-        setCurrentStep(4);
+      if (continueToModules) {
+        setCurrentStep(3); // Go to module selection
       } else {
         router.push('/jobs');
       }
@@ -163,135 +174,93 @@ export default function NouvelleDemandePage() {
     }
   };
 
+  const handleCriteriaNext = async () => {
+    setIsSaving(true);
+    try {
+      if (assessmentModules.ai_interview) {
+        setCurrentStep(5);
+      } else if (assessmentModules.skills_test) {
+        setCurrentStep(6);
+      } else {
+        setCurrentStep(7);
+      }
+    } catch (err) {
+      toast("Erreur", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleModulesSelectionNext = async () => {
+    setIsSaving(true);
+    try {
+      // Save job (first time)
+      if (!savedJobId) {
+        await handleSave(true);
+      }
+
+      // Initialize basic config in DB for the selected modules
+      await saveAssessmentConfig(savedJobId, {
+        modules: {
+          cv_scoring: { enabled: assessmentModules.cv_scoring },
+          ai_interview: { enabled: assessmentModules.ai_interview },
+          skills_tests: { enabled: assessmentModules.skills_test, tests: [] },
+        }
+      });
+
+      // Move to next step dynamically based on selection
+      if (assessmentModules.cv_scoring) {
+        setCurrentStep(4);
+      } else if (assessmentModules.ai_interview) {
+        setCurrentStep(5);
+      } else if (assessmentModules.skills_test) {
+        setCurrentStep(6);
+      } else {
+        setCurrentStep(7); // Finalization
+      }
+    } catch (err) {
+      toast("Erreur de mise à jour", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleAiConfigNext = async () => {
+    setIsSaving(true);
+    try {
+      if (aiConfigPayload) {
+        await updateJobAiConfig(savedJobId, { ...aiConfigPayload, enabled: true });
+      }
+      if (assessmentModules.skills_test) {
+        setCurrentStep(6);
+      } else {
+        setCurrentStep(7); // Finalization
+      }
+    } catch (err) {
+      toast("Erreur de sauvegarde", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleSkillsConfigNext = async () => {
+    setIsSaving(true);
+    try {
+      if (skillsConfigPayload) {
+        await saveAssessmentConfig(savedJobId, {
+          modules: {
+            cv_scoring: { enabled: assessmentModules.cv_scoring },
+            ai_interview: { enabled: assessmentModules.ai_interview },
+            skills_tests: { enabled: assessmentModules.skills_test, tests: skillsConfigPayload.tests || [] },
+          }
+        });
+      }
+      setCurrentStep(7);
+    } catch (err) {
+      toast("Erreur de sauvegarde", "error");
+    }
+    setIsSaving(false);
+  };
+
   const handleFieldChange = (field, value) => {
     setJobData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleCVDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
-    handleCVFiles(files);
-  };
-  
-  const handleCVChange = (e) => {
-    const files = Array.from(e.target.files).filter(f => f.name.endsWith('.csv'));
-    handleCVFiles(files);
-  };
-  
-  const handleCVFiles = async (files) => {
-    if (files.length === 0) return;
-    const file = files[0];
-    
-    setIsImporting(true);
-    const Papa = await import('papaparse');
-    
-    Papa.default.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async function(results) {
-        const rows = results.data;
-        if (rows.length === 0) {
-          setIsImporting(false);
-          return;
-        }
-
-        const quota = await checkUserQuota('candidate');
-        if (!quota.allowed) {
-          setError(quota.error);
-          setIsImporting(false);
-          return;
-        }
-        
-        setImportProgress({ current: 0, total: rows.length });
-        const processedCandidates = [];
-        
-        for (let index = 0; index < rows.length; index++) {
-          const row = rows[index];
-          setImportProgress(prev => ({ ...prev, current: index + 1 }));
-          
-          const name = row['Name'] || row['Nom'] || row['First Name'] || row['Prénom'] || row['Candidate'] || `Candidat ${index + 1}`;
-          const email = row['Email'] || row['E-mail'] || row['Courriel'] || '';
-          
-          let cvText = null;
-          const cvKeywords = ['cv', 'resume', 'expérience', 'experience', 'description', 'profil', 'profile', 'parcours'];
-          
-          for (const [key, value] of Object.entries(row)) {
-            if (!value || typeof value !== 'string') continue;
-            const lowerKey = key.toLowerCase();
-            if (cvKeywords.some(k => lowerKey.includes(k))) {
-              if (value.length > 250 && !value.includes('http://') && !value.includes('https://')) {
-                cvText = value;
-                break;
-              }
-            }
-          }
-
-          if (!cvText) {
-            const combined = Object.values(row)
-              .filter(v => typeof v === 'string' && !v.includes('http://') && !v.includes('https://'))
-              .join(' \n');
-            if (combined.length > 400) cvText = combined;
-          }
-
-          if (cvText) {
-            try {
-              const enrichedCvText = `Nom du candidat: ${name}\nEmail: ${email}\n\nProfil/CV:\n${cvText}`;
-              const result = await scoreCandidate(savedJobId, enrichedCvText, jobData, name);
-              if (result.success) {
-                processedCandidates.push(result.candidate);
-                await incrementUserUsage('candidate');
-              }
-            } catch (err) {
-              console.error(`Erreur pour ${name}:`, err);
-            }
-          }
-        }
-        
-        setIsImporting(false);
-        setCandidates(processedCandidates);
-        // Redirection automatique vers la page de la demande
-        router.push(`/jobs/${savedJobId}`);
-      }
-    });
-  };
-
-  const handleIndividualCVChange = async (e, candidateId) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Vérification quota
-    const quota = await checkUserQuota('candidate');
-    if (!quota.allowed) {
-      setError(quota.error);
-      return;
-    }
-    
-    setCandidates(prev => prev.map(p => p.id === candidateId ? { ...p, status: 'analyzing' } : p));
-    
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      const cvText = await parseFile(formData);
-      
-      const cand = candidates.find(c => c.id === candidateId) || { name: 'Candidat' };
-      const result = await scoreCandidate(savedJobId, cvText, jobData, cand.name);
-      
-      if (!result.success) throw new Error(result.error);
-      
-      setCandidates(prev => prev.map(p => p.id === candidateId ? { 
-        ...p, 
-        status: 'completed', 
-        score: result.candidate.score_cv,
-        dbId: result.candidate.id
-      } : p));
-
-      // Incrémenter l'usage
-      await incrementUserUsage('candidate');
-    } catch (err) {
-      console.error("Erreur CV individuel:", err);
-      setCandidates(prev => prev.map(p => p.id === candidateId ? { ...p, status: 'error' } : p));
-    }
   };
 
   return (
@@ -341,8 +310,22 @@ export default function NouvelleDemandePage() {
       )}
 
       <div style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          {[1, 2, 3, 4, 5, 6, 7].map(step => (
+            <div key={step} style={{
+              flex: 1, height: '4px', borderRadius: '4px',
+              background: currentStep >= step ? 'var(--primary)' : 'var(--secondary)'
+            }} />
+          ))}
+        </div>
         <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--foreground)' }}>
-          {currentStep === 1 ? "Recherche" : currentStep === 2 ? "Détails" : currentStep === 3 ? "Récapitulatif" : "Talents"}
+          {currentStep === 1 ? "1. Offre d'emploi" : 
+           currentStep === 2 ? "2. Détails" : 
+           currentStep === 3 ? "3. Choix des évaluations" :
+           currentStep === 4 ? "4. Critères de Scoring" : 
+           currentStep === 5 ? "5. Paramètres de l'Assessment" : 
+           currentStep === 6 ? "6. Paramètres des Tests Techniques" : 
+           "7. Finalisation"}
         </h3>
       </div>
 
@@ -499,341 +482,277 @@ export default function NouvelleDemandePage() {
         )}
 
         {currentStep === 3 && (
-          <div style={{ flex: 1 }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Récapitulatif de la demande</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Vérifiez toutes les informations avant de valider votre recherche.
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Choix des évaluations</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
+              Sélectionnez les modules que les candidats devront compléter lorsqu'ils postuleront.
             </p>
             
-            <div style={{ padding: '2rem', backgroundColor: 'var(--background)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                 <div>
-                   <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--foreground)' }}>{jobData?.title || 'Poste sans titre'}</h3>
-                   <p style={{ color: 'var(--muted-foreground)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                     <span className="badge badge-outline">{jobData?.category}</span>
-                     <span>•</span>
-                     <span>{jobData?.location || 'Localisation non précisée'}</span>
-                   </p>
-                 </div>
-                 <div style={{ textAlign: 'right' }}>
-                   <p style={{ fontWeight: '500', color: 'var(--primary)' }}>{jobData?.work_mode === 'onsite' ? 'Présentiel' : jobData?.work_mode === 'hybrid' ? 'Hybride' : jobData?.work_mode === 'remote' ? 'Télétravail' : 'Mode non précisé'}</p>
-                   <p style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>
-                     {jobData?.contract_type}
-                   </p>
-                 </div>
-               </div>
-               
-               <hr className="divider" style={{ margin: '1.5rem 0' }} />
-               
-               <div style={{ marginBottom: '2rem' }}>
-                 <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Description du poste</h4>
-                 <p style={{ fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'var(--foreground)' }}>{jobData?.clean_description}</p>
-               </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* CV Scoring */}
+              <label onClick={() => setAssessmentModules(prev => ({ ...prev, cv_scoring: !prev.cv_scoring }))} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+                background: assessmentModules.cv_scoring ? 'var(--accent)' : 'var(--card)', 
+                border: `1.5px solid ${assessmentModules.cv_scoring ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+                  border: `2px solid ${assessmentModules.cv_scoring ? 'var(--primary)' : 'var(--border)'}`,
+                  background: assessmentModules.cv_scoring ? 'var(--primary)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assessmentModules.cv_scoring && <Check size={13} style={{ color: 'white' }} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Scoring de CV par IA</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>L'IA analyse le CV du candidat et le compare automatiquement aux critères que vous définissez.</p>
+                </div>
+              </label>
 
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                 <div>
-                   <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Critères</h4>
-                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                     <li style={{ fontSize: '14px' }}><strong>Diplôme:</strong> {jobData?.education_level || 'Indifférent'}</li>
-                     <li style={{ fontSize: '14px' }}><strong>Expérience:</strong> {jobData?.years_of_experience || 'Non précisée'}</li>
-                     <li style={{ fontSize: '14px' }}><strong>Nombre de talents:</strong> {jobData?.talents_needed || 1}</li>
-                   </ul>
-                 </div>
+              {/* AI Interview */}
+              <label onClick={() => setAssessmentModules(prev => ({ ...prev, ai_interview: !prev.ai_interview }))} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+                background: assessmentModules.ai_interview ? 'var(--accent)' : 'var(--card)', 
+                border: `1.5px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+                  border: `2px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
+                  background: assessmentModules.ai_interview ? 'var(--primary)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assessmentModules.ai_interview && <Check size={13} style={{ color: 'white' }} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Interview IA par Texte</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>L'assistant mène un entretien personnalisé pour valider les motivations et l'expertise du candidat.</p>
+                </div>
+              </label>
 
-                 <div>
-                   <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Langues</h4>
-                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                     {jobData?.languages?.length > 0 ? jobData.languages.map(l => (
-                       <span key={l.name} className="badge badge-outline" style={{ background: '#f8fafc' }}>
-                         {l.name} (Niveau {l.level})
-                       </span>
-                     )) : <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Non spécifié</span>}
-                   </div>
-                 </div>
-               </div>
-
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                 <div>
-                    <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Hard Skills</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      {jobData?.hard_skills?.length > 0 ? jobData.hard_skills.map(s => (
-                        <span key={s.name} className="badge" style={{ 
-                          background: s.priority === 'must_have' ? 'var(--primary)' : 'white', 
-                          color: s.priority === 'must_have' ? 'white' : 'var(--primary)',
-                          border: '1px solid var(--primary)'
-                        }}>
-                          {s.name}
-                        </span>
-                      )) : <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Non spécifié</span>}
-                    </div>
-                  </div>
-
-                 <div>
-                   <h4 style={{ fontSize: '14px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Soft Skills</h4>
-                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                     {jobData?.soft_skills?.length > 0 ? jobData.soft_skills.map(s => (
-                       <span key={s.name} className="badge" style={{ 
-                         background: s.priority === 'must_have' ? 'var(--primary)' : 'white', 
-                         color: s.priority === 'must_have' ? 'white' : 'var(--primary)',
-                         border: '1px solid var(--primary)'
-                       }}>
-                         {s.name}
-                       </span>
-                     )) : <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Non spécifié</span>}
-                   </div>
-                 </div>
-               </div>
-
+              {/* Skills Tests */}
+              <label onClick={() => setAssessmentModules(prev => ({ ...prev, skills_test: !prev.skills_test }))} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+                background: assessmentModules.skills_test ? 'var(--accent)' : 'var(--card)', 
+                border: `1.5px solid ${assessmentModules.skills_test ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+                  border: `2px solid ${assessmentModules.skills_test ? 'var(--primary)' : 'var(--border)'}`,
+                  background: assessmentModules.skills_test ? 'var(--primary)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assessmentModules.skills_test && <Check size={13} style={{ color: 'white' }} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Tests Techniques QCM</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Proposez des tests certifiés pour valider des compétences pointues de manière neutre.</p>
+                </div>
+              </label>
             </div>
           </div>
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 4 && jobData && assessmentModules.cv_scoring && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Importer vos candidats (ATS)</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
-              Importez l'export CSV contenant les candidats de votre ATS. Notre IA évaluera instantanément chaque profil face à vos critères.
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Critères de Scoring CV</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Définissez les éléments clés que l'IA doit rechercher dans les CV pour calculer le score de correspondance.
             </p>
+            <CvScoringCriteria 
+              criteria={jobData.selection_criteria} 
+              onChange={(newCriteria) => setJobData(prev => ({ ...prev, selection_criteria: newCriteria }))} 
+            />
+          </div>
+        )}
 
-            {/* Dropzone */}
-            <div 
-              style={{ 
-                border: '2px dashed var(--border)', 
-                borderRadius: '12px', 
-                padding: '4rem 2rem', 
-                textAlign: 'center',
-                backgroundColor: 'var(--background)',
-                transition: 'all 0.2s',
-                cursor: 'pointer',
-                marginBottom: '2rem'
-              }}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-              onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.backgroundColor = 'var(--background)'; }}
-              onDrop={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.backgroundColor = 'var(--background)';
-                handleCVDrop(e);
-              }}
-              onClick={() => cvInputRef.current?.click()}
-            >
-              <div style={{ width: '64px', height: '64px', background: '#f1f5f9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--primary)' }}>
-                <UploadCloud size={32} />
+        {currentStep === 5 && savedJob && assessmentModules.ai_interview && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Paramètres de l'Assessment</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Personnalisez les questions et le comportement de votre assistant recruteur.
+            </p>
+            <AiInterviewConfig 
+              job={savedJob} 
+              embedded={true} 
+              hideSaveBar={true} 
+              onChange={setAiConfigPayload} 
+            />
+          </div>
+        )}
+
+        {currentStep === 6 && savedJob && assessmentModules.skills_test && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Choix des Tests Techniques</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Sélectionnez les évaluations pertinentes pour vérifier le socle de compétences.
+            </p>
+            <SkillsTestConfig 
+              jobId={savedJob.id}
+              config={{ enabled: true, tests: [] }}
+              onChange={setSkillsConfigPayload}
+            />
+          </div>
+        )}
+
+        {currentStep === 7 && savedJob && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2rem 0' }} className="fade-in">
+            <div style={{ width: '80px', height: '80px', background: '#dcfce7', color: '#166534', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <CheckCircle2 size={40} />
+            </div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--foreground)' }}>Offre créée avec succès !</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', maxWidth: '500px' }}>
+              Votre offre <strong>{savedJob.title}</strong> est prête. Les candidats peuvent maintenant s'inscrire et passer les évaluations (CV, tests et interview IA) de manière autonome.
+            </p>
+            
+            <div style={{ width: '100%', maxWidth: '600px', background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem', marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <LinkIcon size={16} /> Lien public pour postuler
+              </h3>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/apply/${savedJob.id}`}
+                  style={{ flex: 1, padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'white', fontSize: '14px', color: 'var(--foreground)' }}
+                />
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/apply/${savedJob.id}`);
+                    toast("Lien copié dans le presse-papier !");
+                  }}
+                >
+                  <Copy size={16} /> Copier
+                </button>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem', color: 'var(--foreground)' }}>Cliquez ou glissez votre fichier CSV ici</h3>
-              <p style={{ color: 'var(--muted-foreground)', fontSize: '14px' }}>Formats supportés : CSV.</p>
-              
-              <input 
-                type="file" 
-                ref={cvInputRef} 
-                onChange={handleCVChange} 
-                accept=".csv" 
-                style={{ display: 'none' }} 
-              />
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '1rem' }}>
+                Partagez ce lien sur LinkedIn, votre site carrière ou dans vos emails de prospection.
+              </p>
             </div>
 
-            {/* Liste des candidats uploadés */}
-            {candidates.length > 0 && (
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--foreground)' }}>Candidats en cours d'analyse ({candidates.length})</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {candidates.map(candidate => (
-                    <div key={candidate.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'white', borderRadius: 'var(--radius)', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                          <FileText size={20} />
-                        </div>
-                        <div>
-                          <p style={{ fontWeight: '500', fontSize: '14px', color: 'var(--foreground)' }}>{candidate.name}</p>
-                          <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
-                            {candidate.status === 'pending' && 'En file d\'attente...'}
-                            {candidate.status === 'analyzing' && 'Analyse IA en cours...'}
-                            {candidate.status === 'completed' && 'Analyse terminée'}
-                            {candidate.status === 'error' && 'Erreur d\'analyse'}
-                            {candidate.status === 'needs_cv' && 'Fichier CV manquant'}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        {candidate.status === 'pending' || candidate.status === 'analyzing' ? (
-                          <Loader2 size={18} className="spin" style={{ color: 'var(--primary)' }} />
-                        ) : candidate.status === 'completed' ? (
-                          <div style={{ background: '#f0fdf4', color: '#166534', padding: '4px 10px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Check size={14} /> Score: {candidate.score}/100
-                          </div>
-                        ) : candidate.status === 'needs_cv' ? (
-                          <div>
-                            <input 
-                              type="file" 
-                              id={`cv-upload-${candidate.id}`}
-                              accept=".pdf,.docx" 
-                              style={{ display: 'none' }}
-                              onChange={(e) => handleIndividualCVChange(e, candidate.id)}
-                            />
-                            <button 
-                              className="btn btn-outline" 
-                              style={{ fontSize: '12px', padding: '0.25rem 0.75rem', height: 'auto' }}
-                              onClick={() => document.getElementById(`cv-upload-${candidate.id}`).click()}
-                            >
-                              <Paperclip size={14} style={{ marginRight: '4px' }} />
-                              Importer CV
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <button 
+              className="btn btn-outline" 
+              onClick={() => router.push(`/jobs/${savedJob.id}`)}
+              style={{ padding: '12px 24px' }}
+            >
+              Aller au tableau de bord de l'offre
+            </button>
           </div>
         )}
 
         {/* Navigation */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-          {currentStep > 1 && currentStep < 4 ? (
+          {currentStep > 1 && currentStep < 7 ? (
             <button 
-              className="btn btn-outline" 
-              onClick={() => setCurrentStep(prev => prev - 1)}
+              className="btn btn-ghost" 
+              style={{ fontWeight: '600' }}
+              onClick={() => {
+                if (currentStep === 4) setCurrentStep(3);
+                else if (currentStep === 5) setCurrentStep(assessmentModules.cv_scoring ? 4 : 3);
+                else if (currentStep === 6) setCurrentStep(assessmentModules.ai_interview ? 5 : assessmentModules.cv_scoring ? 4 : 3);
+                else setCurrentStep(prev => prev - 1);
+              }}
             >
               Retour
             </button>
           ) : (
-            <div></div> // empty div for space-between
+            <div></div>
           )}
           
-          {currentStep === 1 ? (
-             <button 
-              className="btn btn-primary"
-              onClick={() => handleAnalyze()}
-              disabled={isAnalyzing || isParsingFile || rawDescription.trim().length === 0}
-            >
-              {isAnalyzing || isParsingFile ? (
-                <>
-                  <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                  Recherche en cours...
-                </>
-              ) : (
-                <>
-                  <Search size={18} />
-                  Rechercher
-                </>
-              )}
-            </button>
-          ) : currentStep === 2 ? (
+          {currentStep === 1 && (
             <button 
               className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={() => handleAnalyze()}
+              disabled={isAnalyzing || rawDescription.trim().length === 0}
+            >
+              {isAnalyzing ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
+              Suivant
+            </button>
+          )}
+
+          {currentStep === 2 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
               onClick={() => setCurrentStep(3)}
             >
               Suivant
-              <ChevronRight size={18} />
             </button>
-          ) : currentStep === 3 ? (
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className="btn btn-outline"
-                onClick={() => handleSave(false)}
-                disabled={isSaving}
-              >
-                {isSaving && !savedJobId ? <Loader2 size={16} className="spin" /> : null}
-                Enregistrer pour plus tard
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={() => handleSave(true)}
-                disabled={isSaving}
-              >
-                {isSaving && !savedJobId ? <Loader2 size={16} className="spin" /> : null}
-                Créer l'offre et ajouter des candidats
-              </button>
-            </div>
-          ) : currentStep === 4 ? (
+          )}
+
+          {currentStep === 3 && (
             <button 
               className="btn btn-primary"
-              onClick={() => router.push(`/jobs/${savedJobId}`)}
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleModulesSelectionNext}
+              disabled={isSaving}
             >
-              Voir les candidats
+              {isSaving ? <Loader2 size={18} className="spin" /> : null}
+              Valider et continuer
             </button>
-          ) : null}
+          )}
+
+          {currentStep === 4 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleCriteriaNext}
+              disabled={isSaving}
+            >
+              Suivant
+            </button>
+          )}
+
+          {currentStep === 5 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleAiConfigNext}
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 size={18} className="spin" /> : null}
+              Suivant
+            </button>
+          )}
+
+          {currentStep === 6 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleSkillsConfigNext}
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 size={18} className="spin" /> : null}
+              Terminer la configuration
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Overlay d'importation globale */}
-      {isImporting && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 999,
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem', textAlign: 'center'
-        }}>
-          <div style={{ maxWidth: '500px', width: '100%' }}>
-            <div style={{
-              width: '80px', height: '80px', background: 'var(--primary-light)',
-              color: 'var(--primary)', borderRadius: '24px', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem',
-              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.3)'
-            }}>
-              <Sparkles size={40} className="pulse" />
-            </div>
-            
-            <h2 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '1rem', color: 'var(--foreground)' }}>
-              Analyse de vos candidats...
-            </h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.6' }}>
-              Chaque profil est comparé à votre offre d'emploi pour calculer un score de match précis.
-            </p>
-
-            <div style={{ background: 'var(--secondary)', borderRadius: '12px', height: '12px', width: '100%', overflow: 'hidden', marginBottom: '1rem' }}>
-              <div style={{
-                height: '100%', background: 'var(--primary)',
-                width: `${(importProgress.current / importProgress.total) * 100}%`,
-                transition: 'width 0.3s ease-out'
-              }} />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: '600' }}>
-              <span style={{ color: 'var(--primary)' }}>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
-              <span style={{ color: 'var(--muted-foreground)' }}>{importProgress.current} / {importProgress.total}</span>
-            </div>
-            
-            <p style={{ marginTop: '3rem', fontSize: '13px', fontStyle: 'italic', color: 'var(--muted-foreground)' }}>
-              Vous allez être redirigé vers le tableau de bord dès que l'analyse est terminée.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Overlay d'analyse de l'offre */}
       {(isAnalyzing || isParsingFile) && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 999,
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
+          background: 'rgba(255, 255, 255, 0.97)',
+          backdropFilter: 'blur(12px)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           padding: '2rem', textAlign: 'center'
         }}>
-          <div style={{ maxWidth: '500px', width: '100%' }}>
-            <div style={{
-              width: '80px', height: '80px', background: 'var(--primary-light)',
-              color: 'var(--primary)', borderRadius: '24px', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem',
-              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.3)',
-              animation: 'pulse 2s infinite ease-in-out'
-            }}>
-              <Search size={40} />
-            </div>
-            
-            <h2 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '1rem', color: 'var(--foreground)' }}>
-              Recherche des critères...
+          <div style={{ maxWidth: '480px', width: '100%' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.75rem', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
+              Analyse de l'offre en cours…
             </h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.6' }}>
-              Analyse de votre besoin pour structurer automatiquement la demande et définir les meilleurs critères de sélection.
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.7', fontSize: '15px' }}>
+              Notre IA lit et structure votre offre d'emploi pour définir automatiquement les critères d'évaluation des candidats.
             </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
-              <Loader2 className="spin" size={20} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontWeight: '600', color: 'var(--primary)' }}>Intelligence Artificielle en action</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
+              <Loader2 className="spin" size={18} style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--foreground)' }}>Intelligence artificielle en action</span>
             </div>
           </div>
         </div>

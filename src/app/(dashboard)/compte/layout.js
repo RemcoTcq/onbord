@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Shield } from "lucide-react";
+import { User, Shield, Palette } from "lucide-react";
 
 export default function AccountLayout({ children }) {
   const pathname = usePathname();
 
   const tabs = [
     { name: "Informations générales", href: "/compte", icon: User, exact: true },
+    { name: "Branding & Logo", href: "/compte/branding", icon: Palette, exact: false },
     { name: "Sécurité & Connexion", href: "/compte/securite", icon: Shield, exact: false },
   ];
 

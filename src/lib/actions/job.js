@@ -42,8 +42,12 @@ Structure JSON attendue :
   "languages": [
     { "name": "Nom de la langue", "level": "Niveau requis si mentionné de 1 à 5" }
   ],
+  "selection_criteria": [
+    { "name": "Critère de sélection pour le scoring CV (ex: Maîtrise de React.js)", "weight": 20 }
+  ],
   "clean_description": "Un résumé propre et formaté (quelques paragraphes max) des missions et du profil recherché."
 }
+Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
 `;
 
   try {

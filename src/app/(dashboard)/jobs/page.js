@@ -39,13 +39,13 @@ export default function JobsPage() {
   async function handleDelete(e, jobId) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("Supprimer ce job et tous ses candidats ?")) return;
+    if (!confirm("Supprimer cette évaluation et tous ses candidats ?")) return;
     setDeletingId(jobId);
     try {
       const res = await deleteJob(jobId);
       if (res.success) {
         setJobs(prev => prev.filter(j => j.id !== jobId));
-        toast("Job supprimé");
+        toast("Évaluation supprimée");
       } else {
         toast(res.error || "Erreur lors de la suppression", "error");
       }
@@ -80,40 +80,16 @@ export default function JobsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Jobs</h1>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>Gérez vos recrutements.</p>
+          <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Évaluations</h1>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>Gérez vos évaluations et suivez vos candidats.</p>
         </div>
         <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
           <Plus size={15} />
-          Nouveau job
+          Nouvelle évaluation
         </Link>
       </div>
 
-      {/* 3 Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
-        {[
-          { label: "Jobs actifs", value: activeJobs.length, icon: Briefcase },
-          { label: "Candidats en pipeline", value: allCandidates.length, icon: Users },
-          { label: "Entretiens complétés", value: interviewsDone, icon: MessageSquare },
-        ].map((m, i) => {
-          const Icon = m.icon;
-          return (
-            <div key={i} className="card" style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              <div style={{
-                width: "36px", height: "36px", borderRadius: "4px",
-                background: "var(--secondary)", display: "flex",
-                alignItems: "center", justifyContent: "center", flexShrink: 0
-              }}>
-                <Icon size={16} style={{ color: "var(--muted-foreground)" }} />
-              </div>
-              <div>
-                <p style={{ fontSize: "22px", fontWeight: "700", color: "var(--foreground)", lineHeight: 1, letterSpacing: "-0.02em" }}>{m.value}</p>
-                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "2px" }}>{m.label}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+
 
       {/* Tabs + Search */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
@@ -152,14 +128,14 @@ export default function JobsPage() {
       {filteredJobs.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
           <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
-            {tab === "active" ? "Aucun job actif" : "Aucun brouillon"}
+            {tab === "active" ? "Aucune évaluation active" : "Aucun brouillon"}
           </p>
           <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
-            {tab === "active" ? "Créez votre premier job pour démarrer." : "Vos jobs non publiés apparaîtront ici."}
+            {tab === "active" ? "Créez votre première évaluation pour démarrer." : "Vos évaluations non publiées apparaîtront ici."}
           </p>
           {tab === "active" && (
             <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Plus size={14} /> Créer un job
+              <Plus size={14} /> Créer une évaluation
             </Link>
           )}
         </div>
