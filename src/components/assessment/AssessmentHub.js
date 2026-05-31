@@ -154,32 +154,6 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          {recruiter?.company_logo_url ? (
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
-              <div style={{ 
-                height: "56px", 
-                maxWidth: "200px", 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "center",
-                overflow: "hidden" 
-              }}>
-                <img 
-                  src={recruiter.company_logo_url} 
-                  alt={companyName || "Logo"} 
-                  style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} 
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              width: "56px", height: "56px", borderRadius: "12px",
-              background: "var(--primary)", color: "white", marginBottom: "1.25rem"
-            }}>
-              <Trophy size={28} />
-            </div>
-          )}
           <h1 style={{ fontSize: "1.75rem", fontWeight: "800", color: "var(--foreground)", marginBottom: "0.5rem", letterSpacing: "-0.02em" }}>
             Votre assessment
           </h1>
@@ -199,12 +173,15 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
             modules.tests && testsCompleted,
             modules.interview && interviewStatus === "completed",
           ].filter(Boolean).length;
+          const remaining = total - done;
           const pct = total > 0 ? Math.round((done / total) * 100) : 0;
           return (
             <div style={{ marginBottom: "2rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                 <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--foreground)" }}>Progression</span>
-                <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary)" }}>{done}/{total} complété{done > 1 ? "s" : ""}</span>
+                <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary)" }}>
+                  {remaining > 0 ? `Il vous reste ${remaining} activité${remaining > 1 ? "s" : ""} à compléter` : "Toutes les activités sont complétées"}
+                </span>
               </div>
               <div style={{ height: "8px", background: "var(--border)", borderRadius: "99px", overflow: "hidden" }}>
                 <div style={{
@@ -222,7 +199,6 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
           {modules.cv && (
             <ModuleCard
-              icon={<FileText size={22} />}
               title="Curriculum Vitae"
               description="Importez votre CV au format PDF pour que nous puissions évaluer votre profil."
               duration="~2 min"
@@ -233,7 +209,6 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
           {modules.tests && (
             <ModuleCard
-              icon={<Brain size={22} />}
               title="Tests de compétences"
               description={`${selectedTests.length} test${selectedTests.length > 1 ? "s" : ""} à compléter. Questions chronométrées.`}
               duration={`~${selectedTests.length * 5} min`}
@@ -244,7 +219,6 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
           {modules.interview && (
             <ModuleCard
-              icon={<MessageSquare size={22} />}
               title="Entretien"
               description="Répondez aux questions de notre assistant IA pour partager votre expérience et motivation."
               duration="~10-15 min"
@@ -289,7 +263,7 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 }
 
 // ─── Module Card ─────────────────────────────────────────────────────────────
-function ModuleCard({ icon, title, description, duration, status, onOpen }) {
+function ModuleCard({ title, description, duration, status, onOpen }) {
   const isCompleted = status === "completed";
   const isLoading = status === "loading";
   const isInProgress = status === "in_progress";
@@ -314,16 +288,6 @@ function ModuleCard({ icon, title, description, duration, status, onOpen }) {
       onMouseEnter={(e) => { if (!isCompleted && !isLoading) e.currentTarget.style.borderColor = "var(--primary)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = isCompleted ? "#bbf7d0" : "var(--border)"; }}
     >
-      {/* Icon */}
-      <div style={{
-        width: "48px", height: "48px", borderRadius: "10px", flexShrink: 0,
-        background: isCompleted ? "#dcfce7" : "var(--primary-light, #eef2ff)",
-        color: isCompleted ? "#166534" : "var(--primary)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        {isCompleted ? <CheckCircle2 size={22} /> : icon}
-      </div>
-
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
