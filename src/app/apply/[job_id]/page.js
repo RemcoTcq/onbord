@@ -84,9 +84,6 @@ export default function ApplyPage() {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "20px" }}>
       <div className="card" style={{ maxWidth: "500px", width: "100%", padding: "2rem" }}>
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div style={{ width: "56px", height: "56px", background: "var(--primary-light)", color: "var(--primary)", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
-            <Briefcase size={28} />
-          </div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: "800", marginBottom: "0.5rem", color: "var(--foreground)" }}>
             Postuler : {job.title}
           </h1>
