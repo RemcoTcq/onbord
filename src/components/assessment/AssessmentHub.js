@@ -106,14 +106,12 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   // ─── Active module view ───────────────────────────────────────────────────
   if (activeModule === "cv") {
     return (
-      <FullscreenGuard onCheat={handleCheat} candidateId={candidate.id}>
-        <CvUploadModule
-          candidate={candidate}
-          job={job}
-          onComplete={() => { setCvStatus("completed"); setActiveModule(null); }}
-          onBack={() => setActiveModule(null)}
-        />
-      </FullscreenGuard>
+      <CvUploadModule
+        candidate={candidate}
+        job={job}
+        onComplete={() => { setCvStatus("completed"); setActiveModule(null); }}
+        onBack={() => setActiveModule(null)}
+      />
     );
   }
   if (activeModule === "tests") {
