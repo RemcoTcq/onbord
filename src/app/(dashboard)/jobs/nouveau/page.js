@@ -615,13 +615,19 @@ export default function NouvelleDemandePage() {
                 <input 
                   type="text" 
                   readOnly 
-                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/apply/${savedJob.id}`}
+                  value={(() => {
+                    if (typeof window === 'undefined') return '';
+                    const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+                    return isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://candidate.onbord.be/apply/${savedJob.id}`;
+                  })()}
                   style={{ flex: 1, padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'white', fontSize: '14px', color: 'var(--foreground)' }}
                 />
                 <button 
                   className="btn btn-primary"
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/apply/${savedJob.id}`);
+                    const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+                    const link = isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://candidate.onbord.be/apply/${savedJob.id}`;
+                    navigator.clipboard.writeText(link);
                     toast("Lien copié dans le presse-papier !");
                   }}
                 >

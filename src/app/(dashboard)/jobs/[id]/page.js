@@ -116,7 +116,8 @@ export default function JobDetailPage() {
 
   function copyApplyLink() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${origin}/apply/${jobId}`;
+    const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
+    const link = isLocal ? `${origin}/apply/${jobId}` : `https://candidate.onbord.be/apply/${jobId}`;
     navigator.clipboard.writeText(link);
     setCopiedId("apply_link");
     setTimeout(() => setCopiedId(null), 3000);
