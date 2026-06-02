@@ -55,17 +55,27 @@ export default function AssessmentPage() {
 
       // Fetch recruiter details for branding
       if (cand.jobs && cand.jobs.user_id) {
+        const recruiterId = cand.jobs.user_id;
+
+        // Récupérer les infos de branding
         const { data: rec } = await supabase
           .from("users")
-          .select("id, company_name, company_logo_url, brand_primary_color, brand_secondary_color, plan")
-          .eq("id", cand.jobs.user_id)
+          .select("id, company_name, company_logo_url, brand_primary_color, brand_secondary_color")
+          .eq("id", recruiterId)
           .single();
 
-        if (rec) {
-          const plan = rec.plan || "core";
-          if (plan === "pro" || plan === "enterprise" || plan === "beta") {
-            setRecruiter(rec);
-          }
+        // Vérifier si le plan autorise le branding (via user_usage)
+        const { data: usage } = await supabase
+          .from("user_usage")
+          .select("plan")
+          .eq("user_id", recruiterId)
+          .single();
+
+        const plan = usage?.plan || "beta";
+        const plansWithBranding = ["core", "scale", "enterprise", "beta"];
+
+        if (rec && plansWithBranding.includes(plan)) {
+          setRecruiter(rec);
         }
       }
 
