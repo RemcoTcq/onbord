@@ -547,7 +547,7 @@ export default function NouvelleDemandePage() {
                   {assessmentModules.skills_test && <Check size={13} style={{ color: 'white' }} />}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Tests Techniques QCM</h3>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Tests de compétences</h3>
                   <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Proposez des tests certifiés pour valider des compétences pointues de manière neutre.</p>
                 </div>
               </label>
@@ -618,7 +618,7 @@ export default function NouvelleDemandePage() {
                   value={(() => {
                     if (typeof window === 'undefined') return '';
                     const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
-                    return isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://candidate.onbord.be/apply/${savedJob.id}`;
+                    return isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://app.onbord.be/apply/${savedJob.id}`;
                   })()}
                   style={{ flex: 1, padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'white', fontSize: '14px', color: 'var(--foreground)' }}
                 />
@@ -626,7 +626,7 @@ export default function NouvelleDemandePage() {
                   className="btn btn-primary"
                   onClick={() => {
                     const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
-                    const link = isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://candidate.onbord.be/apply/${savedJob.id}`;
+                    const link = isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://app.onbord.be/apply/${savedJob.id}`;
                     navigator.clipboard.writeText(link);
                     toast("Lien copié dans le presse-papier !");
                   }}

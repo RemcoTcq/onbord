@@ -149,7 +149,8 @@ export default function AdminTestsPage() {
     cognitif: "Cognitif",
     langue: "Langue",
     metier: "Métier",
-    personnalite: "Personnalité"
+    personnalite: "Personnalité",
+    ia: "IA",
   };
 
   return (
@@ -204,6 +205,7 @@ export default function AdminTestsPage() {
                 <option value="langue">Langue</option>
                 <option value="metier">Métier</option>
                 <option value="personnalite">Personnalité</option>
+                <option value="ia">IA</option>
               </select>
             </div>
             <div>

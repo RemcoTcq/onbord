@@ -9,6 +9,7 @@ const CATEGORY_LABELS = {
   langue: "Langues",
   metier: "Métier",
   personnalite: "Personnalité",
+  ia: "IA",
 };
 
 const CATEGORY_COLORS = {
@@ -16,6 +17,7 @@ const CATEGORY_COLORS = {
   langue:       { bg: "#dbeafe", color: "#1d4ed8" },
   metier:       { bg: "#dcfce7", color: "#166534" },
   personnalite: { bg: "#fce7f3", color: "#9d174d" },
+  ia:           { bg: "#fef3c7", color: "#92400e" },
 };
 
 const MAX_TOTAL_DURATION = 30; // minutes
