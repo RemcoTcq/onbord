@@ -6,8 +6,11 @@ import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
   User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
-  Download, FileDown, FileText, Clock
+  Download, FileDown, FileText, Clock, Sparkles
 } from "lucide-react";
+
+const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
+const CATEGORY_LABELS = { C1: "Stratégie IA", C2: "Prompting", C3: "Esprit critique", C4: "Éthique", C5: "Workflow" };
 import {
   getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
 } from "@/lib/actions/candidate";
@@ -48,6 +51,7 @@ export default function CandidateDetailPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [openAiFeedback, setOpenAiFeedback] = useState({});
 
 
   useEffect(() => {
@@ -392,7 +396,7 @@ export default function CandidateDetailPage() {
             </div>
           )}
 
-          {/* Technical Tests Module */}
+          {/* Tests de compétences */}
           {candidate.test_sessions && candidate.test_sessions.length > 0 && (
             <div className="card" style={{ padding: "1.5rem" }}>
               <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.5rem" }}>
@@ -401,33 +405,99 @@ export default function CandidateDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {candidate.test_sessions.map((session) => {
                   const sStyle = session.score != null ? getScoreColor(session.score) : { bg: "#f3f4f6", color: "#64748b" };
+                  const isAiTest = session.test_id === AI_PROFICIENCY_TEST_ID;
+                  const hasFeedback = isAiTest && session.ai_feedback?.evaluations?.length > 0;
+                  const feedbackOpen = openAiFeedback[session.id];
                   return (
-                    <div key={session.id} style={{ 
-                      padding: "1rem", background: "white", border: "1px solid var(--border)", 
-                      borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" 
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: "700", fontSize: "14px" }}>{session.assessment_tests?.name}</div>
-                        <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{session.assessment_tests?.category} • {session.completed_at ? `Fini le ${new Date(session.completed_at).toLocaleDateString()}` : 'En attente'}</div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                        {session.cheat_flags?.slow_candidate && (
-                          <div style={{ background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ffedd5", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Clock size={12} /> Plus lent que la moyenne
+                    <div key={session.id}>
+                      <div style={{
+                        padding: "1rem", background: "white", border: `1px solid ${isAiTest ? "#e0e7ff" : "var(--border)"}`,
+                        borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        background: isAiTest ? "#fafafe" : "white",
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: "700", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                            {isAiTest && <Sparkles size={14} style={{ color: "#6366f1" }} />}
+                            {session.assessment_tests?.name}
                           </div>
-                        )}
-                        {session.cheat_flags?.top_performer && (
-                          <div style={{ background: "#f5f5f5", color: "#0a0a0a", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <Star size={12} fill="currentColor" /> Top Performer
+                          <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                            {session.assessment_tests?.category} • {session.completed_at ? `Fini le ${new Date(session.completed_at).toLocaleDateString()}` : 'En attente'}
                           </div>
-                        )}
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: "1.25rem", fontWeight: "800", color: sStyle.color }}>{session.score != null ? `${session.score}%` : "—"}</div>
-                          <div style={{ width: "100px", height: "6px", background: "#f1f5f9", borderRadius: "99px", overflow: "hidden", marginTop: "4px" }}>
-                            <div style={{ width: `${session.score || 0}%`, height: "100%", background: sStyle.color }} />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                          {hasFeedback && (
+                            <button
+                              onClick={() => setOpenAiFeedback(prev => ({ ...prev, [session.id]: !feedbackOpen }))}
+                              style={{
+                                fontSize: "11px", fontWeight: "700", padding: "5px 12px", borderRadius: "99px",
+                                background: feedbackOpen ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#ede9fe",
+                                color: feedbackOpen ? "white" : "#6366f1",
+                                border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px",
+                              }}
+                            >
+                              <Sparkles size={11} /> Analyse IA
+                            </button>
+                          )}
+                          {!isAiTest && session.cheat_flags?.slow_candidate && (
+                            <div style={{ background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ffedd5", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <Clock size={12} /> Plus lent que la moyenne
+                            </div>
+                          )}
+                          {!isAiTest && session.cheat_flags?.top_performer && (
+                            <div style={{ background: "#f5f5f5", color: "#0a0a0a", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <Star size={12} fill="currentColor" /> Top Performer
+                            </div>
+                          )}
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "1.25rem", fontWeight: "800", color: sStyle.color }}>{session.score != null ? `${session.score}%` : "—"}</div>
+                            <div style={{ width: "100px", height: "6px", background: "#f1f5f9", borderRadius: "99px", overflow: "hidden", marginTop: "4px" }}>
+                              <div style={{ width: `${session.score || 0}%`, height: "100%", background: isAiTest ? "#6366f1" : sStyle.color }} />
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      {/* AI Feedback panel */}
+                      {hasFeedback && feedbackOpen && (
+                        <div style={{
+                          marginTop: "4px", padding: "1.25rem",
+                          background: "#fafafe", border: "1px solid #e0e7ff",
+                          borderRadius: "10px",
+                        }}>
+                          <p style={{ fontSize: "11px", fontWeight: "700", color: "#6366f1", textTransform: "uppercase", marginBottom: "1rem", letterSpacing: "0.05em" }}>
+                            Analyse IA — {session.ai_feedback.evaluations.length} questions évaluées
+                          </p>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                            {session.ai_feedback.evaluations.map((ev, idx) => {
+                              const scoreLabels = { 0: { label: "Insuffisant", color: "#991b1b", bg: "#fee2e2" }, 1: { label: "Moyen", color: "#92400e", bg: "#fef3c7" }, 2: { label: "Excellent", color: "#166534", bg: "#dcfce7" } };
+                              const sl = scoreLabels[ev.score] || scoreLabels[0];
+                              // Find the question statement from the session
+                              const qIdx = session.answers?.findIndex(a => a.question_id === ev.question_id);
+                              const answer = qIdx >= 0 ? session.answers[qIdx]?.text_answer : null;
+                              return (
+                                <div key={idx} style={{ padding: "0.875rem", background: "white", borderRadius: "8px", border: "1px solid #e0e7ff" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                                    <span style={{ fontSize: "12px", color: "var(--muted-foreground)", fontWeight: "600" }}>Question {idx + 1}</span>
+                                    <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px", background: sl.bg, color: sl.color }}>
+                                      {sl.label} ({ev.score}/2)
+                                    </span>
+                                  </div>
+                                  {answer && (
+                                    <p style={{ fontSize: "12px", color: "var(--foreground)", fontStyle: "italic", marginBottom: "6px", lineHeight: "1.5", borderLeft: "2px solid #c7d2fe", paddingLeft: "8px" }}>
+                                      « {answer} »
+                                    </p>
+                                  )}
+                                  {ev.justification && (
+                                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5" }}>
+                                      🧠 {ev.justification}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Clock, Loader2, AlertCircle, Coffee } from "lucide-react";
-import { getOrCreateTestSession, getQuestionsForSession, saveTestAnswer, completeTestSession } from "@/lib/actions/assessment";
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Clock, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { getOrCreateTestSession, getQuestionsForSession, saveTestAnswer, completeTestSession, saveOpenAnswer, completeOpenTestSession } from "@/lib/actions/assessment";
 import { createClient } from "@/lib/supabase/client";
+
+const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
 
 // ─── Main module ─────────────────────────────────────────────────────────────
 export default function SkillsTestModule({ candidate, job, recruiter, testsConfig, testSessions, onComplete, onBack }) {
@@ -37,6 +39,22 @@ export default function SkillsTestModule({ candidate, job, recruiter, testsConfi
   // ─── Active test ───────────────────────────────────────────────────────────
   if (activeTestId) {
     const testConfig = selectedTests.find((t) => t.test_id === activeTestId);
+    const isOpenTest = activeTestId === AI_PROFICIENCY_TEST_ID;
+
+    if (isOpenTest) {
+      return (
+        <OpenTestRunner
+          candidate={candidate}
+          testId={activeTestId}
+          recruiter={recruiter}
+          questionIds={testConfig?.selected_question_ids || []}
+          existingSession={getSession(activeTestId)}
+          onComplete={(score) => handleTestComplete(activeTestId, score)}
+          onBack={() => setActiveTestId(null)}
+        />
+      );
+    }
+
     return (
       <TestRunner
         candidate={candidate}
@@ -404,6 +422,256 @@ function TestRunner({ candidate, testId, recruiter, questionIds, existingSession
               <Loader2 size={20} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Open Test Runner (AI Proficiency Test) ───────────────────────────────────
+function OpenTestRunner({ candidate, testId, recruiter, questionIds, existingSession, onComplete, onBack }) {
+  const [questions, setQuestions] = useState([]);
+  const [session, setSession] = useState(existingSession);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [textAnswer, setTextAnswer] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const questionStartRef = useRef(Date.now());
+
+  const CATEGORIES = { C1: "Stratégie IA", C2: "Prompting", C3: "Esprit critique", C4: "Éthique", C5: "Workflow" };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+    let currentSession = existingSession;
+    if (!currentSession) {
+      const res = await getOrCreateTestSession(candidate.id, testId);
+      if (res.success) currentSession = res.session;
+    }
+    setSession(currentSession);
+
+    const res = await getQuestionsForSession(questionIds);
+    if (res.success) {
+      setQuestions(res.questions);
+      // Resume from first unanswered
+      const answered = (currentSession?.answers || []).map((a) => a.question_id);
+      const idx = res.questions.findIndex((q) => !answered.includes(q.id));
+      const startIdx = idx >= 0 ? idx : res.questions.length;
+      setCurrentIndex(startIdx);
+    }
+    setLoading(false);
+    questionStartRef.current = Date.now();
+  }
+
+  async function handleNext() {
+    if (submitting || !session) return;
+    setSubmitting(true);
+
+    const timeTaken = Math.round((Date.now() - questionStartRef.current) / 1000);
+    const question = questions[currentIndex];
+
+    await saveOpenAnswer(session.id, question.id, textAnswer.trim(), timeTaken);
+
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex >= questions.length) {
+      // All done — trigger AI evaluation
+      setSubmitting(false);
+      setAnalyzing(true);
+      const allIds = questions.map((q) => q.id);
+      const result = await completeOpenTestSession(session.id, allIds);
+      setAnalyzing(false);
+      onComplete(result.score || 0);
+    } else {
+      setCurrentIndex(nextIndex);
+      setTextAnswer("");
+      setSubmitting(false);
+      questionStartRef.current = Date.now();
+    }
+  }
+
+  // Loading screen
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <Loader2 size={32} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
+      </div>
+    );
+  }
+
+  // AI analysis screen
+  if (analyzing) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "2rem" }}>
+        <div style={{ textAlign: "center", maxWidth: "400px" }}>
+          <div style={{
+            width: "72px", height: "72px", borderRadius: "50%",
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 1.5rem", animation: "pulse 2s ease-in-out infinite",
+          }}>
+            <Sparkles size={32} style={{ color: "white" }} />
+          </div>
+          <h2 style={{ fontSize: "1.5rem", fontWeight: "800", marginBottom: "0.75rem", color: "var(--foreground)" }}>
+            Analyse en cours…
+          </h2>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "14px", lineHeight: "1.6" }}>
+            Notre IA analyse vos réponses selon les critères du test. Cela prend généralement 15 à 30 secondes.
+          </p>
+          <div style={{ marginTop: "2rem", display: "flex", justifyContent: "center", gap: "6px" }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{
+                width: "8px", height: "8px", borderRadius: "50%",
+                background: "var(--primary)",
+                animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+              }} />
+            ))}
+          </div>
+        </div>
+        <style>{`
+          @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.85; } }
+          @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        `}</style>
+      </div>
+    );
+  }
+
+  // All done (already answered)
+  if (currentIndex >= questions.length) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "2rem" }}>
+        <div style={{ textAlign: "center", maxWidth: "400px" }}>
+          <CheckCircle2 size={56} style={{ color: "#22c55e", margin: "0 auto 1rem" }} />
+          <h2 style={{ fontSize: "1.5rem", fontWeight: "800", marginBottom: "0.5rem" }}>Test terminé !</h2>
+          <p style={{ color: "var(--muted-foreground)", marginBottom: "1.5rem" }}>
+            Toutes vos réponses ont été enregistrées.
+          </p>
+          <button
+            onClick={() => onComplete(null)}
+            style={{ padding: "0.75rem 2rem", borderRadius: "var(--radius)", background: "var(--primary)", color: "white", border: "none", fontWeight: "700", cursor: "pointer" }}
+          >
+            Retour aux tests
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const question = questions[currentIndex];
+  const category = question?.scoring_criteria?.category;
+  const categoryLabel = CATEGORIES[category] || category || "";
+  const charCount = textAnswer.length;
+  const isReady = charCount >= 30;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ padding: "1rem 1.5rem", background: "var(--card)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {recruiter?.company_logo_url ? (
+            <img src={recruiter.company_logo_url} alt="Logo" style={{ height: "20px", maxWidth: "100px", objectFit: "contain" }} />
+          ) : (
+            <Sparkles size={18} style={{ color: "var(--primary)" }} />
+          )}
+          <span style={{ fontSize: "14px", fontWeight: "600" }}>Question {currentIndex + 1}/{questions.length}</span>
+        </div>
+        {categoryLabel && (
+          <span style={{
+            fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px",
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "white",
+          }}>
+            {categoryLabel}
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ display: "flex", gap: "3px", padding: "0.5rem 1.5rem", background: "var(--card)", borderBottom: "1px solid var(--border)" }}>
+        {questions.map((_, i) => (
+          <div key={i} style={{
+            flex: 1, height: "4px", borderRadius: "99px",
+            background: i < currentIndex ? "#6366f1" : i === currentIndex ? "#6366f1" : "var(--border)",
+            opacity: i < currentIndex ? 0.7 : i === currentIndex ? 1 : 0.3,
+          }} />
+        ))}
+      </div>
+
+      {/* Question */}
+      <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "2.5rem 1rem" }}>
+        <div style={{ maxWidth: "680px", width: "100%" }}>
+          {/* Category badge */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <p style={{
+              fontSize: "1.1rem", fontWeight: "700", color: "var(--foreground)",
+              lineHeight: "1.65", marginBottom: "0",
+            }}>
+              {question.statement}
+            </p>
+          </div>
+
+          {/* Textarea */}
+          <div style={{ position: "relative" }}>
+            <textarea
+              value={textAnswer}
+              onChange={(e) => setTextAnswer(e.target.value)}
+              placeholder="Décrivez votre approche en détail…"
+              disabled={submitting}
+              rows={7}
+              style={{
+                width: "100%", padding: "1rem 1rem 2.5rem",
+                borderRadius: "var(--radius)", border: `2px solid ${isReady ? "var(--primary)" : "var(--border)"}`,
+                background: "var(--card)", color: "var(--foreground)",
+                fontSize: "14px", lineHeight: "1.65", resize: "vertical",
+                outline: "none", transition: "border-color 200ms",
+                fontFamily: "inherit", boxSizing: "border-box",
+              }}
+              onFocus={(e) => { if (!isReady) e.target.style.borderColor = "var(--primary)"; }}
+              onBlur={(e) => { if (!isReady) e.target.style.borderColor = "var(--border)"; }}
+            />
+            <div style={{
+              position: "absolute", bottom: "10px", right: "12px",
+              fontSize: "12px", color: isReady ? "var(--primary)" : "var(--muted-foreground)",
+              fontWeight: isReady ? "600" : "400",
+            }}>
+              {charCount} caractères {!isReady && `(minimum 30)`}
+            </div>
+          </div>
+
+          {/* Hint */}
+          <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "0.5rem", lineHeight: "1.5" }}>
+            💡 Soyez précis et concret — illustrez avec des exemples si possible. Il n&apos;y a pas de limite de temps.
+          </p>
+
+          {/* Next button */}
+          <button
+            onClick={handleNext}
+            disabled={!isReady || submitting}
+            style={{
+              marginTop: "1.5rem", width: "100%", padding: "1rem",
+              borderRadius: "var(--radius)",
+              background: isReady && !submitting
+                ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
+                : "var(--secondary)",
+              color: isReady && !submitting ? "white" : "var(--muted-foreground)",
+              border: "none", cursor: isReady && !submitting ? "pointer" : "not-allowed",
+              fontSize: "15px", fontWeight: "700",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+              transition: "all 200ms",
+              boxShadow: isReady && !submitting ? "0 4px 14px rgba(99,102,241,0.35)" : "none",
+            }}
+          >
+            {submitting ? (
+              <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Enregistrement…</>
+            ) : currentIndex + 1 === questions.length ? (
+              <><Sparkles size={18} /> Terminer le test</>
+            ) : (
+              <>Question suivante →</>
+            )}
+          </button>
         </div>
       </div>
     </div>

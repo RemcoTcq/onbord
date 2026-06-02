@@ -43,16 +43,29 @@ export async function selectQuestionsForJob(jobId, testId, questionCount = 5) {
       return { success: false, error: "Aucune question disponible pour ce test." };
     }
 
-    // Logic for specific tests (e.g., Suites Logiques, Raisonnement numérique, Déduction logique with 3/5/2 distribution)
+    // Logic for specific tests
     const MIXED_TESTS = [
       "d8b98579-abe2-4c2d-8890-9048b4fb2745", // Suites Logiques
       "d79d52e7-ad1e-46bd-930a-3a8a862baca4", // Raisonnement numérique
       "bbe560bc-650d-4839-89cd-8d0d7ee0d445", // Déduction logique
       "172f1772-1bfa-4889-968a-3f74821532d1"  // Attention & rapidité mentale
     ];
+    const AI_PROFICIENCY_TEST = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11"; // Test de Maîtrise de l'IA
     let selectedIds = [];
     
-    if (MIXED_TESTS.includes(testId)) {
+    if (testId === AI_PROFICIENCY_TEST) {
+      // Balanced selection: fetch with scoring_criteria to get category, pick 2 per category (C1–C5)
+      const { data: allWithCriteria } = await supabase
+        .from("assessment_questions")
+        .select("id, scoring_criteria")
+        .eq("test_id", testId);
+      const categories = ["C1", "C2", "C3", "C4", "C5"];
+      for (const cat of categories) {
+        const catQs = (allWithCriteria || []).filter(q => q.scoring_criteria?.category === cat);
+        const picked = catQs.sort(() => Math.random() - 0.5).slice(0, 2);
+        selectedIds.push(...picked.map(q => q.id));
+      }
+    } else if (MIXED_TESTS.includes(testId)) {
       const facile = allQuestions.filter(q => q.difficulty === "facile").sort(() => Math.random() - 0.5).slice(0, 3);
       const moyen = allQuestions.filter(q => q.difficulty === "moyen").sort(() => Math.random() - 0.5).slice(0, 5);
       const difficile = allQuestions.filter(q => q.difficulty === "difficile").sort(() => Math.random() - 0.5).slice(0, 2);
@@ -115,7 +128,7 @@ export async function getQuestionsForSession(questionIds) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("assessment_questions")
-      .select("id, statement, option_a, option_b, option_c, option_d, time_limit_seconds, difficulty, image_url")
+      .select("id, statement, option_a, option_b, option_c, option_d, time_limit_seconds, difficulty, image_url, question_type")
       .in("id", questionIds);
 
     if (error) throw error;
@@ -286,6 +299,144 @@ export async function completeTestSession(sessionId, questionIds) {
     return { success: true, score, cheatFlags };
   } catch (err) {
     console.error("completeTestSession error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Save an open-ended text answer to a test session
+ */
+export async function saveOpenAnswer(sessionId, questionId, textAnswer, timeSeconds = 0) {
+  try {
+    const supabase = await createClient();
+
+    const { data: session } = await supabase
+      .from("candidate_test_sessions")
+      .select("answers, status")
+      .eq("id", sessionId)
+      .single();
+
+    if (!session) throw new Error("Session introuvable");
+    if (session.status === "completed") return { success: true }; // idempotent
+
+    const answers = session.answers || [];
+    const answer = { question_id: questionId, text_answer: textAnswer, time_seconds: timeSeconds };
+    const existingIndex = answers.findIndex((a) => a.question_id === questionId);
+    if (existingIndex >= 0) {
+      answers[existingIndex] = answer;
+    } else {
+      answers.push(answer);
+    }
+
+    const { error } = await supabase
+      .from("candidate_test_sessions")
+      .update({
+        answers,
+        status: "in_progress",
+        started_at: session.started_at || new Date().toISOString(),
+      })
+      .eq("id", sessionId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("saveOpenAnswer error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Complete an open-ended test session — batch AI evaluation via Claude
+ * Scores all answers in ONE API call to minimize AI credit usage.
+ * AI feedback is stored for recruiter only (not exposed to candidate).
+ */
+export async function completeOpenTestSession(sessionId, questionIds) {
+  try {
+    const supabase = await createClient();
+
+    const { data: session } = await supabase
+      .from("candidate_test_sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .single();
+
+    if (!session) throw new Error("Session introuvable");
+    if (session.status === "completed") return { success: true, score: session.score };
+
+    // Get questions with scoring criteria (server-side only — never sent to candidate)
+    const { data: questions } = await supabase
+      .from("assessment_questions")
+      .select("id, statement, scoring_criteria")
+      .in("id", questionIds);
+
+    const answers = session.answers || [];
+    const criteriaMap = {};
+    (questions || []).forEach((q) => { criteriaMap[q.id] = q; });
+
+    // Build batch evaluation prompt
+    const answersForPrompt = questionIds.map((qId) => {
+      const q = criteriaMap[qId];
+      const a = answers.find((ans) => ans.question_id === qId);
+      return {
+        question_id: qId,
+        question: q?.statement || "",
+        answer: a?.text_answer || "(Sans réponse)",
+        criteria: q?.scoring_criteria || {},
+      };
+    });
+
+    const systemPrompt = `Tu es un évaluateur expert en maîtrise de l'IA en contexte professionnel. 
+Tu reçois une liste de questions ouvertes avec les réponses d'un candidat et des critères d'évaluation détaillés.
+Pour chaque question, attribue un score selon ces règles strictes :
+- 2 = Excellente réponse (correspond aux critères "excellent")
+- 1 = Réponse moyenne (correspond aux critères "moyen")
+- 0 = Mauvaise réponse ou pas de réponse (correspond aux critères "mauvais")
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, dans ce format exact :
+{"evaluations": [{"question_id": "...", "score": 0|1|2, "justification": "1-2 phrases max en français"}]}`;
+
+    const userPrompt = `Évalue ces ${answersForPrompt.length} réponses :\n\n${JSON.stringify(answersForPrompt, null, 2)}`;
+
+    let evaluations = [];
+    let score = 0;
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 2000,
+        temperature: 0.1,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const rawText = response.content[0].text.trim();
+      const parsed = JSON.parse(rawText);
+      evaluations = parsed.evaluations || [];
+
+      // Compute score: (sum of scores / max possible) * 100
+      const totalScore = evaluations.reduce((sum, e) => sum + (e.score || 0), 0);
+      const maxScore = questionIds.length * 2;
+      score = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+    } catch (aiErr) {
+      console.error("AI evaluation error:", aiErr);
+      // Fallback: score 0, no feedback — don't block the candidate
+      score = 0;
+    }
+
+    const { error } = await supabase
+      .from("candidate_test_sessions")
+      .update({
+        status: "completed",
+        score,
+        ai_feedback: evaluations.length > 0 ? { evaluations, evaluated_at: new Date().toISOString() } : null,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", sessionId);
+
+    if (error) throw error;
+    return { success: true, score };
+  } catch (err) {
+    console.error("completeOpenTestSession error:", err);
     return { success: false, error: err.message };
   }
 }
