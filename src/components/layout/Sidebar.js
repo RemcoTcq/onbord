@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { isAdmin } from "@/lib/utils/admin";
-import UsageWidget from "../usage/UsageWidget";
+import CreditBadge from "../billing/CreditBadge";
 
 const navItems = [
   { label: "Accueil", href: "/accueil", icon: Home },
@@ -121,6 +121,13 @@ export default function Sidebar() {
           </>
         )}
       </nav>
+
+      {/* Credit Badge */}
+      {!collapsed && (
+        <div style={{ padding: "0 12px", marginBottom: "4px" }}>
+          <CreditBadge />
+        </div>
+      )}
 
       {/* User footer */}
       <div 

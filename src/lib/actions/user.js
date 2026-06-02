@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { hasFeature } from "../utils/limits";
 
 export async function updateProfile(data) {
   try {
@@ -87,22 +88,12 @@ export async function updateBranding(data) {
       return { success: false, error: "Non authentifié" };
     }
 
-    // Verify user plan allows branding (Pro, Enterprise, Beta)
-    const { data: userRow, error: userError } = await supabase
-      .from("users")
-      .select("plan")
-      .eq("id", user.id)
-      .single();
-
-    if (userError || !userRow) {
-      throw new Error("Impossible de vérifier votre profil utilisateur.");
-    }
-
-    const plan = userRow.plan || "core";
-    if (plan !== "pro" && plan !== "enterprise" && plan !== "beta") {
-      return { 
-        success: false, 
-        error: "Votre plan actuel ne permet pas de personnaliser le branding. Veuillez passer au plan supérieur." 
+    // Vérifier si le plan autorise le branding personnalisé
+    const canBrand = await hasFeature(user.id, "companyBranding");
+    if (!canBrand) {
+      return {
+        success: false,
+        error: "Votre plan actuel ne permet pas de personnaliser le branding. Passez au plan Scale ou supérieur.",
       };
     }
 

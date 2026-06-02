@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
+import { deductCredits } from "../utils/limits";
 
 export async function deleteJob(jobId) {
   try {
@@ -191,6 +192,12 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
     if (candidateError) {
       console.error("Supabase Error:", candidateError);
       throw new Error("Impossible d'enregistrer le candidat en base de données.");
+    }
+
+    // ★ Déduire 1 crédit CV (idempotent via flag credits_charged_cv)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await deductCredits(user.id, candidate.id, "cv_screening");
     }
 
     return { success: true, candidate };

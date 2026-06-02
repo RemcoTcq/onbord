@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
+import { deductCredits } from "../utils/limits";
 
 /**
  * Get all active tests from the library
@@ -296,6 +297,13 @@ export async function completeTestSession(sessionId, questionIds) {
       .eq("id", sessionId);
 
     if (error) throw error;
+
+    // ★ Déduire 2 crédits tests (idempotent via flag credits_charged_tests)
+    if (session?.candidate_id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await deductCredits(user.id, session.candidate_id, "skill_test");
+    }
+
     return { success: true, score, cheatFlags };
   } catch (err) {
     console.error("completeTestSession error:", err);
@@ -434,6 +442,13 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, dans ce for
       .eq("id", sessionId);
 
     if (error) throw error;
+
+    // ★ Déduire 2 crédits tests (idempotent — même flag que completeTestSession)
+    if (session?.candidate_id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await deductCredits(user.id, session.candidate_id, "skill_test");
+    }
+
     return { success: true, score };
   } catch (err) {
     console.error("completeOpenTestSession error:", err);
@@ -534,6 +549,19 @@ export async function submitAssessment(candidateId) {
     // Generate CV feedback if CV was submitted
     if (candidate.cv_raw_text && !candidate.cv_feedback) {
       generateCvFeedback(candidateId, candidate).catch(console.error);
+    }
+
+    // ★ Déduire 3 crédits interview si l'interview IA était active et complétée
+    if (interviewEnabled && candidate.score_interview != null) {
+      // Trouver le recruteur via le job
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("user_id")
+        .eq("id", candidate.job_id)
+        .single();
+      if (job?.user_id) {
+        await deductCredits(job.user_id, candidateId, "text_interview");
+      }
     }
 
     return { success: true, scoreGlobal, scoreTests };
