@@ -16,7 +16,7 @@ export async function parseFile(formData) {
     let text = "";
 
     if (type === "application/pdf" || name.endsWith(".pdf")) {
-      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.js");
       
       // Force disabling of font evaluation and worker to minimize dependencies
       const loadingTask = pdfjs.getDocument({
