@@ -1,14 +1,6 @@
 "use server";
 
-if (typeof global.DOMMatrix === 'undefined') {
-  global.DOMMatrix = class DOMMatrix {
-    constructor() { return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }; }
-  };
-}
-
 export async function parseFile(formData) {
-  const { PDFParse } = await import("pdf-parse");
-  const mammoth = await import("mammoth");
   const file = formData.get("file");
   
   if (!file) {
@@ -24,14 +16,28 @@ export async function parseFile(formData) {
 
   try {
     if (type === "application/pdf" || name.endsWith(".pdf")) {
-      const parser = new PDFParse({ data: buffer });
-      const data = await parser.getText();
-      text = data.text;
-      await parser.destroy();
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const loadingTask = pdfjs.getDocument({
+        data: new Uint8Array(arrayBuffer),
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        disableFontFace: true
+      });
+      const pdf = await loadingTask.promise;
+
+      let extractedText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(" ");
+        extractedText += pageText + "\n";
+      }
+      text = extractedText;
     } else if (
       type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 
       name.endsWith(".docx")
     ) {
+      const mammoth = await import("mammoth");
       const result = await mammoth.extractRawText({ buffer });
       text = result.value;
     } else if (type === "text/plain" || name.endsWith(".txt")) {
