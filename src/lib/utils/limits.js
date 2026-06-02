@@ -13,24 +13,44 @@ async function getOrCreateUsage(supabase, userId) {
     .single();
 
   if (error && error.code === "PGRST116") {
-    // Pas encore d'entrée — créer avec le plan beta par défaut
+    // Pas encore d'entrée — créer via upsert (plus sûr que insert)
     const plan = PLANS.beta;
-    const { data: newUsage, error: insertError } = await supabase
+    const { data: newUsage, error: upsertError } = await supabase
       .from("user_usage")
-      .insert({
-        user_id: userId,
-        plan: "beta",
-        credits_balance: plan.creditsPerMonth,
-        credits_allocated: plan.creditsPerMonth,
-        last_reset_date: new Date().toISOString(),
-      })
+      .upsert(
+        {
+          user_id: userId,
+          plan: "beta",
+          credits_balance: plan.creditsPerMonth,
+          credits_allocated: plan.creditsPerMonth,
+          last_reset_date: new Date().toISOString(),
+        },
+        { onConflict: "user_id", ignoreDuplicates: false }
+      )
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (upsertError) {
+      // Si même l'upsert échoue (ex: RLS), retourner un usage virtuel par défaut
+      console.warn("getOrCreateUsage upsert failed, using virtual defaults:", upsertError.message);
+      return {
+        user_id: userId,
+        plan: "beta",
+        credits_balance: 500,
+        credits_allocated: 500,
+        last_reset_date: new Date().toISOString(),
+      };
+    }
     usage = newUsage;
   } else if (error) {
-    throw error;
+    console.warn("getOrCreateUsage select failed, using virtual defaults:", error.message);
+    return {
+      user_id: userId,
+      plan: "beta",
+      credits_balance: 500,
+      credits_allocated: 500,
+      last_reset_date: new Date().toISOString(),
+    };
   }
 
   return usage;
@@ -99,69 +119,75 @@ export async function checkCredits(userId, cost) {
  * @returns {Promise<{ success: boolean, deducted: boolean, remaining: number }>}
  */
 export async function deductCredits(userId, candidateId, actionType) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  // Admins (@onbord.be) = gratuit
-  if (isAdmin(user)) return { success: true, deducted: false, remaining: 999999 };
+    // Admins (@onbord.be) = gratuit
+    if (isAdmin(user)) return { success: true, deducted: false, remaining: 999999 };
 
-  const cost = CREDIT_COSTS[actionType];
-  if (!cost) return { success: true, deducted: false, remaining: 0 };
+    const cost = CREDIT_COSTS[actionType];
+    if (!cost) return { success: true, deducted: false, remaining: 0 };
 
-  // Vérifier le flag sur le candidat
-  const flagColumn = {
-    cv_screening: "credits_charged_cv",
-    skill_test: "credits_charged_tests",
-    text_interview: "credits_charged_interview",
-    video_interview: "credits_charged_interview",
-  }[actionType];
+    // Vérifier le flag sur le candidat
+    const flagColumn = {
+      cv_screening: "credits_charged_cv",
+      skill_test: "credits_charged_tests",
+      text_interview: "credits_charged_interview",
+      video_interview: "credits_charged_interview",
+    }[actionType];
 
-  if (flagColumn) {
-    const { data: candidate } = await supabase
-      .from("candidates")
-      .select(flagColumn)
-      .eq("id", candidateId)
+    if (flagColumn) {
+      const { data: candidate } = await supabase
+        .from("candidates")
+        .select(flagColumn)
+        .eq("id", candidateId)
+        .single();
+
+      if (candidate?.[flagColumn]) {
+        // Déjà facturé pour ce candidat sur ce type
+        return { success: true, deducted: false, remaining: -1 };
+      }
+    }
+
+    // Déduire atomiquement
+    let usage = await getOrCreateUsage(supabase, userId);
+    usage = await checkAndResetMonthly(supabase, usage);
+
+    if (usage.credits_balance < cost) {
+      return {
+        success: false,
+        deducted: false,
+        remaining: usage.credits_balance,
+        error: `Crédits insuffisants (${usage.credits_balance} restant${usage.credits_balance > 1 ? "s" : ""}).`,
+      };
+    }
+
+    const { data: updated } = await supabase
+      .from("user_usage")
+      .update({ credits_balance: usage.credits_balance - cost })
+      .eq("user_id", userId)
+      .select("credits_balance")
       .single();
 
-    if (candidate?.[flagColumn]) {
-      // Déjà facturé pour ce candidat sur ce type
-      return { success: true, deducted: false, remaining: -1 };
+    // Marquer le candidat comme facturé pour ce type
+    if (flagColumn) {
+      await supabase
+        .from("candidates")
+        .update({ [flagColumn]: true })
+        .eq("id", candidateId);
     }
-  }
 
-  // Déduire atomiquement via RPC
-  let usage = await getOrCreateUsage(supabase, userId);
-  usage = await checkAndResetMonthly(supabase, usage);
-
-  if (usage.credits_balance < cost) {
     return {
-      success: false,
-      deducted: false,
-      remaining: usage.credits_balance,
-      error: `Crédits insuffisants (${usage.credits_balance} restant${usage.credits_balance > 1 ? "s" : ""}).`,
+      success: true,
+      deducted: true,
+      remaining: updated?.credits_balance ?? usage.credits_balance - cost,
     };
+  } catch (err) {
+    // Ne jamais laisser une erreur de crédit planter l'action principale
+    console.error("deductCredits error (non-blocking):", err.message);
+    return { success: false, deducted: false, remaining: 0, error: err.message };
   }
-
-  const { data: updated } = await supabase
-    .from("user_usage")
-    .update({ credits_balance: usage.credits_balance - cost })
-    .eq("user_id", userId)
-    .select("credits_balance")
-    .single();
-
-  // Marquer le candidat comme facturé pour ce type
-  if (flagColumn) {
-    await supabase
-      .from("candidates")
-      .update({ [flagColumn]: true })
-      .eq("id", candidateId);
-  }
-
-  return {
-    success: true,
-    deducted: true,
-    remaining: updated?.credits_balance ?? usage.credits_balance - cost,
-  };
 }
 
 /**
