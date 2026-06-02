@@ -68,7 +68,13 @@ export default function NouvelleDemandePage() {
       const formData = new FormData();
       formData.append("file", file);
       
-      const text = await parseFile(formData);
+      const parseResult = await parseFile(formData);
+      
+      if (!parseResult.success) {
+        throw new Error(parseResult.error || "Erreur lors de l'analyse du document.");
+      }
+
+      const text = parseResult.text;
       // Immédiatement analyser après le parsing pour un flow fluide
       await handleAnalyze(text);
       setIsParsingFile(false);

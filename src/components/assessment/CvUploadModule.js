@@ -50,7 +50,13 @@ export default function CvUploadModule({ candidate, job, onComplete, onBack }) {
       // 2. Parse PDF text
       const formData = new FormData();
       formData.append("file", selectedFile);
-      const cvText = await parseFile(formData);
+      const parseResult = await parseFile(formData);
+
+      if (!parseResult.success) {
+        throw new Error(parseResult.error || "Erreur lors de l'analyse du CV.");
+      }
+
+      const cvText = parseResult.text;
 
       if (!cvText || cvText.trim().length < 50) {
         throw new Error("Le PDF semble vide ou illisible. Vérifiez que votre CV n'est pas une image scannée.");
