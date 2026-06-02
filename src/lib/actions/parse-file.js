@@ -6,10 +6,9 @@ if (typeof global.DOMMatrix === 'undefined') {
   };
 }
 
-const { PDFParse } = require("pdf-parse");
-const mammoth = require("mammoth");
-
 export async function parseFile(formData) {
+  const { PDFParse } = await import("pdf-parse");
+  const mammoth = await import("mammoth");
   const file = formData.get("file");
   
   if (!file) {

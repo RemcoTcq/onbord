@@ -195,9 +195,17 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
     }
 
     // ★ Déduire 1 crédit CV (idempotent via flag credits_charged_cv)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await deductCredits(user.id, candidate.id, "cv_screening");
+    let recruiterId = null;
+    const { data: job } = await supabase
+      .from('jobs')
+      .select('user_id')
+      .eq('id', jobId)
+      .single();
+    if (job) {
+      recruiterId = job.user_id;
+    }
+    if (recruiterId) {
+      await deductCredits(recruiterId, candidate.id, "cv_screening");
     }
 
     return { success: true, candidate };

@@ -1,4 +1,4 @@
-import { createClient } from "../supabase/server";
+import { createClient, createAdminClient } from "../supabase/server";
 import { isAdmin } from "./admin";
 import { PLANS, CREDIT_COSTS } from "../constants/plans";
 
@@ -94,8 +94,9 @@ export async function checkCredits(userId, cost) {
 
   if (isAdmin(user)) return { allowed: true, remaining: 999999 };
 
-  let usage = await getOrCreateUsage(supabase, userId);
-  usage = await checkAndResetMonthly(supabase, usage);
+  const adminSupabase = createAdminClient();
+  let usage = await getOrCreateUsage(adminSupabase, userId);
+  usage = await checkAndResetMonthly(adminSupabase, usage);
 
   const remaining = usage.credits_balance;
   const allowed = remaining >= cost;
@@ -129,6 +130,8 @@ export async function deductCredits(userId, candidateId, actionType) {
     const cost = CREDIT_COSTS[actionType];
     if (!cost) return { success: true, deducted: false, remaining: 0 };
 
+    const adminSupabase = createAdminClient();
+
     // Vérifier le flag sur le candidat
     const flagColumn = {
       cv_screening: "credits_charged_cv",
@@ -138,7 +141,7 @@ export async function deductCredits(userId, candidateId, actionType) {
     }[actionType];
 
     if (flagColumn) {
-      const { data: candidate } = await supabase
+      const { data: candidate } = await adminSupabase
         .from("candidates")
         .select(flagColumn)
         .eq("id", candidateId)
@@ -151,8 +154,8 @@ export async function deductCredits(userId, candidateId, actionType) {
     }
 
     // Déduire atomiquement
-    let usage = await getOrCreateUsage(supabase, userId);
-    usage = await checkAndResetMonthly(supabase, usage);
+    let usage = await getOrCreateUsage(adminSupabase, userId);
+    usage = await checkAndResetMonthly(adminSupabase, usage);
 
     if (usage.credits_balance < cost) {
       return {
@@ -163,7 +166,7 @@ export async function deductCredits(userId, candidateId, actionType) {
       };
     }
 
-    const { data: updated } = await supabase
+    const { data: updated } = await adminSupabase
       .from("user_usage")
       .update({ credits_balance: usage.credits_balance - cost })
       .eq("user_id", userId)
@@ -172,7 +175,7 @@ export async function deductCredits(userId, candidateId, actionType) {
 
     // Marquer le candidat comme facturé pour ce type
     if (flagColumn) {
-      await supabase
+      await adminSupabase
         .from("candidates")
         .update({ [flagColumn]: true })
         .eq("id", candidateId);
@@ -202,7 +205,8 @@ export async function hasFeature(userId, featureName) {
 
   if (isAdmin(user)) return true;
 
-  const usage = await getOrCreateUsage(supabase, userId);
+  const adminSupabase = createAdminClient();
+  const usage = await getOrCreateUsage(adminSupabase, userId);
   const plan = PLANS[usage.plan] || PLANS.beta;
   return plan.features?.[featureName] ?? false;
 }
@@ -224,8 +228,9 @@ export async function getCreditInfo(userId) {
     };
   }
 
-  let usage = await getOrCreateUsage(supabase, userId);
-  usage = await checkAndResetMonthly(supabase, usage);
+  const adminSupabase = createAdminClient();
+  let usage = await getOrCreateUsage(adminSupabase, userId);
+  usage = await checkAndResetMonthly(adminSupabase, usage);
 
   const plan = PLANS[usage.plan] || PLANS.beta;
 
@@ -246,10 +251,10 @@ export async function getCreditInfo(userId) {
  * Ajoute des crédits à un utilisateur (appel admin uniquement).
  */
 export async function addCredits(userId, amount) {
-  const supabase = await createClient();
-  let usage = await getOrCreateUsage(supabase, userId);
+  const adminSupabase = createAdminClient();
+  let usage = await getOrCreateUsage(adminSupabase, userId);
 
-  const { data } = await supabase
+  const { data } = await adminSupabase
     .from("user_usage")
     .update({ credits_balance: (usage.credits_balance || 0) + amount })
     .eq("user_id", userId)
@@ -263,11 +268,11 @@ export async function addCredits(userId, amount) {
  * Change le plan d'un utilisateur et ajuste ses crédits alloués (appel admin).
  */
 export async function changePlan(userId, newPlan) {
-  const supabase = await createClient();
+  const adminSupabase = createAdminClient();
   const plan = PLANS[newPlan];
   if (!plan) return { success: false, error: "Plan inconnu" };
 
-  const { data } = await supabase
+  const { data } = await adminSupabase
     .from("user_usage")
     .update({
       plan: newPlan,

@@ -300,8 +300,15 @@ export async function completeTestSession(sessionId, questionIds) {
 
     // ★ Déduire 2 crédits tests (idempotent via flag credits_charged_tests)
     if (session?.candidate_id) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) await deductCredits(user.id, session.candidate_id, "skill_test");
+      const { data: candidateJob } = await supabase
+        .from("candidates")
+        .select("jobs(user_id)")
+        .eq("id", session.candidate_id)
+        .single();
+      const recruiterId = candidateJob?.jobs?.user_id;
+      if (recruiterId) {
+        await deductCredits(recruiterId, session.candidate_id, "skill_test");
+      }
     }
 
     return { success: true, score, cheatFlags };
@@ -445,8 +452,15 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, dans ce for
 
     // ★ Déduire 2 crédits tests (idempotent — même flag que completeTestSession)
     if (session?.candidate_id) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) await deductCredits(user.id, session.candidate_id, "skill_test");
+      const { data: candidateJob } = await supabase
+        .from("candidates")
+        .select("jobs(user_id)")
+        .eq("id", session.candidate_id)
+        .single();
+      const recruiterId = candidateJob?.jobs?.user_id;
+      if (recruiterId) {
+        await deductCredits(recruiterId, session.candidate_id, "skill_test");
+      }
     }
 
     return { success: true, score };
