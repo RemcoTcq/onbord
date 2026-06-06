@@ -107,6 +107,9 @@ export default function Accueil() {
   const [activeJobs, setActiveJobs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [showChecklist, setShowChecklist] = useState(true);
+  const [maxStats, setMaxStats] = useState({ jobs: 0, candidates: 0 });
 
   useEffect(() => { loadData(); }, []);
 
@@ -116,6 +119,12 @@ export default function Accueil() {
     if (!user) { setLoading(false); return; }
 
     setUserName(user.user_metadata?.first_name || user.email?.split("@")[0] || "");
+    setUserId(user.id);
+
+    const dismissed = localStorage.getItem(`accueil_checklist_dismissed_${user.id}`);
+    if (dismissed === "true") {
+      setShowChecklist(false);
+    }
 
     const { data: jobs } = await supabase
       .from("jobs")
@@ -127,10 +136,23 @@ export default function Accueil() {
       const allCandidates = jobs.flatMap(j => j.candidates || []);
       const active = jobs.filter(j => j.status === "active");
       setActiveJobs(active.slice(0, 3));
+
+      const currentJobsCount = jobs.length;
+      const currentCandCount = allCandidates.length;
+
+      const savedMaxJobs = parseInt(localStorage.getItem(`maxJobs_${user.id}`) || "0");
+      const savedMaxCand = parseInt(localStorage.getItem(`maxCandidates_${user.id}`) || "0");
+      const newMaxJobs = Math.max(savedMaxJobs, currentJobsCount);
+      const newMaxCand = Math.max(savedMaxCand, currentCandCount);
+
+      localStorage.setItem(`maxJobs_${user.id}`, newMaxJobs.toString());
+      localStorage.setItem(`maxCandidates_${user.id}`, newMaxCand.toString());
+      setMaxStats({ jobs: newMaxJobs, candidates: newMaxCand });
+
       setStats({
-        totalJobs: jobs.length,
+        totalJobs: currentJobsCount,
         activeJobs: active.length,
-        totalCandidates: allCandidates.length,
+        totalCandidates: currentCandCount,
         interviewsDone: allCandidates.filter(c => c.status === "interview_completed").length,
       });
     }
@@ -166,7 +188,7 @@ export default function Accueil() {
       </div>
 
       {/* ===== GRID: VIDEO + ONBOARDING CHECKLIST ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: ((stats?.totalJobs > 0) && (stats?.totalCandidates > 0)) ? "1fr" : "1.8fr 1fr", gap: "24px", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: showChecklist ? "1.8fr 1fr" : "1fr", gap: "24px", alignItems: "start" }}>
         
         {/* ===== VIDEO D'INTRO ===== */}
         <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)", background: "var(--foreground)", aspectRatio: "16/9" }}>
@@ -189,7 +211,7 @@ export default function Accueil() {
         </div>
 
         {/* ===== ONBOARDING CHECKLIST ===== */}
-        {!((stats?.totalJobs > 0) && (stats?.totalCandidates > 0)) && (
+        {showChecklist && (
           <div className="card" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "20px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "700", margin: 0, color: "var(--foreground)", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
               Checklist de démarrage
@@ -197,13 +219,13 @@ export default function Accueil() {
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               
               {/* Étape 1 */}
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (stats?.totalJobs > 0) ? 0.5 : 1 }}>
-                {(stats?.totalJobs > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (maxStats.jobs > 0) ? 0.5 : 1 }}>
+                {(maxStats.jobs > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
                 <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (stats?.totalJobs > 0) ? "line-through" : "none" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (maxStats.jobs > 0) ? "line-through" : "none" }}>
                     Créer une évaluation
                   </div>
-                  {!(stats?.totalJobs > 0) && (
+                  {!(maxStats.jobs > 0) && (
                     <Link href="/jobs/nouveau" style={{ display: "inline-block", fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px", textDecoration: "underline" }}>
                       Commencer
                     </Link>
@@ -212,19 +234,36 @@ export default function Accueil() {
               </div>
 
               {/* Étape 2 */}
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (stats?.totalCandidates > 0) ? 0.5 : 1 }}>
-                {(stats?.totalCandidates > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (maxStats.candidates > 0) ? 0.5 : 1 }}>
+                {(maxStats.candidates > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
                 <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (stats?.totalCandidates > 0) ? "line-through" : "none" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (maxStats.candidates > 0) ? "line-through" : "none" }}>
                     Recevoir son premier candidat
                   </div>
-                  {!(stats?.totalCandidates > 0) && (
+                  {!(maxStats.candidates > 0) && (
                     <div style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px", lineHeight: "1.4" }}>
                       Partagez le lien de votre évaluation pour obtenir vos premières candidatures.
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Manual Dismiss */}
+              {(maxStats.jobs > 0 && maxStats.candidates > 0) && (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem(`accueil_checklist_dismissed_${userId}`, "true");
+                    setShowChecklist(false);
+                  }}
+                  style={{ 
+                    background: "transparent", border: "none", color: "var(--muted-foreground)", 
+                    fontSize: "12px", textDecoration: "underline", cursor: "pointer", 
+                    alignSelf: "flex-start", padding: 0, marginTop: "4px"
+                  }}
+                >
+                  Faire disparaître ce guide
+                </button>
+              )}
 
             </div>
           </div>
