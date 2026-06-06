@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Trophy, Brain, FileText, MessageSquare, Star } from "lucide-react";
+import { Brain, FileText, MessageSquare, Star } from "lucide-react";
 
 function getScoreColor(score) {
   if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: "Excellent" };

@@ -183,21 +183,7 @@ export default function NouvelleDemandePage() {
     }
   };
 
-  const handleCriteriaNext = async () => {
-    setIsSaving(true);
-    try {
-      if (assessmentModules.ai_interview) {
-        setCurrentStep(5);
-      } else if (assessmentModules.skills_test) {
-        setCurrentStep(6);
-      } else {
-        setCurrentStep(7);
-      }
-    } catch (err) {
-      toast("Erreur", "error");
-    }
-    setIsSaving(false);
-  };
+
 
   const handleModulesSelectionNext = async () => {
     setIsSaving(true);
