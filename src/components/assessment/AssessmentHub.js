@@ -7,7 +7,8 @@ import SkillsTestModule from "./SkillsTestModule";
 import InterviewModule from "./InterviewModule";
 import ResultsView from "./ResultsView";
 import FullscreenGuard from "./FullscreenGuard";
-import { getCandidateTestSessions, submitAssessment } from "@/lib/actions/assessment";
+import QualifyingQuestionsModule from "./QualifyingQuestionsModule";
+import { getCandidateTestSessions, submitAssessment, passQualifyingQuestions } from "@/lib/actions/assessment";
 import { createClient } from "@/lib/supabase/client";
 
 function getModulesConfig(job, candidate) {
@@ -19,6 +20,8 @@ function getModulesConfig(job, candidate) {
   const interviewEnabled = assessment.ai_interview?.enabled ?? aiConfig?.enabled ?? false;
 
   return {
+    qualifying: assessment.qualifying_questions?.enabled ?? false,
+    qualifyingConfig: assessment.qualifying_questions || {},
     cv: cvEnabled,
     tests: testsEnabled,
     interview: interviewEnabled,
@@ -38,6 +41,11 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   const [loadingSessions, setLoadingSessions] = useState(false);
 
   const modules = getModulesConfig(job, candidate);
+
+  const [qualifyingStatus, setQualifyingStatus] = useState(
+    candidate.assessment_status === "disqualified" ? "disqualified" : 
+    (modules.qualifying && candidate.assessment_status === "pending") ? "pending" : "passed"
+  );
 
   useEffect(() => {
     if (modules.tests) loadTestSessions();
@@ -98,9 +106,26 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
     setSubmitting(false);
   }
 
-  // ─── Submitted / Results view ─────────────────────────────────────────────
-  if (submitted) {
+  // ─── Submitted / Disqualified / Results view ─────────────────────────────────────────────
+  if (submitted || qualifyingStatus === "disqualified" || candidate.assessment_status === "disqualified") {
     return <ResultsView candidate={{ ...candidate, assessment_status: "submitted" }} job={job} testSessions={testSessions} />;
+  }
+
+  // ─── Qualifying Questions ─────────────────────────────────────────────────
+  if (modules.qualifying && qualifyingStatus === "pending") {
+    return (
+      <QualifyingQuestionsModule
+        candidate={candidate}
+        questions={modules.qualifyingConfig?.questions || []}
+        onComplete={async () => {
+          await passQualifyingQuestions(candidate.id);
+          setQualifyingStatus("passed");
+        }}
+        onFail={() => {
+          setQualifyingStatus("disqualified");
+        }}
+      />
+    );
   }
 
   // ─── Active module view ───────────────────────────────────────────────────

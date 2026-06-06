@@ -8,7 +8,7 @@ function getScoreColor(score) {
   return { bg: "#fee2e2", color: "#991b1b", label: "À améliorer" };
 }
 
-export default function ResultsView({ candidate, job, testSessions }) {
+export default function ResultsView({ candidate, job, testSessions, showScores = false }) {
   const modules = job?.assessment_config?.modules || {};
   const aiConfig = job?.ai_interview_config || {};
 
@@ -25,14 +25,6 @@ export default function ResultsView({ candidate, job, testSessions }) {
 
         {/* Hero */}
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: "72px", height: "72px", borderRadius: "20px",
-            background: "#22c55e", color: "white", marginBottom: "1.5rem",
-            boxShadow: "0 8px 24px rgba(34,197,94,0.35)",
-          }}>
-            <Trophy size={36} />
-          </div>
           <h1 style={{ fontSize: "2rem", fontWeight: "900", color: "var(--foreground)", marginBottom: "0.75rem", letterSpacing: "-0.02em" }}>
             Assessment soumis !
           </h1>
@@ -43,7 +35,7 @@ export default function ResultsView({ candidate, job, testSessions }) {
         </div>
 
         {/* Global score */}
-        {globalStyle && (
+        {showScores && globalStyle && (
           <div style={{
             background: globalStyle.bg, border: `1px solid ${globalStyle.color}30`,
             borderRadius: "var(--radius)", padding: "1.5rem", textAlign: "center", marginBottom: "1.5rem"
@@ -60,41 +52,43 @@ export default function ResultsView({ candidate, job, testSessions }) {
         )}
 
         {/* Module scores */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "2rem" }}>
-          <h2 style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", marginBottom: "0.25rem" }}>
-            Résultats par module
-          </h2>
+        {showScores && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "2rem" }}>
+            <h2 style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted-foreground)", marginBottom: "0.25rem" }}>
+              Résultats par module
+            </h2>
 
-          {cvEnabled && candidate.score_cv != null && (
-            <ScoreRow
-              icon={<FileText size={16} />}
-              label="Scoring CV"
-              score={candidate.score_cv}
-              feedback={candidate.cv_feedback}
-            />
-          )}
+            {cvEnabled && candidate.score_cv != null && (
+              <ScoreRow
+                icon={<FileText size={16} />}
+                label="Scoring CV"
+                score={candidate.score_cv}
+                feedback={candidate.cv_feedback}
+              />
+            )}
 
-          {testsEnabled && candidate.score_tests != null && (
-            <ScoreRow
-              icon={<Brain size={16} />}
-              label="Tests de compétences"
-              score={candidate.score_tests}
-              detail={testSessions?.filter((s) => s.status === "completed").map((s) => ({
-                label: s.assessment_tests?.name || "Test",
-                score: s.score,
-              }))}
-            />
-          )}
+            {testsEnabled && candidate.score_tests != null && (
+              <ScoreRow
+                icon={<Brain size={16} />}
+                label="Tests de compétences"
+                score={candidate.score_tests}
+                detail={testSessions?.filter((s) => s.status === "completed").map((s) => ({
+                  label: s.assessment_tests?.name || "Test",
+                  score: s.score,
+                }))}
+              />
+            )}
 
-          {interviewEnabled && candidate.score_interview != null && (
-            <ScoreRow
-              icon={<MessageSquare size={16} />}
-              label="Entretien"
-              score={candidate.score_interview}
-              feedback={candidate.interview_summary}
-            />
-          )}
-        </div>
+            {interviewEnabled && candidate.score_interview != null && (
+              <ScoreRow
+                icon={<MessageSquare size={16} />}
+                label="Entretien"
+                score={candidate.score_interview}
+                feedback={candidate.interview_summary}
+              />
+            )}
+          </div>
+        )}
 
         {/* What's next */}
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "1.5rem" }}>

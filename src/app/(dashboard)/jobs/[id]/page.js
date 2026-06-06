@@ -34,6 +34,7 @@ function getStatusBadge(status) {
     scored: { label: "CV évalué", className: "badge-outline" },
     shortlisted: { label: "Validé", className: "badge-success" },
     rejected: { label: "Rejeté", className: "badge-destructive" },
+    disqualified: { label: "Disqualifié", className: "badge-destructive" },
     invited: { label: "Invité", className: "badge-primary" },
     interview_started: { label: "Assessment en cours", className: "badge-warning" },
     interview_completed: { label: "Assessment terminé", className: "badge-success" },

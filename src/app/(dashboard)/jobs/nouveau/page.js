@@ -12,6 +12,7 @@ import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
 import SkillsTestConfig from "@/components/jobs/SkillsTestConfig";
 import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
+import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
 import { useToast } from "@/components/ui/Toast";
 import { updateJobAiConfig } from "@/lib/actions/job";
 import { saveAssessmentConfig } from "@/lib/actions/assessment";
@@ -31,10 +32,12 @@ export default function NouvelleDemandePage() {
   const [savedJobId, setSavedJobId] = useState(null);
   const [savedJob, setSavedJob] = useState(null);
   const [assessmentModules, setAssessmentModules] = useState({
+    qualifying_questions: false,
     cv_scoring: true,
     ai_interview: false,
     skills_test: false,
   });
+  const [qualifyingConfigPayload, setQualifyingConfigPayload] = useState(null);
   const [aiConfigPayload, setAiConfigPayload] = useState(null);
   const [skillsConfigPayload, setSkillsConfigPayload] = useState(null);
   
@@ -207,24 +210,70 @@ export default function NouvelleDemandePage() {
       // Initialize basic config in DB for the selected modules
       await saveAssessmentConfig(savedJobId, {
         modules: {
+          qualifying_questions: { enabled: assessmentModules.qualifying_questions, questions: [] },
           cv_scoring: { enabled: assessmentModules.cv_scoring },
           ai_interview: { enabled: assessmentModules.ai_interview },
           skills_tests: { enabled: assessmentModules.skills_test, tests: [] },
         }
       });
-
       // Move to next step dynamically based on selection
-      if (assessmentModules.cv_scoring) {
+      if (assessmentModules.qualifying_questions) {
         setCurrentStep(4);
-      } else if (assessmentModules.ai_interview) {
+      } else if (assessmentModules.cv_scoring) {
         setCurrentStep(5);
-      } else if (assessmentModules.skills_test) {
+      } else if (assessmentModules.ai_interview) {
         setCurrentStep(6);
+      } else if (assessmentModules.skills_test) {
+        setCurrentStep(7);
       } else {
-        setCurrentStep(7); // Finalization
+        setCurrentStep(8); // Recap
       }
     } catch (err) {
       toast("Erreur de mise à jour", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleQualifyingNext = async () => {
+    setIsSaving(true);
+    try {
+      if (qualifyingConfigPayload) {
+        await saveAssessmentConfig(savedJobId, {
+          modules: {
+            qualifying_questions: qualifyingConfigPayload,
+            cv_scoring: { enabled: assessmentModules.cv_scoring },
+            ai_interview: { enabled: assessmentModules.ai_interview },
+            skills_tests: { enabled: assessmentModules.skills_test, tests: skillsConfigPayload?.tests || [] },
+          }
+        });
+      }
+      if (assessmentModules.cv_scoring) {
+        setCurrentStep(5);
+      } else if (assessmentModules.ai_interview) {
+        setCurrentStep(6);
+      } else if (assessmentModules.skills_test) {
+        setCurrentStep(7);
+      } else {
+        setCurrentStep(8);
+      }
+    } catch (err) {
+      toast("Erreur de sauvegarde", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleCriteriaNext = async () => {
+    setIsSaving(true);
+    try {
+      if (assessmentModules.ai_interview) {
+        setCurrentStep(6);
+      } else if (assessmentModules.skills_test) {
+        setCurrentStep(7);
+      } else {
+        setCurrentStep(8);
+      }
+    } catch (err) {
+      toast("Erreur", "error");
     }
     setIsSaving(false);
   };
@@ -236,9 +285,9 @@ export default function NouvelleDemandePage() {
         await updateJobAiConfig(savedJobId, { ...aiConfigPayload, enabled: true });
       }
       if (assessmentModules.skills_test) {
-        setCurrentStep(6);
+        setCurrentStep(7);
       } else {
-        setCurrentStep(7); // Finalization
+        setCurrentStep(8); // Recap
       }
     } catch (err) {
       toast("Erreur de sauvegarde", "error");
@@ -252,17 +301,43 @@ export default function NouvelleDemandePage() {
       if (skillsConfigPayload) {
         await saveAssessmentConfig(savedJobId, {
           modules: {
+            qualifying_questions: qualifyingConfigPayload,
             cv_scoring: { enabled: assessmentModules.cv_scoring },
             ai_interview: { enabled: assessmentModules.ai_interview },
             skills_tests: { enabled: assessmentModules.skills_test, tests: skillsConfigPayload.tests || [] },
           }
         });
       }
-      setCurrentStep(7);
+      setCurrentStep(8); // Recap
     } catch (err) {
       toast("Erreur de sauvegarde", "error");
     }
     setIsSaving(false);
+  };
+
+  const handleRecapNext = () => {
+    setCurrentStep(9);
+  };
+
+  const calculateCost = () => {
+    let cost = 0;
+    const details = [];
+    if (assessmentModules.qualifying_questions) {
+      details.push({ name: "Questions Qualificatives", cost: 0, reason: "Inclus gratuitement" });
+    }
+    if (assessmentModules.cv_scoring) {
+      cost += 1;
+      details.push({ name: "Scoring de CV par IA", cost: 1, reason: "Analyse et extraction" });
+    }
+    if (assessmentModules.skills_test) {
+      cost += 2;
+      details.push({ name: "Tests de compétences", cost: 2, reason: "Accès aux tests et correction" });
+    }
+    if (assessmentModules.ai_interview) {
+      cost += 3;
+      details.push({ name: "Interview IA par Texte", cost: 3, reason: "Conversation interactive et résumé" });
+    }
+    return { total: cost, details };
   };
 
   const handleFieldChange = (field, value) => {
@@ -317,7 +392,7 @@ export default function NouvelleDemandePage() {
 
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-          {[1, 2, 3, 4, 5, 6, 7].map(step => (
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(step => (
             <div key={step} style={{
               flex: 1, height: '4px', borderRadius: '4px',
               background: currentStep >= step ? 'var(--primary)' : 'var(--secondary)'
@@ -328,10 +403,12 @@ export default function NouvelleDemandePage() {
           {currentStep === 1 ? "1. Offre d'emploi" : 
            currentStep === 2 ? "2. Détails" : 
            currentStep === 3 ? "3. Choix des évaluations" :
-           currentStep === 4 ? "4. Critères de Scoring" : 
-           currentStep === 5 ? "5. Paramètres de l'Assessment" : 
-           currentStep === 6 ? "6. Paramètres des Tests Techniques" : 
-           "7. Finalisation"}
+           currentStep === 4 ? "4. Questions Qualificatives" : 
+           currentStep === 5 ? "5. Critères de Scoring" : 
+           currentStep === 6 ? "6. Paramètres de l'Assessment" : 
+           currentStep === 7 ? "7. Paramètres des Tests Techniques" : 
+           currentStep === 8 ? "8. Récapitulatif" : 
+           "9. Finalisation"}
         </h3>
       </div>
 
@@ -495,6 +572,27 @@ export default function NouvelleDemandePage() {
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Qualifying Questions */}
+              <label onClick={() => setAssessmentModules(prev => ({ ...prev, qualifying_questions: !prev.qualifying_questions }))} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+                background: assessmentModules.qualifying_questions ? 'var(--accent)' : 'var(--card)', 
+                border: `1.5px solid ${assessmentModules.qualifying_questions ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+                  border: `2px solid ${assessmentModules.qualifying_questions ? 'var(--primary)' : 'var(--border)'}`,
+                  background: assessmentModules.qualifying_questions ? 'var(--primary)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assessmentModules.qualifying_questions && <Check size={13} style={{ color: 'white' }} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Questions qualificatives</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Filtrez les candidats avant l'assessment avec des questions éliminatoires (ex: Avez-vous le permis B ?).</p>
+                </div>
+              </label>
+
               {/* CV Scoring */}
               <label onClick={() => setAssessmentModules(prev => ({ ...prev, cv_scoring: !prev.cv_scoring }))} style={{
                 display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
@@ -561,7 +659,20 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
-        {currentStep === 4 && jobData && assessmentModules.cv_scoring && (
+        {currentStep === 4 && savedJob && assessmentModules.qualifying_questions && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Questions Qualificatives</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Ajoutez des questions éliminatoires pour filtrer automatiquement les candidats.
+            </p>
+            <QualifyingQuestionsConfig 
+              config={{ enabled: true, questions: [] }} 
+              onChange={setQualifyingConfigPayload} 
+            />
+          </div>
+        )}
+
+        {currentStep === 5 && jobData && assessmentModules.cv_scoring && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Critères de Scoring CV</h2>
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
@@ -574,7 +685,7 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
-        {currentStep === 5 && savedJob && assessmentModules.ai_interview && (
+        {currentStep === 6 && savedJob && assessmentModules.ai_interview && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Paramètres de l'Assessment</h2>
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
@@ -589,7 +700,7 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
-        {currentStep === 6 && savedJob && assessmentModules.skills_test && (
+        {currentStep === 7 && savedJob && assessmentModules.skills_test && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Choix des Tests Techniques</h2>
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
@@ -603,7 +714,46 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
-        {currentStep === 7 && savedJob && (
+        {currentStep === 8 && savedJob && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Récapitulatif de l'assessment</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Voici les modules que les candidats devront passer et leur coût en crédits. Les crédits sont déduits par candidat uniquement s'ils complètent le module.
+            </p>
+
+            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.5rem', background: 'var(--secondary)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Module sélectionné</span>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Coût par candidat</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {calculateCost().details.map((detail, idx) => (
+                  <div key={idx} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx < calculateCost().details.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle2 size={16} style={{ color: 'var(--primary)' }} /> {detail.name}
+                      </h4>
+                      <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>{detail.reason}</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '15px', fontWeight: '800', color: detail.cost > 0 ? 'var(--foreground)' : '#166534', background: detail.cost === 0 ? '#dcfce7' : 'transparent', padding: detail.cost === 0 ? '2px 8px' : '0', borderRadius: '4px' }}>
+                        {detail.cost > 0 ? `${detail.cost} crédit${detail.cost > 1 ? 's' : ''}` : 'Gratuit'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '1.25rem 1.5rem', background: 'var(--accent)', borderTop: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--foreground)' }}>Total par candidat complété</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--primary)' }}>
+                  {calculateCost().total} crédit{calculateCost().total > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 9 && savedJob && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2rem 0' }} className="fade-in">
             <div style={{ width: '80px', height: '80px', background: '#dcfce7', color: '#166534', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <CheckCircle2 size={40} />
@@ -657,14 +807,16 @@ export default function NouvelleDemandePage() {
 
         {/* Navigation */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-          {currentStep > 1 && currentStep < 7 ? (
+          {currentStep > 1 && currentStep < 9 ? (
             <button 
               className="btn btn-ghost" 
               style={{ fontWeight: '600' }}
               onClick={() => {
                 if (currentStep === 4) setCurrentStep(3);
-                else if (currentStep === 5) setCurrentStep(assessmentModules.cv_scoring ? 4 : 3);
-                else if (currentStep === 6) setCurrentStep(assessmentModules.ai_interview ? 5 : assessmentModules.cv_scoring ? 4 : 3);
+                else if (currentStep === 5) setCurrentStep(assessmentModules.qualifying_questions ? 4 : 3);
+                else if (currentStep === 6) setCurrentStep(assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
+                else if (currentStep === 7) setCurrentStep(assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
+                else if (currentStep === 8) setCurrentStep(assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
                 else setCurrentStep(prev => prev - 1);
               }}
             >
@@ -712,7 +864,7 @@ export default function NouvelleDemandePage() {
             <button 
               className="btn btn-primary"
               style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleCriteriaNext}
+              onClick={handleQualifyingNext}
               disabled={isSaving}
             >
               Suivant
@@ -720,6 +872,17 @@ export default function NouvelleDemandePage() {
           )}
 
           {currentStep === 5 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleCriteriaNext}
+              disabled={isSaving}
+            >
+              Suivant
+            </button>
+          )}
+
+          {currentStep === 6 && (
             <button 
               className="btn btn-primary"
               style={{ padding: '12px 24px', fontWeight: '600' }}
@@ -731,7 +894,7 @@ export default function NouvelleDemandePage() {
             </button>
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 7 && (
             <button 
               className="btn btn-primary"
               style={{ padding: '12px 24px', fontWeight: '600' }}
@@ -739,7 +902,17 @@ export default function NouvelleDemandePage() {
               disabled={isSaving}
             >
               {isSaving ? <Loader2 size={18} className="spin" /> : null}
-              Terminer la configuration
+              Continuer
+            </button>
+          )}
+
+          {currentStep === 8 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleRecapNext}
+            >
+              Finaliser la création
             </button>
           )}
         </div>

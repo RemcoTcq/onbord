@@ -400,15 +400,17 @@ export async function completeOpenTestSession(sessionId, questionIds) {
       };
     });
 
-    const systemPrompt = `Tu es un évaluateur expert en maîtrise de l'IA en contexte professionnel. 
+    const systemPrompt = `Tu es un évaluateur expert, juste et équitable en maîtrise de l'IA en contexte professionnel. Ton rôle est de déceler si le candidat a une véritable expérience pratique ou une bonne compréhension, tout en restant objectif.
 Tu reçois une liste de questions ouvertes avec les réponses d'un candidat et des critères d'évaluation détaillés.
-Pour chaque question, attribue un score selon ces règles strictes :
-- 2 = Excellente réponse (correspond aux critères "excellent")
-- 1 = Réponse moyenne (correspond aux critères "moyen")
-- 0 = Mauvaise réponse ou pas de réponse (correspond aux critères "mauvais")
+Valorise les réponses qui montrent une compréhension claire, du bon sens ou des exemples pertinents. Pénalise les réponses totalement hors-sujet ou qui ne sont que du verbiage vide ("bullshit"), sans être excessivement sévère sur la forme.
+
+Pour chaque question, attribue un score selon ces règles :
+- 2 = Bonne à excellente réponse (démontre une compréhension claire et pratique, correspond aux critères "excellent")
+- 1 = Réponse moyenne ou partielle (connaissances de base correctes mais un peu vagues, correspond aux critères "moyen")
+- 0 = Mauvaise réponse, totalement hors sujet, fausse ou pas de réponse (correspond aux critères "mauvais")
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, dans ce format exact :
-{"evaluations": [{"question_id": "...", "score": 0|1|2, "justification": "1-2 phrases max en français"}]}`;
+{"evaluations": [{"question_id": "...", "score": 0|1|2, "justification": "1-2 phrases max en français, objectives et constructives"}]}`;
 
     const userPrompt = `Évalue ces ${answersForPrompt.length} réponses :\n\n${JSON.stringify(answersForPrompt, null, 2)}`;
 
@@ -659,6 +661,51 @@ export async function saveAssessmentConfig(jobId, config) {
     return { success: true };
   } catch (err) {
     console.error("saveAssessmentConfig error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Disqualify a candidate (e.g. they failed qualifying questions)
+ */
+export async function disqualifyCandidate(candidateId) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("candidates")
+      .update({
+        assessment_status: "disqualified",
+        status: "rejected",
+        assessment_submitted_at: new Date().toISOString()
+      })
+      .eq("id", candidateId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("disqualifyCandidate error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Mark qualifying questions as passed
+ */
+export async function passQualifyingQuestions(candidateId) {
+  try {
+    const supabase = await createClient();
+    // We just set status to in_progress to mark that they've started the assessment successfully
+    const { error } = await supabase
+      .from("candidates")
+      .update({ assessment_status: "in_progress" })
+      .eq("id", candidateId)
+      // Only update if it's pending so we don't accidentally override other statuses
+      .eq("assessment_status", "pending");
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("passQualifyingQuestions error:", err);
     return { success: false, error: err.message };
   }
 }

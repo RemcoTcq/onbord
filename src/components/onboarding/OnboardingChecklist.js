@@ -43,24 +43,20 @@ export default function OnboardingChecklist({ user }) {
         .eq('jobs.user_id', user.id)
         .not('score_cv', 'is', null);
 
-      const newStatus = {
-        jobCreated: jobCount > 0,
-        candidateImported: candidateCount > 0,
-        scoringLaunched: scoringCount > 0,
+      const savedStatus = JSON.parse(localStorage.getItem(`onboarding_${user.id}`)) || {
+        jobCreated: false,
+        candidateImported: false,
+        scoringLaunched: false,
       };
 
+      const newStatus = {
+        jobCreated: savedStatus.jobCreated || jobCount > 0,
+        candidateImported: savedStatus.candidateImported || candidateCount > 0,
+        scoringLaunched: savedStatus.scoringLaunched || scoringCount > 0,
+      };
+
+      localStorage.setItem(`onboarding_${user.id}`, JSON.stringify(newStatus));
       setStatus(newStatus);
-
-      // If all done, mark as completed in DB after a short delay
-      if (newStatus.jobCreated && newStatus.candidateImported && newStatus.scoringLaunched) {
-        setTimeout(async () => {
-          await supabase.from('users').update({ 
-            onboarding_completed_at: new Date().toISOString() 
-          }).eq('id', user.id);
-          setCompleted(true);
-        }, 2000);
-      }
-
       setLoading(false);
     };
 
@@ -142,10 +138,28 @@ export default function OnboardingChecklist({ user }) {
       {doneCount === 4 && (
         <div style={{ 
           padding: "16px", background: "#f0fdf4", display: "flex", 
-          alignItems: "center", gap: "12px", borderTop: "1px solid #bbf7d0" 
+          flexDirection: "column", gap: "8px", borderTop: "1px solid #bbf7d0" 
         }}>
-          <PartyPopper size={20} style={{ color: "#22c55e" }} />
-          <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>Bravo ! Vous êtes opérationnel.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <PartyPopper size={20} style={{ color: "#22c55e" }} />
+            <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>Bravo ! Vous êtes opérationnel.</p>
+          </div>
+          <button 
+            onClick={async () => {
+              const supabase = createClient();
+              await supabase.from('users').update({ 
+                onboarding_completed_at: new Date().toISOString() 
+              }).eq('id', user.id);
+              setCompleted(true);
+            }}
+            style={{ 
+              background: "transparent", border: "none", color: "#166534", 
+              fontSize: "12px", textDecoration: "underline", cursor: "pointer", 
+              alignSelf: "flex-start", padding: 0 
+            }}
+          >
+            Faire disparaître ce guide
+          </button>
         </div>
       )}
     </div>

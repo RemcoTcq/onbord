@@ -35,6 +35,21 @@ Nous vous souhaitons plein succès dans votre recherche.
 Cordialement,
 
 {{prénom_recruteur}} — {{nom_entreprise}}`
+  },
+  results: {
+    label: "Partager les résultats",
+    subject: "Résultats de votre évaluation : {{titre_du_poste}}",
+    body: `Bonjour {{prénom_candidat}},
+
+Merci d'avoir complété notre processus d'évaluation pour le poste de {{titre_du_poste}}.
+
+Nous avons le plaisir de partager avec vous les résultats, le feedback et les conseils issus de votre évaluation.
+Vous pouvez les consulter en cliquant sur le lien ci-dessous :
+{{lien_resultats}}
+
+À bientôt,
+
+{{prénom_recruteur}} — {{nom_entreprise}}`
   }
 };
 
@@ -53,6 +68,7 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
     "{{titre_du_poste}}": job.title,
     "{{nom_entreprise}}": currentUser?.user_metadata?.company_name || "Onbord",
     "{{lien_interview}}": `${typeof window !== "undefined" ? window.location.origin : ""}/interview/${candidate.interview_token}`,
+    "{{lien_resultats}}": `${typeof window !== "undefined" ? window.location.origin : ""}/results/${candidate.interview_token}`,
     "{{prénom_recruteur}}": currentUser?.user_metadata?.first_name || currentUser?.email?.split("@")[0] || "Recruteur",
   };
 
