@@ -55,6 +55,26 @@ export default function NouvelleDemandePage() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+
+    // Load draft if specified in URL
+    if (typeof window !== 'undefined') {
+      const draftId = new URLSearchParams(window.location.search).get('draftId');
+      if (draftId) {
+        const loadDraft = async () => {
+          const supabase = createClient();
+          const { data: job } = await supabase.from('jobs').select('*').eq('id', draftId).single();
+          if (job) {
+            setSavedJobId(job.id);
+            setSavedJob(job);
+            setJobData(job.extracted_criteria || {});
+            setRawDescription(job.description || "");
+            setCurrentStep(2); // Resume at step 2
+          }
+        };
+        loadDraft();
+      }
+    }
+
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
@@ -106,6 +126,29 @@ export default function NouvelleDemandePage() {
       const data = await analyzeJobDescription(targetContent);
       setJobData(data);
       setRawDescription(targetContent); // Keep the analyzed content in state
+
+      // Create draft job immediately
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: job } = await supabase.from('jobs').insert({
+          user_id: user.id,
+          title: data.title || 'Poste sans titre',
+          category: data.category,
+          description: targetContent,
+          experience_level: data.experience_level,
+          work_mode: data.work_mode,
+          contract_type: data.contract_type,
+          location: data.location,
+          extracted_criteria: { ...data },
+          status: 'draft'
+        }).select().single();
+        if (job) {
+          setSavedJobId(job.id);
+          setSavedJob(job);
+        }
+      }
+
       setCurrentStep(2);
     } catch (err) {
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
@@ -129,46 +172,66 @@ export default function NouvelleDemandePage() {
         throw new Error(quota.error);
       }
 
-      // 1. Insert Job
-      const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .insert({
-          user_id: user.id,
-          title: jobData.title || 'Poste sans titre',
-          category: jobData.category,
-          description: rawDescription,
-          experience_level: jobData.experience_level,
-          work_mode: jobData.work_mode,
-          contract_type: jobData.contract_type,
-          location: jobData.location,
-          extracted_criteria: {
-            ...jobData
-          },
-          status: continueToModules ? 'active' : 'draft',
-        })
-        .select()
-        .single();
+      // 1. Upsert Job
+      if (savedJobId) {
+        const { error: jobError } = await supabase
+          .from('jobs')
+          .update({
+            title: jobData.title || 'Poste sans titre',
+            category: jobData.category,
+            experience_level: jobData.experience_level,
+            work_mode: jobData.work_mode,
+            contract_type: jobData.contract_type,
+            location: jobData.location,
+            extracted_criteria: { ...jobData },
+            status: continueToModules ? 'active' : 'draft',
+          })
+          .eq('id', savedJobId);
+        if (jobError) throw jobError;
+      } else {
+        const { data: job, error: jobError } = await supabase
+          .from('jobs')
+          .insert({
+            user_id: user.id,
+            title: jobData.title || 'Poste sans titre',
+            category: jobData.category,
+            description: rawDescription,
+            experience_level: jobData.experience_level,
+            work_mode: jobData.work_mode,
+            contract_type: jobData.contract_type,
+            location: jobData.location,
+            extracted_criteria: { ...jobData },
+            status: continueToModules ? 'active' : 'draft',
+          })
+          .select()
+          .single();
 
-      if (jobError) throw jobError;
-      
-      setSavedJobId(job.id);
-      setSavedJob(job);
+        if (jobError) throw jobError;
+        setSavedJobId(job.id);
+        setSavedJob(job);
+      }
 
-      // 2. Insert Skills
+      // 2. Insert Skills (Replace old ones)
+      if (savedJobId) {
+        await supabase.from('job_skills').delete().eq('job_id', savedJobId);
+      }
+      const targetJobId = savedJobId || savedJob?.id;
       const skillsToInsert = [];
       if (jobData.hard_skills) {
-        jobData.hard_skills.forEach(s => skillsToInsert.push({ job_id: job.id, name: s.name, type: 'hard_skill', priority: s.priority }));
+        jobData.hard_skills.forEach(s => skillsToInsert.push({ job_id: targetJobId, name: s.name, type: 'hard_skill', priority: s.priority }));
       }
       if (jobData.soft_skills) {
-        jobData.soft_skills.forEach(s => skillsToInsert.push({ job_id: job.id, name: s.name, type: 'soft_skill', priority: s.priority }));
+        jobData.soft_skills.forEach(s => skillsToInsert.push({ job_id: targetJobId, name: s.name, type: 'soft_skill', priority: s.priority }));
       }
 
-      if (skillsToInsert.length > 0) {
+      if (skillsToInsert.length > 0 && targetJobId) {
         const { error: skillsError } = await supabase.from('job_skills').insert(skillsToInsert);
         if (skillsError) throw skillsError;
       }
 
-      await incrementUserUsage('job');
+      if (!savedJobId) {
+        await incrementUserUsage('job');
+      }
 
       if (continueToModules) {
         setCurrentStep(3); // Go to module selection
@@ -738,7 +801,6 @@ export default function NouvelleDemandePage() {
             </div>
           </div>
         )}
-
         {/* Navigation */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
           {currentStep > 1 && currentStep <= 8 ? (
@@ -746,7 +808,9 @@ export default function NouvelleDemandePage() {
               className="btn btn-ghost" 
               style={{ fontWeight: '600' }}
               onClick={() => {
-                if (currentStep === 4) setCurrentStep(3);
+                if (currentStep === 2) router.push('/jobs');
+                else if (currentStep === 3) setCurrentStep(2);
+                else if (currentStep === 4) setCurrentStep(3);
                 else if (currentStep === 5) setCurrentStep(assessmentModules.qualifying_questions ? 4 : 3);
                 else if (currentStep === 6) setCurrentStep(assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
                 else if (currentStep === 7) setCurrentStep(assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);

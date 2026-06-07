@@ -174,6 +174,22 @@ export default function JobDetailPage() {
 
   return (
     <div className="fade-in">
+      {job?.status === 'draft' && (
+        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 'var(--radius)', padding: '16px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#92400e', marginBottom: '4px' }}>Offre en brouillon</h3>
+            <p style={{ fontSize: '13px', color: '#92400e', margin: 0 }}>Cette offre n'a pas encore été entièrement configurée.</p>
+          </div>
+          <button 
+            className="btn btn-primary"
+            style={{ background: '#d97706', color: 'white', border: 'none' }}
+            onClick={() => router.push(`/jobs/nouveau?draftId=${job.id}`)}
+          >
+            Continuer la configuration
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.5rem" }}>
         <button className="btn btn-ghost btn-icon" onClick={() => router.push("/jobs")} title="Retour">
