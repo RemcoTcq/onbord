@@ -302,7 +302,7 @@ export default function NouvelleDemandePage() {
   };
 
   const handleRecapNext = () => {
-    setCurrentStep(9);
+    router.push(`/jobs/${savedJobId}`);
   };
 
   const calculateCost = () => {
@@ -739,61 +739,9 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
-        {currentStep === 9 && savedJob && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '2rem 0' }} className="fade-in">
-            <div style={{ width: '80px', height: '80px', background: '#dcfce7', color: '#166534', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
-              <CheckCircle2 size={40} />
-            </div>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--foreground)' }}>Offre créée avec succès !</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', maxWidth: '500px' }}>
-              Votre offre <strong>{savedJob.title}</strong> est prête. Les candidats peuvent maintenant s'inscrire et passer les évaluations (CV, tests et interview IA) de manière autonome.
-            </p>
-            
-            <div style={{ width: '100%', maxWidth: '600px', background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem', marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                <LinkIcon size={16} /> Lien public pour postuler
-              </h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={(() => {
-                    if (typeof window === 'undefined') return '';
-                    const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
-                    return isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://app.onbord.be/apply/${savedJob.id}`;
-                  })()}
-                  style={{ flex: 1, padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'white', fontSize: '14px', color: 'var(--foreground)' }}
-                />
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => {
-                    const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
-                    const link = isLocal ? `${window.location.origin}/apply/${savedJob.id}` : `https://app.onbord.be/apply/${savedJob.id}`;
-                    navigator.clipboard.writeText(link);
-                    toast("Lien copié dans le presse-papier !");
-                  }}
-                >
-                  <Copy size={16} /> Copier
-                </button>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginTop: '1rem' }}>
-                Partagez ce lien sur LinkedIn, votre site carrière ou dans vos emails de prospection.
-              </p>
-            </div>
-
-            <button 
-              className="btn btn-outline" 
-              onClick={() => router.push(`/jobs/${savedJob.id}`)}
-              style={{ padding: '12px 24px' }}
-            >
-              Aller au tableau de bord de l'offre
-            </button>
-          </div>
-        )}
-
         {/* Navigation */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-          {currentStep > 1 && currentStep < 9 ? (
+          {currentStep > 1 && currentStep <= 8 ? (
             <button 
               className="btn btn-ghost" 
               style={{ fontWeight: '600' }}
