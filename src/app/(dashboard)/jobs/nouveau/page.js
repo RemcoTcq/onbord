@@ -254,8 +254,13 @@ export default function NouvelleDemandePage() {
   const handleModulesSelectionNext = async () => {
     setIsSaving(true);
     try {
-      // Save job (first time)
-      if (!savedJobId) {
+      const supabase = createClient();
+
+      // If job was auto-saved as draft in step 1, activate it now
+      if (savedJobId) {
+        await supabase.from('jobs').update({ status: 'active' }).eq('id', savedJobId);
+      } else {
+        // First time saving (no draft yet)
         await handleSave(true);
       }
 
@@ -288,6 +293,7 @@ export default function NouvelleDemandePage() {
     }
     setIsSaving(false);
   };
+
 
   const handleQualifyingNext = async () => {
     setIsSaving(true);
