@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, FileText, Brain, MessageSquare, ChevronRight, Loader2, Trophy, Clock } from "lucide-react";
+import { CheckCircle2, FileText, Brain, MessageSquare, Video, ChevronRight, Loader2, Clock } from "lucide-react";
 import CvUploadModule from "./CvUploadModule";
 import SkillsTestModule from "./SkillsTestModule";
 import InterviewModule from "./InterviewModule";
+import VideoInterviewModule from "./VideoInterviewModule";
 import ResultsView from "./ResultsView";
 import FullscreenGuard from "./FullscreenGuard";
 import QualifyingQuestionsModule from "./QualifyingQuestionsModule";
@@ -18,6 +19,7 @@ function getModulesConfig(job, candidate) {
   const cvEnabled = assessment.cv_scoring?.enabled ?? true;
   const testsEnabled = assessment.skills_tests?.enabled ?? false;
   const interviewEnabled = assessment.ai_interview?.enabled ?? aiConfig?.enabled ?? false;
+  const videoEnabled = assessment.video_interview?.enabled ?? false;
 
   return {
     qualifying: assessment.qualifying_questions?.enabled ?? false,
@@ -25,6 +27,8 @@ function getModulesConfig(job, candidate) {
     cv: cvEnabled,
     tests: testsEnabled,
     interview: interviewEnabled,
+    video: videoEnabled,
+    videoConfig: assessment.video_interview || {},
     testsConfig: assessment.skills_tests || {},
   };
 }
@@ -35,6 +39,9 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   const [testSessions, setTestSessions] = useState([]);
   const [interviewStatus, setInterviewStatus] = useState(
     candidate.status === "interview_completed" ? "completed" : "pending"
+  );
+  const [videoStatus, setVideoStatus] = useState(
+    candidate.video_interview_status === "completed" ? "completed" : "pending"
   );
   const [submitted, setSubmitted] = useState(candidate.assessment_status === "submitted");
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +99,7 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
     if (modules.cv && cvStatus !== "completed") return false;
     if (modules.tests && !testsCompleted) return false;
     if (modules.interview && interviewStatus !== "completed") return false;
+    if (modules.video && videoStatus !== "completed") return false;
     return true;
   })();
 
@@ -166,6 +174,16 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
       </FullscreenGuard>
     );
   }
+  if (activeModule === "video") {
+    return (
+      <VideoInterviewModule
+        candidate={candidate}
+        job={job}
+        onComplete={() => { setVideoStatus("completed"); setActiveModule(null); }}
+        onBack={() => setActiveModule(null)}
+      />
+    );
+  }
 
   // ─── Hub view ─────────────────────────────────────────────────────────────
   const companyName = recruiter?.company_name || job?.extracted_criteria?.company_name || "L'entreprise";
@@ -190,11 +208,12 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
         {/* Progress bar */}
         {(() => {
-          const total = [modules.cv, modules.tests, modules.interview].filter(Boolean).length;
+          const total = [modules.cv, modules.tests, modules.interview, modules.video].filter(Boolean).length;
           const done = [
             modules.cv && cvStatus === "completed",
             modules.tests && testsCompleted,
             modules.interview && interviewStatus === "completed",
+            modules.video && videoStatus === "completed",
           ].filter(Boolean).length;
           const remaining = total - done;
           const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -247,6 +266,17 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
               duration="~10-15 min"
               status={interviewStatus}
               onOpen={() => setActiveModule("interview")}
+            />
+          )}
+
+          {modules.video && (
+            <ModuleCard
+              title="Entretien Vidéo"
+              description={`Répondez à ${modules.videoConfig?.questions?.length || 0} question${(modules.videoConfig?.questions?.length || 0) > 1 ? "s" : ""} en vous enregistrant à la webcam.`}
+              duration={`~${(modules.videoConfig?.questions?.length || 3) * 3} min`}
+              status={videoStatus}
+              icon={<Video size={18} />}
+              onOpen={() => setActiveModule("video")}
             />
           )}
 

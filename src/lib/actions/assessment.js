@@ -709,3 +709,209 @@ export async function passQualifyingQuestions(candidateId) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Get the video interview question library
+ */
+export async function getVideoQuestionLibrary() {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("video_interview_questions")
+      .select("id, category, text, hint")
+      .eq("is_library", true)
+      .order("category")
+      .order("text");
+    if (error) throw error;
+    return { success: true, questions: data };
+  } catch (err) {
+    console.error("getVideoQuestionLibrary error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Generate video interview questions with Claude based on job context
+ */
+export async function generateVideoQuestions(jobId) {
+  try {
+    const supabase = await createClient();
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("title, description, extracted_criteria")
+      .eq("id", jobId)
+      .single();
+
+    if (!job) return { success: false, error: "Job not found" };
+
+    const criteria = job.extracted_criteria || {};
+    const hardSkills = (criteria.hard_skills || []).map((s) => s.name).join(", ");
+    const softSkills = (criteria.soft_skills || []).map((s) => s.name).join(", ");
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1200,
+      temperature: 0.7,
+      system: `Tu es un expert RH. Tu generes des questions d'entretien video pertinentes pour un poste specifique. Reponds UNIQUEMENT avec un JSON valide.`,
+      messages: [
+        {
+          role: "user",
+          content: `Poste: ${job.title}
+Competences techniques: ${hardSkills || "Non specifiees"}
+Soft skills: ${softSkills || "Non specifiees"}
+Description: ${job.description?.slice(0, 500) || ""}
+
+Genere 4 questions d'entretien video adaptees a ce poste. Pour chaque question, propose aussi un critere d'evaluation pour l'IA.
+
+Reponds avec:
+{
+  "questions": [
+    {
+      "text": "La question complete",
+      "category": "Motivation|Experience|Soft Skills|Technique",
+      "hint": "Conseil pour le candidat (1 phrase)",
+      "evaluation_criteria": "Ce que l'IA doit evaluer (1-2 phrases)"
+    }
+  ]
+}`,
+        },
+      ],
+    });
+
+    const text = response.content[0].text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { success: false, error: "AI did not return valid JSON" };
+    const parsed = JSON.parse(jsonMatch[0]);
+    return { success: true, questions: parsed.questions || [] };
+  } catch (err) {
+    console.error("generateVideoQuestions error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Save video interview config on a job (inside assessment_config)
+ */
+export async function saveVideoInterviewConfig(jobId, videoConfig) {
+  try {
+    const supabase = await createClient();
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("assessment_config")
+      .eq("id", jobId)
+      .single();
+
+    const existingConfig = job?.assessment_config || { modules: {} };
+    const newConfig = {
+      ...existingConfig,
+      modules: {
+        ...(existingConfig.modules || {}),
+        video_interview: {
+          enabled: true,
+          ...videoConfig,
+        },
+      },
+    };
+
+    const { error } = await supabase
+      .from("jobs")
+      .update({ assessment_config: newConfig })
+      .eq("id", jobId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("saveVideoInterviewConfig error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get video interview responses for a candidate
+ */
+export async function getVideoInterviewResponses(candidateId) {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("video_interview_responses")
+      .select("*")
+      .eq("candidate_id", candidateId)
+      .order("question_index");
+    if (error) throw error;
+    return { success: true, responses: data || [] };
+  } catch (err) {
+    console.error("getVideoInterviewResponses error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Create a video interview response record (before upload)
+ */
+export async function createVideoInterviewResponse(candidateId, jobId, questionIndex, questionText, evaluationCriteria) {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("video_interview_responses")
+      .insert({
+        candidate_id: candidateId,
+        job_id: jobId,
+        question_index: questionIndex,
+        question_text: questionText,
+        evaluation_criteria: evaluationCriteria,
+        status: "pending",
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { success: true, response: data };
+  } catch (err) {
+    console.error("createVideoInterviewResponse error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Update video response after upload
+ */
+export async function updateVideoResponseAfterUpload(responseId, videoStoragePath, videoUrl, durationSeconds) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("video_interview_responses")
+      .update({
+        video_storage_path: videoStoragePath,
+        video_url: videoUrl,
+        duration_seconds: durationSeconds,
+        status: "recorded",
+      })
+      .eq("id", responseId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("updateVideoResponseAfterUpload error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Mark video interview as completed on the candidate
+ */
+export async function markVideoInterviewCompleted(candidateId, averageScore) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("candidates")
+      .update({
+        video_interview_score: averageScore,
+        video_interview_status: "completed",
+        status: "interview_completed",
+      })
+      .eq("id", candidateId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("markVideoInterviewCompleted error:", err);
+    return { success: false, error: err.message };
+  }
+}

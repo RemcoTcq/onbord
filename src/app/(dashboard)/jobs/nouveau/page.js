@@ -13,9 +13,10 @@ import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
 import SkillsTestConfig from "@/components/jobs/SkillsTestConfig";
 import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
 import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
+import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
 import { useToast } from "@/components/ui/Toast";
 import { updateJobAiConfig } from "@/lib/actions/job";
-import { saveAssessmentConfig } from "@/lib/actions/assessment";
+import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 
 export default function NouvelleDemandePage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -36,10 +37,12 @@ export default function NouvelleDemandePage() {
     cv_scoring: true,
     ai_interview: false,
     skills_test: false,
+    video_interview: false,
   });
   const [qualifyingConfigPayload, setQualifyingConfigPayload] = useState(null);
   const [aiConfigPayload, setAiConfigPayload] = useState(null);
   const [skillsConfigPayload, setSkillsConfigPayload] = useState(null);
+  const [videoConfigPayload, setVideoConfigPayload] = useState({ questions: [], max_duration_seconds: 120, max_retakes: 1 });
   
   const fileInputRef = useRef(null);
   const cvInputRef = useRef(null);
@@ -263,6 +266,7 @@ export default function NouvelleDemandePage() {
           cv_scoring: { enabled: assessmentModules.cv_scoring },
           ai_interview: { enabled: assessmentModules.ai_interview },
           skills_tests: { enabled: assessmentModules.skills_test, tests: [] },
+          video_interview: { enabled: assessmentModules.video_interview, questions: [], max_duration_seconds: 120, max_retakes: 1 },
         }
       });
       // Move to next step dynamically based on selection
@@ -274,6 +278,8 @@ export default function NouvelleDemandePage() {
         setCurrentStep(6);
       } else if (assessmentModules.skills_test) {
         setCurrentStep(7);
+      } else if (assessmentModules.video_interview) {
+        setCurrentStep(9);
       } else {
         setCurrentStep(8); // Recap
       }
@@ -302,6 +308,8 @@ export default function NouvelleDemandePage() {
         setCurrentStep(6);
       } else if (assessmentModules.skills_test) {
         setCurrentStep(7);
+      } else if (assessmentModules.video_interview) {
+        setCurrentStep(9);
       } else {
         setCurrentStep(8);
       }
@@ -318,6 +326,8 @@ export default function NouvelleDemandePage() {
         setCurrentStep(6);
       } else if (assessmentModules.skills_test) {
         setCurrentStep(7);
+      } else if (assessmentModules.video_interview) {
+        setCurrentStep(9);
       } else {
         setCurrentStep(8);
       }
@@ -335,6 +345,8 @@ export default function NouvelleDemandePage() {
       }
       if (assessmentModules.skills_test) {
         setCurrentStep(7);
+      } else if (assessmentModules.video_interview) {
+        setCurrentStep(9);
       } else {
         setCurrentStep(8); // Recap
       }
@@ -357,9 +369,26 @@ export default function NouvelleDemandePage() {
           }
         });
       }
-      setCurrentStep(8); // Recap
+      if (assessmentModules.video_interview) {
+        setCurrentStep(9);
+      } else {
+        setCurrentStep(8); // Recap
+      }
     } catch (err) {
       toast("Erreur de sauvegarde", "error");
+    }
+    setIsSaving(false);
+  };
+
+  const handleVideoConfigNext = async () => {
+    setIsSaving(true);
+    try {
+      if (savedJobId && videoConfigPayload) {
+        await saveVideoInterviewConfig(savedJobId, videoConfigPayload);
+      }
+      setCurrentStep(8); // Recap
+    } catch (err) {
+      toast("Erreur de sauvegarde vidéo", "error");
     }
     setIsSaving(false);
   };
@@ -385,6 +414,10 @@ export default function NouvelleDemandePage() {
     if (assessmentModules.ai_interview) {
       cost += 3;
       details.push({ name: "Interview IA par Texte", cost: 3, reason: "Conversation interactive et résumé" });
+    }
+    if (assessmentModules.video_interview) {
+      cost += 2;
+      details.push({ name: "Entretien Vidéo (One-Way)", cost: 2, reason: "Transcription IA + évaluation par question" });
     }
     return { total: cost, details };
   };
@@ -704,6 +737,26 @@ export default function NouvelleDemandePage() {
                   <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Proposez des tests certifiés pour valider des compétences pointues de manière neutre.</p>
                 </div>
               </label>
+              {/* Video Interview */}
+              <label onClick={() => setAssessmentModules(prev => ({ ...prev, video_interview: !prev.video_interview }))} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+                background: assessmentModules.video_interview ? 'var(--accent)' : 'var(--card)', 
+                border: `1.5px solid ${assessmentModules.video_interview ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+                  border: `2px solid ${assessmentModules.video_interview ? 'var(--primary)' : 'var(--border)'}`,
+                  background: assessmentModules.video_interview ? 'var(--primary)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {assessmentModules.video_interview && <Check size={13} style={{ color: 'white' }} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Entretien Vidéo (One-Way) <span style={{ fontSize: '11px', fontWeight: '700', background: '#eff6ff', color: '#1d4ed8', padding: '2px 7px', borderRadius: '99px', marginLeft: '6px' }}>NOUVEAU</span></h3>
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Le candidat s&apos;enregistre en répondant à vos questions devant sa webcam. L&apos;IA transcrit et évalue chaque réponse.</p>
+                </div>
+              </label>
             </div>
           </div>
         )}
@@ -763,6 +816,20 @@ export default function NouvelleDemandePage() {
           </div>
         )}
 
+        {currentStep === 9 && savedJob && assessmentModules.video_interview && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Entretien Vidéo — Configuration</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              Configurez les questions que les candidats devront répondre en vidéo, les critères d&apos;évaluation IA, et les paramètres d&apos;enregistrement.
+            </p>
+            <VideoInterviewConfig
+              jobId={savedJob.id}
+              config={videoConfigPayload}
+              onChange={setVideoConfigPayload}
+            />
+          </div>
+        )}
+
         {currentStep === 8 && savedJob && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Récapitulatif de l'assessment</h2>
@@ -803,7 +870,7 @@ export default function NouvelleDemandePage() {
         )}
         {/* Navigation */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-          {currentStep > 1 && currentStep <= 8 ? (
+          {currentStep > 1 && (currentStep <= 8 || currentStep === 9) ? (
             <button 
               className="btn btn-ghost" 
               style={{ fontWeight: '600' }}
@@ -814,7 +881,8 @@ export default function NouvelleDemandePage() {
                 else if (currentStep === 5) setCurrentStep(assessmentModules.qualifying_questions ? 4 : 3);
                 else if (currentStep === 6) setCurrentStep(assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
                 else if (currentStep === 7) setCurrentStep(assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
-                else if (currentStep === 8) setCurrentStep(assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
+                else if (currentStep === 9) setCurrentStep(assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
+                else if (currentStep === 8) setCurrentStep(assessmentModules.video_interview ? 9 : assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
                 else setCurrentStep(prev => prev - 1);
               }}
             >
@@ -901,6 +969,18 @@ export default function NouvelleDemandePage() {
             >
               {isSaving ? <Loader2 size={18} className="spin" /> : null}
               Continuer
+            </button>
+          )}
+
+          {currentStep === 9 && (
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '12px 24px', fontWeight: '600' }}
+              onClick={handleVideoConfigNext}
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 size={18} className="spin" /> : null}
+              Enregistrer et voir le récapitulatif
             </button>
           )}
 

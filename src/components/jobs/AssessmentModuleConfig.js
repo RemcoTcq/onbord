@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Brain, MessageSquare, Save, Loader2 } from "lucide-react";
+import { FileText, Brain, MessageSquare, Video, Save, Loader2 } from "lucide-react";
 import SkillsTestConfig from "./SkillsTestConfig";
 import AiInterviewConfig from "./AiInterviewConfig";
-import { saveAssessmentConfig, selectQuestionsForJob } from "@/lib/actions/assessment";
+import VideoInterviewConfig from "./VideoInterviewConfig";
+import { saveAssessmentConfig, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 
 const DEFAULT_CONFIG = {
   modules: {
-    cv_scoring:   { enabled: true },
-    skills_tests: { enabled: false, tests: [] },
-    ai_interview: { enabled: false },
+    cv_scoring:      { enabled: true },
+    skills_tests:    { enabled: false, tests: [] },
+    ai_interview:    { enabled: false },
+    video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1 },
   },
 };
 
@@ -145,6 +147,32 @@ export default function AssessmentModuleConfig({ job, onSave }) {
               <AiInterviewConfig job={job} hideSaveBar={true} embedded={true} onChange={(val) => {
                  // AiInterviewConfig still saves its own data to the DB, but we pass hideSaveBar so it doesn't show the sticky bar.
               }} />
+            </div>
+          )}
+        </ModuleCard>
+
+        {/* Video Interview */}
+        <ModuleCard
+          icon={<Video size={20} />}
+          title="Entretien Vidéo (One-Way)"
+          description="Le candidat répond à des questions en s'enregistrant à la webcam. L'IA transcrit et évalue chaque réponse."
+          duration="~5-20 min"
+          enabled={modules.video_interview?.enabled ?? false}
+          onToggle={(val) => update("video_interview", { enabled: val })}
+        >
+          {modules.video_interview?.enabled && (
+            <div style={{ marginTop: "1rem" }}>
+              <VideoInterviewConfig
+                jobId={job.id}
+                config={modules.video_interview}
+                onChange={(val) => {
+                  setConfig(prev => ({
+                    ...prev,
+                    modules: { ...prev.modules, video_interview: { ...prev.modules.video_interview, ...val } },
+                  }));
+                  setHasChanges(true);
+                }}
+              />
             </div>
           )}
         </ModuleCard>
