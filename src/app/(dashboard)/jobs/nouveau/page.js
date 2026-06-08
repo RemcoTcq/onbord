@@ -416,8 +416,8 @@ export default function NouvelleDemandePage() {
       details.push({ name: "Interview IA par Texte", cost: 3, reason: "Conversation interactive et résumé" });
     }
     if (assessmentModules.video_interview) {
-      cost += 2;
-      details.push({ name: "Entretien Vidéo (One-Way)", cost: 2, reason: "Transcription IA + évaluation par question" });
+      cost += 5;
+      details.push({ name: "Entretien Vidéo (One-Way)", cost: 5, reason: "Transcription IA + évaluation par question" });
     }
     return { total: cost, details };
   };
