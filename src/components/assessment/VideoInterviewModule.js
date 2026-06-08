@@ -490,6 +490,7 @@ export default function VideoInterviewModule({ candidate, job, onComplete, onBac
     return (
       <div style={{ minHeight: "100vh", background: "var(--background)" }}>
         <RecordingScreen
+          key={currentQuestionIndex}
           question={questions[currentQuestionIndex]}
           questionIndex={currentQuestionIndex}
           totalQuestions={questions.length}
