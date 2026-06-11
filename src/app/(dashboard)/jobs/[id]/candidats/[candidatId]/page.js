@@ -421,7 +421,7 @@ export default function CandidateDetailPage() {
                             {isAiTest && <Sparkles size={14} style={{ color: "#6366f1" }} />}
                             {session.assessment_tests?.name}
                           </div>
-                          <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted-foreground)", textTransform: "capitalize" }}>
                             {session.assessment_tests?.category} • {session.completed_at ? `Fini le ${new Date(session.completed_at).toLocaleDateString()}` : 'En attente'}
                           </div>
                         </div>

@@ -94,7 +94,7 @@ export default function TestPreview({ test, questions, onQuestionsUpdate, onClos
     { key: "B", text: q.option_b },
     { key: "C", text: q.option_c },
     { key: "D", text: q.option_d },
-  ].filter(o => o.text);
+  ].filter(o => o.text && o.text.trim().length > 0);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--background)", zIndex: 1000, display: "flex", flexDirection: "column" }}>

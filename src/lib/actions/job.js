@@ -1,6 +1,7 @@
 "use server";
 
 import anthropic from "../anthropic";
+import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 
 /**
  * Analyzes a raw job description using Claude 3.5 Sonnet to extract structured criteria.
@@ -48,6 +49,15 @@ Structure JSON attendue :
   "clean_description": "Un résumé propre et formaté (quelques paragraphes max) des missions et du profil recherché."
 }
 Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
+
+IMPORTANT POUR LES SKILLS :
+Essayez de mapper les compétences de l'offre avec notre liste de compétences standardisée ci-dessous. Si une compétence correspond conceptuellement à une de notre liste, UTILISEZ EXACTEMENT LE NOM DE NOTRE LISTE (majuscules/minuscules incluses). Si elle n'existe pas du tout dans notre liste, ajoutez-la en tant que compétence personnalisée.
+
+Liste des Hard Skills par domaine :
+${JSON.stringify(DOMAIN_HARD_SKILLS, null, 2)}
+
+Liste des Soft Skills :
+${JSON.stringify(SOFT_SKILLS_LIST, null, 2)}
 `;
 
   try {

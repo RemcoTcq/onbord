@@ -322,7 +322,7 @@ function TestRunner({ candidate, testId, recruiter, questionIds, existingSession
     { key: "B", text: question.option_b },
     { key: "C", text: question.option_c },
     { key: "D", text: question.option_d },
-  ];
+  ].filter(o => o.text && o.text.trim().length > 0);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column" }}>

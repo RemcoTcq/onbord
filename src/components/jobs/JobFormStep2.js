@@ -4,20 +4,7 @@ import { useState } from "react";
 import { Plus, X, ArrowRightLeft } from "lucide-react";
 import CustomSelect from "@/components/ui/CustomSelect";
 
-const DOMAIN_HARD_SKILLS = {
-  "Finance": ["SAS", "Stata", "Gretl", "PowerBI", "Tableau", "QlikView", "Qualtrics", "Octopus", "Wolters Kluwer", "Yuki", "Exact Online", "ProAcc", "Winbooks", "Xero Accounting", "SPSS"],
-  "IT & Software": ["HTML/CSS", "Docker", "PHP", "SQL", "C/C++", ".NET", "Java", "Ruby on Rails", "Swift", "React.js", "Ember.js", "CodeIgniter", "Scala", "Python", "NumPy", "Ubuntu", "Pandas", "JavaScript", "Angular.js", "Linux", "SAP", "Azure", "Django", "Node.js", "WordPress", "Shopify", "Vue.js"],
-  "Business & Sales": ["CRM", "ERP", "Navision", "SAP", "Microsoft SharePoint", "Salesforce", "Oracle"],
-  "Marketing": ["Email Marketing", "Social Media Advertising", "Google Analytics", "SEO", "SEA", "Google Tag Manager"],
-  "Administratif": ["Microsoft Excel", "Microsoft Outlook", "Microsoft Word", "Google Workspace", "Gestion administrative", "Gestion d'emails", "Organisation & planning"],
-  "Ingénierie": ["AutoCAD", "Autodesk", "SolidWorks", "Solid Edge", "Siemens PLC", "Siemens NX", "Matlab", "EPLAN", "R Studio", "Vectorworks", "Revit", "Archicad", "LaTeX", "Primavera", "Inventor", "Arduino", "Sony Vegas", "Raspberry Pi"]
-};
-
-const SOFT_SKILLS_LIST = [
-  "Communication", "Travail en équipe", "Autonomie", "Proactivité", "Organisation", "Adaptabilité", 
-  "Gestion du temps", "Esprit analytique", "Résolution de problèmes", "Créativité", "Leadership", 
-  "Rigueur", "Sens du détail", "Esprit critique", "Orientation résultats"
-];
+import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "@/lib/constants/skills";
 
 const DEFAULT_LANGUAGES = ["Français", "Anglais", "Néerlandais"];
 
@@ -32,20 +19,20 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
   const handleAddSkill = (type, name, priority = "must_have") => {
     const current = jobData[type] || [];
-    if (!current.find(s => s.name === name)) {
+    if (!current.find(s => s.name.toLowerCase() === name.toLowerCase())) {
       updateField(type, [...current, { name, priority }]);
     }
   };
 
   const handleRemoveSkill = (type, name) => {
     const current = jobData[type] || [];
-    updateField(type, current.filter(s => s.name !== name));
+    updateField(type, current.filter(s => s.name.toLowerCase() !== name.toLowerCase()));
   };
 
   const handleTogglePriority = (type, name) => {
     const current = jobData[type] || [];
     updateField(type, current.map(s => {
-      if (s.name === name) {
+      if (s.name.toLowerCase() === name.toLowerCase()) {
         return { ...s, priority: s.priority === "must_have" ? "nice_to_have" : "must_have" };
       }
       return s;
@@ -141,7 +128,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
         {jobData.category && DOMAIN_HARD_SKILLS[jobData.category] && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
             {DOMAIN_HARD_SKILLS[jobData.category].map(skill => {
-              const isSelected = (jobData.hard_skills || []).find(s => s.name === skill);
+              const isSelected = (jobData.hard_skills || []).find(s => s.name.toLowerCase() === skill.toLowerCase());
               return (
                 <span 
                   key={skill} 
@@ -176,7 +163,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
         <label className="form-label">Soft Skills</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
           {SOFT_SKILLS_LIST.map(skill => {
-            const isSelected = (jobData.soft_skills || []).find(s => s.name === skill);
+            const isSelected = (jobData.soft_skills || []).find(s => s.name.toLowerCase() === skill.toLowerCase());
             return (
               <span 
                 key={skill} 

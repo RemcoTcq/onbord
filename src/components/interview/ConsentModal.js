@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export default function ConsentModal({ candidate, job, recruiter, onAccept, loading = false }) {
   return (
@@ -10,7 +10,7 @@ export default function ConsentModal({ candidate, job, recruiter, onAccept, load
       padding: "20px"
     }}>
       <div className="card fade-in" style={{ maxWidth: "500px", width: "100%", padding: "2.5rem", textAlign: "center" }}>
-        {recruiter?.company_logo_url ? (
+        {recruiter?.company_logo_url && (
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.5rem" }}>
             <div style={{ 
               height: "50px", 
@@ -26,15 +26,6 @@ export default function ConsentModal({ candidate, job, recruiter, onAccept, load
                 style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} 
               />
             </div>
-          </div>
-        ) : (
-          <div style={{
-            width: "64px", height: "64px", borderRadius: "50%",
-            background: "var(--primary)", color: "white",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 1.5rem"
-          }}>
-            <Bot size={32} />
           </div>
         )}
 
