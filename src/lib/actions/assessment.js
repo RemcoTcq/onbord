@@ -29,7 +29,7 @@ export async function getTestsLibrary() {
  * This ensures all candidates for the same job answer the same questions.
  * Call this when the recruiter finalizes the job configuration.
  */
-export async function selectQuestionsForJob(jobId, testId, questionCount = 5) {
+export async function selectQuestionsForJob(jobId, testId, questionCount = 10) {
   try {
     const supabase = await createClient();
 
@@ -644,7 +644,7 @@ export async function saveAssessmentConfig(jobId, config) {
               testConfig.selected_question_ids = [...facile, ...moyen, ...difficile].map(q => q.id);
             } else {
               const shuffled = [...questions].sort(() => Math.random() - 0.5);
-              testConfig.selected_question_ids = shuffled.slice(0, 5).map((q) => q.id);
+              testConfig.selected_question_ids = shuffled.slice(0, 10).map((q) => q.id);
             }
           }
         }
