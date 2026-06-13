@@ -30,14 +30,13 @@ function getScoreColor(score) {
 
 function getStatusBadge(status) {
   const map = {
-    imported: { label: "Importé", className: "badge-muted" },
-    scored: { label: "CV évalué", className: "badge-outline" },
-    shortlisted: { label: "Validé", className: "badge-success" },
-    rejected: { label: "Rejeté", className: "badge-destructive" },
-    disqualified: { label: "Disqualifié", className: "badge-destructive" },
-    invited: { label: "Invité", className: "badge-primary" },
-    interview_started: { label: "Assessment en cours", className: "badge-warning" },
-    interview_completed: { label: "Assessment terminé", className: "badge-success" },
+    invited:       { label: "Invité",       className: "badge-primary" },
+    in_progress:   { label: "En cours",     className: "badge-warning" },
+    termine:       { label: "Terminé",      className: "badge-outline" },
+    soumis:        { label: "Soumis",       className: "badge-success" },
+    shortlisted:   { label: "Valider",      className: "badge-success" },
+    rejected:      { label: "Rejeter",      className: "badge-destructive" },
+    disqualified:  { label: "Disqualifier", className: "badge-destructive" },
   };
   return map[status] || { label: status, className: "badge-muted" };
 }

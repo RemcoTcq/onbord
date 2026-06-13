@@ -12,6 +12,12 @@ import QualifyingQuestionsModule from "./QualifyingQuestionsModule";
 import { getCandidateTestSessions, submitAssessment, passQualifyingQuestions } from "@/lib/actions/assessment";
 import { createClient } from "@/lib/supabase/client";
 
+// Statuts qui ne doivent plus être rétrogradés
+const STATUS_RANK = { invited: 0, in_progress: 1, termine: 2, soumis: 3 };
+function shouldUpgradeStatus(currentStatus, newStatus) {
+  return (STATUS_RANK[newStatus] ?? -1) > (STATUS_RANK[currentStatus] ?? -1);
+}
+
 function getModulesConfig(job, candidate) {
   const assessment = job?.assessment_config?.modules || {};
   const aiConfig = job?.ai_interview_config || {};
@@ -57,6 +63,21 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   useEffect(() => {
     if (modules.tests) loadTestSessions();
   }, []);
+
+  // ── Passer status → 'termine' automatiquement quand tous les modules sont finis ──
+  useEffect(() => {
+    if (allModulesComplete && !submitted) {
+      const currentStatus = candidate.status;
+      if (shouldUpgradeStatus(currentStatus, 'termine')) {
+        const supabase = createClient();
+        supabase
+          .from('candidates')
+          .update({ status: 'termine' })
+          .eq('id', candidate.id)
+          .then(() => onCandidateUpdate({ status: 'termine' }));
+      }
+    }
+  }, [allModulesComplete, submitted]);
 
   async function loadTestSessions() {
     setLoadingSessions(true);

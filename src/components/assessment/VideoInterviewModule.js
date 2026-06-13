@@ -342,6 +342,7 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
           ref={videoRef}
           autoPlay
           playsInline
+          muted={phase !== "reviewing"}
           controls={phase === "reviewing"}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />

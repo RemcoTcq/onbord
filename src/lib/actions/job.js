@@ -50,13 +50,17 @@ Structure JSON attendue :
 }
 Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
 
-IMPORTANT POUR LES SKILLS :
-Essayez de mapper les compétences de l'offre avec notre liste de compétences standardisée ci-dessous. Si une compétence correspond conceptuellement à une de notre liste, UTILISEZ EXACTEMENT LE NOM DE NOTRE LISTE (majuscules/minuscules incluses). Si elle n'existe pas du tout dans notre liste, ajoutez-la en tant que compétence personnalisée.
+RÈGLE ABSOLUE POUR LES SKILLS — LISEZ ATTENTIVEMENT :
+1. Si l'utilisateur a fourni une description courte avec des mots-clés de compétences (ex: React, SQL, Python), vous DEVEZ ABSOLUMENT les extraire dans hard_skills. Ne les ignorez jamais.
+2. Vous DEVEZ utiliser les noms de notre liste de référence en copiant-collant EXACTEMENT le texte, caractère par caractère, majuscules, minuscules, points, slashs et espaces compris.
+Exemples corrects : "React.js" (pas "React" ni "ReactJS"), "HTML/CSS" (pas "HTML & CSS"), "Node.js" (pas "NodeJS"), "Microsoft Excel" (pas "Excel"), "Google Analytics" (pas "GA").
+3. Si une compétence correspond conceptuellement à un élément de notre liste, utilisez TOUJOURS le nom exact de notre liste.
+4. Si une compétence n'existe vraiment pas dans notre liste, seulement dans ce cas, ajoutez-la telle quelle.
 
-Liste des Hard Skills par domaine :
+Liste des Hard Skills par domaine (copiez-collez exactement ces noms) :
 ${JSON.stringify(DOMAIN_HARD_SKILLS, null, 2)}
 
-Liste des Soft Skills :
+Liste des Soft Skills (copiez-collez exactement ces noms) :
 ${JSON.stringify(SOFT_SKILLS_LIST, null, 2)}
 `;
 

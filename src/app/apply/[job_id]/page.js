@@ -52,6 +52,12 @@ export default function ApplyPage() {
       const res = await applyForJob(job.id, form.firstName, form.lastName, form.email);
       if (!res.success) throw new Error(res.error);
       
+      if (res.alreadyApplied) {
+        // Candidat déjà existant — rediriger vers son assessment
+        router.push(`/assessment/${res.candidate.interview_token}`);
+        return;
+      }
+
       // Redirect to the assessment hub using the generated token
       router.push(`/assessment/${res.candidate.interview_token}`);
     } catch (err) {

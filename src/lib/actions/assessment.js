@@ -509,11 +509,12 @@ export async function submitAssessment(candidateId) {
     const assessmentConfig = candidate.jobs?.assessment_config || {};
     const modules = assessmentConfig.modules || {};
 
-    const cvEnabled = modules.cv_scoring?.enabled ?? true;
-    const testsEnabled = modules.skills_tests?.enabled ?? false;
+    const cvEnabled       = modules.cv_scoring?.enabled ?? true;
+    const testsEnabled    = modules.skills_tests?.enabled ?? false;
     const interviewEnabled = modules.ai_interview?.enabled
       ?? candidate.jobs?.ai_interview_config?.enabled
       ?? false;
+    const videoEnabled    = modules.video_interview?.enabled ?? false;
 
     // Compute score_tests: average of all completed test sessions
     let scoreTests = null;
@@ -530,30 +531,52 @@ export async function submitAssessment(candidateId) {
       }
     }
 
-    // Proportional weighting
-    const baseWeights = { cv: 10, tests: 50, interview: 40 };
+    // Compute score_video: average of evaluated video responses
+    let scoreVideo = null;
+    if (videoEnabled) {
+      const { data: videoResps } = await supabase
+        .from("video_interview_responses")
+        .select("ai_score")
+        .eq("candidate_id", candidateId)
+        .eq("status", "evaluated");
+
+      if (videoResps && videoResps.length > 0) {
+        const total = videoResps.reduce((sum, r) => sum + (r.ai_score || 0), 0);
+        scoreVideo = Math.round(total / videoResps.length);
+      } else if (candidate.video_interview_score && candidate.video_interview_score > 0) {
+        // Fallback: use previously stored value if API already ran
+        scoreVideo = candidate.video_interview_score;
+      }
+    }
+
+    // Proportional weighting — only active & scored modules count
+    const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
     const activeWeights = {};
-    if (cvEnabled && candidate.score_cv != null) activeWeights.cv = baseWeights.cv;
-    if (testsEnabled && scoreTests != null) activeWeights.tests = baseWeights.tests;
+    if (cvEnabled       && candidate.score_cv    != null) activeWeights.cv        = baseWeights.cv;
+    if (testsEnabled    && scoreTests            != null) activeWeights.tests     = baseWeights.tests;
     if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
+    if (videoEnabled    && scoreVideo            != null) activeWeights.video     = baseWeights.video;
 
     const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
 
     let scoreGlobal = null;
     if (totalBase > 0) {
       let weighted = 0;
-      if (activeWeights.cv) weighted += (candidate.score_cv * activeWeights.cv) / totalBase;
-      if (activeWeights.tests) weighted += (scoreTests * activeWeights.tests) / totalBase;
+      if (activeWeights.cv)        weighted += (candidate.score_cv        * activeWeights.cv)        / totalBase;
+      if (activeWeights.tests)     weighted += (scoreTests                * activeWeights.tests)     / totalBase;
       if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
+      if (activeWeights.video)     weighted += (scoreVideo                * activeWeights.video)     / totalBase;
       scoreGlobal = Math.round(weighted);
     }
 
     const updates = {
       assessment_status: "submitted",
+      status: "soumis",
       assessment_submitted_at: new Date().toISOString(),
       score_global: scoreGlobal,
     };
-    if (scoreTests !== null) updates.score_tests = scoreTests;
+    if (scoreTests !== null)  updates.score_tests           = scoreTests;
+    if (scoreVideo !== null)  updates.video_interview_score = scoreVideo;
 
     const { error } = await supabase
       .from("candidates")
@@ -567,9 +590,8 @@ export async function submitAssessment(candidateId) {
       generateCvFeedback(candidateId, candidate).catch(console.error);
     }
 
-    // ★ Déduire 3 crédits interview si l'interview IA était active et complétée
+    // ★ Déduire crédits interview texte
     if (interviewEnabled && candidate.score_interview != null) {
-      // Trouver le recruteur via le job
       const { data: job } = await supabase
         .from("jobs")
         .select("user_id")
@@ -580,7 +602,7 @@ export async function submitAssessment(candidateId) {
       }
     }
 
-    return { success: true, scoreGlobal, scoreTests };
+    return { success: true, scoreGlobal, scoreTests, scoreVideo };
   } catch (err) {
     console.error("submitAssessment error:", err);
     return { success: false, error: err.message };

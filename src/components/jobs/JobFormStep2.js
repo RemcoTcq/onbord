@@ -128,12 +128,17 @@ export default function JobFormStep2({ jobData, setJobData }) {
         {jobData.category && DOMAIN_HARD_SKILLS[jobData.category] && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
             {DOMAIN_HARD_SKILLS[jobData.category].map(skill => {
-              const isSelected = (jobData.hard_skills || []).find(s => s.name.toLowerCase() === skill.toLowerCase());
+              // Matching fuzzy : exact, puis contenu, pour gérer réponses IA légèrement différentes
+              const skillNorm = skill.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const isSelected = (jobData.hard_skills || []).find(s => {
+                const sNorm = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return sNorm === skillNorm || sNorm.includes(skillNorm) || skillNorm.includes(sNorm);
+              });
               return (
                 <span 
                   key={skill} 
-                  onClick={() => isSelected ? handleRemoveSkill('hard_skills', skill) : handleAddSkill('hard_skills', skill)}
-                  style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s' }}
+                  onClick={() => isSelected ? handleRemoveSkill('hard_skills', isSelected.name) : handleAddSkill('hard_skills', skill)}
+                  style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: isSelected ? '600' : '400' }}
                 >
                   {skill}
                 </span>
@@ -163,12 +168,16 @@ export default function JobFormStep2({ jobData, setJobData }) {
         <label className="form-label">Soft Skills</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
           {SOFT_SKILLS_LIST.map(skill => {
-            const isSelected = (jobData.soft_skills || []).find(s => s.name.toLowerCase() === skill.toLowerCase());
+            const skillNorm = skill.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const isSelected = (jobData.soft_skills || []).find(s => {
+              const sNorm = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return sNorm === skillNorm || sNorm.includes(skillNorm) || skillNorm.includes(sNorm);
+            });
             return (
               <span 
                 key={skill} 
-                onClick={() => isSelected ? handleRemoveSkill('soft_skills', skill) : handleAddSkill('soft_skills', skill)}
-                style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => isSelected ? handleRemoveSkill('soft_skills', isSelected.name) : handleAddSkill('soft_skills', skill)}
+                style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: isSelected ? '600' : '400' }}
               >
                 {skill}
               </span>

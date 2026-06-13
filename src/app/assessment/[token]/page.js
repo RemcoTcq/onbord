@@ -99,6 +99,7 @@ export default function AssessmentPage() {
         .update({
           gdpr_consent_at: new Date().toISOString(),
           assessment_status: "in_progress",
+          status: "in_progress",
         })
         .eq("id", candidate.id);
       setHasConsented(true);

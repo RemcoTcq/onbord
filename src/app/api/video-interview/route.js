@@ -58,10 +58,11 @@ Criteres d'evaluation definis par le recruteur: "${evaluationCriteria || "Pertin
 Transcription de la reponse video du candidat:
 "${transcript}"
 
-Analysez cette reponse et repondez avec:
+Analysez cette reponse. Vous devez faire un résumé de ce que le candidat a dit, puis l'évaluer sur base des critères.
+Repondez avec ce format exact :
 {
   "score": nombre entier de 0 a 100,
-  "feedback": "Resume concis de 2-3 phrases de la qualite de la reponse.",
+  "feedback": "Résumé clair et concis de ce que le candidat a dit, suivi de votre avis sur la qualité de la réponse.",
   "strengths": ["point fort 1", "point fort 2"],
   "improvements": ["axe d'amelioration 1"]
 }`,
@@ -75,6 +76,61 @@ Analysez cette reponse et repondez avec:
   return JSON.parse(jsonMatch[0]);
 }
 
+// Helper pour recalculer le score global
+async function updateGlobalScores(supabase, candidateId) {
+  const { data: candidate } = await supabase
+    .from("candidates")
+    .select("*, jobs(assessment_config, ai_interview_config)")
+    .eq("id", candidateId)
+    .single();
+
+  if (!candidate) return;
+
+  const assessmentConfig = candidate.jobs?.assessment_config || {};
+  const modules = assessmentConfig.modules || {};
+
+  const cvEnabled = modules.cv_scoring?.enabled ?? true;
+  const testsEnabled = modules.skills_tests?.enabled ?? false;
+  const interviewEnabled = modules.ai_interview?.enabled ?? candidate.jobs?.ai_interview_config?.enabled ?? false;
+  const videoEnabled = modules.video_interview?.enabled ?? false;
+
+  let scoreVideo = null;
+  const { data: videoResps } = await supabase
+    .from("video_interview_responses")
+    .select("ai_score")
+    .eq("candidate_id", candidateId)
+    .eq("status", "evaluated");
+
+  if (videoResps && videoResps.length > 0) {
+    const total = videoResps.reduce((sum, r) => sum + (r.ai_score || 0), 0);
+    scoreVideo = Math.round(total / videoResps.length);
+  }
+
+  const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
+  const activeWeights = {};
+  if (cvEnabled && candidate.score_cv != null) activeWeights.cv = baseWeights.cv;
+  if (testsEnabled && candidate.score_tests != null) activeWeights.tests = baseWeights.tests;
+  if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
+  if (videoEnabled && scoreVideo != null) activeWeights.video = baseWeights.video;
+
+  const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
+
+  let scoreGlobal = null;
+  if (totalBase > 0) {
+    let weighted = 0;
+    if (activeWeights.cv) weighted += (candidate.score_cv * activeWeights.cv) / totalBase;
+    if (activeWeights.tests) weighted += (candidate.score_tests * activeWeights.tests) / totalBase;
+    if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
+    if (activeWeights.video) weighted += (scoreVideo * activeWeights.video) / totalBase;
+    scoreGlobal = Math.round(weighted);
+  }
+
+  await supabase
+    .from("candidates")
+    .update({ score_global: scoreGlobal, video_interview_score: scoreVideo })
+    .eq("id", candidateId);
+}
+
 export async function POST(request) {
   try {
     const { responseId, videoUrl, questionText, evaluationCriteria, jobContext } =
@@ -85,6 +141,17 @@ export async function POST(request) {
     }
 
     const supabase = await createClient();
+
+    // Get candidate ID
+    const { data: respData } = await supabase
+      .from("video_interview_responses")
+      .select("candidate_id")
+      .eq("id", responseId)
+      .single();
+
+    if (!respData?.candidate_id) {
+      throw new Error("Response not found");
+    }
 
     // Update status to transcribing
     await supabase
@@ -98,7 +165,6 @@ export async function POST(request) {
       transcript = await transcribeAudio(videoUrl);
     } catch (transcribeErr) {
       console.error("Transcription failed:", transcribeErr);
-      // If transcription fails, still try to save partial data
       transcript = "[Transcription indisponible]";
     }
 
@@ -133,6 +199,9 @@ export async function POST(request) {
         status: "evaluated",
       })
       .eq("id", responseId);
+
+    // Step 4: Recalculate candidate global score
+    await updateGlobalScores(supabase, respData.candidate_id);
 
     return Response.json({ success: true, transcript, evaluation });
   } catch (error) {

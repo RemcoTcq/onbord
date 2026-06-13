@@ -273,6 +273,21 @@ export async function applyForJob(jobId, firstName, lastName, email) {
 
     if (jobError || !job) throw new Error("Offre d'emploi introuvable");
 
+    // ── Anti-doublon : vérifier si un candidat avec ce même email a déjà postulé ──
+    if (email) {
+      const { data: existing } = await supabase
+        .from('candidates')
+        .select('id, interview_token, assessment_status')
+        .eq('job_id', jobId)
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+
+      if (existing) {
+        // Renvoyer vers l'assessment existant plutôt que créer un doublon
+        return { success: true, candidate: existing, alreadyApplied: true };
+      }
+    }
+
     // Generate a unique interview token
     const token = crypto.randomUUID().replace(/-/g, '');
 
@@ -285,7 +300,7 @@ export async function applyForJob(jobId, firstName, lastName, email) {
         job_id: jobId,
         first_name: firstName || 'Candidat',
         last_name: lastName || '',
-        email: email || null,
+        email: email ? email.trim().toLowerCase() : null,
         interview_token: token,
         interview_expires_at: expiresAt,
         status: 'invited',
@@ -353,12 +368,22 @@ export async function getCandidateDetail(candidateId) {
       .eq('candidate_id', candidateId);
     if (tests) testSessions = tests;
 
+    // Fetch video interview responses
+    let videoResponses = [];
+    const { data: videos } = await supabase
+      .from('video_interview_responses')
+      .select('*')
+      .eq('candidate_id', candidateId)
+      .order('question_index');
+    if (videos) videoResponses = videos;
+
     return { 
       success: true, 
       candidate: { 
         ...candidate, 
         interview_messages: messages,
-        test_sessions: testSessions
+        test_sessions: testSessions,
+        video_responses: videoResponses,
       } 
     };
   } catch (error) {

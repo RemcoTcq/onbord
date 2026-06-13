@@ -6,7 +6,7 @@ import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
   User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
-  Download, FileDown, FileText, Clock, Sparkles
+  Download, FileDown, FileText, Clock, Sparkles, Video
 } from "lucide-react";
 
 const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
@@ -27,14 +27,13 @@ function getScoreColor(score) {
 
 function getStatusBadge(status) {
   const map = {
-    imported: { label: "Importé", className: "badge-muted" },
-    scored: { label: "CV évalué", className: "badge-outline" },
-    shortlisted: { label: "Validé", className: "badge-success" },
-    rejected: { label: "Rejeté", className: "badge-destructive" },
-    disqualified: { label: "Disqualifié", className: "badge-destructive" },
-    invited: { label: "Invité", className: "badge-primary" },
-    interview_started: { label: "Assessment en cours", className: "badge-warning" },
-    interview_completed: { label: "Assessment terminé", className: "badge-success" },
+    invited:       { label: "Invité",       className: "badge-primary" },
+    in_progress:   { label: "En cours",     className: "badge-warning" },
+    termine:       { label: "Terminé",      className: "badge-outline" },
+    soumis:        { label: "Soumis",       className: "badge-success" },
+    shortlisted:   { label: "Valider",      className: "badge-success" },
+    rejected:      { label: "Rejeter",      className: "badge-destructive" },
+    disqualified:  { label: "Disqualifier", className: "badge-destructive" },
   };
   return map[status] || { label: status, className: "badge-muted" };
 }
@@ -568,6 +567,145 @@ export default function CandidateDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Entretien Vidéo */}
+          {candidate.video_responses && candidate.video_responses.length > 0 && (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Video size={18} style={{ color: "var(--primary)" }} /> Entretien Vidéo
+                </h3>
+                {candidate.video_interview_score != null && candidate.video_interview_score > 0 && (
+                  <span style={{
+                    fontSize: "1.1rem", fontWeight: "800",
+                    color: getScoreColor(candidate.video_interview_score).color
+                  }}>
+                    Score moyen : {candidate.video_interview_score}%
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {candidate.video_responses.map((resp, idx) => {
+                  const statusLabels = {
+                    pending:      { label: "En attente",      color: "#64748b",  bg: "#f1f5f9" },
+                    recorded:     { label: "Enregistré",     color: "#1d4ed8",  bg: "#eff6ff" },
+                    transcribing: { label: "Transcription...", color: "#92400e", bg: "#fef3c7" },
+                    evaluating:   { label: "Analyse IA...",   color: "#6d28d9",  bg: "#ede9fe" },
+                    evaluated:    { label: "Analysé ✓",        color: "#166534",  bg: "#dcfce7" },
+                  }[resp.status] || { label: resp.status, color: "#64748b", bg: "#f1f5f9" };
+
+                  const scoreStyle = resp.ai_score != null ? getScoreColor(resp.ai_score) : null;
+
+                  return (
+                    <div key={resp.id} style={{
+                      border: "1px solid var(--border)", borderRadius: "10px",
+                      overflow: "hidden", background: "var(--background)"
+                    }}>
+                      {/* En-tête question */}
+                      <div style={{
+                        padding: "1rem 1.25rem",
+                        background: "var(--card)",
+                        borderBottom: "1px solid var(--border)",
+                        display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem"
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{
+                            fontSize: "11px", fontWeight: "700", color: "#1d4ed8",
+                            background: "#eff6ff", padding: "2px 8px", borderRadius: "99px", marginRight: "8px"
+                          }}>Question {idx + 1}</span>
+                          <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--foreground)" }}>
+                            {resp.question_text}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: "11px", fontWeight: "700",
+                            color: statusLabels.color, background: statusLabels.bg,
+                            padding: "3px 10px", borderRadius: "99px"
+                          }}>{statusLabels.label}</span>
+                          {scoreStyle && (
+                            <span style={{
+                              fontSize: "1rem", fontWeight: "800",
+                              color: scoreStyle.color
+                            }}>{resp.ai_score}%</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Corps : transcription + analyse IA */}
+                      {resp.status === "evaluated" && (
+                        <div style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+                          {/* Transcription */}
+                          {resp.transcript && (
+                            <div>
+                              <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
+                                Transcription du candidat
+                              </p>
+                              <div style={{
+                                background: "#f8fafc", border: "1px solid var(--border)",
+                                borderLeft: "3px solid var(--primary)",
+                                borderRadius: "6px", padding: "0.875rem",
+                                fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)",
+                                fontStyle: "italic"
+                              }}>
+                                « {resp.transcript} »
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Résumé IA */}
+                          {resp.ai_feedback && (
+                            <div>
+                              <p style={{ fontSize: "11px", fontWeight: "700", color: "#6d28d9", textTransform: "uppercase", marginBottom: "6px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                <Sparkles size={12} /> Analyse IA
+                              </p>
+                              <p style={{
+                                fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)",
+                                background: "#fafafe", border: "1px solid #e0e7ff",
+                                borderRadius: "6px", padding: "0.875rem"
+                              }}>{resp.ai_feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Points forts / Améliorations */}
+                          {((resp.ai_strengths?.length > 0) || (resp.ai_improvements?.length > 0)) && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                              {resp.ai_strengths?.length > 0 && (
+                                <div style={{ background: "#f0fdf4", border: "1px solid #dcfce7", borderRadius: "8px", padding: "0.875rem" }}>
+                                  <p style={{ fontSize: "11px", fontWeight: "700", color: "#166534", textTransform: "uppercase", marginBottom: "6px" }}>Points forts</p>
+                                  {resp.ai_strengths.map((s, i) => (
+                                    <div key={i} style={{ fontSize: "12px", color: "#166534", lineHeight: "1.5" }}>• {s}</div>
+                                  ))}
+                                </div>
+                              )}
+                              {resp.ai_improvements?.length > 0 && (
+                                <div style={{ background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: "8px", padding: "0.875rem" }}>
+                                  <p style={{ fontSize: "11px", fontWeight: "700", color: "#c2410c", textTransform: "uppercase", marginBottom: "6px" }}>Axes d'amélioration</p>
+                                  {resp.ai_improvements.map((s, i) => (
+                                    <div key={i} style={{ fontSize: "12px", color: "#c2410c", lineHeight: "1.5" }}>• {s}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Statuts intermédiaires (pas encore analysé) */}
+                      {resp.status !== "evaluated" && resp.status !== "pending" && (
+                        <div style={{ padding: "1rem 1.25rem", fontSize: "13px", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
+                          <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                          Analyse en cours, rechargez la page dans quelques instants.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
