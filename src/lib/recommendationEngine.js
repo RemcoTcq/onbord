@@ -90,7 +90,7 @@ export function generateRecommendation(jobData, preferVideo = false) {
 
   mustHaveSkills.forEach(skill => {
     // Retrouver la compétence dans la taxonomie si l'ID est fourni
-    const taxonomyEntry = TAXONOMIE_COMPETENCES.find(c => c.ID === skill.taxonomy_id) || TAXONOMIE_COMPETENCES.find(c => c.Compétence.toLowerCase() === skill.name.toLowerCase());
+    const taxonomyEntry = TAXONOMIE_COMPETENCES.find(c => c.ID === skill.taxonomy_id) || TAXONOMIE_COMPETENCES.find(c => c.Compétence?.toLowerCase() === skill.name?.toLowerCase());
     
     if (taxonomyEntry) {
       if (taxonomyEntry["Testable objectivement"] === "Oui") {

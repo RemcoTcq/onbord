@@ -23,12 +23,14 @@ export default function JobFormStep2({ jobData, setJobData }) {
     if (!current.find(s => s.name.toLowerCase() === name.toLowerCase())) {
       // Find taxonomy ID for manually selected skills
       let taxonomyId = null;
-      const matchedTax = TAXONOMIE_COMPETENCES.find(t => 
-        t['Compétence'].toLowerCase() === name.toLowerCase() || 
-        (t['Compétences proches'] && t['Compétences proches'].toLowerCase().includes(name.toLowerCase()))
-      );
-      if (matchedTax) {
-        taxonomyId = matchedTax['ID'];
+      if (name) {
+        const matchedTax = TAXONOMIE_COMPETENCES.find(t => 
+          t['Compétence']?.toLowerCase() === name.toLowerCase() || 
+          (t['Compétences proches'] && t['Compétences proches'].toLowerCase().includes(name.toLowerCase()))
+        );
+        if (matchedTax) {
+          taxonomyId = matchedTax['ID'];
+        }
       }
       
       updateField(type, [...current, { name, priority, taxonomy_id: taxonomyId, confidence: 5, evidence: "Sélectionné manuellement" }]);
