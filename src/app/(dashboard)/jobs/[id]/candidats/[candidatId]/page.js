@@ -345,8 +345,14 @@ export default function CandidateDetailPage() {
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "1.5rem", fontWeight: "800", color: interviewScoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_interview || "—"}%</div>
-                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Interview</div>
+                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. Texte</div>
               </div>
+              {candidate.video_responses && candidate.video_responses.length > 0 && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.video_interview_score != null ? getScoreColor(candidate.video_interview_score).color : "var(--muted-foreground)" }}>{candidate.video_interview_score || "—"}%</div>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. Vidéo</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -364,15 +370,30 @@ export default function CandidateDetailPage() {
               {candidate.cv_score_breakdown && candidate.cv_score_breakdown.length > 0 && (
                 <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Détail par critère</h4>
-                  {candidate.cv_score_breakdown.map((item, idx) => (
-                    <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{item.name}</span>
-                        <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score).color }}>{item.score}%</span>
+                  {candidate.cv_score_breakdown.map((item, idx) => {
+                    const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s => s.name === item.name);
+                    return (
+                      <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '600' }}>
+                            {item.name}
+                            {skillFromJob && skillFromJob.taxonomy_id && (
+                              <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }} title="ID Taxonomie">
+                                {skillFromJob.taxonomy_id}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score).color }}>{item.score}%</span>
+                        </div>
+                        {skillFromJob && skillFromJob.evidence && (
+                          <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, fontStyle: 'italic', marginBottom: '6px' }}>
+                            Attente : "{skillFromJob.evidence}"
+                          </div>
+                        )}
+                        {item.reason && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>{item.reason}</p>}
                       </div>
-                      {item.reason && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>{item.reason}</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -520,31 +541,42 @@ export default function CandidateDetailPage() {
               {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 && (
                 <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>Détail par question</h4>
-                  {candidate.interview_score_breakdown.map((item, idx) => (
-                    <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '1rem' }}>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)' }}>Q: {item.question}</p>
-                          <p style={{ fontSize: '13px', color: 'var(--foreground)', fontStyle: 'italic' }}>R: {item.answer}</p>
+                  {candidate.interview_score_breakdown.map((item, idx) => {
+                    const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s => 
+                      s.name.toLowerCase() === (item.skill || '').toLowerCase() || 
+                      item.question.toLowerCase().includes(s.name.toLowerCase())
+                    );
+                    return (
+                      <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '1rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)' }}>Q: {item.question}</p>
+                            <p style={{ fontSize: '13px', color: 'var(--foreground)', fontStyle: 'italic' }}>R: {item.answer}</p>
+                          </div>
+                          <div style={{ textAlign: 'right', minWidth: '45px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score * 10).color }}>{item.score}/10</span>
+                          </div>
                         </div>
-                        <div style={{ textAlign: 'right', minWidth: '45px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(item.score * 10).color }}>{item.score}/10</span>
-                        </div>
+                        {skillFromJob && skillFromJob.evidence && (
+                          <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, fontStyle: 'italic', marginBottom: '4px' }}>
+                            Attente : "{skillFromJob.evidence}"
+                          </div>
+                        )}
+                        {item.explanation && (
+                          <p style={{ 
+                            fontSize: '12px', 
+                            color: 'var(--muted-foreground)', 
+                            lineHeight: '1.4', 
+                            paddingTop: '8px', 
+                            borderTop: '1px dashed var(--border)',
+                            marginTop: '4px'
+                          }}>
+                            {item.explanation}
+                          </p>
+                        )}
                       </div>
-                      {item.explanation && (
-                        <p style={{ 
-                          fontSize: '12px', 
-                          color: 'var(--muted-foreground)', 
-                          lineHeight: '1.4', 
-                          paddingTop: '8px', 
-                          borderTop: '1px dashed var(--border)',
-                          marginTop: '8px'
-                        }}>
-                          {item.explanation}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -638,6 +670,20 @@ export default function CandidateDetailPage() {
                       {/* Corps : transcription + analyse IA */}
                       {resp.status === "evaluated" && (
                         <div style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+                          {/* Video Player */}
+                          {resp.video_url && (
+                            <div style={{ marginBottom: '1rem' }}>
+                              <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
+                                Enregistrement vidéo
+                              </p>
+                              <video 
+                                src={resp.video_url} 
+                                controls 
+                                style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'black' }}
+                              />
+                            </div>
+                          )}
 
                           {/* Transcription */}
                           {resp.transcript && (

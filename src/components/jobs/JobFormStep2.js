@@ -5,6 +5,7 @@ import { Plus, X, ArrowRightLeft } from "lucide-react";
 import CustomSelect from "@/components/ui/CustomSelect";
 
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "@/lib/constants/skills";
+import { TAXONOMIE_COMPETENCES } from "@/lib/constants/taxonomie";
 
 const DEFAULT_LANGUAGES = ["Français", "Anglais", "Néerlandais"];
 
@@ -20,7 +21,17 @@ export default function JobFormStep2({ jobData, setJobData }) {
   const handleAddSkill = (type, name, priority = "must_have") => {
     const current = jobData[type] || [];
     if (!current.find(s => s.name.toLowerCase() === name.toLowerCase())) {
-      updateField(type, [...current, { name, priority }]);
+      // Find taxonomy ID for manually selected skills
+      let taxonomyId = null;
+      const matchedTax = TAXONOMIE_COMPETENCES.find(t => 
+        t['Compétence'].toLowerCase() === name.toLowerCase() || 
+        (t['Compétences proches'] && t['Compétences proches'].toLowerCase().includes(name.toLowerCase()))
+      );
+      if (matchedTax) {
+        taxonomyId = matchedTax['ID'];
+      }
+      
+      updateField(type, [...current, { name, priority, taxonomy_id: taxonomyId, confidence: 5, evidence: "Sélectionné manuellement" }]);
     }
   };
 
@@ -59,27 +70,45 @@ export default function JobFormStep2({ jobData, setJobData }) {
   const renderSkillBox = (type, priority, title) => {
     const skills = (jobData[type] || []).filter(s => s.priority === priority);
     return (
-      <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1rem', background: '#f8fafc', minHeight: '120px' }}>
-        <h4 style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', marginBottom: '1rem', letterSpacing: '0.05em' }}>{title}</h4>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+      <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1rem', background: '#f8fafc', minHeight: '120px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <h4 style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', letterSpacing: '0.05em' }}>{title}</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {skills.map(skill => (
-            <div key={skill.name} style={{ 
-              display: 'inline-flex', alignItems: 'center', 
-              background: priority === 'must_have' ? 'var(--primary)' : 'white', 
+            <div key={skill.name} style={{
+              display: 'flex', flexDirection: 'column',
+              background: priority === 'must_have' ? 'var(--primary)' : 'white',
               color: priority === 'must_have' ? 'white' : 'var(--primary)',
               border: priority === 'must_have' ? '1px solid var(--primary)' : '1px solid var(--primary)',
-              padding: '4px 10px', borderRadius: '4px', fontSize: '13px', gap: '6px' 
+              padding: '8px 12px', borderRadius: '6px', fontSize: '13px'
             }}>
-              {skill.name}
-              <button type="button" onClick={() => handleTogglePriority(type, skill.name)} style={{ color: priority === 'must_have' ? 'rgba(255,255,255,0.7)' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px' }} title="Changer de priorité">
-                <ArrowRightLeft size={12} />
-              </button>
-              <button type="button" onClick={() => handleRemoveSkill(type, skill.name)} style={{ color: priority === 'must_have' ? 'white' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', marginLeft: '4px' }}>
-                <X size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {skill.name}
+                  {skill.taxonomy_id && <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.3)' }} title="ID Taxonomie">{skill.taxonomy_id}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {skill.confidence && (
+                    <span style={{ fontSize: '11px', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: skill.confidence >= 4 ? '#4ade80' : skill.confidence === 3 ? '#facc15' : '#f87171' }}></span>
+                      Conf: {skill.confidence}/5
+                    </span>
+                  )}
+                  <button type="button" onClick={() => handleTogglePriority(type, skill.name)} style={{ color: priority === 'must_have' ? 'rgba(255,255,255,0.8)' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer' }} title="Changer de priorité">
+                    <ArrowRightLeft size={14} />
+                  </button>
+                  <button type="button" onClick={() => handleRemoveSkill(type, skill.name)} style={{ color: priority === 'must_have' ? 'white' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer' }} title="Supprimer">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              {skill.evidence && (
+                <div style={{ marginTop: '6px', fontSize: '11px', opacity: priority === 'must_have' ? 0.8 : 0.6, fontStyle: 'italic', borderTop: \`1px solid \${priority === 'must_have' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}\`, paddingTop: '6px' }}>
+                  "{skill.evidence}"
+                </div>
+              )}
             </div>
           ))}
-          {skills.length === 0 && <span style={{ color: 'var(--muted-foreground)', fontSize: '13px', fontStyle: 'italic' }}>Vide</span>}
+          {skills.length === 0 && <span style={{ color: 'var(--muted-foreground)', fontSize: '13px', fontStyle: 'italic' }}>Aucune compétence {priority.replace('_', ' ')}</span>}
         </div>
       </div>
     );
@@ -96,6 +125,50 @@ export default function JobFormStep2({ jobData, setJobData }) {
   };
   
   const displayCategory = getDisplayCategory();
+
+  const renderAmbiguityZone = (type) => {
+    const ambiguousSkills = (jobData[type] || []).filter(s => s.confidence && s.confidence <= 3);
+    if (ambiguousSkills.length === 0) return null;
+    
+    return (
+      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
+        <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '16px' }}>⚠️</span> Zone d'incertitude
+        </h4>
+        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>Certaines compétences sont ambiguës dans l'offre. Veuillez confirmer leur priorité :</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {ambiguousSkills.map(skill => (
+            <div key={skill.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #fde68a' }}>
+              <div>
+                <span style={{ fontWeight: '500', fontSize: '13px' }}>{skill.name}</span>
+                {skill.evidence && <div style={{ fontSize: '11px', color: '#92400e', opacity: 0.8 }}>"{skill.evidence}"</div>}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    const current = jobData[type] || [];
+                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'must_have', confidence: 5 } : s));
+                  }}
+                  style={{ padding: '4px 8px', fontSize: '12px', background: skill.priority === 'must_have' ? 'var(--primary)' : 'white', color: skill.priority === 'must_have' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  Must Have
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    const current = jobData[type] || [];
+                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'nice_to_have', confidence: 5 } : s));
+                  }}
+                  style={{ padding: '4px 8px', fontSize: '12px', background: skill.priority === 'nice_to_have' ? 'var(--primary)' : 'white', color: skill.priority === 'nice_to_have' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  Nice To Have
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
@@ -125,6 +198,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Hard Skills */}
       <div>
         <label className="form-label">Hard Skills *</label>
+        {renderAmbiguityZone('hard_skills')}
         {jobData.category && DOMAIN_HARD_SKILLS[jobData.category] && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
             {DOMAIN_HARD_SKILLS[jobData.category].map(skill => {
@@ -166,6 +240,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Soft Skills */}
       <div>
         <label className="form-label">Soft Skills</label>
+        {renderAmbiguityZone('soft_skills')}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
           {SOFT_SKILLS_LIST.map(skill => {
             const skillNorm = skill.toLowerCase().replace(/[^a-z0-9]/g, '');

@@ -2,6 +2,7 @@
 
 import anthropic from "../anthropic";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
+import { TAXONOMIE_COMPETENCES } from "../constants/taxonomie";
 
 /**
  * Analyzes a raw job description using Claude 3.5 Sonnet to extract structured criteria.
@@ -35,10 +36,10 @@ Structure JSON attendue :
   "years_of_experience": "Nombre d'années d'expérience requises (ex: 3, 5, 1-3, ou laisser vide)",
   "education_level": "Niveau d'études requis (ex: Bac+5, Master, Bachelier, Indifférent)",
   "hard_skills": [
-    { "name": "Nom de la compétence technique", "priority": "must_have" ou "nice_to_have" }
+    { "name": "Nom de la compétence", "priority": "must_have" ou "nice_to_have", "taxonomy_id": "ID de la taxonomie correspondante, ex: C001, ou null si aucune", "evidence": "Citation exacte de l'offre justifiant cette compétence", "confidence": 1 à 5 }
   ],
   "soft_skills": [
-    { "name": "Nom du savoir-être", "priority": "must_have" ou "nice_to_have" }
+    { "name": "Nom du savoir-être", "priority": "must_have" ou "nice_to_have", "taxonomy_id": "ID de la taxonomie correspondante, ou null", "evidence": "Citation exacte de l'offre", "confidence": 1 à 5 }
   ],
   "languages": [
     { "name": "Nom de la langue", "level": "Niveau requis si mentionné de 1 à 5" }
@@ -52,15 +53,19 @@ Règles pour selection_criteria : Générez exactement 5 critères pertinents ba
 
 RÈGLE ABSOLUE POUR LES SKILLS — LISEZ ATTENTIVEMENT :
 1. Si l'utilisateur a fourni une description courte avec des mots-clés de compétences (ex: React, SQL, Python), vous DEVEZ ABSOLUMENT les extraire dans hard_skills. Ne les ignorez jamais.
-2. Vous DEVEZ utiliser les noms de notre liste de référence en copiant-collant EXACTEMENT le texte, caractère par caractère, majuscules, minuscules, points, slashs et espaces compris.
-Exemples corrects : "React.js" (pas "React" ni "ReactJS"), "HTML/CSS" (pas "HTML & CSS"), "Node.js" (pas "NodeJS"), "Microsoft Excel" (pas "Excel"), "Google Analytics" (pas "GA").
-3. Si une compétence correspond conceptuellement à un élément de notre liste, utilisez TOUJOURS le nom exact de notre liste.
-4. Si une compétence n'existe vraiment pas dans notre liste, seulement dans ce cas, ajoutez-la telle quelle.
+2. Pour chaque compétence (hard et soft), vous devez la relier à une compétence de notre référentiel (Taxonomie) ci-dessous, en renseignant son \`taxonomy_id\`.
+3. Si la compétence correspond à une compétence de la taxonomie (même si le wording est légèrement différent), utilisez EXACTEMENT le nom ("Compétence") et l'ID de la taxonomie correspondante.
+4. Si la compétence n'existe absolument pas dans la taxonomie, mettez \`taxonomy_id: null\` et gardez le nom explicite.
+5. Vous devez TOUJOURS inclure la "preuve" (\`evidence\`) c'est-à-dire l'extrait exact du texte original qui justifie l'extraction de cette compétence, et un score de confiance de 1 à 5.
 
-Liste des Hard Skills par domaine (copiez-collez exactement ces noms) :
+Taxonomie Canonique (Référentiel des compétences pour le mapping) :
+${JSON.stringify(TAXONOMIE_COMPETENCES.map(c => ({ ID: c.ID, Compétence: c.Compétence, Catégorie: c.Catégorie, "Définition courte": c["Définition courte"], "Compétences proches": c["Compétences proches"] })), null, 2)}
+
+Si la compétence est technique mais absente de la taxonomie, vous pouvez utiliser la liste de référence suivante pour trouver le nom exact approprié :
+Liste des Hard Skills de secours :
 ${JSON.stringify(DOMAIN_HARD_SKILLS, null, 2)}
 
-Liste des Soft Skills (copiez-collez exactement ces noms) :
+Liste des Soft Skills de secours :
 ${JSON.stringify(SOFT_SKILLS_LIST, null, 2)}
 `;
 

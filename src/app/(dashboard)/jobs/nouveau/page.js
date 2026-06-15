@@ -9,6 +9,7 @@ import { scoreCandidate } from "@/lib/actions/candidate";
 import { createClient } from "@/lib/supabase/client";
 import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
+import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
 import SkillsTestConfig from "@/components/jobs/SkillsTestConfig";
 import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
@@ -654,116 +655,11 @@ export default function NouvelleDemandePage() {
 
         {currentStep === 3 && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Choix des évaluations</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2rem' }}>
-              Sélectionnez les modules que les candidats devront compléter lorsqu'ils postuleront.
-            </p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* Qualifying Questions */}
-              <label onClick={() => setAssessmentModules(prev => ({ ...prev, qualifying_questions: !prev.qualifying_questions }))} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-                background: assessmentModules.qualifying_questions ? 'var(--accent)' : 'var(--card)', 
-                border: `1.5px solid ${assessmentModules.qualifying_questions ? 'var(--primary)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                  border: `2px solid ${assessmentModules.qualifying_questions ? 'var(--primary)' : 'var(--border)'}`,
-                  background: assessmentModules.qualifying_questions ? 'var(--primary)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {assessmentModules.qualifying_questions && <Check size={13} style={{ color: 'white' }} />}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Questions qualificatives</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Filtrez les candidats avant l'assessment avec des questions éliminatoires (ex: Avez-vous le permis B ?).</p>
-                </div>
-              </label>
-
-              {/* CV Scoring */}
-              <label onClick={() => setAssessmentModules(prev => ({ ...prev, cv_scoring: !prev.cv_scoring }))} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-                background: assessmentModules.cv_scoring ? 'var(--accent)' : 'var(--card)', 
-                border: `1.5px solid ${assessmentModules.cv_scoring ? 'var(--primary)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                  border: `2px solid ${assessmentModules.cv_scoring ? 'var(--primary)' : 'var(--border)'}`,
-                  background: assessmentModules.cv_scoring ? 'var(--primary)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {assessmentModules.cv_scoring && <Check size={13} style={{ color: 'white' }} />}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Scoring de CV par IA</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>L'IA analyse le CV du candidat et le compare automatiquement aux critères que vous définissez.</p>
-                </div>
-              </label>
-
-              {/* AI Interview */}
-              <label onClick={() => setAssessmentModules(prev => ({ ...prev, ai_interview: !prev.ai_interview }))} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-                background: assessmentModules.ai_interview ? 'var(--accent)' : 'var(--card)', 
-                border: `1.5px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                  border: `2px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
-                  background: assessmentModules.ai_interview ? 'var(--primary)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {assessmentModules.ai_interview && <Check size={13} style={{ color: 'white' }} />}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Interview IA par Texte</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>L'assistant mène un entretien personnalisé pour valider les motivations et l'expertise du candidat.</p>
-                </div>
-              </label>
-
-              {/* Skills Tests */}
-              <label onClick={() => setAssessmentModules(prev => ({ ...prev, skills_test: !prev.skills_test }))} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-                background: assessmentModules.skills_test ? 'var(--accent)' : 'var(--card)', 
-                border: `1.5px solid ${assessmentModules.skills_test ? 'var(--primary)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                  border: `2px solid ${assessmentModules.skills_test ? 'var(--primary)' : 'var(--border)'}`,
-                  background: assessmentModules.skills_test ? 'var(--primary)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {assessmentModules.skills_test && <Check size={13} style={{ color: 'white' }} />}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Tests de compétences</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Proposez des tests certifiés pour valider des compétences pointues de manière neutre.</p>
-                </div>
-              </label>
-              {/* Video Interview */}
-              <label onClick={() => setAssessmentModules(prev => ({ ...prev, video_interview: !prev.video_interview }))} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-                background: assessmentModules.video_interview ? 'var(--accent)' : 'var(--card)', 
-                border: `1.5px solid ${assessmentModules.video_interview ? 'var(--primary)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms'
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                  border: `2px solid ${assessmentModules.video_interview ? 'var(--primary)' : 'var(--border)'}`,
-                  background: assessmentModules.video_interview ? 'var(--primary)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {assessmentModules.video_interview && <Check size={13} style={{ color: 'white' }} />}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>Entretien Vidéo (One-Way) <span style={{ fontSize: '11px', fontWeight: '700', background: '#eff6ff', color: '#1d4ed8', padding: '2px 7px', borderRadius: '99px', marginLeft: '6px' }}>NOUVEAU</span></h3>
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Le candidat s&apos;enregistre en répondant à vos questions devant sa webcam. L&apos;IA transcrit et évalue chaque réponse.</p>
-                </div>
-              </label>
-            </div>
+            <JobFormStepRecommendation 
+              jobData={jobData} 
+              assessmentModules={assessmentModules} 
+              setAssessmentModules={setAssessmentModules} 
+            />
           </div>
         )}
 
