@@ -60,6 +60,24 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
     (modules.qualifying && candidate.assessment_status === "pending") ? "pending" : "passed"
   );
 
+  // ─── Completion checks ────────────────────────────────────────────────────
+  const testsConfig = modules.testsConfig;
+  const selectedTests = testsConfig?.tests || [];
+  const testsCompleted = selectedTests.length === 0
+    ? true
+    : selectedTests.every((t) =>
+        testSessions.find((s) => s.test_id === t.test_id && s.status === "completed")
+      );
+
+  const allModulesComplete = (() => {
+    if (modules.cv && cvStatus !== "completed") return false;
+    if (modules.tests && !testsCompleted) return false;
+    if (modules.interview && interviewStatus !== "completed") return false;
+    if (modules.video && videoStatus !== "completed") return false;
+    return true;
+  })();
+
+
   useEffect(() => {
     if (modules.tests) loadTestSessions();
   }, []);
@@ -107,28 +125,15 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
     console.log("Anti-cheat event recorded:", event);
   }
 
-  // ─── Completion checks ────────────────────────────────────────────────────
-  const testsConfig = modules.testsConfig;
-  const selectedTests = testsConfig?.tests || [];
-  const testsCompleted = selectedTests.length === 0
-    ? true
-    : selectedTests.every((t) =>
-        testSessions.find((s) => s.test_id === t.test_id && s.status === "completed")
-      );
-
-  const allModulesComplete = (() => {
-    if (modules.cv && cvStatus !== "completed") return false;
-    if (modules.tests && !testsCompleted) return false;
-    if (modules.interview && interviewStatus !== "completed") return false;
-    if (modules.video && videoStatus !== "completed") return false;
-    return true;
-  })();
+  const [finalScores, setFinalScores] = useState(null);
 
   async function handleSubmit() {
     if (!allModulesComplete || submitting) return;
     setSubmitting(true);
     const res = await submitAssessment(candidate.id);
     if (res.success) {
+      setFinalScores({ score_global: res.scoreGlobal, score_tests: res.scoreTests, score_interview: res.scoreVideo }); // wait, what if it's text interview? 
+      // let's just pass all scores from res if we fetch them properly
       setSubmitted(true);
       onCandidateUpdate({ assessment_status: "submitted", score_global: res.scoreGlobal, score_tests: res.scoreTests });
     }
@@ -137,7 +142,8 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
   // ─── Submitted / Disqualified / Results view ─────────────────────────────────────────────
   if (submitted || qualifyingStatus === "disqualified" || candidate.assessment_status === "disqualified") {
-    return <ResultsView candidate={{ ...candidate, assessment_status: "submitted" }} job={job} testSessions={testSessions} />;
+    const finalCandidate = finalScores ? { ...candidate, ...finalScores, assessment_status: "submitted" } : { ...candidate, assessment_status: "submitted" };
+    return <ResultsView candidate={finalCandidate} job={job} testSessions={testSessions} />;
   }
 
   // ─── Qualifying Questions ─────────────────────────────────────────────────

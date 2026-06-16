@@ -40,7 +40,7 @@ const DEFAULT_CONFIG = {
   evaluation_weights: PRESETS["Technique"]
 };
 
-export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, onChange }) {
+export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, onChange, prefilledConfig }) {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [openAccordions, setOpenAccordions] = useState([1, 2, 3, 4]);
   const [activePreset, setActivePreset] = useState("Technique");
@@ -59,8 +59,14 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
   }, [config, onChange, hasChanges]);
 
   useEffect(() => {
-    if (job?.ai_interview_config) {
-      const loadedConfig = { ...DEFAULT_CONFIG, ...job.ai_interview_config };
+    let sourceConfig = job?.ai_interview_config;
+    // If we have a prefilledConfig (e.g. LLM generated during creation), use it over empty default
+    if (prefilledConfig && !job?.ai_interview_config) {
+      sourceConfig = prefilledConfig;
+    }
+
+    if (sourceConfig) {
+      const loadedConfig = { ...DEFAULT_CONFIG, ...sourceConfig };
       setConfig(loadedConfig);
       
       let matchedPreset = "Personnalisé";
@@ -78,7 +84,7 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
         outro_text: prev.outro_text.replace("{title}", job?.title || "ce poste")
       }));
     }
-  }, [job?.ai_interview_config]);
+  }, [job?.ai_interview_config, prefilledConfig]);
 
   const toggleAccordion = (id) => {
     setOpenAccordions(prev => 

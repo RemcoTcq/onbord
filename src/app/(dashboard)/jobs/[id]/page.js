@@ -383,9 +383,6 @@ export default function JobDetailPage() {
                 </th>
                 <th>Candidat</th>
                 <th>Score global</th>
-                <th>CV</th>
-                <th>Tests</th>
-                <th>Interview</th>
                 <th>Statut</th>
                 <th>Actions</th>
               </tr>
@@ -434,15 +431,6 @@ export default function JobDetailPage() {
                           {candidate.score_global}%
                         </span>
                       ) : <span style={{ color: "var(--muted-foreground)", fontSize: "13px" }}>—</span>}
-                    </td>
-                    <td style={{ fontSize: "13px", fontWeight: "600", color: candidate.score_cv ? getScoreColor(candidate.score_cv).color : "var(--muted-foreground)" }}>
-                      {candidate.score_cv != null ? `${candidate.score_cv}%` : "—"}
-                    </td>
-                    <td style={{ fontSize: "13px", fontWeight: "600", color: candidate.score_tests ? getScoreColor(candidate.score_tests).color : "var(--muted-foreground)" }}>
-                      {candidate.score_tests != null ? `${candidate.score_tests}%` : "—"}
-                    </td>
-                    <td style={{ fontSize: "13px", fontWeight: "600", color: candidate.score_interview ? getScoreColor(candidate.score_interview).color : "var(--muted-foreground)" }}>
-                      {candidate.score_interview != null ? `${candidate.score_interview}%` : "—"}
                     </td>
                     <td>
                       <span className={`badge ${statusBadge.className}`}>{statusBadge.label}</span>

@@ -325,7 +325,7 @@ export default function CandidateDetailPage() {
               <h3 style={{ fontSize: "14px", fontWeight: "700", color: "var(--muted-foreground)", marginBottom: "1.5rem" }}>Score global de l'assessment</h3>
               <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                 <span style={{ fontSize: "3.5rem", fontWeight: "800", color: globalScoreStyle?.color || "var(--foreground)", letterSpacing: "-0.04em" }}>
-                  {candidate.score_global || "—"}
+                  {candidate.score_global != null ? candidate.score_global : "—"}
                 </span>
                 <span style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--muted-foreground)" }}>%</span>
               </div>
@@ -335,21 +335,27 @@ export default function CandidateDetailPage() {
             </div>
 
             <div style={{ display: "flex", gap: "1.5rem" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: scoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_cv || "—"}%</div>
-                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>CV</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.score_tests ? getScoreColor(candidate.score_tests).color : "var(--muted-foreground)" }}>{candidate.score_tests || "—"}%</div>
-                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Tests</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.5rem", fontWeight: "800", color: interviewScoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_interview || "—"}%</div>
-                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. Texte</div>
-              </div>
-              {candidate.video_responses && candidate.video_responses.length > 0 && (
+              {(candidate.jobs?.assessment_config?.modules?.cv_scoring?.enabled ?? true) && (
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.video_interview_score != null ? getScoreColor(candidate.video_interview_score).color : "var(--muted-foreground)" }}>{candidate.video_interview_score || "—"}%</div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: scoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_cv != null ? candidate.score_cv : "—"}%</div>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>CV</div>
+                </div>
+              )}
+              {(candidate.jobs?.assessment_config?.modules?.skills_tests?.enabled ?? false) && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.score_tests != null ? getScoreColor(candidate.score_tests).color : "var(--muted-foreground)" }}>{candidate.score_tests != null ? candidate.score_tests : "—"}%</div>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Tests</div>
+                </div>
+              )}
+              {((candidate.jobs?.assessment_config?.modules?.ai_interview?.enabled) || (candidate.jobs?.ai_interview_config?.enabled)) && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: interviewScoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_interview != null ? candidate.score_interview : "—"}%</div>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. IA</div>
+                </div>
+              )}
+              {((candidate.jobs?.assessment_config?.modules?.video_interview?.enabled) || (candidate.video_responses && candidate.video_responses.length > 0)) && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.video_interview_score != null ? getScoreColor(candidate.video_interview_score).color : "var(--muted-foreground)" }}>{candidate.video_interview_score != null ? candidate.video_interview_score : "—"}%</div>
                   <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. Vidéo</div>
                 </div>
               )}

@@ -324,12 +324,27 @@ export async function getCandidatesForJob(jobId) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('candidates')
-      .select('*')
+      .select('*, test_sessions:candidate_test_sessions(score, status, test_id)')
       .eq('job_id', jobId)
       .order('score_cv', { ascending: false });
     
     if (error) throw error;
-    return { success: true, candidates: data };
+    
+    // Dynamically compute score_tests if not fully submitted
+    const candidatesWithDynamicScores = data.map(c => {
+      let finalScoreTests = c.score_tests;
+      if (c.test_sessions && c.test_sessions.length > 0) {
+        const completedTests = c.test_sessions.filter(s => s.status === 'completed' && s.score != null);
+        if (completedTests.length > 0) {
+          const avg = Math.round(completedTests.reduce((sum, s) => sum + s.score, 0) / completedTests.length);
+          // Prefer dynamic average over db value to always reflect latest passed tests
+          finalScoreTests = avg;
+        }
+      }
+      return { ...c, score_tests: finalScoreTests };
+    });
+
+    return { success: true, candidates: candidatesWithDynamicScores };
   } catch (error) {
     console.error("Get Candidates Error:", error);
     return { success: false, error: error.message };
@@ -377,10 +392,20 @@ export async function getCandidateDetail(candidateId) {
       .order('question_index');
     if (videos) videoResponses = videos;
 
+    // Dynamically compute score_tests
+    let finalScoreTests = candidate.score_tests;
+    if (testSessions.length > 0) {
+      const completedTests = testSessions.filter(s => s.status === 'completed' && s.score != null);
+      if (completedTests.length > 0) {
+        finalScoreTests = Math.round(completedTests.reduce((sum, s) => sum + s.score, 0) / completedTests.length);
+      }
+    }
+
     return { 
       success: true, 
       candidate: { 
-        ...candidate, 
+        ...candidate,
+        score_tests: finalScoreTests,
         interview_messages: messages,
         test_sessions: testSessions,
         video_responses: videoResponses,

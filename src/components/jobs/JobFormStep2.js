@@ -86,7 +86,6 @@ export default function JobFormStep2({ jobData, setJobData }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   {skill.name}
-                  {skill.taxonomy_id && <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.3)' }} title="ID Taxonomie">{skill.taxonomy_id}</span>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   {skill.confidence && (
@@ -104,7 +103,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
                 </div>
               </div>
               {skill.evidence && (
-                <div style={{ marginTop: '6px', fontSize: '11px', opacity: priority === 'must_have' ? 0.8 : 0.6, fontStyle: 'italic', borderTop: \`1px solid \${priority === 'must_have' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}\`, paddingTop: '6px' }}>
+                <div style={{ marginTop: '6px', fontSize: '11px', opacity: priority === 'must_have' ? 0.8 : 0.6, fontStyle: 'italic', borderTop: `1px solid ${priority === 'must_have' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`, paddingTop: '6px' }}>
                   "{skill.evidence}"
                 </div>
               )}
@@ -127,6 +126,43 @@ export default function JobFormStep2({ jobData, setJobData }) {
   };
   
   const displayCategory = getDisplayCategory();
+
+  const handleMapSkill = (type, name, taxonomyId) => {
+    const current = jobData[type] || [];
+    updateField(type, current.map(s => s.name === name ? { ...s, taxonomy_id: taxonomyId } : s));
+  };
+
+  const renderUnmappedZone = (type) => {
+    const unmappedSkills = (jobData[type] || []).filter(s => s.taxonomy_id === 'unmapped');
+    if (unmappedSkills.length === 0) return null;
+    
+    return (
+      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
+        <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '16px' }}>⚠️</span> Compétences non reconnues
+        </h4>
+        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>L'IA a extrait ces compétences mais n'a pas trouvé d'équivalent exact. Associez-les manuellement :</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {unmappedSkills.map(skill => (
+            <div key={skill.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #fde68a', gap: '1rem' }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontWeight: '500', fontSize: '13px' }}>{skill.name}</span>
+                {skill.evidence && <div style={{ fontSize: '11px', color: '#92400e', opacity: 0.8 }}>"{skill.evidence}"</div>}
+              </div>
+              <div style={{ flexShrink: 0, width: '250px' }}>
+                <CustomSelect 
+                  value={""} 
+                  onChange={(val) => handleMapSkill(type, skill.name, val)} 
+                  options={TAXONOMIE_COMPETENCES.map(t => ({ value: t.ID, label: t.Compétence }))} 
+                  placeholder="Choisir l'équivalent..." 
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const renderAmbiguityZone = (type) => {
     const ambiguousSkills = (jobData[type] || []).filter(s => s.confidence && s.confidence <= 3);
@@ -200,6 +236,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Hard Skills */}
       <div>
         <label className="form-label">Hard Skills *</label>
+        {renderUnmappedZone('hard_skills')}
         {renderAmbiguityZone('hard_skills')}
         {jobData.category && DOMAIN_HARD_SKILLS[jobData.category] && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -242,6 +279,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Soft Skills */}
       <div>
         <label className="form-label">Soft Skills</label>
+        {renderUnmappedZone('soft_skills')}
         {renderAmbiguityZone('soft_skills')}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
           {SOFT_SKILLS_LIST.map(skill => {

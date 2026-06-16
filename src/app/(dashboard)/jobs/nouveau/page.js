@@ -16,8 +16,9 @@ import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
 import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
 import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
 import { useToast } from "@/components/ui/Toast";
-import { updateJobAiConfig } from "@/lib/actions/job";
+import { updateJobAiConfig, generateInterviewQuestions } from "@/lib/actions/job";
 import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
 
 export default function NouvelleDemandePage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -35,7 +36,7 @@ export default function NouvelleDemandePage() {
   const [savedJob, setSavedJob] = useState(null);
   const [assessmentModules, setAssessmentModules] = useState({
     qualifying_questions: false,
-    cv_scoring: true,
+    cv_scoring: false,
     ai_interview: false,
     skills_test: false,
     video_interview: false,
@@ -265,13 +266,55 @@ export default function NouvelleDemandePage() {
         await handleSave(true);
       }
 
+      // ─── AUTO-REMPLISSAGE (PHASE 2) ──────────────────────────────────────────
+      const rec = generateRecommendation(jobData, assessmentModules.video_interview);
+      
+      // 2.1 Tests auto-sélectionnés
+      let prefilledTests = [];
+      if (assessmentModules.skills_test) {
+        const skillsTestStep = rec.steps.find(s => s.type === 'skills_test');
+        if (skillsTestStep && skillsTestStep.covered_skills) {
+          const uniqueTestIds = [...new Set(skillsTestStep.covered_skills.map(s => s.test_db_id).filter(Boolean))];
+          prefilledTests = uniqueTestIds.map(id => ({ test_id: id, selected_question_ids: [] }));
+          setSkillsConfigPayload({ enabled: true, tests: prefilledTests });
+        }
+      }
+
+      // 2.2 Questions qualificatives déterministes
+      let prefilledQualifying = [];
+      if (assessmentModules.qualifying_questions) {
+        prefilledQualifying = generateQualifyingQuestions(jobData);
+        setQualifyingConfigPayload({ enabled: true, questions: prefilledQualifying });
+      }
+
+      // 2.3 Questions d'interview LLM
+      if (assessmentModules.ai_interview || assessmentModules.video_interview) {
+        // Find interview skills from steps
+        const interviewStep = rec.steps.find(s => s.type === 'ai_interview' || s.type === 'video_interview');
+        if (interviewStep && interviewStep.covered_skills && interviewStep.covered_skills.length > 0) {
+          try {
+            const llmRes = await generateInterviewQuestions(jobData, interviewStep.covered_skills);
+            if (llmRes.success) {
+              setAiConfigPayload(prev => ({ 
+                ...prev, 
+                questions: llmRes.questions, 
+                decisive_criteria: llmRes.decisive_criteria 
+              }));
+              // Also update video_interview questions if they use the same basis (optional, or let VideoInterviewConfig handle it)
+            }
+          } catch (e) {
+             console.error("Erreur lors du pré-remplissage LLM de l'interview", e);
+          }
+        }
+      }
+
       // Initialize basic config in DB for the selected modules
       await saveAssessmentConfig(savedJobId, {
         modules: {
-          qualifying_questions: { enabled: assessmentModules.qualifying_questions, questions: [] },
+          qualifying_questions: { enabled: assessmentModules.qualifying_questions, questions: prefilledQualifying },
           cv_scoring: { enabled: assessmentModules.cv_scoring },
           ai_interview: { enabled: assessmentModules.ai_interview },
-          skills_tests: { enabled: assessmentModules.skills_test, tests: [] },
+          skills_tests: { enabled: assessmentModules.skills_test, tests: prefilledTests },
           video_interview: { enabled: assessmentModules.video_interview, questions: [], max_duration_seconds: 120, max_retakes: 1 },
         }
       });
@@ -329,6 +372,16 @@ export default function NouvelleDemandePage() {
   const handleCriteriaNext = async () => {
     setIsSaving(true);
     try {
+      const supabase = createClient();
+      if (savedJobId && jobData.selection_criteria) {
+        await supabase
+          .from('jobs')
+          .update({
+            extracted_criteria: { ...jobData }
+          })
+          .eq('id', savedJobId);
+      }
+      
       if (assessmentModules.ai_interview) {
         setCurrentStep(6);
       } else if (assessmentModules.skills_test) {
@@ -339,7 +392,7 @@ export default function NouvelleDemandePage() {
         setCurrentStep(8);
       }
     } catch (err) {
-      toast("Erreur", "error");
+      toast("Erreur de sauvegarde", "error");
     }
     setIsSaving(false);
   };
@@ -670,7 +723,7 @@ export default function NouvelleDemandePage() {
               Ajoutez des questions éliminatoires pour filtrer automatiquement les candidats.
             </p>
             <QualifyingQuestionsConfig 
-              config={{ enabled: true, questions: [] }} 
+              config={qualifyingConfigPayload || { enabled: true, questions: [] }} 
               onChange={setQualifyingConfigPayload} 
             />
           </div>
@@ -697,6 +750,7 @@ export default function NouvelleDemandePage() {
             </p>
             <AiInterviewConfig 
               job={savedJob} 
+              prefilledConfig={aiConfigPayload}
               embedded={true} 
               hideSaveBar={true} 
               onChange={setAiConfigPayload} 
@@ -712,7 +766,7 @@ export default function NouvelleDemandePage() {
             </p>
             <SkillsTestConfig 
               jobId={savedJob.id}
-              config={{ enabled: true, tests: [] }}
+              config={skillsConfigPayload || { enabled: true, tests: [] }}
               onChange={setSkillsConfigPayload}
             />
           </div>
