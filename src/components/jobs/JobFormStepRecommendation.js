@@ -10,7 +10,7 @@ export default function JobFormStepRecommendation({ jobData, assessmentModules, 
   useEffect(() => {
     if (jobData) {
       // By default, prefer video interview over text interview for new recommendations
-      const rec = generateRecommendation(jobData, true);
+      const rec = generateRecommendation(jobData);
       setRecommendation(rec);
       
       // Update assessment modules state based on recommendation
@@ -19,7 +19,7 @@ export default function JobFormStepRecommendation({ jobData, assessmentModules, 
         qualifying_questions: rec.steps.some(s => s.type === 'qualifying_questions'),
         cv_scoring: prev.cv_scoring || false, // Default false, but preserve if toggled
         skills_test: rec.steps.some(s => s.type === 'skills_test'),
-        ai_interview: rec.steps.some(s => s.type === 'ai_interview'),
+        ai_interview: false,           // jamais recommandée automatiquement
         video_interview: rec.steps.some(s => s.type === 'video_interview'),
       }));
     }
@@ -193,31 +193,7 @@ export default function JobFormStepRecommendation({ jobData, assessmentModules, 
           </label>
         </div>
         
-        {/* Text Interview */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <label onClick={() => handleToggleModule('ai_interview')} style={{
-            display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
-            background: assessmentModules.ai_interview ? 'var(--accent)' : 'var(--card)', 
-            border: `1.5px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius)', cursor: 'pointer', transition: 'all 150ms', opacity: assessmentModules.video_interview ? 0.5 : 1
-          }}>
-            <div style={{
-              width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-              border: `2px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
-              background: assessmentModules.ai_interview ? 'var(--primary)' : 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {assessmentModules.ai_interview && <Check size={13} style={{ color: 'white' }} />}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '4px' }}>
-                {getIconForType('ai_interview')}
-                <h3 style={{ fontSize: '15px', fontWeight: '600' }}>Interview IA par Texte (Alternative)</h3>
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Alternative à l'entretien vidéo si vous préférez une évaluation textuelle interactive.</p>
-            </div>
-          </label>
-        </div>
+        {/* Text Interview — déplacé dans la section 'Options avancées' ci-dessous */}
 
       </div>
 
@@ -249,6 +225,48 @@ export default function JobFormStepRecommendation({ jobData, assessmentModules, 
                 <h3 style={{ fontSize: '15px', fontWeight: '600' }}>Scoring CV par IA (Désactivé par défaut)</h3>
               </div>
               <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Permet d'attribuer un score de pertinence automatique à chaque CV reçu, sans rallonger le parcours candidat.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Options avancées */}
+      <div style={{ marginTop: '1rem' }}>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--foreground)' }}>Options avancées</h3>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '1rem', lineHeight: '1.5' }}>
+          Ces modules sont disponibles mais ne sont pas recommandés par défaut.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <label onClick={() => {
+            if (!assessmentModules.video_interview) handleToggleModule('ai_interview');
+          }} style={{
+            display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', 
+            background: assessmentModules.ai_interview ? 'var(--accent)' : 'var(--card)', 
+            border: `1.5px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius)', cursor: assessmentModules.video_interview ? 'not-allowed' : 'pointer', transition: 'all 150ms',
+            opacity: assessmentModules.video_interview ? 0.45 : 1
+          }}>
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
+              border: `2px solid ${assessmentModules.ai_interview ? 'var(--primary)' : 'var(--border)'}`,
+              background: assessmentModules.ai_interview ? 'var(--primary)' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {assessmentModules.ai_interview && <Check size={13} style={{ color: 'white' }} />}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '4px' }}>
+                {getIconForType('ai_interview')}
+                <h3 style={{ fontSize: '15px', fontWeight: '600' }}>Interview IA par Texte</h3>
+                <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>⚠️ NON RECOMMANDÉ</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '4px' }}>Alternative textuelle à l'entretien vidéo. Moins fiable : réponses potentiellement générées par IA, et processus plus lent pour le candidat.</p>
+              {assessmentModules.video_interview && (
+                <p style={{ fontSize: '12px', color: '#92400e', fontWeight: '500' }}>
+                  Non cumulable avec l'entretien vidéo. Désactivez la vidéo pour activer cette option.
+                </p>
+              )}
             </div>
           </label>
         </div>

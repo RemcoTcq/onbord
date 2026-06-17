@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Video, Plus, Trash2, Wand2, Loader2, Library, ChevronDown, ChevronUp, GripVertical, Info } from "lucide-react";
+import { Video, Plus, Trash2, Wand2, Loader2, Library, ChevronDown, ChevronUp, GripVertical, Info, Sparkles } from "lucide-react";
+
+const MAX_CRITERIA = 5;
 import { getVideoQuestionLibrary, generateVideoQuestions } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 
@@ -47,6 +49,12 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
 
   async function handleGenerateAi() {
     if (!jobId) { toast("Sauvegardez d'abord votre offre", "error"); return; }
+    
+    if (questions.length > 0) {
+      const confirmed = window.confirm("Régénérer les questions ? Les questions actuelles seront remplacées.");
+      if (!confirmed) return;
+    }
+
     setGeneratingAi(true);
     const res = await generateVideoQuestions(jobId);
     if (res.success && res.questions.length > 0) {
@@ -55,11 +63,17 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
         text: q.text,
         category: q.category || "Technique",
         hint: q.hint || "",
-        evaluation_criteria: q.evaluation_criteria || "",
+        weight: 1,
         source: "ai",
+        criteria: (q.criteria || []).map((c, ci) => ({
+          id: `crit_${Date.now()}_${i}_${ci}`,
+          name: c.name || "",
+          description: c.description || "",
+          weight: 1,
+          source: "ai",
+        })),
       }));
-      const updated = [...questions, ...newQs];
-      setQuestions(updated);
+      setQuestions(newQs);
       toast(`${newQs.length} questions générées par l'IA !`);
     } else {
       toast(res.error || "Erreur lors de la génération", "error");
@@ -78,8 +92,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       text: libQ.text,
       category: libQ.category,
       hint: libQ.hint || "",
-      evaluation_criteria: "",
+      weight: 1,
       source: "library",
+      criteria: [],
     };
     setQuestions(prev => [...prev, newQ]);
     toast("Question ajoutée");
@@ -91,10 +106,37 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       text: "",
       category: "Custom",
       hint: "",
-      evaluation_criteria: "",
+      weight: 1,
       source: "custom",
+      criteria: [],
     };
     setQuestions(prev => [...prev, newQ]);
+  }
+
+  function addCriterion(questionIndex) {
+    const updated = [...questions];
+    const q = updated[questionIndex];
+    q.criteria = [...(q.criteria || []), {
+      id: `crit_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: "",
+      description: "",
+      weight: 1,
+      source: "manual",
+    }];
+    setQuestions(updated);
+  }
+
+  function removeCriterion(questionIndex, criterionIndex) {
+    const updated = [...questions];
+    updated[questionIndex].criteria = updated[questionIndex].criteria.filter((_, i) => i !== criterionIndex);
+    setQuestions(updated);
+  }
+
+  function updateCriterion(questionIndex, criterionIndex, field, value) {
+    const updated = [...questions];
+    updated[questionIndex].criteria = [...updated[questionIndex].criteria];
+    updated[questionIndex].criteria[criterionIndex] = { ...updated[questionIndex].criteria[criterionIndex], [field]: value };
+    setQuestions(updated);
   }
 
   function updateQuestion(index, field, value) {
@@ -162,7 +204,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
         >
           {generatingAi
             ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Génération IA...</>
-            : <><Wand2 size={16} /> Générer avec l&apos;IA</>}
+            : <><Wand2 size={16} /> {questions.length > 0 ? "Régénérer les questions" : "Générer avec l'IA"}</>}
         </button>
         <button
           className="btn btn-outline"
@@ -302,22 +344,75 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                   </button>
                 </div>
 
-                {/* Evaluation criteria */}
-                <div style={{ padding: "0.75rem 1rem", background: "#fafafa", borderTop: "1px solid var(--border)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                  <Info size={14} style={{ color: "var(--primary)", flexShrink: 0, marginTop: "3px" }} />
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>
-                      Critères d&apos;évaluation IA
+                {/* Criteria list */}
+                <div style={{ padding: "0.75rem 1rem", background: "#fafafa", borderTop: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "5px" }}>
+                      <Info size={12} style={{ color: "var(--primary)" }} />
+                      Critères d&apos;évaluation ({(q.criteria || []).length}/{MAX_CRITERIA})
                     </label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={q.evaluation_criteria}
-                      onChange={e => updateQuestion(idx, "evaluation_criteria", e.target.value)}
-                      placeholder="Ex: Évaluer la clarté, les exemples concrets, la connaissance du secteur..."
-                      style={{ fontSize: "13px" }}
-                    />
                   </div>
+
+                  {(q.criteria || []).length === 0 && (
+                    <p style={{ fontSize: "12px", color: "#c2410c", marginBottom: "8px", fontWeight: "500" }}>
+                      ⚠ Minimum 1 critère requis pour le scoring.
+                    </p>
+                  )}
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {(q.criteria || []).map((crit, cIdx) => (
+                      <div key={crit.id} style={{
+                        padding: "8px 10px", background: "white", borderRadius: "6px",
+                        border: "1px solid var(--border)", display: "flex", gap: "8px", alignItems: "flex-start"
+                      }}>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {crit.source === "ai" && (
+                              <span style={{ fontSize: "10px", color: "#6366f1", fontWeight: "700" }}>✦ IA</span>
+                            )}
+                            <input
+                              type="text"
+                              className="input-field"
+                              value={crit.name}
+                              onChange={e => updateCriterion(idx, cIdx, "name", e.target.value)}
+                              placeholder="Nom du critère (ex: Storytelling commercial)"
+                              style={{ fontSize: "12px", fontWeight: "600", padding: "4px 8px" }}
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            className="input-field"
+                            value={crit.description}
+                            onChange={e => updateCriterion(idx, cIdx, "description", e.target.value)}
+                            placeholder="Description du critère (ce que l'IA doit évaluer)"
+                            style={{ fontSize: "12px", padding: "4px 8px" }}
+                          />
+                        </div>
+                        <button
+                          onClick={() => removeCriterion(idx, cIdx)}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", flexShrink: 0, marginTop: "2px" }}
+                          title="Supprimer ce critère"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => addCriterion(idx)}
+                    disabled={(q.criteria || []).length >= MAX_CRITERIA}
+                    style={{
+                      marginTop: "6px", background: "transparent", border: "1px dashed var(--border)",
+                      borderRadius: "6px", padding: "5px 10px", fontSize: "12px", fontWeight: "600",
+                      color: (q.criteria || []).length >= MAX_CRITERIA ? "var(--muted-foreground)" : "var(--primary)",
+                      cursor: (q.criteria || []).length >= MAX_CRITERIA ? "not-allowed" : "pointer",
+                      opacity: (q.criteria || []).length >= MAX_CRITERIA ? 0.5 : 1,
+                      display: "flex", alignItems: "center", gap: "5px", width: "100%", justifyContent: "center"
+                    }}
+                  >
+                    <Plus size={13} /> Ajouter un critère{(q.criteria || []).length >= MAX_CRITERIA ? " (max atteint)" : ""}
+                  </button>
                 </div>
               </div>
             );

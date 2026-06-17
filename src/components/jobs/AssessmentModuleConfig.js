@@ -133,32 +133,21 @@ export default function AssessmentModuleConfig({ job, onSave }) {
           )}
         </ModuleCard>
 
-        {/* AI Interview */}
-        <ModuleCard
-          icon={<MessageSquare size={20} />}
-          title="Entretien IA"
-          description="Leo, notre IA, mène un entretien textuel avec le candidat. Configurez la tonalité et les questions obligatoires ci-dessous."
-          duration="~10-15 min"
-          enabled={modules.ai_interview?.enabled ?? (job?.ai_interview_config?.enabled ?? false)}
-          onToggle={(val) => update("ai_interview", { enabled: val })}
-        >
-          {modules.ai_interview?.enabled && (
-            <div style={{ marginTop: "1rem" }}>
-              <AiInterviewConfig job={job} hideSaveBar={true} embedded={true} onChange={(val) => {
-                 // AiInterviewConfig still saves its own data to the DB, but we pass hideSaveBar so it doesn't show the sticky bar.
-              }} />
-            </div>
-          )}
-        </ModuleCard>
-
-        {/* Video Interview */}
+        {/* Video Interview — Format recommandé */}
         <ModuleCard
           icon={<Video size={20} />}
           title="Entretien Vidéo (One-Way)"
           description="Le candidat répond à des questions en s'enregistrant à la webcam. L'IA transcrit et évalue chaque réponse."
           duration="~5-20 min"
+          badge="RECOMMANDÉ"
           enabled={modules.video_interview?.enabled ?? false}
-          onToggle={(val) => update("video_interview", { enabled: val })}
+          onToggle={(val) => {
+            update("video_interview", { enabled: val });
+            // Exclusion logique : si on active la vidéo, on désactive le texte
+            if (val && (modules.ai_interview?.enabled)) {
+              update("ai_interview", { enabled: false });
+            }
+          }}
         >
           {modules.video_interview?.enabled && (
             <div style={{ marginTop: "1rem" }}>
@@ -173,6 +162,34 @@ export default function AssessmentModuleConfig({ job, onSave }) {
                   setHasChanges(true);
                 }}
               />
+            </div>
+          )}
+        </ModuleCard>
+
+        {/* AI Interview — Non recommandé */}
+        <ModuleCard
+          icon={<MessageSquare size={20} />}
+          title="Entretien IA par Texte"
+          description="Leo, notre IA, mène un entretien textuel avec le candidat. Moins fiable : réponses potentiellement générées par IA, et processus plus lent pour le candidat."
+          duration="~10-15 min"
+          badge="⚠️ NON RECOMMANDÉ"
+          badgeColor="#fef3c7"
+          badgeTextColor="#92400e"
+          enabled={modules.ai_interview?.enabled ?? (job?.ai_interview_config?.enabled ?? false)}
+          disabled={modules.video_interview?.enabled ?? false}
+          onToggle={(val) => {
+            // Exclusion logique : si on active le texte, on désactive la vidéo
+            if (val && (modules.video_interview?.enabled)) {
+              update("video_interview", { enabled: false });
+            }
+            update("ai_interview", { enabled: val });
+          }}
+        >
+          {modules.ai_interview?.enabled && (
+            <div style={{ marginTop: "1rem" }}>
+              <AiInterviewConfig job={job} hideSaveBar={true} embedded={true} onChange={(val) => {
+                 // AiInterviewConfig still saves its own data to the DB, but we pass hideSaveBar so it doesn't show the sticky bar.
+              }} />
             </div>
           )}
         </ModuleCard>
@@ -229,12 +246,14 @@ export default function AssessmentModuleConfig({ job, onSave }) {
 }
 
 // ─── Module toggle card ───────────────────────────────────────────────────────
-function ModuleCard({ icon, title, description, duration, enabled, onToggle, children }) {
+function ModuleCard({ icon, title, description, duration, enabled, onToggle, children, badge, badgeColor, badgeTextColor, disabled }) {
+  const isDisabled = disabled && !enabled;
   return (
     <div style={{
       background: "var(--card)", borderRadius: "var(--radius)",
       border: `1px solid ${enabled ? "var(--primary)" : "var(--border)"}`,
       overflow: "hidden", transition: "border-color 200ms",
+      opacity: isDisabled ? 0.5 : 1,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
@@ -248,22 +267,31 @@ function ModuleCard({ icon, title, description, duration, enabled, onToggle, chi
             {icon}
           </div>
           <div>
-            <h3 style={{ fontSize: "15px", fontWeight: "700", color: "var(--foreground)", marginBottom: "4px" }}>{title}</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <h3 style={{ fontSize: "15px", fontWeight: "700", color: "var(--foreground)", margin: 0 }}>{title}</h3>
+              {badge && (
+                <span style={{
+                  fontSize: "10px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px",
+                  background: badgeColor || "var(--primary)", color: badgeTextColor || "white",
+                }}>{badge}</span>
+              )}
+            </div>
             <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: "1.5", maxWidth: "440px" }}>{description}</p>
             <span style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "4px", display: "inline-block" }}>⏱ {duration}</span>
           </div>
         </div>
 
         {/* Toggle */}
-        <label style={{ position: "relative", display: "inline-block", width: "50px", height: "26px", cursor: "pointer", flexShrink: 0 }}>
+        <label style={{ position: "relative", display: "inline-block", width: "50px", height: "26px", cursor: isDisabled ? "not-allowed" : "pointer", flexShrink: 0 }}>
           <input
             type="checkbox"
             checked={enabled}
+            disabled={isDisabled}
             onChange={(e) => onToggle(e.target.checked)}
             style={{ opacity: 0, width: 0, height: 0 }}
           />
           <span style={{
-            position: "absolute", cursor: "pointer", top: 0, left: 0, right: 0, bottom: 0,
+            position: "absolute", cursor: isDisabled ? "not-allowed" : "pointer", top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: enabled ? "var(--primary)" : "var(--border)",
             transition: ".3s", borderRadius: "34px",
           }}>

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
+import { TAXONOMIE_COMPETENCES } from "../constants/taxonomie";
 
 /**
  * Get all active tests from the library
@@ -533,21 +534,38 @@ export async function submitAssessment(candidateId) {
 
     // Compute score_video: average of evaluated video responses
     let scoreVideo = null;
+    let videoCompleteness = null;
     if (videoEnabled) {
       const { data: videoResps } = await supabase
         .from("video_interview_responses")
-        .select("ai_score")
-        .eq("candidate_id", candidateId)
-        .eq("status", "evaluated");
+        .select("ai_score, status")
+        .eq("candidate_id", candidateId);
 
       if (videoResps && videoResps.length > 0) {
-        const total = videoResps.reduce((sum, r) => sum + (r.ai_score || 0), 0);
-        scoreVideo = Math.round(total / videoResps.length);
+        const evaluated = videoResps.filter(r => r.status === "evaluated" && r.ai_score != null);
+        const total = videoResps.length;
+        
+        videoCompleteness = {
+          evaluated: evaluated.length,
+          total,
+          is_complete: evaluated.length === total,
+        };
+
+        if (evaluated.length > 0) {
+          const totalScore = evaluated.reduce((sum, r) => sum + (r.ai_score || 0), 0);
+          scoreVideo = Math.round(totalScore / evaluated.length);
+        }
       } else if (candidate.video_interview_score && candidate.video_interview_score > 0) {
         // Fallback: use previously stored value if API already ran
         scoreVideo = candidate.video_interview_score;
+        videoCompleteness = candidate.video_score_completeness;
       }
     }
+
+    // Score global : vidéo comptabilisée SEULEMENT si complète
+    const videoForGlobal = (videoCompleteness?.is_complete && scoreVideo != null)
+      ? scoreVideo
+      : null;
 
     // Proportional weighting — only active & scored modules count
     const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
@@ -555,7 +573,7 @@ export async function submitAssessment(candidateId) {
     if (cvEnabled       && candidate.score_cv    != null) activeWeights.cv        = baseWeights.cv;
     if (testsEnabled    && scoreTests            != null) activeWeights.tests     = baseWeights.tests;
     if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
-    if (videoEnabled    && scoreVideo            != null) activeWeights.video     = baseWeights.video;
+    if (videoEnabled    && videoForGlobal        != null) activeWeights.video     = baseWeights.video;
 
     const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
 
@@ -565,7 +583,7 @@ export async function submitAssessment(candidateId) {
       if (activeWeights.cv)        weighted += (candidate.score_cv        * activeWeights.cv)        / totalBase;
       if (activeWeights.tests)     weighted += (scoreTests                * activeWeights.tests)     / totalBase;
       if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
-      if (activeWeights.video)     weighted += (scoreVideo                * activeWeights.video)     / totalBase;
+      if (activeWeights.video)     weighted += (videoForGlobal            * activeWeights.video)     / totalBase;
       scoreGlobal = Math.round(weighted);
     }
 
@@ -767,32 +785,57 @@ export async function generateVideoQuestions(jobId) {
     if (!job) return { success: false, error: "Job not found" };
 
     const criteria = job.extracted_criteria || {};
-    const hardSkills = (criteria.hard_skills || []).map((s) => s.name).join(", ");
-    const softSkills = (criteria.soft_skills || []).map((s) => s.name).join(", ");
+    const allSkills = [...(criteria.hard_skills || []), ...(criteria.soft_skills || [])];
+    
+    // Filtrer pour ne garder que les compétences non testables (celles qui vont en interview)
+    const interviewSkills = [];
+    allSkills.forEach(skill => {
+      const taxonomyEntry = TAXONOMIE_COMPETENCES.find(c => c.ID === skill.taxonomy_id) || TAXONOMIE_COMPETENCES.find(c => c.Compétence?.toLowerCase() === skill.name?.toLowerCase());
+      if (!taxonomyEntry || taxonomyEntry["Testable objectivement"] !== "Oui") {
+        interviewSkills.push({
+          name: skill.name,
+          definition: taxonomyEntry?.Définition || "Aucune définition disponible"
+        });
+      }
+    });
+
+    const skillsList = interviewSkills.map(s => `- ${s.name} : ${s.definition}`).join("\n");
+    const title = job.title || "Poste inconnu";
+    const description = job.description?.slice(0, 1000) || "Aucune description fournie";
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1200,
-      temperature: 0.7,
-      system: `Tu es un expert RH. Tu generes des questions d'entretien video pertinentes pour un poste specifique. Reponds UNIQUEMENT avec un JSON valide.`,
+      model: "claude-haiku-4-5",
+      max_tokens: 2000,
+      temperature: 0.3,
+      system: `Tu es un expert RH. Tu génères des questions d'entretien vidéo one-way pertinentes pour un poste spécifique. Réponds UNIQUEMENT avec un JSON valide.`,
       messages: [
         {
           role: "user",
-          content: `Poste: ${job.title}
-Competences techniques: ${hardSkills || "Non specifiees"}
-Soft skills: ${softSkills || "Non specifiees"}
-Description: ${job.description?.slice(0, 500) || ""}
+          content: `Poste: ${title}
+Description: ${description}
 
-Genere 4 questions d'entretien video adaptees a ce poste. Pour chaque question, propose aussi un critere d'evaluation pour l'IA.
+COMPÉTENCES À ÉVALUER EN ENTRETIEN (non testables objectivement, donc non couvertes par les tests techniques) :
+${skillsList || "Aucune compétence spécifique fournie, basez-vous sur la description du poste."}
 
-Reponds avec:
+RÈGLES :
+1. Génère 4 questions d'entretien vidéo adaptées à ce poste.
+2. Chaque question doit cibler au moins une des compétences listées ci-dessus.
+3. Formule les questions pour qu'elles soient lues telles quelles au candidat (vouvoiement).
+4. Pour chaque question, génère 2 à 3 critères d'évaluation nommés (maximum 5). Chaque critère a un nom court (2-4 mots) et une description précise (1-2 phrases).
+
+Réponds avec:
 {
   "questions": [
     {
-      "text": "La question complete",
+      "text": "La question complète",
       "category": "Motivation|Experience|Soft Skills|Technique",
       "hint": "Conseil pour le candidat (1 phrase)",
-      "evaluation_criteria": "Ce que l'IA doit evaluer (1-2 phrases)"
+      "criteria": [
+        {
+          "name": "Nom du critère (2-4 mots)",
+          "description": "Ce que l'IA doit évaluer précisément (1-2 phrases)"
+        }
+      ]
     }
   ]
 }`,

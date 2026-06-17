@@ -1,7 +1,22 @@
 import anthropic from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
 
-// AssemblyAI transcription helper
+// ─── Rétrocompatibilité : normalise les critères (string → array) ─────────────
+function normalizeCriteria(question) {
+  if (question.criteria && question.criteria.length > 0) return question.criteria;
+  if (question.evaluation_criteria) {
+    return [{
+      id: "legacy_0",
+      name: "Évaluation globale",
+      description: question.evaluation_criteria,
+      weight: 1,
+      source: "manual",
+    }];
+  }
+  return [{ id: "fallback_0", name: "Pertinence générale", description: "Pertinence, clarté, structure, exemples concrets", weight: 1, source: "manual" }];
+}
+
+// ─── AssemblyAI transcription helper ──────────────────────────────────────────
 async function transcribeAudio(audioUrl) {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY not configured");
@@ -37,46 +52,124 @@ async function transcribeAudio(audioUrl) {
   throw new Error("Transcription timeout");
 }
 
-// Claude evaluation helper
-async function evaluateResponse(questionText, evaluationCriteria, transcript, jobContext) {
+// ─── Vérification des verbatims ───────────────────────────────────────────────
+/**
+ * Vérifie que chaque verbatim est une sous-chaîne exacte de la transcription.
+ * Normalise la comparaison (casse, espaces multiples, ponctuation).
+ * Marque chaque verbatim comme vérifié ou non.
+ */
+function verifyVerbatims(criteriaScores, transcript) {
+  const normalize = (s) => (s || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.,;:!?"""«»'']/g, "")
+    .trim();
+
+  const normalizedTranscript = normalize(transcript);
+
+  return criteriaScores.map(cs => {
+    if (!cs.verbatim || cs.verbatim.trim() === "" || cs.verbatim === "Aucun élément dans la réponse") {
+      return { ...cs, verbatim_verified: false };
+    }
+
+    const normalizedVerbatim = normalize(cs.verbatim);
+    const isFound = normalizedVerbatim.length >= 5 && normalizedTranscript.includes(normalizedVerbatim);
+
+    return { ...cs, verbatim_verified: isFound };
+  });
+}
+
+// ─── Claude evaluation helper (per-criterion scoring) ─────────────────────────
+async function evaluateResponse(questionText, criteria, transcript, jobContext) {
+  // Guard : pas de scoring si transcription absente/vide/trop courte
+  if (!transcript || transcript.trim().length < 20 || transcript === "[Transcription indisponible]") {
+    return {
+      status: "manual_review",
+      score: null,
+      feedback: "Transcription absente ou trop courte pour être évaluée. Revue manuelle requise.",
+      criteria_scores: [],
+      strengths: [],
+      improvements: [],
+    };
+  }
+
+  const criteriaList = criteria.map((c, i) =>
+    `${i + 1}. "${c.name}" (ID: ${c.id}) — ${c.description}`
+  ).join("\n");
+
+  // max_tokens adaptatif : ~350 tokens par critère + 300 pour le résumé
+  const maxTokens = Math.min(4000, 300 + criteria.length * 350);
+
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1000,
+    max_tokens: maxTokens,
     temperature: 0.1,
-    system: `Vous etes un expert en evaluation d'entretiens de recrutement video. Votre role est d'analyser la transcription d'une reponse video d'un candidat a une question specifique.
-
+    system: `Vous êtes un expert en évaluation d'entretiens de recrutement vidéo.
 Contexte du poste: ${JSON.stringify(jobContext)}
 
-REGLE ABSOLUE: Repondez UNIQUEMENT avec un JSON valide, sans texte avant ou apres. N'utilisez aucun emoji.`,
-    messages: [
-      {
-        role: "user",
-        content: `Question posee au candidat: "${questionText}"
+RÈGLES ABSOLUES:
+- Évaluez CHAQUE critère individuellement.
+- Citez un EXTRAIT EXACT (verbatim, copier-coller MOT POUR MOT) de la transcription pour justifier chaque note. La citation doit être une sous-chaîne exacte de la transcription.
+- Si la transcription ne contient rien de pertinent pour un critère, mettez "" pour le verbatim et donnez un score de 0 à 20.
+- Répondez UNIQUEMENT avec un JSON valide, sans texte avant ou après.`,
+    messages: [{
+      role: "user",
+      content: `QUESTION POSÉE AU CANDIDAT:
+"${questionText}"
 
-Criteres d'evaluation definis par le recruteur: "${evaluationCriteria || "Pertinence, clarte, structure, exemples concrets"}"
+CRITÈRES D'ÉVALUATION (définis par le recruteur, ${criteria.length} critère${criteria.length > 1 ? "s" : ""}):
+${criteriaList}
 
-Transcription de la reponse video du candidat:
+TRANSCRIPTION DE LA RÉPONSE VIDÉO:
 "${transcript}"
 
-Analysez cette reponse. Vous devez faire un résumé de ce que le candidat a dit, puis l'évaluer sur base des critères.
-Repondez avec ce format exact :
+Évaluez chaque critère séparément. Pour chaque critère, donnez :
+- Un score de 0 à 100
+- Une justification en 1-2 phrases
+- Une citation EXACTE (verbatim, copier-coller MOT POUR MOT) de la transcription
+
+Format JSON exact :
 {
-  "score": nombre entier de 0 a 100,
-  "feedback": "Résumé clair et concis de ce que le candidat a dit, suivi de votre avis sur la qualité de la réponse.",
-  "strengths": ["point fort 1", "point fort 2"],
-  "improvements": ["axe d'amelioration 1"]
-}`,
-      },
-    ],
+  "criteria_scores": [
+    {
+      "criterion_id": "ID exact du critère",
+      "criterion_name": "Nom du critère",
+      "score": 0-100,
+      "justification": "Explication de la note",
+      "verbatim": "Citation EXACTE mot pour mot de la transcription"
+    }
+  ],
+  "feedback": "Résumé global de la qualité de la réponse (2-3 phrases)",
+  "strengths": ["Point fort 1", "Point fort 2"],
+  "improvements": ["Axe d'amélioration 1"]
+}`
+    }]
   });
 
   const text = response.content[0].text;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("AI did not return valid JSON");
-  return JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  // Post-traitement : vérification des verbatims
+  const criteriaScores = verifyVerbatims(parsed.criteria_scores || [], transcript);
+
+  // Calculer le score question = moyenne des critères
+  const avgScore = criteriaScores.length > 0
+    ? Math.round(criteriaScores.reduce((s, c) => s + (c.score || 0), 0) / criteriaScores.length)
+    : 0;
+
+  return {
+    status: "evaluated",
+    score: avgScore,
+    feedback: parsed.feedback || "",
+    criteria_scores: criteriaScores,
+    strengths: parsed.strengths || [],
+    improvements: parsed.improvements || [],
+  };
 }
 
-// Helper pour recalculer le score global
+// ─── Recalculate candidate global scores (with completeness tracking) ─────────
 async function updateGlobalScores(supabase, candidateId) {
   const { data: candidate } = await supabase
     .from("candidates")
@@ -95,23 +188,41 @@ async function updateGlobalScores(supabase, candidateId) {
   const videoEnabled = modules.video_interview?.enabled ?? false;
 
   let scoreVideo = null;
+  let videoCompleteness = null;
+
   const { data: videoResps } = await supabase
     .from("video_interview_responses")
-    .select("ai_score")
-    .eq("candidate_id", candidateId)
-    .eq("status", "evaluated");
+    .select("ai_score, status")
+    .eq("candidate_id", candidateId);
 
   if (videoResps && videoResps.length > 0) {
-    const total = videoResps.reduce((sum, r) => sum + (r.ai_score || 0), 0);
-    scoreVideo = Math.round(total / videoResps.length);
+    const evaluated = videoResps.filter(r => r.status === "evaluated" && r.ai_score != null);
+    const total = videoResps.length;
+
+    videoCompleteness = {
+      evaluated: evaluated.length,
+      total,
+      is_complete: evaluated.length === total,
+    };
+
+    if (evaluated.length > 0) {
+      scoreVideo = Math.round(
+        evaluated.reduce((sum, r) => sum + r.ai_score, 0) / evaluated.length
+      );
+    }
   }
+
+  // Score global : vidéo comptabilisée SEULEMENT si toutes les questions sont évaluées
+  const videoForGlobal = (videoCompleteness?.is_complete && scoreVideo != null)
+    ? scoreVideo
+    : null;
 
   const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
   const activeWeights = {};
   if (cvEnabled && candidate.score_cv != null) activeWeights.cv = baseWeights.cv;
   if (testsEnabled && candidate.score_tests != null) activeWeights.tests = baseWeights.tests;
   if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
-  if (videoEnabled && scoreVideo != null) activeWeights.video = baseWeights.video;
+  if (videoEnabled && videoForGlobal != null) activeWeights.video = baseWeights.video;
 
   const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
 
@@ -121,20 +232,29 @@ async function updateGlobalScores(supabase, candidateId) {
     if (activeWeights.cv) weighted += (candidate.score_cv * activeWeights.cv) / totalBase;
     if (activeWeights.tests) weighted += (candidate.score_tests * activeWeights.tests) / totalBase;
     if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
-    if (activeWeights.video) weighted += (scoreVideo * activeWeights.video) / totalBase;
+    if (activeWeights.video) weighted += (videoForGlobal * activeWeights.video) / totalBase;
     scoreGlobal = Math.round(weighted);
   }
 
   await supabase
     .from("candidates")
-    .update({ score_global: scoreGlobal, video_interview_score: scoreVideo })
+    .update({
+      score_global: scoreGlobal,
+      video_interview_score: scoreVideo,
+      video_score_completeness: videoCompleteness,
+    })
     .eq("id", candidateId);
 }
 
+// ─── POST handler ─────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const { responseId, videoUrl, questionText, evaluationCriteria, jobContext } =
-      await request.json();
+    const body = await request.json();
+    const { responseId, videoUrl, questionText, jobContext } = body;
+    // Support both new criteria[] and legacy evaluationCriteria string
+    const criteria = body.criteria && body.criteria.length > 0
+      ? body.criteria
+      : normalizeCriteria({ evaluation_criteria: body.evaluationCriteria });
 
     if (!responseId || !videoUrl) {
       return Response.json({ error: "responseId and videoUrl are required" }, { status: 400 });
@@ -173,34 +293,43 @@ export async function POST(request) {
       .update({ transcript, status: "evaluating" })
       .eq("id", responseId);
 
-    // Step 2: Evaluate with Claude
+    // Step 2: Evaluate with Claude (per-criterion)
     let evaluation = null;
     try {
       evaluation = await evaluateResponse(
         questionText,
-        evaluationCriteria,
+        criteria,
         transcript,
         jobContext
       );
     } catch (evalErr) {
       console.error("Evaluation failed:", evalErr);
-      evaluation = { score: 0, feedback: "Evaluation indisponible.", strengths: [], improvements: [] };
+      evaluation = {
+        status: "manual_review",
+        score: null,
+        feedback: "Erreur lors de l'évaluation IA. Revue manuelle requise.",
+        criteria_scores: [],
+        strengths: [],
+        improvements: [],
+      };
     }
 
     // Step 3: Save results
+    const finalStatus = evaluation.status || "evaluated";
     await supabase
       .from("video_interview_responses")
       .update({
         transcript,
         ai_score: evaluation.score,
         ai_feedback: evaluation.feedback,
+        ai_criteria_scores: evaluation.criteria_scores,
         ai_strengths: evaluation.strengths,
         ai_improvements: evaluation.improvements,
-        status: "evaluated",
+        status: finalStatus,
       })
       .eq("id", responseId);
 
-    // Step 4: Recalculate candidate global score
+    // Step 4: Recalculate candidate global score (with completeness)
     await updateGlobalScores(supabase, respData.candidate_id);
 
     return Response.json({ success: true, transcript, evaluation });

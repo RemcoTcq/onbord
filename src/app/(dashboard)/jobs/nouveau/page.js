@@ -17,7 +17,7 @@ import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConf
 import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
 import { useToast } from "@/components/ui/Toast";
 import { updateJobAiConfig, generateInterviewQuestions } from "@/lib/actions/job";
-import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { saveAssessmentConfig, saveVideoInterviewConfig, generateVideoQuestions } from "@/lib/actions/assessment";
 import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
 
 export default function NouvelleDemandePage() {
@@ -267,7 +267,7 @@ export default function NouvelleDemandePage() {
       }
 
       // ─── AUTO-REMPLISSAGE (PHASE 2) ──────────────────────────────────────────
-      const rec = generateRecommendation(jobData, assessmentModules.video_interview);
+      const rec = generateRecommendation(jobData);
       
       // 2.1 Tests auto-sélectionnés
       let prefilledTests = [];
@@ -287,9 +287,39 @@ export default function NouvelleDemandePage() {
         setQualifyingConfigPayload({ enabled: true, questions: prefilledQualifying });
       }
 
+      // Exclusion logique vidéo/texte : un seul des deux peut être actif
+      const finalAiInterview = assessmentModules.ai_interview && !assessmentModules.video_interview;
+      const finalVideoInterview = assessmentModules.video_interview;
+
       // 2.3 Questions d'interview LLM
-      if (assessmentModules.ai_interview || assessmentModules.video_interview) {
-        // Find interview skills from steps
+      if (finalVideoInterview && savedJobId) {
+        try {
+          const videoRes = await generateVideoQuestions(savedJobId);
+          if (videoRes.success && videoRes.questions.length > 0) {
+            const formatted = videoRes.questions.map((q, i) => ({
+              id: `ai_${Date.now()}_${i}`,
+              text: q.text,
+              category: q.category || "Technique",
+              hint: q.hint || "",
+              weight: 1,
+              source: "ai",
+              criteria: (q.criteria || []).map((c, ci) => ({
+                id: `crit_${Date.now()}_${i}_${ci}`,
+                name: c.name || "",
+                description: c.description || "",
+                weight: 1,
+                source: "ai",
+              })),
+            }));
+            setVideoConfigPayload(prev => ({ ...prev, questions: formatted }));
+          }
+        } catch (e) {
+          console.error("Erreur lors de la génération vidéo", e);
+        }
+      }
+
+      // Texte (fallback rare) : conserve l'ancien chemin
+      if (finalAiInterview) {
         const interviewStep = rec.steps.find(s => s.type === 'ai_interview' || s.type === 'video_interview');
         if (interviewStep && interviewStep.covered_skills && interviewStep.covered_skills.length > 0) {
           try {
@@ -300,10 +330,9 @@ export default function NouvelleDemandePage() {
                 questions: llmRes.questions, 
                 decisive_criteria: llmRes.decisive_criteria 
               }));
-              // Also update video_interview questions if they use the same basis (optional, or let VideoInterviewConfig handle it)
             }
           } catch (e) {
-             console.error("Erreur lors du pré-remplissage LLM de l'interview", e);
+             console.error("Erreur lors du pré-remplissage LLM de l'interview texte", e);
           }
         }
       }
@@ -313,9 +342,9 @@ export default function NouvelleDemandePage() {
         modules: {
           qualifying_questions: { enabled: assessmentModules.qualifying_questions, questions: prefilledQualifying },
           cv_scoring: { enabled: assessmentModules.cv_scoring },
-          ai_interview: { enabled: assessmentModules.ai_interview },
+          ai_interview: { enabled: finalAiInterview },
           skills_tests: { enabled: assessmentModules.skills_test, tests: prefilledTests },
-          video_interview: { enabled: assessmentModules.video_interview, questions: [], max_duration_seconds: 120, max_retakes: 1 },
+          video_interview: { enabled: finalVideoInterview, questions: [], max_duration_seconds: 120, max_retakes: 1 },
         }
       });
       // Move to next step dynamically based on selection
@@ -443,6 +472,17 @@ export default function NouvelleDemandePage() {
   const handleVideoConfigNext = async () => {
     setIsSaving(true);
     try {
+      // Validate criteria: each question must have 1-5 criteria
+      if (videoConfigPayload?.questions?.length > 0) {
+        const invalidQs = videoConfigPayload.questions.filter(
+          q => !q.criteria || q.criteria.length === 0 || q.criteria.length > 5
+        );
+        if (invalidQs.length > 0) {
+          toast("Chaque question doit avoir entre 1 et 5 critères d'évaluation.", "error");
+          setIsSaving(false);
+          return;
+        }
+      }
       if (savedJobId && videoConfigPayload) {
         await saveVideoInterviewConfig(savedJobId, videoConfigPayload);
       }
@@ -472,8 +512,8 @@ export default function NouvelleDemandePage() {
       details.push({ name: "Tests de compétences", cost: 2, reason: "Accès aux tests et correction" });
     }
     if (assessmentModules.ai_interview) {
-      cost += 3;
-      details.push({ name: "Interview IA par Texte", cost: 3, reason: "Conversation interactive et résumé" });
+      cost += 5;
+      details.push({ name: "Interview IA par Texte", cost: 5, reason: "Conversation interactive et résumé" });
     }
     if (assessmentModules.video_interview) {
       cost += 5;

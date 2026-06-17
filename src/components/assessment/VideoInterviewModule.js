@@ -247,7 +247,7 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
         job.id,
         questionIndex,
         question.text,
-        question.evaluation_criteria || ""
+        ""
       );
       if (!createRes.success) throw new Error(createRes.error);
       const responseId = createRes.response.id;
@@ -272,6 +272,14 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
       setUploadProgress(80);
 
       // Trigger transcription + evaluation (non-blocking, fire and forget)
+      // Send structured criteria[] for per-criterion scoring
+      const questionCriteria = question.criteria && question.criteria.length > 0
+        ? question.criteria
+        : (question.evaluation_criteria
+          ? [{ id: "legacy_0", name: "Évaluation globale", description: question.evaluation_criteria, weight: 1, source: "manual" }]
+          : [{ id: "fallback_0", name: "Pertinence générale", description: "Pertinence, clarté, structure, exemples concrets", weight: 1, source: "manual" }]
+        );
+
       fetch("/api/video-interview", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -279,7 +287,7 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
           responseId,
           videoUrl,
           questionText: question.text,
-          evaluationCriteria: question.evaluation_criteria,
+          criteria: questionCriteria,
           jobContext: {
             title: job.title,
             hard_skills: job.extracted_criteria?.hard_skills?.map(s => s.name),

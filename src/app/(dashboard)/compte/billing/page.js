@@ -118,7 +118,7 @@ export default function BillingPage() {
           {[
             { label: "CV Screening IA", cost: 1, icon: "📄" },
             { label: "Test de compétences", cost: 2, icon: "🧠" },
-            { label: "Interview IA texte", cost: 3, icon: "💬" },
+            { label: "Interview IA texte", cost: 5, icon: "💬" },
             { label: "Interview IA vidéo", cost: 5, icon: "🎥", locked: !(planDetails?.features?.videoInterview) },
           ].map(item => (
             <div

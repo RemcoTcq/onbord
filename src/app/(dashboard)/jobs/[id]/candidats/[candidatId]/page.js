@@ -616,12 +616,26 @@ export default function CandidateDetailPage() {
                   <Video size={18} style={{ color: "var(--primary)" }} /> Entretien Vidéo
                 </h3>
                 {candidate.video_interview_score != null && candidate.video_interview_score > 0 && (
-                  <span style={{
-                    fontSize: "1.1rem", fontWeight: "800",
-                    color: getScoreColor(candidate.video_interview_score).color
-                  }}>
-                    Score moyen : {candidate.video_interview_score}%
-                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                    <span style={{
+                      fontSize: "1.1rem", fontWeight: "800",
+                      color: getScoreColor(candidate.video_interview_score).color
+                    }}>
+                      Score moyen : {candidate.video_interview_score}%
+                      {candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && "*"}
+                    </span>
+                    {candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && (
+                      <div style={{
+                        marginTop: "8px", display: "flex", alignItems: "center", gap: "6px",
+                        padding: "6px 12px", borderRadius: "8px",
+                        background: "#fff7ed", border: "1px solid #ffedd5",
+                        fontSize: "11px", color: "#c2410c", fontWeight: "600"
+                      }}>
+                        <AlertTriangle size={14} /> {candidate.video_score_completeness.evaluated}/{candidate.video_score_completeness.total} questions évaluées —
+                        Score partiel, exclu du classement
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -633,6 +647,7 @@ export default function CandidateDetailPage() {
                     transcribing: { label: "Transcription...", color: "#92400e", bg: "#fef3c7" },
                     evaluating:   { label: "Analyse IA...",   color: "#6d28d9",  bg: "#ede9fe" },
                     evaluated:    { label: "Analysé ✓",        color: "#166534",  bg: "#dcfce7" },
+                    manual_review:{ label: "Revue manuelle",   color: "#991b1b",  bg: "#fee2e2" },
                   }[resp.status] || { label: resp.status, color: "#64748b", bg: "#f1f5f9" };
 
                   const scoreStyle = resp.ai_score != null ? getScoreColor(resp.ai_score) : null;
@@ -674,7 +689,7 @@ export default function CandidateDetailPage() {
                       </div>
 
                       {/* Corps : transcription + analyse IA */}
-                      {resp.status === "evaluated" && (
+                      {(resp.status === "evaluated" || resp.status === "manual_review") && (
                         <div style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
 
                           {/* Video Player */}
@@ -709,23 +724,65 @@ export default function CandidateDetailPage() {
                             </div>
                           )}
 
-                          {/* Résumé IA */}
-                          {resp.ai_feedback && (
-                            <div>
-                              <p style={{ fontSize: "11px", fontWeight: "700", color: "#6d28d9", textTransform: "uppercase", marginBottom: "6px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <Sparkles size={12} /> Analyse IA
+                          {resp.status === "manual_review" && (
+                            <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "1rem" }}>
+                              <h4 style={{ fontSize: "13px", fontWeight: "700", color: "#991b1b", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                <AlertTriangle size={16} /> À revoir manuellement
+                              </h4>
+                              <p style={{ fontSize: "13px", color: "#7f1d1d", lineHeight: "1.5" }}>
+                                {resp.ai_feedback || "La transcription est absente ou insuffisante pour une évaluation IA. Visionnez la vidéo pour évaluer la réponse de ce candidat."}
                               </p>
-                              <p style={{
-                                fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)",
-                                background: "#fafafe", border: "1px solid #e0e7ff",
-                                borderRadius: "6px", padding: "0.875rem"
-                              }}>{resp.ai_feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Détail par critère */}
+                          {resp.status === "evaluated" && resp.ai_criteria_scores && resp.ai_criteria_scores.length > 0 && (
+                            <div>
+                              <p style={{ fontSize: "11px", fontWeight: "700", color: "#6d28d9", textTransform: "uppercase", marginBottom: "10px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                <Sparkles size={12} /> Détail par critère
+                              </p>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                {resp.ai_criteria_scores.map((crit, cIdx) => (
+                                  <div key={cIdx} style={{
+                                    border: "1px solid var(--border)", borderRadius: "8px",
+                                    padding: "1rem", background: "white"
+                                  }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                                      <span style={{ fontSize: "13px", fontWeight: "700" }}>{crit.criterion_name}</span>
+                                      <span style={{ fontSize: "14px", fontWeight: "800", color: getScoreColor(crit.score).color }}>{crit.score}%</span>
+                                    </div>
+                                    
+                                    {/* Justification IA */}
+                                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "var(--foreground)", marginBottom: "10px" }}>
+                                      <span style={{ marginRight: "6px" }}>🧠</span>
+                                      {crit.justification}
+                                    </p>
+
+                                    {/* Verbatim avec validation */}
+                                    <div style={{
+                                      borderLeft: crit.verbatim_verified ? "3px solid #22c55e" : "3px solid #f59e0b",
+                                      paddingLeft: "10px",
+                                      background: crit.verbatim_verified ? "#f0fdf4" : "#fffbeb",
+                                      padding: "8px 10px", borderRadius: "0 6px 6px 0"
+                                    }}>
+                                      {crit.verbatim_verified ? (
+                                        <div style={{ fontSize: "10px", color: "#166534", fontWeight: "600", marginBottom: "4px" }}>✓ Citation vérifiée</div>
+                                      ) : (
+                                        <div style={{ fontSize: "10px", color: "#b45309", fontWeight: "600", marginBottom: "4px" }}>⚠ Citation non vérifiée dans la transcription</div>
+                                      )}
+                                      <p style={{ fontStyle: "italic", fontSize: "13px", opacity: crit.verbatim_verified ? 1 : 0.7, color: "var(--foreground)" }}>
+                                        « {crit.verbatim || "Aucun élément cité"} »
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
 
                           {/* Points forts / Améliorations */}
-                          {((resp.ai_strengths?.length > 0) || (resp.ai_improvements?.length > 0)) && (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                          {resp.status === "evaluated" && ((resp.ai_strengths?.length > 0) || (resp.ai_improvements?.length > 0)) && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "10px" }}>
                               {resp.ai_strengths?.length > 0 && (
                                 <div style={{ background: "#f0fdf4", border: "1px solid #dcfce7", borderRadius: "8px", padding: "0.875rem" }}>
                                   <p style={{ fontSize: "11px", fontWeight: "700", color: "#166534", textTransform: "uppercase", marginBottom: "6px" }}>Points forts</p>

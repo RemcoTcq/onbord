@@ -19,7 +19,7 @@ const SUGGESTED_TEST_TO_DB_ID = {
   "Test — Sales Aptitude": "c14fa2e2-3eec-4409-993c-47a7e23b87df"
 };
 
-export function generateRecommendation(jobData, preferVideo = false) {
+export function generateRecommendation(jobData) {
   const steps = [];
   let totalTime = 0;
 
@@ -101,7 +101,7 @@ export function generateRecommendation(jobData, preferVideo = false) {
         });
       }
     } else {
-      // Hors taxonomie : on le met par défaut en interview IA
+      // Hors taxonomie : on le met par défaut en entretien vidéo
       interviewSkills.push({
         ...skill,
         taxonomyData: null
@@ -127,15 +127,14 @@ export function generateRecommendation(jobData, preferVideo = false) {
     totalTime += time;
   }
 
-  // 4. Interview IA
+  // 4. Entretien Vidéo (format recommandé pour les compétences non testables)
   if (interviewSkills.length > 0) {
-    const interviewType = preferVideo ? "video_interview" : "ai_interview";
-    const time = ESTIMATED_TIMES[interviewType];
+    const time = ESTIMATED_TIMES.video_interview;
 
     steps.push({
-      id: interviewType,
-      type: interviewType,
-      name: preferVideo ? "Entretien Vidéo One-Way" : "Interview IA (Texte)",
+      id: "video_interview",
+      type: "video_interview",
+      name: "Entretien Vidéo One-Way",
       description: "Évaluation des soft skills et des connaissances métier non testables objectivement.",
       covered_skills: interviewSkills,
       estimated_time: time
