@@ -165,16 +165,8 @@ export default function AdminTestsPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "8px" }}>Gestion des Tests</h1>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>Créez et modifiez les tests de compétences.</p>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>Modifiez les détails (titre, difficulté) des tests de compétences.</p>
           </div>
-          <button 
-            className="btn btn-primary"
-            style={{ display: "flex", alignItems: "center", gap: "8px" }}
-            onClick={() => setEditingTest({ id: "new", name: "", category: "cognitif", difficulty: "moyen", estimated_duration_minutes: 10, status: "active" })}
-            disabled={editingTest !== null}
-          >
-            <Plus size={18} /> Nouveau Test
-          </button>
         </div>
       </div>
 
@@ -298,22 +290,6 @@ export default function AdminTestsPage() {
                       title="Modifier les détails"
                     >
                       <Edit2 size={16} />
-                    </button>
-                    <Link
-                      href={`/admin/tests/${test.id}`}
-                      className="btn btn-ghost btn-sm"
-                      title="Modifier les questions"
-                      style={{ color: "var(--primary)" }}
-                    >
-                      <Settings2 size={16} />
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(test.id)}
-                      className="btn btn-ghost btn-sm"
-                      title="Supprimer"
-                      style={{ color: "var(--destructive)" }}
-                    >
-                      <Trash2 size={16} />
                     </button>
                   </div>
                 </td>

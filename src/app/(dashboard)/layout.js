@@ -32,6 +32,12 @@ export default function DashboardLayout({ children }) {
         .single();
 
       if (data) {
+        // Sync company_name depuis auth metadata (source de vérité du formulaire branding)
+        const authCompanyName = authUser.user_metadata?.company_name;
+        if (authCompanyName && data.company_name !== authCompanyName) {
+          await supabase.from("users").update({ company_name: authCompanyName }).eq("id", authUser.id);
+          data.company_name = authCompanyName;
+        }
         setUserData(data);
       } else {
         // Fallback if user row doesn't exist yet
@@ -57,7 +63,7 @@ export default function DashboardLayout({ children }) {
     <ToastProvider>
       <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--background)" }}>
         <Sidebar user={userData} />
-        <main style={{ flex: 1, padding: "2rem", paddingLeft: "calc(var(--sidebar-width) + 2rem)" }}>
+        <main style={{ flex: 1, padding: "2rem", paddingLeft: "calc(var(--sidebar-collapsed-width) + 2rem)" }}>
           <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
             {children}
           </div>

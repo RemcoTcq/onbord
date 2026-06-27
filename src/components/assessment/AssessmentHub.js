@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, FileText, Brain, MessageSquare, Video, ChevronRight, Loader2, Clock } from "lucide-react";
+import { CheckCircle2, FileText, Brain, MessageSquare, Video, ChevronRight, ArrowRight, Loader2, Clock, Target, Megaphone, Lightbulb, UserCheck, Languages, Code } from "lucide-react";
 import CvUploadModule from "./CvUploadModule";
 import SkillsTestModule from "./SkillsTestModule";
 import InterviewModule from "./InterviewModule";
@@ -39,6 +39,18 @@ function getModulesConfig(job, candidate) {
   };
 }
 
+// Fonction pour choisir une icône dynamique selon le nom du test
+function getTestIcon(testName = "") {
+  const name = testName.toLowerCase();
+  if (name.includes("dev") || name.includes("code") || name.includes("tech") || name.includes("react") || name.includes("python")) return Code;
+  if (name.includes("vente") || name.includes("commercial") || name.includes("sales") || name.includes("business")) return Target;
+  if (name.includes("marketing") || name.includes("communication") || name.includes("seo")) return Megaphone;
+  if (name.includes("logique") || name.includes("raisonnement") || name.includes("analyse")) return Lightbulb;
+  if (name.includes("langue") || name.includes("anglais") || name.includes("espagnol") || name.includes("orthographe")) return Languages;
+  if (name.includes("personnalité") || name.includes("comportement") || name.includes("management") || name.includes("rh")) return UserCheck;
+  return Brain;
+}
+
 export default function AssessmentHub({ candidate, job, recruiter, onCandidateUpdate }) {
   const [activeModule, setActiveModule] = useState(null); // null = hub view
   const [cvStatus, setCvStatus] = useState(candidate.cv_raw_text ? "completed" : "pending");
@@ -71,9 +83,9 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 
   const allModulesComplete = (() => {
     if (modules.cv && cvStatus !== "completed") return false;
-    if (modules.tests && !testsCompleted) return false;
     if (modules.interview && interviewStatus !== "completed") return false;
     if (modules.video && videoStatus !== "completed") return false;
+    if (!testsCompleted) return false;
     return true;
   })();
 
@@ -114,7 +126,7 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
       .eq("id", candidate.id)
       .single();
 
-    const currentMetrics = latest?.anti_cheat_metrics || [];
+    const currentMetrics = Array.isArray(latest?.anti_cheat_metrics) ? latest.anti_cheat_metrics : [];
     const newMetrics = [...currentMetrics, event];
     
     await supabase
@@ -143,7 +155,7 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   // ─── Submitted / Disqualified / Results view ─────────────────────────────────────────────
   if (submitted || qualifyingStatus === "disqualified" || candidate.assessment_status === "disqualified") {
     const finalCandidate = finalScores ? { ...candidate, ...finalScores, assessment_status: "submitted" } : { ...candidate, assessment_status: "submitted" };
-    return <ResultsView candidate={finalCandidate} job={job} testSessions={testSessions} />;
+    return <ResultsView candidate={finalCandidate} job={job} recruiter={recruiter} testSessions={testSessions} />;
   }
 
   // ─── Qualifying Questions ─────────────────────────────────────────────────
@@ -151,6 +163,8 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
     return (
       <QualifyingQuestionsModule
         candidate={candidate}
+        job={job}
+        recruiter={recruiter}
         questions={modules.qualifyingConfig?.questions || []}
         onComplete={async () => {
           await passQualifyingQuestions(candidate.id);
@@ -164,24 +178,28 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   }
 
   // ─── Active module view ───────────────────────────────────────────────────
-  if (activeModule === "cv") {
+  if (activeModule === "cv" && cvStatus !== "completed") {
     return (
       <CvUploadModule
         candidate={candidate}
         job={job}
+        recruiter={recruiter}
         onComplete={() => { setCvStatus("completed"); setActiveModule(null); }}
         onBack={() => setActiveModule(null)}
       />
     );
   }
-  if (activeModule === "tests") {
+  // ─── Active module view (Tests) ──────────────────────────────────────────
+  const activeTestConfig = selectedTests.find(t => t.test_id === activeModule);
+  if (activeTestConfig) {
     return (
       <FullscreenGuard onCheat={handleCheat} candidateId={candidate.id}>
         <SkillsTestModule
           candidate={candidate}
           job={job}
           recruiter={recruiter}
-          testsConfig={testsConfig}
+          testId={activeTestConfig.test_id}
+          testConfig={activeTestConfig}
           testSessions={testSessions}
           onComplete={() => { loadTestSessions(); setActiveModule(null); }}
           onBack={() => { loadTestSessions(); setActiveModule(null); }}
@@ -189,23 +207,25 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
       </FullscreenGuard>
     );
   }
-  if (activeModule === "interview") {
+  if (activeModule === "interview" && interviewStatus !== "completed") {
     return (
       <FullscreenGuard onCheat={handleCheat} candidateId={candidate.id}>
         <InterviewModule
           candidate={candidate}
           job={job}
+          recruiter={recruiter}
           onComplete={() => { setInterviewStatus("completed"); setActiveModule(null); }}
           onBack={() => setActiveModule(null)}
         />
       </FullscreenGuard>
     );
   }
-  if (activeModule === "video") {
+  if (activeModule === "video" && videoStatus !== "completed") {
     return (
       <VideoInterviewModule
         candidate={candidate}
         job={job}
+        recruiter={recruiter}
         onComplete={() => { setVideoStatus("completed"); setActiveModule(null); }}
         onBack={() => setActiveModule(null)}
       />
@@ -215,83 +235,124 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
   // ─── Hub view ─────────────────────────────────────────────────────────────
   const companyName = recruiter?.company_name || job?.extracted_criteria?.company_name || "L'entreprise";
   const jobTitle = job?.title || "ce poste";
+  
+  const welcomeNode = job?.saved_flow_nodes?.find(n => n.type === 'accueil');
+  const welcomeMessage = welcomeNode?.config?.text || `Bonjour ${candidate.first_name} !\nComplétez chaque module ci-dessous pour nous permettre d'évaluer votre candidature.`;
+  
+  const primaryColor = recruiter?.brand_primary_color || "var(--primary)";
+
+  // Calculate Progress
+  const total = (modules.cv ? 1 : 0) + (modules.interview ? 1 : 0) + (modules.video ? 1 : 0) + selectedTests.length;
+  
+  let done = 0;
+  if (modules.cv && cvStatus === "completed") done++;
+  if (modules.interview && interviewStatus === "completed") done++;
+  if (modules.video && videoStatus === "completed") done++;
+  done += selectedTests.filter(t => testSessions.find(s => s.test_id === t.test_id && s.status === "completed")).length;
+  
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--background)", padding: "2rem 1rem" }}>
-      <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "2rem 1.5rem", position: "relative", paddingTop: "8rem" }}>
+      {/* Top Header: Logo + Progress (Mobile: Stacked, Desktop: Flex-between) */}
+      <div style={{ 
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        display: "flex", 
+        flexWrap: "wrap", 
+        gap: "1.5rem", 
+        justifyContent: "space-between", 
+        alignItems: "flex-start", 
+        padding: "2rem 2.5rem",
+        zIndex: 10,
+        boxSizing: "border-box"
+      }}>
+        {recruiter?.company_logo_url ? (
+          <img src={recruiter.company_logo_url} alt={companyName} style={{ height: "32px", objectFit: "contain" }} />
+        ) : (
+          <h1 style={{ fontSize: "1.5rem", fontWeight: "800", margin: 0, color: "var(--foreground)" }}>{companyName}</h1>
+        )}
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: "800", color: "var(--foreground)", marginBottom: "0.5rem", letterSpacing: "-0.02em" }}>
-            Votre assessment
-          </h1>
-          <p style={{ fontSize: "15px", color: "var(--muted-foreground)", lineHeight: "1.6" }}>
-            <strong style={{ color: "var(--foreground)" }}>{jobTitle}</strong>
-          </p>
-          <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-            Bonjour {candidate.first_name} ! Complétez chaque module ci-dessous pour soumettre votre candidature.
+        <div style={{ 
+          background: "white", 
+          border: "1px solid var(--border)", 
+          borderRadius: "20px", 
+          padding: "0.5rem 1.25rem", 
+          display: "flex", 
+          flexDirection: "column",
+          alignItems: "center", 
+          gap: "0.5rem",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+        }}>
+          <span style={{ fontSize: "10px", fontWeight: "700", color: "var(--foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Progression</span>
+          <div style={{ width: "64px", height: "6px", background: "var(--border)", borderRadius: "99px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: primaryColor, transition: "width 0.5s ease" }} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: "1300px", margin: "0 auto" }}>
+
+        {/* Welcome Section */}
+        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+          <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "1rem" }}>
+            {jobTitle}
+          </h2>
+          <p style={{ fontSize: "15px", color: "var(--muted-foreground)", lineHeight: "1.6", whiteSpace: "pre-wrap", maxWidth: "600px", margin: "0 auto" }}>
+            {welcomeMessage.replace("{first_name}", candidate.first_name)}
           </p>
         </div>
 
-        {/* Progress bar */}
-        {(() => {
-          const total = [modules.cv, modules.tests, modules.interview, modules.video].filter(Boolean).length;
-          const done = [
-            modules.cv && cvStatus === "completed",
-            modules.tests && testsCompleted,
-            modules.interview && interviewStatus === "completed",
-            modules.video && videoStatus === "completed",
-          ].filter(Boolean).length;
-          const remaining = total - done;
-          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-          return (
-            <div style={{ marginBottom: "2rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--foreground)" }}>Progression</span>
-                <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary)" }}>
-                  {remaining > 0 ? `Il vous reste ${remaining} activité${remaining > 1 ? "s" : ""} à compléter` : "Toutes les activités sont complétées"}
-                </span>
-              </div>
-              <div style={{ height: "8px", background: "var(--border)", borderRadius: "99px", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: "99px",
-                  background: pct === 100 ? "#22c55e" : "var(--primary)",
-                  width: `${pct}%`, transition: "width 0.5s ease"
-                }} />
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Module cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "2rem" }}>
-
+        {/* Module Cards Grid */}
+        <div style={{ 
+          display: "flex", 
+          flexWrap: "wrap", 
+          gap: "1.5rem", 
+          marginBottom: "4rem",
+          justifyContent: "center"
+        }}>
           {modules.cv && (
             <ModuleCard
               title="Curriculum Vitae"
-              description="Importez votre CV au format PDF pour que nous puissions évaluer votre profil."
+              description="Import de CV PDF"
               duration="~2 min"
               status={cvStatus}
+              primaryColor={primaryColor}
               onOpen={() => setActiveModule("cv")}
             />
           )}
 
-          {modules.tests && (
-            <ModuleCard
-              title="Tests de compétences"
-              description={`${selectedTests.length} test${selectedTests.length > 1 ? "s" : ""} à compléter. Questions chronométrées.`}
-              duration={`~${selectedTests.length * 5} min`}
-              status={loadingSessions ? "loading" : testsCompleted ? "completed" : testSessions.some(s => s.status === "in_progress") ? "in_progress" : "pending"}
-              onOpen={() => setActiveModule("tests")}
-            />
-          )}
+          {selectedTests.map((test, index) => {
+            const session = testSessions.find(s => s.test_id === test.test_id);
+            const isCompleted = session?.status === "completed";
+            const isInProgress = session?.status === "in_progress";
+            const statusStr = isCompleted ? "completed" : isInProgress ? "in_progress" : "pending";
+            const Icon = getTestIcon(test.test_name);
+            const questionCount = test.selected_question_ids?.length || 0;
+
+            return (
+              <ModuleCard
+                key={test.test_id}
+                title={test.test_name || `Test ${index + 1}`}
+                description="Test de compétences"
+                duration={`~${questionCount} min`}
+                status={loadingSessions ? "loading" : statusStr}
+                primaryColor={primaryColor}
+                onOpen={() => setActiveModule(test.test_id)}
+                Icon={Icon}
+              />
+            );
+          })}
 
           {modules.interview && (
             <ModuleCard
-              title="Entretien"
-              description="Répondez aux questions de notre assistant IA pour partager votre expérience et motivation."
+              title="Entretien IA"
+              description="Échange avec l'IA"
               duration="~10-15 min"
               status={interviewStatus}
+              primaryColor={primaryColor}
               onOpen={() => setActiveModule("interview")}
             />
           )}
@@ -299,41 +360,48 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
           {modules.video && (
             <ModuleCard
               title="Entretien Vidéo"
-              description={`Répondez à ${modules.videoConfig?.questions?.length || 0} question${(modules.videoConfig?.questions?.length || 0) > 1 ? "s" : ""} en vous enregistrant à la webcam.`}
+              description="Réponses enregistrées"
               duration={`~${(modules.videoConfig?.questions?.length || 3) * 3} min`}
               status={videoStatus}
-              icon={<Video size={18} />}
+              primaryColor={primaryColor}
               onOpen={() => setActiveModule("video")}
             />
           )}
-
         </div>
 
         {/* Submit button */}
-        <button
-          onClick={handleSubmit}
-          disabled={!allModulesComplete || submitting}
-          style={{
-            width: "100%", padding: "1rem", borderRadius: "var(--radius)",
-            background: allModulesComplete ? "#22c55e" : "var(--secondary)",
-            color: allModulesComplete ? "white" : "var(--muted-foreground)",
-            border: "none", cursor: allModulesComplete ? "pointer" : "not-allowed",
-            fontSize: "15px", fontWeight: "700", display: "flex", alignItems: "center",
-            justifyContent: "center", gap: "10px", transition: "all 200ms",
-            boxShadow: allModulesComplete ? "0 4px 14px rgba(34,197,94,0.35)" : "none",
-          }}
-        >
-          {submitting ? (
-            <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Soumission en cours...</>
-          ) : allModulesComplete ? (
-            <><CheckCircle2 size={18} /> Soumettre mon assessment</>
-          ) : (
-            "Complétez tous les modules pour soumettre"
-          )}
-        </button>
-
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <button
+            onClick={handleSubmit}
+            disabled={!allModulesComplete || submitting}
+            className="btn-hover-effect"
+            style={{
+              padding: "1rem 3rem", 
+              borderRadius: "100px",
+              background: allModulesComplete ? primaryColor : "var(--secondary)",
+              color: allModulesComplete ? "white" : "var(--muted-foreground)",
+              border: "none", 
+              cursor: allModulesComplete ? "pointer" : "not-allowed",
+              fontSize: "15px", 
+              fontWeight: "700", 
+              display: "flex", 
+              alignItems: "center",
+              justifyContent: "center", 
+              gap: "10px", 
+              transition: "all 200ms",
+              boxShadow: allModulesComplete ? `0 4px 14px ${primaryColor}40` : "none",
+            }}
+          >
+            {submitting ? (
+              <><Loader2 size={18} className="spin" /> Soumission...</>
+            ) : (
+              "Soumettre"
+            )}
+          </button>
+        </div>
+        
         {!allModulesComplete && (
-          <p style={{ textAlign: "center", fontSize: "13px", color: "var(--muted-foreground)", marginTop: "0.75rem" }}>
+          <p style={{ textAlign: "center", fontSize: "13px", color: "var(--muted-foreground)", marginTop: "1rem" }}>
             Tous les modules doivent être complétés avant la soumission.
           </p>
         )}
@@ -343,56 +411,85 @@ export default function AssessmentHub({ candidate, job, recruiter, onCandidateUp
 }
 
 // ─── Module Card ─────────────────────────────────────────────────────────────
-function ModuleCard({ title, description, duration, status, onOpen }) {
+function ModuleCard({ title, description, duration, status, primaryColor, onOpen, Icon }) {
   const isCompleted = status === "completed";
   const isLoading = status === "loading";
-  const isInProgress = status === "in_progress";
-
+  
   const statusConfig = {
-    pending:     { label: "À compléter",   bg: "var(--secondary)",  color: "var(--muted-foreground)", dot: "#94a3b8" },
-    in_progress: { label: "En cours",      bg: "#fef3c7",           color: "#92400e",                 dot: "#f59e0b" },
-    completed:   { label: "Complété",      bg: "#dcfce7",           color: "#166534",                 dot: "#22c55e" },
-    loading:     { label: "Chargement...", bg: "var(--secondary)",  color: "var(--muted-foreground)", dot: "#94a3b8" },
-  }[status] || { label: status, bg: "var(--secondary)", color: "var(--muted-foreground)", dot: "#94a3b8" };
+    pending:     { label: "À compléter",   bg: "var(--secondary)",  color: "var(--muted-foreground)" },
+    in_progress: { label: "En cours",      bg: `${primaryColor}20`, color: primaryColor },
+    completed:   { label: "Complété",      bg: "#dcfce7",           color: "#166534" },
+    loading:     { label: "Chargement...", bg: "var(--secondary)",  color: "var(--muted-foreground)" },
+  }[status] || { label: status, bg: "var(--secondary)", color: "var(--muted-foreground)" };
 
   return (
     <div
       onClick={!isCompleted && !isLoading ? onOpen : undefined}
       style={{
-        background: "var(--card)", border: `1px solid ${isCompleted ? "#bbf7d0" : "var(--border)"}`,
-        borderRadius: "var(--radius)", padding: "1.25rem",
+        width: "300px",
+        background: "white", 
+        border: `2px solid ${status === "in_progress" ? primaryColor : "var(--border)"}`,
+        borderRadius: "16px", 
+        overflow: "hidden",
         cursor: isCompleted || isLoading ? "default" : "pointer",
-        transition: "all 150ms", opacity: isLoading ? 0.6 : 1,
-        display: "flex", alignItems: "center", gap: "1rem",
+        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)", 
+        opacity: isLoading ? 0.6 : 1,
+        display: "flex", 
+        flexDirection: "column",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+        position: "relative"
       }}
-      onMouseEnter={(e) => { if (!isCompleted && !isLoading) e.currentTarget.style.borderColor = "var(--primary)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = isCompleted ? "#bbf7d0" : "var(--border)"; }}
+      onMouseEnter={(e) => { 
+        if (!isCompleted && !isLoading) {
+          e.currentTarget.style.borderColor = primaryColor;
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
+        }
+      }}
+      onMouseLeave={(e) => { 
+        e.currentTarget.style.borderColor = status === "in_progress" ? primaryColor : "var(--border)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.02)";
+      }}
     >
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-          <h3 style={{ fontSize: "15px", fontWeight: "700", color: "var(--foreground)" }}>{title}</h3>
-          <span style={{
-            fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
-            background: statusConfig.bg, color: statusConfig.color
-          }}>
-            {statusConfig.label}
-          </span>
-        </div>
-        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: "1.5" }}>{description}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "6px" }}>
-          <Clock size={12} style={{ color: "var(--muted-foreground)" }} />
-          <span style={{ fontSize: "12px", color: "var(--muted-foreground)", fontWeight: "500" }}>{duration}</span>
-        </div>
-      </div>
+      {/* Top Gradient Visual */}
+      <div style={{ height: "160px", background: `linear-gradient(135deg, ${primaryColor}20, ${primaryColor}60)`, margin: "8px 8px 0 8px", borderRadius: "8px", width: "calc(100% - 16px)" }} />
 
-      {/* Arrow */}
-      {!isCompleted && !isLoading && (
-        <ChevronRight size={18} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
-      )}
-      {isCompleted && (
-        <CheckCircle2 size={20} style={{ color: "#22c55e", flexShrink: 0 }} />
-      )}
+      {/* Content */}
+      <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center", flex: 1, textAlign: "center" }}>
+        <h3 style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--foreground)", marginBottom: "4px" }}>{title}</h3>
+        <p style={{ fontSize: "0.85rem", color: "var(--muted-foreground)", marginBottom: "1rem" }}>{description}</p>
+        
+        <span style={{
+          fontSize: "10px", fontWeight: "700", padding: "4px 10px", borderRadius: "99px",
+          background: statusConfig.bg, color: statusConfig.color, marginBottom: "0.75rem",
+          textTransform: "uppercase", letterSpacing: "0.05em"
+        }}>
+          {statusConfig.label}
+        </span>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1.5rem" }}>
+          <Clock size={14} style={{ color: "var(--muted-foreground)" }} />
+          <span style={{ fontSize: "0.85rem", color: "var(--muted-foreground)", fontWeight: "500" }}>{duration}</span>
+        </div>
+        
+        {/* Action Button */}
+        {isCompleted ? (
+          <div style={{ 
+            width: "40px", height: "40px", borderRadius: "50%", background: primaryColor, 
+            display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s"
+          }}>
+            <CheckCircle2 size={20} style={{ color: "white" }} />
+          </div>
+        ) : (
+          <div style={{ 
+            width: "80px", height: "40px", borderRadius: "100px", background: primaryColor, 
+            display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s"
+          }}>
+            <ArrowRight size={20} style={{ color: "white" }} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

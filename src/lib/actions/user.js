@@ -1,8 +1,19 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { hasFeature } from "../utils/limits";
+
+export async function getRecruiterName(userId) {
+  try {
+    const supabase = createAdminClient();
+    const { data: { user }, error } = await supabase.auth.admin.getUserById(userId);
+    if (error || !user) return null;
+    return user.user_metadata?.company_name || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function updateProfile(data) {
   try {
@@ -79,16 +90,41 @@ export async function updateSecuritySettings(oldPassword, newPassword, newEmail)
   }
 }
 
-export async function updateBranding(data) {
+export async function getEmployerBranding() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return { success: false, error: "Non authentifié" };
-    }
+    if (!user) return { success: false, error: "Non authentifié" };
 
-    // Vérifier si le plan autorise le branding personnalisé
+    const { data, error } = await supabase
+      .from("users")
+      .select("company_logo_url, brand_primary_color, brand_secondary_color")
+      .eq("id", user.id)
+      .single();
+
+    if (error) throw error;
+    
+    return {
+      success: true,
+      branding: {
+        name: user.user_metadata?.company_name || "",
+        logo_url: data?.company_logo_url || "",
+        primary_color: data?.brand_primary_color || "#2563eb",
+        description: user.user_metadata?.company_description || "",
+      }
+    };
+  } catch (error) {
+    console.error("Get Branding Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateEmployerBranding(brandingData) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
     const canBrand = await hasFeature(user.id, "companyBranding");
     if (!canBrand) {
       return {
@@ -100,15 +136,24 @@ export async function updateBranding(data) {
     const { error } = await supabase
       .from("users")
       .update({
-        company_logo_url: data.company_logo_url,
-        brand_primary_color: data.brand_primary_color,
-        brand_secondary_color: data.brand_secondary_color,
+        company_name: brandingData.name,
+        company_logo_url: brandingData.logo_url,
+        brand_primary_color: brandingData.primary_color,
       })
       .eq("id", user.id);
 
     if (error) {
       throw error;
     }
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { 
+        company_name: brandingData.name,
+        company_description: brandingData.description 
+      }
+    });
+
+    if (authError) throw authError;
 
     revalidatePath("/", "layout");
     return { success: true };

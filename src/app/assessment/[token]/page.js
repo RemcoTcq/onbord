@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
-import ConsentModal from "@/components/interview/ConsentModal";
+import CandidateOnboardingFlow from "@/components/assessment/CandidateOnboardingFlow";
 import AssessmentHub from "@/components/assessment/AssessmentHub";
 
 export default function AssessmentPage() {
@@ -58,24 +58,17 @@ export default function AssessmentPage() {
         const recruiterId = cand.jobs.user_id;
 
         // Récupérer les infos de branding
-        const { data: rec } = await supabase
-          .from("users")
-          .select("id, company_name, company_logo_url, brand_primary_color, brand_secondary_color")
-          .eq("id", recruiterId)
-          .single();
+        let recData = null;
+        try {
+          const { data, error } = await supabase
+            .rpc("get_public_branding", { user_uuid: recruiterId });
+          if (!error) recData = data;
+        } catch(e) {
+          console.error("RPC failed:", e);
+        }
 
-        // Vérifier si le plan autorise le branding (via user_usage)
-        const { data: usage } = await supabase
-          .from("user_usage")
-          .select("plan")
-          .eq("user_id", recruiterId)
-          .single();
-
-        const plan = usage?.plan || "beta";
-        const plansWithBranding = ["core", "scale", "enterprise", "beta"];
-
-        if (rec && plansWithBranding.includes(plan)) {
-          setRecruiter(rec);
+        if (recData) {
+          setRecruiter(recData);
         }
       }
 
@@ -89,7 +82,7 @@ export default function AssessmentPage() {
     setLoading(false);
   }
 
-  async function handleAcceptConsent() {
+  async function handleUpdateCandidate(updates) {
     if (isSendingConsent) return;
     setIsSendingConsent(true);
     try {
@@ -97,14 +90,15 @@ export default function AssessmentPage() {
       await supabase
         .from("candidates")
         .update({
-          gdpr_consent_at: new Date().toISOString(),
+          ...updates,
           assessment_status: "in_progress",
           status: "in_progress",
         })
         .eq("id", candidate.id);
-      setHasConsented(true);
+      
+      setCandidate(prev => ({ ...prev, ...updates }));
     } catch (err) {
-      console.error("Consent error:", err);
+      console.error("Update error:", err);
     }
     setIsSendingConsent(false);
   }
@@ -131,12 +125,23 @@ export default function AssessmentPage() {
     );
   }
 
+  function getContrastColor(hexColor) {
+    if (!hexColor) return '#ffffff';
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#000000' : '#ffffff';
+  }
+
   // Get dynamic branding style variables
   const brandStyles = {};
   if (recruiter) {
     if (recruiter.brand_primary_color) {
       brandStyles["--primary"] = recruiter.brand_primary_color;
       brandStyles["--ring"] = recruiter.brand_primary_color;
+      brandStyles["--primary-foreground"] = getContrastColor(recruiter.brand_primary_color);
     }
     if (recruiter.brand_secondary_color) {
       brandStyles["--primary-hover"] = recruiter.brand_secondary_color;
@@ -154,12 +159,12 @@ export default function AssessmentPage() {
   return (
     <div style={{ minHeight: "100vh", ...brandStyles }}>
       {!hasConsented ? (
-        <ConsentModal
+        <CandidateOnboardingFlow
           candidate={candidate}
           job={job}
           recruiter={recruiter}
-          onAccept={handleAcceptConsent}
-          loading={isSendingConsent}
+          onComplete={() => setHasConsented(true)}
+          onUpdateCandidate={handleUpdateCandidate}
         />
       ) : (
         <AssessmentHub

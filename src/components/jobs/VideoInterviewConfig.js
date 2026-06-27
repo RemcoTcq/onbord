@@ -20,22 +20,26 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
   const [questions, setQuestions] = useState(config?.questions || []);
   const [maxDuration, setMaxDuration] = useState(config?.max_duration_seconds || 120);
   const [maxRetakes, setMaxRetakes] = useState(config?.max_retakes ?? 1);
+  const [evaluationMode, setEvaluationMode] = useState(config?.evaluation_mode || "ai");
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [libraryQuestions, setLibraryQuestions] = useState([]);
   const [libraryFilter, setLibraryFilter] = useState("all");
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    notifyChange(questions, maxDuration, maxRetakes);
-  }, [questions, maxDuration, maxRetakes]);
+    notifyChange(questions, maxDuration, maxRetakes, evaluationMode);
+  }, [questions, maxDuration, maxRetakes, evaluationMode]);
 
-  function notifyChange(qs, dur, ret) {
+  function notifyChange(qs, dur, ret, evalMode) {
     onChange({
       questions: qs,
       max_duration_seconds: dur,
       max_retakes: ret,
+      evaluation_mode: evalMode,
     });
   }
 
@@ -50,11 +54,6 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
   async function handleGenerateAi() {
     if (!jobId) { toast("Sauvegardez d'abord votre offre", "error"); return; }
     
-    if (questions.length > 0) {
-      const confirmed = window.confirm("Régénérer les questions ? Les questions actuelles seront remplacées.");
-      if (!confirmed) return;
-    }
-
     setGeneratingAi(true);
     const res = await generateVideoQuestions(jobId);
     if (res.success && res.questions.length > 0) {
@@ -68,17 +67,32 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
         criteria: (q.criteria || []).map((c, ci) => ({
           id: `crit_${Date.now()}_${i}_${ci}`,
           name: c.name || "",
-          description: c.description || "",
           weight: 1,
           source: "ai",
+          bars_levels: c.bars_levels || [
+            { level: 1, label: "Insuffisant", description: c.description || "" },
+            { level: 3, label: "Attendu", description: "" },
+            { level: 5, label: "Excellent", description: "" },
+          ],
         })),
       }));
-      setQuestions(newQs);
-      toast(`${newQs.length} questions générées par l'IA !`);
+      setAiSuggestions(newQs);
+      setShowAiSuggestions(true);
+      setShowLibrary(false);
+      toast(`${newQs.length} suggestions générées par l'IA !`);
     } else {
       toast(res.error || "Erreur lors de la génération", "error");
     }
     setGeneratingAi(false);
+  }
+
+  function addFromAiSuggestions(aiQ) {
+    if (questions.find(q => q.id === aiQ.id)) {
+      toast("Cette question est déjà ajoutée", "error");
+      return;
+    }
+    setQuestions(prev => [...prev, aiQ]);
+    toast("Question IA ajoutée");
   }
 
   function addFromLibrary(libQ) {
@@ -119,9 +133,13 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
     q.criteria = [...(q.criteria || []), {
       id: `crit_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: "",
-      description: "",
       weight: 1,
       source: "manual",
+      bars_levels: [
+        { level: 1, label: "Insuffisant", description: "" },
+        { level: 3, label: "Attendu", description: "" },
+        { level: 5, label: "Excellent", description: "" },
+      ],
     }];
     setQuestions(updated);
   }
@@ -136,6 +154,16 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
     const updated = [...questions];
     updated[questionIndex].criteria = [...updated[questionIndex].criteria];
     updated[questionIndex].criteria[criterionIndex] = { ...updated[questionIndex].criteria[criterionIndex], [field]: value };
+    setQuestions(updated);
+  }
+
+  function updateBarsLevel(questionIndex, criterionIndex, levelIndex, description) {
+    const updated = [...questions];
+    updated[questionIndex].criteria = [...updated[questionIndex].criteria];
+    const crit = { ...updated[questionIndex].criteria[criterionIndex] };
+    crit.bars_levels = [...(crit.bars_levels || [])];
+    crit.bars_levels[levelIndex] = { ...crit.bars_levels[levelIndex], description };
+    updated[questionIndex].criteria[criterionIndex] = crit;
     setQuestions(updated);
   }
 
@@ -188,9 +216,27 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
             <option value={0}>Aucun (one-shot)</option>
             <option value={1}>1 essai supplémentaire</option>
             <option value={2}>2 essais supplémentaires</option>
-            <option value={3}>3 essais supplémentaires</option>
             <option value={99}>Illimité</option>
           </select>
+        </div>
+        <div style={{ flex: 1, minWidth: "220px", display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)", height: "fit-content", marginTop: "auto" }}>
+          <input 
+            type="checkbox" 
+            id="manualEval"
+            checked={evaluationMode === "manual"}
+            onChange={e => setEvaluationMode(e.target.checked ? "manual" : "ai")}
+            style={{ width: "16px", height: "16px", accentColor: "var(--primary)", cursor: "pointer", marginTop: "2px" }}
+          />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <label htmlFor="manualEval" style={{ fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>
+              Évaluer moi-même les vidéos
+            </label>
+            {evaluationMode === "manual" && (
+              <span style={{ fontSize: "11px", color: "var(--muted-foreground)", lineHeight: "1.3", marginTop: "2px" }}>
+                Vous noterez chaque vidéo après l'avoir visionnée.
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -204,13 +250,14 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
         >
           {generatingAi
             ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Génération IA...</>
-            : <><Wand2 size={16} /> {questions.length > 0 ? "Régénérer les questions" : "Générer avec l'IA"}</>}
+            : <><Wand2 size={16} /> Générer avec l'IA</>}
         </button>
         <button
           className="btn btn-outline"
           onClick={async () => {
             if (!showLibrary && libraryQuestions.length === 0) await loadLibrary();
             setShowLibrary(v => !v);
+            if (!showLibrary) setShowAiSuggestions(false);
           }}
           disabled={loadingLibrary}
           style={{ gap: "8px" }}
@@ -229,6 +276,59 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           <Plus size={16} /> Question personnalisée
         </button>
       </div>
+
+      {/* AI Suggestions panel */}
+      {showAiSuggestions && (
+        <div className="fade-in" style={{
+          border: "1px solid var(--border)", borderRadius: "var(--radius)",
+          background: "#f8fafc", overflow: "hidden"
+        }}>
+          <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", background: "#f0f9ff" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Sparkles size={16} style={{ color: "#0ea5e9" }} />
+              <span style={{ fontSize: "13px", fontWeight: "700", color: "#0284c7" }}>Suggestions IA</span>
+            </div>
+            <button onClick={() => setShowAiSuggestions(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)" }}>
+              <ChevronUp size={16} />
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0", maxHeight: "350px", overflowY: "auto" }}>
+            {aiSuggestions.map(q => {
+              const catStyle = CATEGORY_COLORS[q.category] || CATEGORY_COLORS["Custom"];
+              const alreadyAdded = questions.some(sq => sq.id === q.id);
+              return (
+                <div key={q.id} style={{
+                  padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)",
+                  display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px",
+                  background: alreadyAdded ? "#f1f5f9" : "white", opacity: alreadyAdded ? 0.6 : 1
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                      <span style={{
+                        fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
+                        background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`
+                      }}>{q.category}</span>
+                      <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--muted-foreground)" }}>
+                        {q.criteria.length} critère(s) BARS généré(s)
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "13px", color: "var(--foreground)", marginBottom: "4px", fontWeight: "500" }}>{q.text}</p>
+                    {q.hint && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", fontStyle: "italic", marginTop: "4px" }}>💡 {q.hint}</p>}
+                  </div>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => addFromAiSuggestions(q)}
+                    disabled={alreadyAdded}
+                    style={{ flexShrink: 0, fontSize: "12px", padding: "6px 12px", borderColor: "#0ea5e9", color: "#0ea5e9" }}
+                  >
+                    {alreadyAdded ? "Ajoutée" : <><Plus size={14} /> Ajouter</>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Question library panel */}
       {showLibrary && (
@@ -344,29 +444,37 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                   </button>
                 </div>
 
-                {/* Criteria list */}
+                {/* Criteria list with BARS grids (only for AI evaluation) */}
+                {evaluationMode === "ai" && (
                 <div style={{ padding: "0.75rem 1rem", background: "#fafafa", borderTop: "1px solid var(--border)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                     <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "5px" }}>
                       <Info size={12} style={{ color: "var(--primary)" }} />
-                      Critères d&apos;évaluation ({(q.criteria || []).length}/{MAX_CRITERIA})
+                      Grilles BARS ({(q.criteria || []).length}/{MAX_CRITERIA})
                     </label>
                   </div>
 
                   {(q.criteria || []).length === 0 && (
                     <p style={{ fontSize: "12px", color: "#c2410c", marginBottom: "8px", fontWeight: "500" }}>
-                      ⚠ Minimum 1 critère requis pour le scoring.
+                      ⚠ Minimum 1 critère BARS requis pour le scoring.
                     </p>
                   )}
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {(q.criteria || []).map((crit, cIdx) => (
-                      <div key={crit.id} style={{
-                        padding: "8px 10px", background: "white", borderRadius: "6px",
-                        border: "1px solid var(--border)", display: "flex", gap: "8px", alignItems: "flex-start"
-                      }}>
-                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {(q.criteria || []).map((crit, cIdx) => {
+                      const barsLevels = crit.bars_levels || [];
+                      const BARS_COLORS = {
+                        1: { bg: "#fef2f2", border: "#fecaca", dot: "#ef4444", label: "Insuffisant" },
+                        3: { bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b", label: "Attendu" },
+                        5: { bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e", label: "Excellent" },
+                      };
+                      return (
+                        <div key={crit.id} style={{
+                          background: "white", borderRadius: "8px",
+                          border: "1px solid var(--border)", overflow: "hidden"
+                        }}>
+                          {/* Criterion header */}
+                          <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
                             {crit.source === "ai" && (
                               <span style={{ fontSize: "10px", color: "#6366f1", fontWeight: "700" }}>✦ IA</span>
                             )}
@@ -376,34 +484,58 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                               value={crit.name}
                               onChange={e => updateCriterion(idx, cIdx, "name", e.target.value)}
                               placeholder="Nom du critère (ex: Storytelling commercial)"
-                              style={{ fontSize: "12px", fontWeight: "600", padding: "4px 8px" }}
+                              style={{ fontSize: "12px", fontWeight: "700", padding: "4px 8px", flex: 1 }}
                             />
+                            <button
+                              onClick={() => removeCriterion(idx, cIdx)}
+                              style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", flexShrink: 0 }}
+                              title="Supprimer ce critère"
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
-                          <input
-                            type="text"
-                            className="input-field"
-                            value={crit.description}
-                            onChange={e => updateCriterion(idx, cIdx, "description", e.target.value)}
-                            placeholder="Description du critère (ce que l'IA doit évaluer)"
-                            style={{ fontSize: "12px", padding: "4px 8px" }}
-                          />
+                          {/* BARS levels */}
+                          <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {barsLevels.length > 0 ? barsLevels.map((bl, blIdx) => {
+                              const colors = BARS_COLORS[bl.level] || BARS_COLORS[3];
+                              return (
+                                <div key={bl.level} style={{
+                                  display: "flex", gap: "8px", alignItems: "flex-start",
+                                  padding: "6px 8px", borderRadius: "6px",
+                                  background: colors.bg, border: `1px solid ${colors.border}`,
+                                }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "5px", minWidth: "90px", paddingTop: "4px" }}>
+                                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: colors.dot, flexShrink: 0 }} />
+                                    <span style={{ fontSize: "11px", fontWeight: "700", color: colors.dot }}>
+                                      Niv. {bl.level} — {colors.label}
+                                    </span>
+                                  </div>
+                                  <textarea
+                                    className="input-field"
+                                    rows={2}
+                                    value={bl.description}
+                                    onChange={e => updateBarsLevel(idx, cIdx, blIdx, e.target.value)}
+                                    placeholder={`Décrivez le comportement de niveau ${bl.level} (${colors.label})...`}
+                                    style={{ fontSize: "11px", padding: "4px 8px", resize: "vertical", flex: 1, background: "white" }}
+                                  />
+                                </div>
+                              );
+                            }) : (
+                              <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                                Ancien format (sans grille BARS). Régénérez les questions pour bénéficier du scoring structuré.
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => removeCriterion(idx, cIdx)}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", flexShrink: 0, marginTop: "2px" }}
-                          title="Supprimer ce critère"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <button
                     onClick={() => addCriterion(idx)}
                     disabled={(q.criteria || []).length >= MAX_CRITERIA}
                     style={{
-                      marginTop: "6px", background: "transparent", border: "1px dashed var(--border)",
+                      marginTop: "8px", background: "transparent", border: "1px dashed var(--border)",
                       borderRadius: "6px", padding: "5px 10px", fontSize: "12px", fontWeight: "600",
                       color: (q.criteria || []).length >= MAX_CRITERIA ? "var(--muted-foreground)" : "var(--primary)",
                       cursor: (q.criteria || []).length >= MAX_CRITERIA ? "not-allowed" : "pointer",
@@ -411,9 +543,10 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                       display: "flex", alignItems: "center", gap: "5px", width: "100%", justifyContent: "center"
                     }}
                   >
-                    <Plus size={13} /> Ajouter un critère{(q.criteria || []).length >= MAX_CRITERIA ? " (max atteint)" : ""}
+                    <Plus size={13} /> Ajouter un critère BARS{(q.criteria || []).length >= MAX_CRITERIA ? " (max atteint)" : ""}
                   </button>
                 </div>
+                )}
               </div>
             );
           })}

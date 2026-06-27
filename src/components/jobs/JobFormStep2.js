@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, X, ArrowRightLeft } from "lucide-react";
 import CustomSelect from "@/components/ui/CustomSelect";
 
@@ -14,8 +14,21 @@ export default function JobFormStep2({ jobData, setJobData }) {
   const [customSoftSkill, setCustomSoftSkill] = useState("");
   const [customLanguage, setCustomLanguage] = useState("");
 
+  useEffect(() => {
+    if (jobData && jobData.clean_description && jobData.clean_description.includes('**')) {
+      const clean = jobData.clean_description.replace(/\*\*/g, '').replace(/\*/g, '');
+      setJobData(prev => ({ ...prev, clean_description: clean }));
+    }
+  }, [jobData?.clean_description]);
+
   const updateField = (field, value) => {
-    setJobData(prev => ({ ...prev, [field]: value }));
+    setJobData(prev => {
+      const newData = { ...prev, [field]: value };
+      if (['hard_skills', 'soft_skills', 'languages'].includes(field)) {
+        delete newData.saved_flow_nodes;
+      }
+      return newData;
+    });
   };
 
   const handleAddSkill = (type, name, priority = "must_have") => {
@@ -33,7 +46,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
         }
       }
       
-      updateField(type, [...current, { name, priority, taxonomy_id: taxonomyId, confidence: 5, evidence: "Sélectionné manuellement" }]);
+      updateField(type, [...current, { name, priority, taxonomy_id: taxonomyId, evidence: "Sélectionné manuellement" }]);
     }
   };
 
@@ -88,12 +101,6 @@ export default function JobFormStep2({ jobData, setJobData }) {
                   {skill.name}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {skill.confidence && (
-                    <span style={{ fontSize: '11px', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: skill.confidence >= 4 ? '#4ade80' : skill.confidence === 3 ? '#facc15' : '#f87171' }}></span>
-                      Conf: {skill.confidence}/5
-                    </span>
-                  )}
                   <button type="button" onClick={() => handleTogglePriority(type, skill.name)} style={{ color: priority === 'must_have' ? 'rgba(255,255,255,0.8)' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer' }} title="Changer de priorité">
                     <ArrowRightLeft size={14} />
                   </button>
@@ -115,57 +122,8 @@ export default function JobFormStep2({ jobData, setJobData }) {
     );
   };
 
-  const getDisplayCategory = () => {
-    if (!jobData.category) return "";
-    const lowerCat = jobData.category.toLowerCase();
-    const exactMatch = Object.keys(DOMAIN_HARD_SKILLS).find(d => d.toLowerCase() === lowerCat);
-    if (exactMatch) return exactMatch;
-    const fuzzyMatch = Object.keys(DOMAIN_HARD_SKILLS).find(d => lowerCat.includes(d.toLowerCase()) || d.toLowerCase().includes(lowerCat));
-    if (fuzzyMatch) return fuzzyMatch;
-    return "Autre";
-  };
-  
-  const displayCategory = getDisplayCategory();
-
-  const handleMapSkill = (type, name, taxonomyId) => {
-    const current = jobData[type] || [];
-    updateField(type, current.map(s => s.name === name ? { ...s, taxonomy_id: taxonomyId } : s));
-  };
-
-  const renderUnmappedZone = (type) => {
-    const unmappedSkills = (jobData[type] || []).filter(s => s.taxonomy_id === 'unmapped');
-    if (unmappedSkills.length === 0) return null;
-    
-    return (
-      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
-        <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '16px' }}>⚠️</span> Compétences non reconnues
-        </h4>
-        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>L'IA a extrait ces compétences mais n'a pas trouvé d'équivalent exact. Associez-les manuellement :</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {unmappedSkills.map(skill => (
-            <div key={skill.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #fde68a', gap: '1rem' }}>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: '500', fontSize: '13px' }}>{skill.name}</span>
-                {skill.evidence && <div style={{ fontSize: '11px', color: '#92400e', opacity: 0.8 }}>"{skill.evidence}"</div>}
-              </div>
-              <div style={{ flexShrink: 0, width: '250px' }}>
-                <CustomSelect 
-                  value={""} 
-                  onChange={(val) => handleMapSkill(type, skill.name, val)} 
-                  options={TAXONOMIE_COMPETENCES.map(t => ({ value: t.ID, label: t.Compétence }))} 
-                  placeholder="Choisir l'équivalent..." 
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderAmbiguityZone = (type) => {
-    const ambiguousSkills = (jobData[type] || []).filter(s => s.confidence && s.confidence <= 3);
+    const ambiguousSkills = (jobData[type] || []).filter(s => s.priority === 'ambiguous');
     if (ambiguousSkills.length === 0) return null;
     
     return (
@@ -173,7 +131,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
         <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '16px' }}>⚠️</span> Zone d'incertitude
         </h4>
-        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>Certaines compétences sont ambiguës dans l'offre. Veuillez confirmer leur priorité :</p>
+        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>L'IA n'a pas pu déterminer l'importance de ces compétences. Veuillez confirmer leur priorité :</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {ambiguousSkills.map(skill => (
             <div key={skill.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #fde68a' }}>
@@ -186,18 +144,18 @@ export default function JobFormStep2({ jobData, setJobData }) {
                   type="button" 
                   onClick={() => {
                     const current = jobData[type] || [];
-                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'must_have', confidence: 5 } : s));
+                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'must_have' } : s));
                   }}
-                  style={{ padding: '4px 8px', fontSize: '12px', background: skill.priority === 'must_have' ? 'var(--primary)' : 'white', color: skill.priority === 'must_have' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  style={{ padding: '4px 8px', fontSize: '12px', background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
                   Must Have
                 </button>
                 <button 
                   type="button" 
                   onClick={() => {
                     const current = jobData[type] || [];
-                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'nice_to_have', confidence: 5 } : s));
+                    updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'nice_to_have' } : s));
                   }}
-                  style={{ padding: '4px 8px', fontSize: '12px', background: skill.priority === 'nice_to_have' ? 'var(--primary)' : 'white', color: skill.priority === 'nice_to_have' ? 'white' : 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  style={{ padding: '4px 8px', fontSize: '12px', background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
                   Nice To Have
                 </button>
               </div>
@@ -210,55 +168,59 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-      {/* Profil recherché */}
+      {/* Détails du poste */}
       <div>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Profil recherché</h3>
-        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Définissez les compétences et critères du profil idéal</p>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Détails du poste</h3>
+        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Pré-rempli depuis votre offre. Ajuster si besoin</p>
         
-        <label className="form-label">Domaine *</label>
-        <CustomSelect 
-          value={displayCategory} 
-          onChange={(value) => updateField('category', value)} 
-          options={[...Object.keys(DOMAIN_HARD_SKILLS).map(d => ({ value: d, label: d })), { value: "Autre", label: "Autre (préciser)" }]} 
-          placeholder="Sélectionnez un domaine" 
-        />
-        {displayCategory === 'Autre' && (
-           <input 
-             className="input-field fade-in" 
-             style={{ marginTop: '0.5rem' }} 
-             placeholder="Précisez votre domaine..." 
-             value={jobData.category === 'Autre' ? '' : jobData.category}
-             onChange={e => updateField('category', e.target.value)}
-           />
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <label className="form-label">Titre du poste *</label>
+            <input className="input-field" value={jobData.title || ""} onChange={e => updateField('title', e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">Description courte *</label>
+            <textarea className="input-field" style={{ minHeight: '120px' }} value={jobData.clean_description || ""} onChange={e => updateField('clean_description', e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">Famille d'emploi</label>
+            <input 
+              className="input-field" 
+              placeholder="ex: Vente, Engineering..." 
+              value={jobData.category || ""}
+              onChange={e => updateField('category', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">Sous-famille</label>
+            <input 
+              className="input-field" 
+              placeholder="ex: Account Executive (B2B)..." 
+              value={jobData.sub_family || ""}
+              onChange={e => updateField('sub_family', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">Type de rôle</label>
+            <CustomSelect 
+              value={jobData.role_type || ""}
+              onChange={value => updateField('role_type', value)}
+              options={[
+                { value: "Contributeur individuel (IC) — Pas de responsabilité managériale, expert de son domaine", label: "Contributeur individuel (IC) — Pas de responsabilité managériale, expert de son domaine" },
+                { value: "Manager — Gère une équipe, évalue, décide des ressources", label: "Manager — Gère une équipe, évalue, décide des ressources" },
+                { value: "Senior IC / Lead — Expert senior sans équipe directe mais avec influence", label: "Senior IC / Lead — Expert senior sans équipe directe mais avec influence" },
+                { value: "Director / Executive — Management de managers, vision stratégique", label: "Director / Executive — Management de managers, vision stratégique" }
+              ]}
+              placeholder="Sélectionnez..."
+            />
+          </div>
+        </div>
       </div>
 
       {/* Hard Skills */}
       <div>
         <label className="form-label">Hard Skills *</label>
-        {renderUnmappedZone('hard_skills')}
         {renderAmbiguityZone('hard_skills')}
-        {jobData.category && DOMAIN_HARD_SKILLS[jobData.category] && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-            {DOMAIN_HARD_SKILLS[jobData.category].map(skill => {
-              // Matching fuzzy : exact, puis contenu, pour gérer réponses IA légèrement différentes
-              const skillNorm = skill.toLowerCase().replace(/[^a-z0-9]/g, '');
-              const isSelected = (jobData.hard_skills || []).find(s => {
-                const sNorm = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                return sNorm === skillNorm || sNorm.includes(skillNorm) || skillNorm.includes(sNorm);
-              });
-              return (
-                <span 
-                  key={skill} 
-                  onClick={() => isSelected ? handleRemoveSkill('hard_skills', isSelected.name) : handleAddSkill('hard_skills', skill)}
-                  style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: isSelected ? '600' : '400' }}
-                >
-                  {skill}
-                </span>
-              );
-            })}
-          </div>
-        )}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <input 
             className="input-field" 
@@ -279,27 +241,8 @@ export default function JobFormStep2({ jobData, setJobData }) {
       {/* Soft Skills */}
       <div>
         <label className="form-label">Soft Skills</label>
-        {renderUnmappedZone('soft_skills')}
         {renderAmbiguityZone('soft_skills')}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-          {SOFT_SKILLS_LIST.map(skill => {
-            const skillNorm = skill.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const isSelected = (jobData.soft_skills || []).find(s => {
-              const sNorm = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return sNorm === skillNorm || sNorm.includes(skillNorm) || skillNorm.includes(sNorm);
-            });
-            return (
-              <span 
-                key={skill} 
-                onClick={() => isSelected ? handleRemoveSkill('soft_skills', isSelected.name) : handleAddSkill('soft_skills', skill)}
-                style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--accent)' : 'white', color: isSelected ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s', fontWeight: isSelected ? '600' : '400' }}
-              >
-                {skill}
-              </span>
-            );
-          })}
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', marginTop: '1rem' }}>
           <input 
             className="input-field" 
             placeholder="Ajouter un soft skill" 
@@ -389,94 +332,6 @@ export default function JobFormStep2({ jobData, setJobData }) {
           value={jobData.years_of_experience || ""} 
           onChange={e => updateField('years_of_experience', e.target.value)} 
         />
-      </div>
-
-      <hr className="divider" style={{ margin: '1rem 0' }} />
-
-      {/* Détails du poste */}
-      <div>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>Détails du poste</h3>
-        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>Décrivez le poste et le planning</p>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label className="form-label">Titre du poste *</label>
-            <input className="input-field" value={jobData.title || ""} onChange={e => updateField('title', e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">Description courte *</label>
-            <textarea className="input-field" style={{ minHeight: '120px' }} value={jobData.clean_description || ""} onChange={e => updateField('clean_description', e.target.value)} />
-          </div>
-          
-
-          {/* Type de contrat */}
-          <div>
-            <label className="form-label">Type de contrat</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div 
-                onClick={() => updateField('contract_type', 'Temps plein')}
-                style={{ border: `2px solid ${jobData.contract_type === 'Temps plein' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: jobData.contract_type === 'Temps plein' ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-              >
-                <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps plein</h4>
-                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>5 jours / semaine</p>
-              </div>
-              <div 
-                onClick={() => {
-                  if (typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) return;
-                  updateField('contract_type', '2 jours');
-                }}
-                style={{ border: `2px solid ${(typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: '1rem', cursor: 'pointer', background: (typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) ? 'var(--accent)' : 'white', transition: 'all 0.2s' }}
-              >
-                <h4 style={{ fontWeight: '600', color: 'var(--foreground)' }}>Temps partiel</h4>
-                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Moins de 5 jours / semaine</p>
-              </div>
-            </div>
-            
-            {(typeof jobData.contract_type === 'string' && jobData.contract_type.includes('jours')) && (
-              <div className="fade-in" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Nombre de jours par semaine :</span>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {[2, 3, 4].map(day => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => updateField('contract_type', `${day} jours`)}
-                      style={{
-                        width: '36px', height: '36px', borderRadius: '4px',
-                        border: `1px solid ${jobData.contract_type === `${day} jours` ? 'var(--primary)' : 'var(--border)'}`,
-                        background: jobData.contract_type === `${day} jours` ? 'var(--primary)' : 'white',
-                        color: jobData.contract_type === `${day} jours` ? 'white' : 'var(--foreground)',
-                        fontWeight: '600', cursor: 'pointer'
-                      }}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="form-label">Mode de travail</label>
-            <CustomSelect 
-              value={jobData.work_mode || ""}
-              onChange={value => updateField('work_mode', value)}
-              options={[
-                { value: "onsite", label: "Présentiel" },
-                { value: "hybrid", label: "Hybride" },
-                { value: "remote", label: "Télétravail" }
-              ]}
-              placeholder="Sélectionnez le mode..."
-            />
-          </div>
-
-          <div>
-            <label className="form-label">Adresse du lieu de travail *</label>
-            <input className="input-field" value={jobData.location || ""} onChange={e => updateField('location', e.target.value)} />
-            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '6px' }}>L'adresse exacte du bureau ou du site (utile même en remote partiel).</p>
-          </div>
-        </div>
       </div>
 
     </div>

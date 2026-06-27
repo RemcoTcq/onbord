@@ -42,15 +42,13 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
 
   const selectedTests = tests.filter((t) => selectedIds.includes(t.id));
   const totalDuration = selectedTests.reduce((sum, t) => sum + t.estimated_duration_minutes, 0);
-  const canAdd = selectedIds.length < 5 && totalDuration < MAX_TOTAL_DURATION;
 
   function toggleTest(testId) {
     let newIds;
     if (selectedIds.includes(testId)) {
-      newIds = selectedIds.filter((id) => id !== testId);
+      newIds = [];
     } else {
-      if (!canAdd) return; // max reached
-      newIds = [...selectedIds, testId];
+      newIds = [testId];
     }
     setSelectedIds(newIds);
 
@@ -100,14 +98,14 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
       {/* Selection info */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
         <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-          Sélectionnez entre 1 et 5 tests (durée max {MAX_TOTAL_DURATION} min)
+          Sélectionnez 1 test
         </span>
         <span style={{
           fontSize: "12px", fontWeight: "700", padding: "2px 10px", borderRadius: "99px",
-          background: selectedIds.length >= 5 ? "#fef3c7" : "var(--secondary)",
-          color: selectedIds.length >= 5 ? "#92400e" : "var(--muted-foreground)",
+          background: selectedIds.length === 1 ? "var(--primary)" : "var(--secondary)",
+          color: selectedIds.length === 1 ? "white" : "var(--muted-foreground)",
         }}>
-          {selectedIds.length} / 5
+          {selectedIds.length} / 1
         </span>
       </div>
 
@@ -122,19 +120,19 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         {tests.map((test) => {
           const isSelected = selectedIds.includes(test.id);
-          const isDisabled = !isSelected && !canAdd;
+          const isDisabled = false;
           const catColor = CATEGORY_COLORS[test.category] || { bg: "#f1f5f9", color: "#475569" };
 
           return (
             <div
               key={test.id}
-              onClick={() => !isDisabled && test.status === "active" && toggleTest(test.id)}
+              onClick={() => test.status === "active" && toggleTest(test.id)}
               style={{
                 padding: "12px 14px", borderRadius: "8px",
                 border: `1.5px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
                 background: isSelected ? "var(--accent)" : test.status === "coming_soon" ? "var(--secondary)" : "var(--card)",
-                cursor: isDisabled || test.status === "coming_soon" ? "not-allowed" : "pointer",
-                opacity: isDisabled || test.status === "coming_soon" ? 0.5 : 1,
+                cursor: test.status === "coming_soon" ? "not-allowed" : "pointer",
+                opacity: test.status === "coming_soon" ? 0.5 : 1,
                 display: "flex", alignItems: "center", gap: "12px", transition: "all 150ms",
               }}
             >

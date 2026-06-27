@@ -29,38 +29,17 @@ export default function NouvelleDemandePage() {
   const [error, setError] = useState(null);
   const [jobData, setJobData] = useState(null);
   const [fileName, setFileName] = useState("");
-  const [isOfferMenuOpen, setIsOfferMenuOpen] = useState(false);
-  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
-  const [pasteContent, setPasteContent] = useState("");
   const [savedJobId, setSavedJobId] = useState(null);
   const [savedJob, setSavedJob] = useState(null);
-  const [assessmentModules, setAssessmentModules] = useState({
-    qualifying_questions: false,
-    cv_scoring: false,
-    ai_interview: false,
-    skills_test: false,
-    video_interview: false,
-  });
-  const [qualifyingConfigPayload, setQualifyingConfigPayload] = useState(null);
-  const [aiConfigPayload, setAiConfigPayload] = useState(null);
-  const [skillsConfigPayload, setSkillsConfigPayload] = useState(null);
-  const [videoConfigPayload, setVideoConfigPayload] = useState({ questions: [], max_duration_seconds: 120, max_retakes: 1 });
+
   
   const fileInputRef = useRef(null);
   const cvInputRef = useRef(null);
   const textRef = useRef(null);
-  const menuRef = useRef(null);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOfferMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-
     // Load draft if specified in URL
     if (typeof window !== 'undefined') {
       const draftId = new URLSearchParams(window.location.search).get('draftId');
@@ -79,8 +58,6 @@ export default function NouvelleDemandePage() {
         loadDraft();
       }
     }
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
 
@@ -125,7 +102,6 @@ export default function NouvelleDemandePage() {
     
     setIsAnalyzing(true);
     setError(null);
-    if (isPasteModalOpen) setIsPasteModalOpen(false);
     
     try {
       const data = await analyzeJobDescription(targetContent);
@@ -216,11 +192,23 @@ export default function NouvelleDemandePage() {
         setSavedJob(job);
       }
 
+      const targetJobId = savedJobId || savedJob?.id;
+
+      // NOUVEAU : Logger la famille et sous-famille
+      if ((jobData.category || jobData.sub_family) && targetJobId) {
+        await supabase.from('job_family_logs').insert({
+          job_id: targetJobId,
+          user_id: user.id,
+          family: jobData.category,
+          sub_family: jobData.sub_family,
+          role_type: jobData.role_type
+        });
+      }
+
       // 2. Insert Skills (Replace old ones)
       if (savedJobId) {
         await supabase.from('job_skills').delete().eq('job_id', savedJobId);
       }
-      const targetJobId = savedJobId || savedJob?.id;
       const skillsToInsert = [];
       if (jobData.hard_skills) {
         jobData.hard_skills.forEach(s => skillsToInsert.push({ job_id: targetJobId, name: s.name, type: 'hard_skill', priority: s.priority }));
@@ -253,273 +241,97 @@ export default function NouvelleDemandePage() {
 
 
 
-  const handleModulesSelectionNext = async () => {
+  const handleSaveFlow = async (flowNodes, updatedJobData) => {
     setIsSaving(true);
     try {
       const supabase = createClient();
 
-      // If job was auto-saved as draft in step 1, activate it now
       if (savedJobId) {
         await supabase.from('jobs').update({ status: 'active' }).eq('id', savedJobId);
       } else {
-        // First time saving (no draft yet)
         await handleSave(true);
       }
 
-      // ─── AUTO-REMPLISSAGE (PHASE 2) ──────────────────────────────────────────
-      const rec = generateRecommendation(jobData);
-      
-      // 2.1 Tests auto-sélectionnés
-      let prefilledTests = [];
-      if (assessmentModules.skills_test) {
-        const skillsTestStep = rec.steps.find(s => s.type === 'skills_test');
-        if (skillsTestStep && skillsTestStep.covered_skills) {
-          const uniqueTestIds = [...new Set(skillsTestStep.covered_skills.map(s => s.test_db_id).filter(Boolean))];
-          prefilledTests = uniqueTestIds.map(id => ({ test_id: id, selected_question_ids: [] }));
-          setSkillsConfigPayload({ enabled: true, tests: prefilledTests });
+      const currentJobId = savedJobId || savedJob?.id;
+
+      const modules = {
+        qualifying_questions: { enabled: false },
+        cv_scoring: { enabled: false },
+        ai_interview: { enabled: false },
+        skills_tests: { enabled: false, tests: [] },
+        video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" },
+      };
+
+      const flowOrder = [];
+
+      for (const node of flowNodes) {
+        if (node.type === 'accueil' || node.type === 'remerciements') {
+          flowOrder.push(node.type);
+          // On pourrait sauvegarder les messages customisés ici plus tard si nécessaire
+          continue;
         }
-      }
 
-      // 2.2 Questions qualificatives déterministes
-      let prefilledQualifying = [];
-      if (assessmentModules.qualifying_questions) {
-        prefilledQualifying = generateQualifyingQuestions(jobData);
-        setQualifyingConfigPayload({ enabled: true, questions: prefilledQualifying });
-      }
-
-      // Exclusion logique vidéo/texte : un seul des deux peut être actif
-      const finalAiInterview = assessmentModules.ai_interview && !assessmentModules.video_interview;
-      const finalVideoInterview = assessmentModules.video_interview;
-
-      // 2.3 Questions d'interview LLM
-      if (finalVideoInterview && savedJobId) {
-        try {
-          const videoRes = await generateVideoQuestions(savedJobId);
-          if (videoRes.success && videoRes.questions.length > 0) {
-            const formatted = videoRes.questions.map((q, i) => ({
-              id: `ai_${Date.now()}_${i}`,
-              text: q.text,
-              category: q.category || "Technique",
-              hint: q.hint || "",
-              weight: 1,
-              source: "ai",
-              criteria: (q.criteria || []).map((c, ci) => ({
-                id: `crit_${Date.now()}_${i}_${ci}`,
-                name: c.name || "",
-                description: c.description || "",
-                weight: 1,
-                source: "ai",
-              })),
-            }));
-            setVideoConfigPayload(prev => ({ ...prev, questions: formatted }));
+        if (node.type === 'qualifying_questions') {
+          modules.qualifying_questions = { enabled: true, questions: node.config.questions || [] };
+          flowOrder.push(node.type);
+        }
+        else if (node.type === 'cv_scoring') {
+          modules.cv_scoring = { enabled: true };
+          flowOrder.push(node.type);
+          if (updatedJobData?.selection_criteria) {
+             await supabase.from('jobs').update({ extracted_criteria: { ...jobData, selection_criteria: updatedJobData.selection_criteria } }).eq('id', currentJobId);
+             setJobData(prev => ({ ...prev, selection_criteria: updatedJobData.selection_criteria }));
           }
-        } catch (e) {
-          console.error("Erreur lors de la génération vidéo", e);
         }
-      }
-
-      // Texte (fallback rare) : conserve l'ancien chemin
-      if (finalAiInterview) {
-        const interviewStep = rec.steps.find(s => s.type === 'ai_interview' || s.type === 'video_interview');
-        if (interviewStep && interviewStep.covered_skills && interviewStep.covered_skills.length > 0) {
-          try {
-            const llmRes = await generateInterviewQuestions(jobData, interviewStep.covered_skills);
-            if (llmRes.success) {
-              setAiConfigPayload(prev => ({ 
-                ...prev, 
-                questions: llmRes.questions, 
-                decisive_criteria: llmRes.decisive_criteria 
-              }));
-            }
-          } catch (e) {
-             console.error("Erreur lors du pré-remplissage LLM de l'interview texte", e);
+        else if (node.type === 'single_skill_test') {
+          modules.skills_tests.enabled = true;
+          if (node.config.tests && node.config.tests.length > 0) {
+              modules.skills_tests.tests.push(node.config.tests[0]);
+          }
+          if (!flowOrder.includes('skills_tests')) {
+              flowOrder.push('skills_tests');
+          }
+        }
+        else if (node.type === 'ai_interview') {
+          modules.ai_interview = { enabled: true };
+          flowOrder.push(node.type);
+          if (node.config) {
+            await updateJobAiConfig(currentJobId, { ...node.config, enabled: true });
+          }
+        }
+        else if (node.type === 'single_video_question') {
+          modules.video_interview.enabled = true;
+          if (node.config.questions && node.config.questions.length > 0) {
+              modules.video_interview.questions.push(node.config.questions[0]);
+              // On garde la durée max, le max retakes et le mode d'évaluation du dernier nœud configuré
+              modules.video_interview.max_duration_seconds = node.config.max_duration_seconds || modules.video_interview.max_duration_seconds;
+              modules.video_interview.max_retakes = node.config.max_retakes !== undefined ? node.config.max_retakes : modules.video_interview.max_retakes;
+              modules.video_interview.evaluation_mode = node.config.evaluation_mode || modules.video_interview.evaluation_mode;
+          }
+          if (!flowOrder.includes('video_interview')) {
+              flowOrder.push('video_interview');
           }
         }
       }
 
-      // Initialize basic config in DB for the selected modules
-      await saveAssessmentConfig(savedJobId, {
-        modules: {
-          qualifying_questions: { enabled: assessmentModules.qualifying_questions, questions: prefilledQualifying },
-          cv_scoring: { enabled: assessmentModules.cv_scoring },
-          ai_interview: { enabled: finalAiInterview },
-          skills_tests: { enabled: assessmentModules.skills_test, tests: prefilledTests },
-          video_interview: { enabled: finalVideoInterview, questions: [], max_duration_seconds: 120, max_retakes: 1 },
-        }
+      if (modules.video_interview.enabled && modules.video_interview.questions.length > 0) {
+        await saveVideoInterviewConfig(currentJobId, modules.video_interview);
+      }
+
+      await saveAssessmentConfig(currentJobId, {
+        modules,
+        flow_order: flowOrder
       });
-      // Move to next step dynamically based on selection
-      if (assessmentModules.qualifying_questions) {
-        setCurrentStep(4);
-      } else if (assessmentModules.cv_scoring) {
-        setCurrentStep(5);
-      } else if (assessmentModules.ai_interview) {
-        setCurrentStep(6);
-      } else if (assessmentModules.skills_test) {
-        setCurrentStep(7);
-      } else if (assessmentModules.video_interview) {
-        setCurrentStep(9);
-      } else {
-        setCurrentStep(8); // Recap
-      }
+
+      await supabase.from('jobs').update({ saved_flow_nodes: flowNodes }).eq('id', currentJobId);
+
+      router.push(`/jobs/${currentJobId}`);
     } catch (err) {
-      toast("Erreur de mise à jour", "error");
+      console.error(err);
+      toast("Erreur lors de la sauvegarde du parcours", "error");
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
-  };
-
-
-  const handleQualifyingNext = async () => {
-    setIsSaving(true);
-    try {
-      if (qualifyingConfigPayload) {
-        await saveAssessmentConfig(savedJobId, {
-          modules: {
-            qualifying_questions: qualifyingConfigPayload,
-            cv_scoring: { enabled: assessmentModules.cv_scoring },
-            ai_interview: { enabled: assessmentModules.ai_interview },
-            skills_tests: { enabled: assessmentModules.skills_test, tests: skillsConfigPayload?.tests || [] },
-          }
-        });
-      }
-      if (assessmentModules.cv_scoring) {
-        setCurrentStep(5);
-      } else if (assessmentModules.ai_interview) {
-        setCurrentStep(6);
-      } else if (assessmentModules.skills_test) {
-        setCurrentStep(7);
-      } else if (assessmentModules.video_interview) {
-        setCurrentStep(9);
-      } else {
-        setCurrentStep(8);
-      }
-    } catch (err) {
-      toast("Erreur de sauvegarde", "error");
-    }
-    setIsSaving(false);
-  };
-
-  const handleCriteriaNext = async () => {
-    setIsSaving(true);
-    try {
-      const supabase = createClient();
-      if (savedJobId && jobData.selection_criteria) {
-        await supabase
-          .from('jobs')
-          .update({
-            extracted_criteria: { ...jobData }
-          })
-          .eq('id', savedJobId);
-      }
-      
-      if (assessmentModules.ai_interview) {
-        setCurrentStep(6);
-      } else if (assessmentModules.skills_test) {
-        setCurrentStep(7);
-      } else if (assessmentModules.video_interview) {
-        setCurrentStep(9);
-      } else {
-        setCurrentStep(8);
-      }
-    } catch (err) {
-      toast("Erreur de sauvegarde", "error");
-    }
-    setIsSaving(false);
-  };
-
-  const handleAiConfigNext = async () => {
-    setIsSaving(true);
-    try {
-      if (aiConfigPayload) {
-        await updateJobAiConfig(savedJobId, { ...aiConfigPayload, enabled: true });
-      }
-      if (assessmentModules.skills_test) {
-        setCurrentStep(7);
-      } else if (assessmentModules.video_interview) {
-        setCurrentStep(9);
-      } else {
-        setCurrentStep(8); // Recap
-      }
-    } catch (err) {
-      toast("Erreur de sauvegarde", "error");
-    }
-    setIsSaving(false);
-  };
-
-  const handleSkillsConfigNext = async () => {
-    setIsSaving(true);
-    try {
-      if (skillsConfigPayload) {
-        await saveAssessmentConfig(savedJobId, {
-          modules: {
-            qualifying_questions: qualifyingConfigPayload,
-            cv_scoring: { enabled: assessmentModules.cv_scoring },
-            ai_interview: { enabled: assessmentModules.ai_interview },
-            skills_tests: { enabled: assessmentModules.skills_test, tests: skillsConfigPayload.tests || [] },
-          }
-        });
-      }
-      if (assessmentModules.video_interview) {
-        setCurrentStep(9);
-      } else {
-        setCurrentStep(8); // Recap
-      }
-    } catch (err) {
-      toast("Erreur de sauvegarde", "error");
-    }
-    setIsSaving(false);
-  };
-
-  const handleVideoConfigNext = async () => {
-    setIsSaving(true);
-    try {
-      // Validate criteria: each question must have 1-5 criteria
-      if (videoConfigPayload?.questions?.length > 0) {
-        const invalidQs = videoConfigPayload.questions.filter(
-          q => !q.criteria || q.criteria.length === 0 || q.criteria.length > 5
-        );
-        if (invalidQs.length > 0) {
-          toast("Chaque question doit avoir entre 1 et 5 critères d'évaluation.", "error");
-          setIsSaving(false);
-          return;
-        }
-      }
-      if (savedJobId && videoConfigPayload) {
-        await saveVideoInterviewConfig(savedJobId, videoConfigPayload);
-      }
-      setCurrentStep(8); // Recap
-    } catch (err) {
-      toast("Erreur de sauvegarde vidéo", "error");
-    }
-    setIsSaving(false);
-  };
-
-  const handleRecapNext = () => {
-    router.push(`/jobs/${savedJobId}`);
-  };
-
-  const calculateCost = () => {
-    let cost = 0;
-    const details = [];
-    if (assessmentModules.qualifying_questions) {
-      details.push({ name: "Questions Qualificatives", cost: 0, reason: "Inclus gratuitement" });
-    }
-    if (assessmentModules.cv_scoring) {
-      cost += 1;
-      details.push({ name: "Scoring de CV par IA", cost: 1, reason: "Analyse et extraction" });
-    }
-    if (assessmentModules.skills_test) {
-      cost += 2;
-      details.push({ name: "Tests de compétences", cost: 2, reason: "Accès aux tests et correction" });
-    }
-    if (assessmentModules.ai_interview) {
-      cost += 5;
-      details.push({ name: "Interview IA par Texte", cost: 5, reason: "Conversation interactive et résumé" });
-    }
-    if (assessmentModules.video_interview) {
-      cost += 5;
-      details.push({ name: "Entretien Vidéo (One-Way)", cost: 5, reason: "Transcription IA + évaluation par question" });
-    }
-    return { total: cost, details };
   };
 
   const handleFieldChange = (field, value) => {
@@ -527,80 +339,29 @@ export default function NouvelleDemandePage() {
   };
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div style={currentStep === 3 ? { 
+      position: 'fixed', 
+      top: 0, bottom: 0, right: 0, left: 'var(--sidebar-collapsed-width)', 
+      zIndex: 40,
+      background: '#f8fafc',
+      display: 'flex', flexDirection: 'column'
+    } : { maxWidth: '900px', margin: '0 auto' }}>
       
-      {/* Modal pour coller l'offre */}
-      {isPasteModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="fade-in" style={{ background: 'white', borderRadius: '12px', width: '90%', maxWidth: '700px', padding: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--foreground)', margin: 0 }}>Coller votre offre d'emploi</h2>
-              <button onClick={() => setIsPasteModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>Collez le texte de l'offre. L'IA va l'analyser et pré-remplir le formulaire.</p>
-            
-            <textarea 
-              className="input-field"
-              style={{ minHeight: '300px', resize: 'vertical', marginBottom: '1.5rem' }}
-              placeholder="Collez ici le contenu complet de l'offre d'emploi..."
-              value={pasteContent}
-              onChange={e => setPasteContent(e.target.value)}
-              autoFocus
-            />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button 
-                className="btn btn-outline"
-                style={{ fontWeight: '600' }}
-                onClick={() => setIsPasteModalOpen(false)}
-              >
-                Annuler
-              </button>
-              <button 
-                className="btn btn-primary"
-                style={{ background: '#8ca3b8', color: 'white', border: 'none' }}
-                onClick={() => handleAnalyze(pasteContent)}
-                disabled={isAnalyzing || pasteContent.trim().length === 0}
-              >
-                {isAnalyzing ? <Loader2 size={16} className="spin" /> : null}
-                Rechercher
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(step => (
-            <div key={step} style={{
-              flex: 1, height: '4px', borderRadius: '4px',
-              background: currentStep >= step ? 'var(--primary)' : 'var(--secondary)'
-            }} />
-          ))}
-        </div>
-        <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--foreground)' }}>
+      <div style={{ padding: currentStep === 3 ? '1rem 1.5rem 0' : '0 0 1rem 0' }}>
+        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {currentStep === 1 ? "1. Offre d'emploi" : 
            currentStep === 2 ? "2. Détails" : 
-           currentStep === 3 ? "3. Choix des évaluations" :
-           currentStep === 4 ? "4. Questions Qualificatives" : 
-           currentStep === 5 ? "5. Critères de Scoring" : 
-           currentStep === 6 ? "6. Paramètres de l'Assessment" : 
-           currentStep === 7 ? "7. Paramètres des Tests Techniques" : 
-           currentStep === 8 ? "8. Récapitulatif" : 
-           "9. Finalisation"}
-        </h3>
+           "3. Parcours"}
+        </span>
       </div>
 
       {/* Step Content */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
+      <div className={currentStep === 3 ? "" : "card"} style={{ display: 'flex', flexDirection: 'column', minHeight: '350px', height: currentStep === 3 ? '100%' : 'auto' }}>
         {currentStep === 1 && (
           <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Décrivez votre besoin</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Commençons par votre offre d'emploi</h2>
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Notre IA analyse votre description en temps réel et structure le formulaire pour vous.
+              Onbord lit votre offre d'emploi et en extrait automatiquement les compétences à évaluer. Vous validez, on construit le parcours de screening.
             </p>
             
             {error && (
@@ -610,48 +371,17 @@ export default function NouvelleDemandePage() {
               </div>
             )}
             
-            {/* Menu Offre d'emploi au-dessus */}
-            <div style={{ marginBottom: '0.75rem', position: 'relative' }} ref={menuRef}>
+            {/* Bouton Importer */}
+            <div style={{ marginBottom: '0.75rem' }}>
               <button 
                 type="button"
-                onClick={() => setIsOfferMenuOpen(!isOfferMenuOpen)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '14px', fontWeight: '600', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 0', transition: 'opacity 0.2s' }}
-                onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isParsingFile || isAnalyzing}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--foreground)', fontSize: '14px', fontWeight: '600', background: 'transparent', border: 'none', cursor: (isParsingFile || isAnalyzing) ? 'default' : 'pointer', padding: '4px 0', opacity: (isParsingFile || isAnalyzing) ? 0.5 : 1, transition: 'opacity 0.2s' }}
               >
-                <Paperclip size={16} />
-                Offre d'emploi
+                {isParsingFile ? <Loader2 size={16} className="spin" /> : <Paperclip size={16} />}
+                Importer l'offre d'emploi
               </button>
-
-              {isOfferMenuOpen && (
-                <div style={{ 
-                  position: 'absolute', top: '100%', left: 0, marginTop: '4px',
-                  background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius)', 
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', 
-                  zIndex: 10, minWidth: '220px', padding: '4px'
-                }}>
-                  <button 
-                    type="button"
-                    onClick={() => { fileInputRef.current?.click(); setIsOfferMenuOpen(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', borderRadius: '4px', fontSize: '14px', color: 'var(--foreground)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    {isParsingFile ? <Loader2 size={16} className="spin" /> : <UploadCloud size={16} style={{ color: '#0f172a' }} />}
-                    Importer un fichier
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => { setIsPasteModalOpen(true); setIsOfferMenuOpen(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', borderRadius: '4px', fontSize: '14px', color: 'var(--foreground)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <ClipboardList size={16} style={{ color: '#0f172a' }} />
-                    Coller le texte
-                  </button>
-                </div>
-              )}
             </div>
 
             <input 
@@ -670,72 +400,46 @@ export default function NouvelleDemandePage() {
               </div>
             )}
 
-            {/* Search Bar Style Input */}
+            {/* Large Textarea */}
             <div style={{ 
               border: '1px solid var(--border)', 
               borderRadius: 'var(--radius)', 
               backgroundColor: 'white',
               boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               marginBottom: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0.75rem 1rem'
+              position: 'relative',
+              overflow: 'hidden'
             }}>
-              <input 
-                type="text"
+              <textarea 
                 style={{ 
-                  flex: 1, 
+                  width: '100%',
+                  minHeight: '300px',
                   border: 'none', 
                   outline: 'none', 
                   fontSize: '15px', 
                   color: 'var(--foreground)',
-                  background: 'transparent'
+                  background: 'transparent',
+                  padding: '1.25rem',
+                  resize: 'vertical'
                 }}
-                placeholder="Décrivez le profil recherché en quelques mots..."
+                placeholder="Collez ici votre offre d'emploi, ou décrivez le poste : intitulé, missions, compétences attendues, langues..."
                 value={rawDescription}
                 onChange={(e) => {
                   setRawDescription(e.target.value);
                   if (error) setError(null);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAnalyze();
-                  }
-                }}
               />
 
-              <button 
-                type="button"
-                onClick={() => handleAnalyze()}
-                disabled={isAnalyzing || rawDescription.trim().length === 0}
-                style={{ background: 'var(--primary)', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s' }}
-              >
-                {isAnalyzing ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
-              </button>
-            </div>
-
-            {/* Real-time pills */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-              {[
-                { label: 'Titre du job', active: rawDescription.length > 15 },
-                { label: 'Skills', active: /python|react\.js|java[^S]|sql|excel|seo|sea|docker|php|c\+\+|javascript|adobe/i.test(rawDescription) },
-                { label: 'Localisation', active: /bruxelles|paris|remote|télétravail|hybride|gand|anvers|sur site|liège/i.test(rawDescription) },
-                { label: 'Langues', active: /francophone|français|anglais|english|néerlandais|bilingue|nederlands/i.test(rawDescription) }
-              ].map(pill => (
-                <div key={pill.label} style={{ 
-                  display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                  padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
-                  background: pill.active ? '#dcfce7' : 'white',
-                  color: pill.active ? '#166534' : 'var(--muted-foreground)',
-                  border: `1px solid ${pill.active ? '#bbf7d0' : 'var(--border)'}`,
-                  transition: 'all 0.3s'
-                }}>
-                  {pill.active && <Check size={14} />}
-                  {!pill.active && <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid var(--muted-foreground)', opacity: 0.4 }}></span>}
-                  {pill.label}
-                </div>
-              ))}
+              <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
+                <button 
+                  type="button"
+                  onClick={() => handleAnalyze()}
+                  disabled={isAnalyzing || rawDescription.trim().length === 0}
+                  style={{ background: '#0f172a', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}
+                >
+                  {isAnalyzing ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -748,248 +452,57 @@ export default function NouvelleDemandePage() {
 
         {currentStep === 3 && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            {/* On retire le padding global de la carte pour l'étape 3 afin que le Flow prenne toute la place */}
             <JobFormStepRecommendation 
               jobData={jobData} 
-              assessmentModules={assessmentModules} 
-              setAssessmentModules={setAssessmentModules} 
-            />
-          </div>
-        )}
-
-        {currentStep === 4 && savedJob && assessmentModules.qualifying_questions && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Questions Qualificatives</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Ajoutez des questions éliminatoires pour filtrer automatiquement les candidats.
-            </p>
-            <QualifyingQuestionsConfig 
-              config={qualifyingConfigPayload || { enabled: true, questions: [] }} 
-              onChange={setQualifyingConfigPayload} 
-            />
-          </div>
-        )}
-
-        {currentStep === 5 && jobData && assessmentModules.cv_scoring && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Critères de Scoring CV</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Définissez les éléments clés que l'IA doit rechercher dans les CV pour calculer le score de correspondance.
-            </p>
-            <CvScoringCriteria 
-              criteria={jobData.selection_criteria} 
-              onChange={(newCriteria) => setJobData(prev => ({ ...prev, selection_criteria: newCriteria }))} 
-            />
-          </div>
-        )}
-
-        {currentStep === 6 && savedJob && assessmentModules.ai_interview && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Paramètres de l'Assessment</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Personnalisez les questions et le comportement de votre assistant recruteur.
-            </p>
-            <AiInterviewConfig 
-              job={savedJob} 
-              prefilledConfig={aiConfigPayload}
-              embedded={true} 
-              hideSaveBar={true} 
-              onChange={setAiConfigPayload} 
-            />
-          </div>
-        )}
-
-        {currentStep === 7 && savedJob && assessmentModules.skills_test && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Choix des Tests Techniques</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Sélectionnez les évaluations pertinentes pour vérifier le socle de compétences.
-            </p>
-            <SkillsTestConfig 
-              jobId={savedJob.id}
-              config={skillsConfigPayload || { enabled: true, tests: [] }}
-              onChange={setSkillsConfigPayload}
-            />
-          </div>
-        )}
-
-        {currentStep === 9 && savedJob && assessmentModules.video_interview && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Entretien Vidéo — Configuration</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Configurez les questions que les candidats devront répondre en vidéo, les critères d&apos;évaluation IA, et les paramètres d&apos;enregistrement.
-            </p>
-            <VideoInterviewConfig
-              jobId={savedJob.id}
-              config={videoConfigPayload}
-              onChange={setVideoConfigPayload}
-            />
-          </div>
-        )}
-
-        {currentStep === 8 && savedJob && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>Récapitulatif de l'assessment</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              Voici les modules que les candidats devront passer et leur coût en crédits. Les crédits sont déduits par candidat uniquement s'ils complètent le module.
-            </p>
-
-            <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '1rem 1.5rem', background: 'var(--secondary)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Module sélectionné</span>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Coût par candidat</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {calculateCost().details.map((detail, idx) => (
-                  <div key={idx} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx < calculateCost().details.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <div>
-                      <h4 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckCircle2 size={16} style={{ color: 'var(--primary)' }} /> {detail.name}
-                      </h4>
-                      <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>{detail.reason}</p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '800', color: detail.cost > 0 ? 'var(--foreground)' : '#166534', background: detail.cost === 0 ? '#dcfce7' : 'transparent', padding: detail.cost === 0 ? '2px 8px' : '0', borderRadius: '4px' }}>
-                        {detail.cost > 0 ? `${detail.cost} crédit${detail.cost > 1 ? 's' : ''}` : 'Gratuit'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ padding: '1.25rem 1.5rem', background: 'var(--accent)', borderTop: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--foreground)' }}>Total par candidat complété</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--primary)' }}>
-                  {calculateCost().total} crédit{calculateCost().total > 1 ? 's' : ''}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Navigation */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-          {currentStep > 1 && (currentStep <= 8 || currentStep === 9) ? (
-            <button 
-              className="btn btn-ghost" 
-              style={{ fontWeight: '600' }}
-              onClick={() => {
-                if (currentStep === 2) router.push('/jobs');
-                else if (currentStep === 3) setCurrentStep(2);
-                else if (currentStep === 4) setCurrentStep(3);
-                else if (currentStep === 5) setCurrentStep(assessmentModules.qualifying_questions ? 4 : 3);
-                else if (currentStep === 6) setCurrentStep(assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
-                else if (currentStep === 7) setCurrentStep(assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
-                else if (currentStep === 9) setCurrentStep(assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
-                else if (currentStep === 8) setCurrentStep(assessmentModules.video_interview ? 9 : assessmentModules.skills_test ? 7 : assessmentModules.ai_interview ? 6 : assessmentModules.cv_scoring ? 5 : assessmentModules.qualifying_questions ? 4 : 3);
-                else setCurrentStep(prev => prev - 1);
+              savedJobId={savedJobId || savedJob?.id}
+              onSave={handleSaveFlow}
+              isSaving={isSaving}
+              onBack={(currentFlow) => {
+                setJobData(prev => ({ ...prev, saved_flow_nodes: currentFlow }));
+                setCurrentStep(2);
               }}
-            >
-              Retour
-            </button>
-          ) : (
-            <div></div>
-          )}
-          
-          {currentStep === 1 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={() => handleAnalyze()}
-              disabled={isAnalyzing || rawDescription.trim().length === 0}
-            >
-              {isAnalyzing ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
-              Suivant
-            </button>
-          )}
+            />
+          </div>
+        )}
+        {/* Navigation - Seulement pour l'étape 1 et 2 */}
+        {currentStep < 3 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
+            {currentStep > 1 ? (
+              <button 
+                className="btn btn-ghost" 
+                style={{ fontWeight: '600' }}
+                onClick={() => setCurrentStep(prev => prev - 1)}
+              >
+                Retour
+              </button>
+            ) : (
+              <div></div>
+            )}
+            
+            {currentStep === 1 && (
+              <button 
+                className="btn btn-primary"
+                style={{ padding: '12px 24px', fontWeight: '600' }}
+                onClick={() => handleAnalyze()}
+                disabled={isAnalyzing || rawDescription.trim().length === 0}
+              >
+                {isAnalyzing ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
+                Suivant
+              </button>
+            )}
 
-          {currentStep === 2 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={() => setCurrentStep(3)}
-            >
-              Suivant
-            </button>
-          )}
-
-          {currentStep === 3 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleModulesSelectionNext}
-              disabled={isSaving}
-            >
-              {isSaving ? <Loader2 size={18} className="spin" /> : null}
-              Valider et continuer
-            </button>
-          )}
-
-          {currentStep === 4 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleQualifyingNext}
-              disabled={isSaving}
-            >
-              Suivant
-            </button>
-          )}
-
-          {currentStep === 5 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleCriteriaNext}
-              disabled={isSaving}
-            >
-              Suivant
-            </button>
-          )}
-
-          {currentStep === 6 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleAiConfigNext}
-              disabled={isSaving}
-            >
-              {isSaving ? <Loader2 size={18} className="spin" /> : null}
-              Suivant
-            </button>
-          )}
-
-          {currentStep === 7 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleSkillsConfigNext}
-              disabled={isSaving}
-            >
-              {isSaving ? <Loader2 size={18} className="spin" /> : null}
-              Continuer
-            </button>
-          )}
-
-          {currentStep === 9 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleVideoConfigNext}
-              disabled={isSaving}
-            >
-              {isSaving ? <Loader2 size={18} className="spin" /> : null}
-              Enregistrer et voir le récapitulatif
-            </button>
-          )}
-
-          {currentStep === 8 && (
-            <button 
-              className="btn btn-primary"
-              style={{ padding: '12px 24px', fontWeight: '600' }}
-              onClick={handleRecapNext}
-            >
-              Finaliser la création
-            </button>
-          )}
-        </div>
+            {currentStep === 2 && (
+              <button 
+                className="btn btn-primary"
+                style={{ padding: '12px 24px', fontWeight: '600' }}
+                onClick={() => setCurrentStep(3)}
+              >
+                Suivant
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Overlay d'analyse de l'offre */}

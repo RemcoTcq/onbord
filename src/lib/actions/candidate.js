@@ -434,6 +434,39 @@ export async function getJobDetail(jobId) {
   }
 }
 
+export async function getPublicJobAndBranding(jobId) {
+  try {
+    const supabase = await createClient();
+    
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+    
+    if (jobError) throw jobError;
+
+    let recruiter = null;
+    if (job.user_id) {
+      try {
+        const { data: recData, error: recError } = await supabase
+          .rpc("get_public_branding", { user_uuid: job.user_id });
+        
+        if (!recError && recData) {
+          recruiter = recData;
+        }
+      } catch (err) {
+        console.error("Failed to fetch recruiter branding via rpc:", err);
+      }
+    }
+
+    return { success: true, job, recruiter };
+  } catch (error) {
+    console.error("Get Public Job And Branding Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function updateCandidateStatus(candidateId, status) {
   try {
     const supabase = await createClient();
@@ -570,3 +603,98 @@ export async function getMailLogs(jobId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function generateConstructiveFeedback(candidateId) {
+  try {
+    const supabase = await createClient();
+    const { data: candidate, error } = await supabase
+      .from('candidates')
+      .select('*, jobs(title)')
+      .eq('id', candidateId)
+      .single();
+
+    if (error || !candidate) throw new Error("Candidat introuvable");
+
+    // Garde-fou données insuffisantes
+    if (!candidate.score_global && !candidate.ai_summary) {
+      return { success: false, error: "Données d'évaluation insuffisantes pour générer un feedback (l'évaluation n'est pas terminée)." };
+    }
+
+    if (candidate.generated_feedback) {
+      return { success: true, feedback: candidate.generated_feedback };
+    }
+
+    // Determine status label for prompt
+    const statusLabel = candidate.status === 'rejected' ? 'REFUSÉ' : candidate.status === 'shortlisted' ? 'RETENU' : 'EN RÉFLEXION';
+    
+    const prompt = `Tu es un expert en recrutement bienveillant qui rédige un retour destiné directement à un candidat, au nom de l'entreprise qui recrute. Ton feedback sera lu par le candidat lui-même.
+
+CONTEXTE FOURNI :
+- Poste visé : ${candidate.jobs?.title || 'Non précisé'}
+- Décision : ${statusLabel}
+- Synthèse de l'évaluation : ${candidate.ai_summary || 'N/A'}
+- Points forts observés : ${(candidate.green_flags || []).join(', ')}
+- Axes plus faibles observés : ${(candidate.red_flags || []).concat(candidate.yellow_flags || []).join(', ')}
+- Compétences évaluées et observations : ${JSON.stringify(candidate.cv_score_breakdown || [])}
+
+TA MISSION :
+Rédige un feedback constructif, humain et respectueux, adressé au candidat ("vous"), en français, de 120 à 180 mots.
+
+RÈGLES ABSOLUES :
+1. Ne mentionne JAMAIS de score, de note, de pourcentage, de niveau chiffré, ni aucune mécanique d'évaluation interne. Parle uniquement en langage naturel.
+2. Parle des COMPÉTENCES et des SITUATIONS, jamais de la personne. Écris "sur la négociation de contrats complexes, le profil recherché demandait plus d'expérience" — jamais "vous manquez de X" ou "vous n'êtes pas assez Y".
+3. Reste honnête. Pas de fausse gentillesse, pas de langue de bois. Un candidat préfère un retour vrai et utile à un compliment creux.
+4. Cohérence avec la décision :
+   - Si REFUSÉ : reconnais sincèrement 1 ou 2 points forts réels, puis explique avec tact le ou les axes qui ont fait la différence pour CE poste. Le feedback doit rendre la décision compréhensible, sans l'aggraver.
+   - Si RETENU : félicite, souligne les forces, et indique éventuellement un axe de progression pour la prise de poste.
+   - Si EN RÉFLEXION : reste neutre et encourageant, sans annoncer de décision.
+5. Toujours tourné vers le futur : termine par un encouragement concret et sincère, pas par une formule générique.
+6. Ne formule jamais de promesse au nom de l'entreprise (pas de "nous vous recontacterons", pas de "postulez à nouveau dans 6 mois") sauf si c'est explicitement dans les données fournies.
+7. Ne compare JAMAIS le candidat à d'autres candidats.
+
+STRUCTURE ATTENDUE :
+- Une ouverture qui remercie sincèrement pour le temps et l'effort.
+- 1 ou 2 points forts réels et spécifiques.
+- Le ou les axes d'amélioration, formulés par rapport aux exigences du poste.
+- Une clôture encourageante et tournée vers la suite.
+
+Si les données d'évaluation fournies sont insuffisantes ou vides, ne rédige PAS de feedback inventé : réponds exactement "DONNÉES_INSUFFISANTES".
+
+Rédige uniquement le feedback, sans titre ni commentaire.`;
+
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1500,
+      temperature: 0.7,
+      system: "Tu es un expert en recrutement bienveillant.",
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const generatedText = response.content[0].text.trim();
+
+    if (generatedText.includes("DONNÉES_INSUFFISANTES")) {
+      return { success: false, error: "L'IA a déterminé qu'il n'y a pas assez de données pertinentes pour formuler un feedback." };
+    }
+
+    // Save to DB
+    await supabase.from('candidates').update({ generated_feedback: generatedText }).eq('id', candidateId);
+
+    return { success: true, feedback: generatedText };
+  } catch (error) {
+    console.error("Generate feedback error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function saveConstructiveFeedback(candidateId, feedback) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from('candidates').update({ generated_feedback: feedback }).eq('id', candidateId);
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Save feedback error:", error);
+    return { success: false, error: error.message };
+  }
+}
+

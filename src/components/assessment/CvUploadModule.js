@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { parseFile } from "@/lib/actions/parse-file";
 import { scoreCandidate } from "@/lib/actions/candidate";
 
-export default function CvUploadModule({ candidate, job, onComplete, onBack }) {
+export default function CvUploadModule({ candidate, job, recruiter, onComplete, onBack }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -15,6 +15,20 @@ export default function CvUploadModule({ candidate, job, onComplete, onBack }) {
   const fileInputRef = useRef(null);
 
   const jobCriteria = job?.extracted_criteria || job;
+
+  const logoUrl = recruiter?.company_logo_url || null;
+  const companyName = recruiter?.company_name || job?.company || "l'entreprise";
+
+  // Logo component
+  const Logo = () => (
+    <div style={{ padding: "1rem 0", display: "flex", alignItems: "center", justifyContent: "flex-start", width: "100%", marginBottom: "1rem" }}>
+      {logoUrl ? (
+        <img src={logoUrl} alt={companyName} style={{ height: "32px", objectFit: "contain" }} />
+      ) : (
+        <h2 style={{ fontSize: "1.25rem", fontWeight: "700", margin: 0 }}>{companyName}</h2>
+      )}
+    </div>
+  );
 
   async function handleFile(selectedFile) {
     if (!selectedFile) return;
@@ -89,6 +103,7 @@ export default function CvUploadModule({ candidate, job, onComplete, onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: "var(--background)", padding: "2rem 1rem" }}>
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
+        <Logo />
 
         {/* Back */}
         <button

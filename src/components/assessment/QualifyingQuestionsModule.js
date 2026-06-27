@@ -1,116 +1,174 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, ArrowRight, XCircle } from "lucide-react";
+import { Loader2, ArrowRight, ChevronRight } from "lucide-react";
 import { disqualifyCandidate } from "@/lib/actions/assessment";
+import { getContrastColor } from "./CandidateOnboardingFlow";
 
-export default function QualifyingQuestionsModule({ candidate, questions, onComplete, onFail }) {
+export default function QualifyingQuestionsModule({ candidate, job, recruiter, questions, onComplete, onFail }) {
+  const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
 
-  const handleSubmit = async () => {
+  const primaryColor = recruiter?.brand_primary_color || "#0f172a";
+  const primaryText = getContrastColor(primaryColor);
+  const logoUrl = recruiter?.company_logo_url || null;
+  const companyName = recruiter?.company_name || job?.company || "l'entreprise";
+
+  const handleAnswer = (qId, val) => {
+    setAnswers(prev => ({ ...prev, [qId]: val }));
+  };
+
+  const handleNext = async () => {
+    // If it's not the last question, just go to the next screen
+    if (step < questions.length - 1) {
+      setStep(prev => prev + 1);
+      return;
+    }
+
+    // It's the last question, we submit
     setSubmitting(true);
-    setError(null);
-
-    // Check if all answers match expected answers
     const failed = questions.some(q => answers[q.id] !== q.expectedAnswer);
 
     if (failed) {
-      // Disqualify candidate
       const res = await disqualifyCandidate(candidate.id);
       if (res.success) {
         onFail();
       } else {
-        setError(res.error || "Une erreur est survenue.");
+        alert(res.error || "Une erreur est survenue.");
       }
     } else {
-      // Pass
       onComplete();
     }
     setSubmitting(false);
   };
 
-  const allAnswered = questions.every(q => answers[q.id]);
+  const pageStyle = {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: "#ffffff",
+    color: "var(--foreground)",
+    fontFamily: "var(--font-sans)",
+    position: "relative",
+  };
+
+  const headerStyle = {
+    padding: "2rem 2.5rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    boxSizing: "border-box"
+  };
+
+  const contentStyle = {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "2rem",
+    maxWidth: "600px",
+    margin: "0 auto",
+    marginTop: "-8vh",
+    width: "100%",
+    textAlign: "center"
+  };
+
+  const buttonStyle = {
+    backgroundColor: primaryColor,
+    color: primaryText,
+    border: "none",
+    borderRadius: "8px",
+    padding: "0.875rem 2rem",
+    fontSize: "1rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    transition: "opacity 0.2s",
+  };
+
+  const disabledButtonStyle = {
+    ...buttonStyle,
+    opacity: 0.5,
+    cursor: "not-allowed"
+  };
+
+  const currentQ = questions[step];
+  const hasAnsweredCurrent = answers[currentQ.id] !== undefined;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--background)", padding: "2rem 1rem", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ maxWidth: "600px", width: "100%", background: "var(--card)", padding: "2rem", borderRadius: "var(--radius)", border: "1px solid var(--border)", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)" }}>
-        
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: "800", color: "var(--foreground)", marginBottom: "0.5rem" }}>
-            Questions préliminaires
-          </h2>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>
-            Veuillez répondre à ces quelques questions pour confirmer que votre profil correspond aux pré-requis du poste.
-          </p>
-        </div>
-
-        {error && (
-          <div style={{ padding: "1rem", background: "#fee2e2", color: "#991b1b", borderRadius: "var(--radius)", marginBottom: "1.5rem", fontSize: "14px", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <XCircle size={18} />
-            {error}
-          </div>
+    <div style={pageStyle} className="fade-in">
+      <div style={headerStyle}>
+        {logoUrl ? (
+          <img src={logoUrl} alt={companyName} style={{ height: "32px", objectFit: "contain" }} />
+        ) : (
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "700", margin: 0 }}>{companyName}</h2>
         )}
+      </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {questions.map((q, index) => (
-            <div key={q.id}>
-              <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "0.75rem" }}>
-                {index + 1}. {q.text}
-              </p>
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <label style={{
-                  flex: 1, padding: "1rem", textAlign: "center", borderRadius: "var(--radius)", cursor: "pointer",
-                  border: `1.5px solid ${answers[q.id] === 'yes' ? 'var(--primary)' : 'var(--border)'}`,
-                  background: answers[q.id] === 'yes' ? 'var(--accent)' : 'transparent',
-                  fontWeight: answers[q.id] === 'yes' ? '600' : '400',
-                  color: answers[q.id] === 'yes' ? 'var(--primary)' : 'var(--foreground)',
-                  transition: "all 0.2s"
-                }}>
-                  <input 
-                    type="radio" 
-                    name={`q-${q.id}`} 
-                    value="yes" 
-                    checked={answers[q.id] === 'yes'}
-                    onChange={() => setAnswers(prev => ({ ...prev, [q.id]: 'yes' }))}
-                    style={{ display: "none" }}
-                  />
-                  Oui
-                </label>
-                <label style={{
-                  flex: 1, padding: "1rem", textAlign: "center", borderRadius: "var(--radius)", cursor: "pointer",
-                  border: `1.5px solid ${answers[q.id] === 'no' ? 'var(--primary)' : 'var(--border)'}`,
-                  background: answers[q.id] === 'no' ? 'var(--accent)' : 'transparent',
-                  fontWeight: answers[q.id] === 'no' ? '600' : '400',
-                  color: answers[q.id] === 'no' ? 'var(--primary)' : 'var(--foreground)',
-                  transition: "all 0.2s"
-                }}>
-                  <input 
-                    type="radio" 
-                    name={`q-${q.id}`} 
-                    value="no" 
-                    checked={answers[q.id] === 'no'}
-                    onChange={() => setAnswers(prev => ({ ...prev, [q.id]: 'no' }))}
-                    style={{ display: "none" }}
-                  />
-                  Non
-                </label>
-              </div>
-            </div>
-          ))}
+      <div style={contentStyle} className="slide-up" key={currentQ.id}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "3rem", lineHeight: "1.4" }}>
+          {currentQ.text}
+        </h2>
+        
+        <div style={{ display: "flex", gap: "1rem", width: "100%", maxWidth: "320px", marginBottom: "2.5rem" }}>
+          <button 
+            onClick={() => handleAnswer(currentQ.id, 'yes')}
+            style={{
+              flex: 1,
+              padding: "0.875rem",
+              borderRadius: "10px",
+              border: `2px solid ${answers[currentQ.id] === 'yes' ? primaryColor : 'var(--border)'}`,
+              backgroundColor: answers[currentQ.id] === 'yes' ? `${primaryColor}1a` : 'transparent',
+              color: answers[currentQ.id] === 'yes' ? primaryColor : 'var(--foreground)',
+              fontWeight: answers[currentQ.id] === 'yes' ? '700' : '500',
+              fontSize: "1rem",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            Oui
+          </button>
+          
+          <button 
+            onClick={() => handleAnswer(currentQ.id, 'no')}
+            style={{
+              flex: 1,
+              padding: "0.875rem",
+              borderRadius: "10px",
+              border: `2px solid ${answers[currentQ.id] === 'no' ? primaryColor : 'var(--border)'}`,
+              backgroundColor: answers[currentQ.id] === 'no' ? `${primaryColor}1a` : 'transparent',
+              color: answers[currentQ.id] === 'no' ? primaryColor : 'var(--foreground)',
+              fontWeight: answers[currentQ.id] === 'no' ? '700' : '500',
+              fontSize: "1rem",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            Non
+          </button>
         </div>
 
         <button 
-          className="btn btn-primary"
-          style={{ width: "100%", marginTop: "2rem", padding: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
-          disabled={!allAnswered || submitting}
-          onClick={handleSubmit}
+          onClick={handleNext} 
+          disabled={!hasAnsweredCurrent || submitting} 
+          style={(!hasAnsweredCurrent || submitting) ? disabledButtonStyle : buttonStyle}
         >
-          {submitting ? <Loader2 size={18} className="spin" /> : "Continuer"}
-          {!submitting && <ArrowRight size={18} />}
+          {submitting ? <><Loader2 size={18} className="spin" /> Validation...</> : (
+            <>
+              {step === questions.length - 1 ? "Terminer" : "Continuer"} 
+              <ChevronRight size={18} />
+            </>
+          )}
         </button>
-
       </div>
     </div>
   );

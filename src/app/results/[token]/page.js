@@ -122,8 +122,12 @@ export default function ResultsPage() {
       <ResultsView
         candidate={candidate}
         job={job}
+        recruiter={recruiter}
         testSessions={testSessions}
-        showScores={true}
+        showScores={false}
+        showRating={false}
+        feedback={candidate.generated_feedback || null}
+        status={candidate.status}
       />
     </div>
   );

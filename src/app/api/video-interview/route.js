@@ -79,7 +79,7 @@ function verifyVerbatims(criteriaScores, transcript) {
   });
 }
 
-// ─── Claude evaluation helper (per-criterion scoring) ─────────────────────────
+// ─── Claude evaluation helper (BARS-based scoring) ────────────────────────────
 async function evaluateResponse(questionText, criteria, transcript, jobContext) {
   // Guard : pas de scoring si transcription absente/vide/trop courte
   if (!transcript || transcript.trim().length < 20 || transcript === "[Transcription indisponible]") {
@@ -93,37 +93,53 @@ async function evaluateResponse(questionText, criteria, transcript, jobContext) 
     };
   }
 
-  const criteriaList = criteria.map((c, i) =>
-    `${i + 1}. "${c.name}" (ID: ${c.id}) — ${c.description}`
-  ).join("\n");
+  // Check if any criterion has BARS levels — determines the scoring mode
+  const hasBars = criteria.some(c => c.bars_levels && c.bars_levels.length > 0);
 
-  // max_tokens adaptatif : ~350 tokens par critère + 300 pour le résumé
-  const maxTokens = Math.min(4000, 300 + criteria.length * 350);
+  let criteriaList;
+  let scoringInstructions;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: maxTokens,
-    temperature: 0.1,
-    system: `Vous êtes un expert en évaluation d'entretiens de recrutement vidéo.
-Contexte du poste: ${JSON.stringify(jobContext)}
+  if (hasBars) {
+    // ── BARS mode : structured behavioral anchors ──
+    criteriaList = criteria.map((c, i) => {
+      const barsGrid = (c.bars_levels || []).map(bl =>
+        `    Niveau ${bl.level} (${bl.label}) : ${bl.description}`
+      ).join("\n");
+      return `${i + 1}. "${c.name}" (ID: ${c.id})\n   Grille BARS :\n${barsGrid}`;
+    }).join("\n\n");
 
-RÈGLES ABSOLUES:
-- Évaluez CHAQUE critère individuellement.
-- Citez un EXTRAIT EXACT (verbatim, copier-coller MOT POUR MOT) de la transcription pour justifier chaque note. La citation doit être une sous-chaîne exacte de la transcription.
-- Si la transcription ne contient rien de pertinent pour un critère, mettez "" pour le verbatim et donnez un score de 0 à 20.
-- Répondez UNIQUEMENT avec un JSON valide, sans texte avant ou après.`,
-    messages: [{
-      role: "user",
-      content: `QUESTION POSÉE AU CANDIDAT:
-"${questionText}"
+    scoringInstructions = `Pour chaque critère, positionnez le candidat sur un niveau de 1 à 5 en comparant son comportement observé aux ancres comportementales fournies :
+- Niveau 1 = Insuffisant (correspond à l'ancre de niveau 1)
+- Niveau 2 = Entre insuffisant et attendu
+- Niveau 3 = Attendu (correspond à l'ancre de niveau 3)
+- Niveau 4 = Entre attendu et excellent
+- Niveau 5 = Excellent (correspond à l'ancre de niveau 5)
 
-CRITÈRES D'ÉVALUATION (définis par le recruteur, ${criteria.length} critère${criteria.length > 1 ? "s" : ""}):
-${criteriaList}
+Format JSON exact :
+{
+  "criteria_scores": [
+    {
+      "criterion_id": "ID exact du critère",
+      "criterion_name": "Nom du critère",
+      "bars_level": 1-5,
+      "score": 0-100,
+      "justification": "Explication du positionnement sur la grille BARS",
+      "verbatim": "Citation EXACTE mot pour mot de la transcription"
+    }
+  ],
+  "feedback": "Résumé global de la qualité de la réponse (2-3 phrases)",
+  "strengths": ["Point fort 1", "Point fort 2"],
+  "improvements": ["Axe d'amélioration 1"]
+}
 
-TRANSCRIPTION DE LA RÉPONSE VIDÉO:
-"${transcript}"
+IMPORTANT: Le champ "score" DOIT être calculé à partir du bars_level : score = (bars_level - 1) * 25. Par exemple: niveau 1 = 0, niveau 3 = 50, niveau 5 = 100.`;
+  } else {
+    // ── Legacy mode : free 0-100 scoring ──
+    criteriaList = criteria.map((c, i) =>
+      `${i + 1}. "${c.name}" (ID: ${c.id}) — ${c.description || "Évaluation générale"}`
+    ).join("\n");
 
-Évaluez chaque critère séparément. Pour chaque critère, donnez :
+    scoringInstructions = `Évaluez chaque critère séparément. Pour chaque critère, donnez :
 - Un score de 0 à 100
 - Une justification en 1-2 phrases
 - Une citation EXACTE (verbatim, copier-coller MOT POUR MOT) de la transcription
@@ -142,7 +158,36 @@ Format JSON exact :
   "feedback": "Résumé global de la qualité de la réponse (2-3 phrases)",
   "strengths": ["Point fort 1", "Point fort 2"],
   "improvements": ["Axe d'amélioration 1"]
-}`
+}`;
+  }
+
+  // max_tokens adaptatif : ~400 tokens par critère + 300 pour le résumé
+  const maxTokens = Math.min(4000, 300 + criteria.length * 400);
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: maxTokens,
+    temperature: 0.1,
+    system: `Vous êtes un expert en évaluation d'entretiens de recrutement vidéo${hasBars ? ", spécialisé dans l'évaluation par grilles BARS (Behaviorally Anchored Rating Scales)" : ""}.
+Contexte du poste: ${JSON.stringify(jobContext)}
+
+RÈGLES ABSOLUES:
+- Évaluez CHAQUE critère individuellement.
+- Citez un EXTRAIT EXACT (verbatim, copier-coller MOT POUR MOT) de la transcription pour justifier chaque note. La citation doit être une sous-chaîne exacte de la transcription.
+- Si la transcription ne contient rien de pertinent pour un critère, mettez "" pour le verbatim et donnez le score le plus bas.
+- Répondez UNIQUEMENT avec un JSON valide, sans texte avant ou après.`,
+    messages: [{
+      role: "user",
+      content: `QUESTION POSÉE AU CANDIDAT:
+"${questionText}"
+
+CRITÈRES D'ÉVALUATION (${criteria.length} critère${criteria.length > 1 ? "s" : ""}):
+${criteriaList}
+
+TRANSCRIPTION DE LA RÉPONSE VIDÉO:
+"${transcript}"
+
+${scoringInstructions}`
     }]
   });
 

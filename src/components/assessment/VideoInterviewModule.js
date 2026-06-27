@@ -454,8 +454,26 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
 }
 
 // ─── Main VideoInterviewModule ────────────────────────────────────────────────
-export default function VideoInterviewModule({ candidate, job, onComplete, onBack }) {
+export default function VideoInterviewModule({ candidate, job, recruiter, onComplete, onBack }) {
   const [phase, setPhase] = useState("setup"); // setup | interview | finished
+  const logoUrl = recruiter?.company_logo_url || null;
+  const companyName = recruiter?.company_name || job?.company || "l'entreprise";
+
+  const Header = () => (
+    <div style={{ padding: "1.5rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <button
+        onClick={onBack}
+        style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: "14px" }}
+      >
+        <ArrowLeft size={16} /> Retour
+      </button>
+      {logoUrl ? (
+        <img src={logoUrl} alt={companyName} style={{ height: "32px", objectFit: "contain" }} />
+      ) : (
+        <span style={{ fontSize: "14px", fontWeight: "700" }}>{companyName}</span>
+      )}
+    </div>
+  );
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [completedResponseIds, setCompletedResponseIds] = useState([]);
 
@@ -481,35 +499,33 @@ export default function VideoInterviewModule({ candidate, job, onComplete, onBac
 
   if (phase === "setup") {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--background)" }}>
-        <div style={{ padding: "1.5rem 2rem" }}>
-          <button
-            onClick={onBack}
-            style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: "14px" }}
-          >
-            <ArrowLeft size={16} /> Retour
-          </button>
+      <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column" }}>
+        <Header />
+        <div style={{ flex: 1 }}>
+          <SetupScreen onReady={() => setPhase("interview")} />
         </div>
-        <SetupScreen onReady={() => setPhase("interview")} />
       </div>
     );
   }
 
   if (phase === "interview" && questions[currentQuestionIndex]) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--background)" }}>
-        <RecordingScreen
-          key={currentQuestionIndex}
-          question={questions[currentQuestionIndex]}
-          questionIndex={currentQuestionIndex}
-          totalQuestions={questions.length}
-          maxDuration={maxDuration}
-          maxRetakes={maxRetakes}
-          candidate={candidate}
-          job={job}
-          onNext={handleNext}
-          onComplete={onComplete}
-        />
+      <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column" }}>
+        <Header />
+        <div style={{ flex: 1 }}>
+          <RecordingScreen
+            key={currentQuestionIndex}
+            question={questions[currentQuestionIndex]}
+            questionIndex={currentQuestionIndex}
+            totalQuestions={questions.length}
+            maxDuration={maxDuration}
+            maxRetakes={maxRetakes}
+            candidate={candidate}
+            job={job}
+            onNext={handleNext}
+            onComplete={onComplete}
+          />
+        </div>
       </div>
     );
   }

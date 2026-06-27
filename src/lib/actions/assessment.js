@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
-import { TAXONOMIE_COMPETENCES } from "../constants/taxonomie";
 
 /**
  * Get all active tests from the library
@@ -37,8 +36,9 @@ export async function selectQuestionsForJob(jobId, testId, questionCount = 10) {
     // Get all questions for this test
     const { data: allQuestions, error } = await supabase
       .from("assessment_questions")
-      .select("id, difficulty")
-      .eq("test_id", testId);
+      .select("id, difficulty, created_at")
+      .eq("test_id", testId)
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     if (!allQuestions || allQuestions.length === 0) {
@@ -73,9 +73,8 @@ export async function selectQuestionsForJob(jobId, testId, questionCount = 10) {
       const difficile = allQuestions.filter(q => q.difficulty === "difficile").sort(() => Math.random() - 0.5).slice(0, 2);
       selectedIds = [...facile, ...moyen, ...difficile].map(q => q.id);
     } else {
-      // Default logic: random pick
-      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(0, Math.min(questionCount, allQuestions.length));
+      // Default logic: natural order
+      const selected = allQuestions.slice(0, Math.min(questionCount, allQuestions.length));
       selectedIds = selected.map((q) => q.id);
     }
 
@@ -130,7 +129,7 @@ export async function getQuestionsForSession(questionIds) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("assessment_questions")
-      .select("id, statement, option_a, option_b, option_c, option_d, time_limit_seconds, difficulty, image_url, question_type")
+      .select("id, statement, option_a, option_b, option_c, option_d, time_limit_seconds, difficulty, image_url, question_type, options, skill_dimension, bars_dimensions")
       .in("id", questionIds);
 
     if (error) throw error;
@@ -232,60 +231,97 @@ export async function completeTestSession(sessionId, questionIds) {
       .eq("id", sessionId)
       .single();
 
-    // Get correct answers
+    if (!session) throw new Error("Session introuvable");
+    if (session.status === "completed") return { success: true, score: session.score };
+
+    // Get questions with scoring data (server-side only)
     const { data: questions } = await supabase
       .from("assessment_questions")
-      .select("id, correct_answer")
+      .select("id, question_type, correct_answer, options, skill_dimension, bars_dimensions")
       .in("id", questionIds);
 
     const answers = session.answers || [];
-    const correctMap = {};
-    (questions || []).forEach((q) => { correctMap[q.id] = q.correct_answer; });
+    const qMap = {};
+    (questions || []).forEach((q) => { qMap[q.id] = q; });
 
-    // Grade
-    let correct = 0;
-    const gradedAnswers = answers.map((a) => {
-      const isCorrect = correctMap[a.question_id] === a.chosen;
-      if (isCorrect) correct++;
-      return { ...a, correct: isCorrect, correct_answer: correctMap[a.question_id] };
-    });
+    // ── Score each question by type ──────────────────────────────────────────
+    const gradedAnswers = [];
+    const dimensionScores = {}; // skill_dimension → [ratio, ratio, ...]
 
-    const score = questionIds.length > 0
-      ? Math.round((correct / questionIds.length) * 100)
+    for (const qId of questionIds) {
+      const q = qMap[qId];
+      if (!q) continue;
+
+      const answer = answers.find((a) => a.question_id === qId);
+      const dim = q.skill_dimension || "general";
+      if (!dimensionScores[dim]) dimensionScores[dim] = [];
+
+      let ratio = 0;
+      let gradedAnswer = { question_id: qId, chosen: answer?.chosen ?? null, time_seconds: answer?.time_seconds ?? 0 };
+
+      if (q.question_type === "tjs_weighted") {
+        // Custom weighted: chosen.points / max_points
+        const opts = q.options || [];
+        const maxPoints = Math.max(...opts.map((o) => o.points ?? 0), 1);
+        const chosen = opts.find((o) => o.key === answer?.chosen);
+        ratio = chosen ? (chosen.points ?? 0) / maxPoints : 0;
+        gradedAnswer.ratio = ratio;
+
+      } else if (q.question_type === "qcm_single") {
+        // Classical: 1 if correct, 0 otherwise
+        ratio = q.correct_answer && answer?.chosen === q.correct_answer ? 1 : 0;
+        gradedAnswer.correct = ratio === 1;
+        gradedAnswer.correct_answer = q.correct_answer;
+
+      } else if (q.question_type === "qcm_multiple") {
+        // Classical MC: (correct selected / total correct) - (wrong selected × 0.5), floor 0
+        const opts = q.options || [];
+        const correctKeys = opts.filter((o) => o.correct).map((o) => o.key);
+        const chosen = Array.isArray(answer?.chosen) ? answer.chosen : [];
+        const correctSelected = chosen.filter((k) => correctKeys.includes(k)).length;
+        const wrongSelected = chosen.filter((k) => !correctKeys.includes(k)).length;
+        ratio = correctKeys.length > 0
+          ? Math.max(0, correctSelected / correctKeys.length - wrongSelected * 0.5)
+          : 0;
+        gradedAnswer.correct_keys = correctKeys;
+        gradedAnswer.ratio = ratio;
+
+      } else if (q.question_type === "open_bars") {
+        // BARS: delegated to AI — skip here, handled in completeOpenTestSession
+        // Still record the answer in gradedAnswers
+        gradedAnswer.text_answer = answer?.text_answer ?? "";
+        // ratio stays 0 until AI scores it
+      }
+
+      dimensionScores[dim].push(ratio);
+      gradedAnswers.push(gradedAnswer);
+    }
+
+    // ── Aggregate: average per dimension, then average across dimensions ─────
+    const dims = Object.values(dimensionScores);
+    const globalRatio = dims.length > 0
+      ? dims.reduce((sum, ratios) => {
+          const dimAvg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+          return sum + dimAvg;
+        }, 0) / dims.length
       : 0;
+    const score = Math.round(globalRatio * 100);
 
-    // Cheat detection: avg response time
+    // ── Cheat detection ──────────────────────────────────────────────────────
     const times = answers.map((a) => a.time_seconds || 0).filter((t) => t > 0);
     const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
-    const suspectedCheat = avgTime > 0 && avgTime < 4; // less than 4s average = suspicious
+    const suspectedCheat = avgTime > 0 && avgTime < 4;
+    const cheatFlags = { avg_response_time: Math.round(avgTime), suspected_cheat: suspectedCheat };
 
-    // Duration check for specific tests
-    let isSlow = false;
-    const totalSeconds = times.reduce((a, b) => a + b, 0);
-    
-    if (session.test_id === "d8b98579-abe2-4c2d-8890-9048b4fb2745") {
-      if (totalSeconds > 480) isSlow = true; // > 8 minutes for Logic Suites
-    } else if (session.test_id === "d79d52e7-ad1e-46bd-930a-3a8a862baca4") {
-      if (totalSeconds > 600) isSlow = true; // > 10 minutes for Num Reasoning
-    } else if (session.test_id === "bbe560bc-650d-4839-89cd-8d0d7ee0d445") {
-      if (totalSeconds > 480) isSlow = true; // > 8 minutes for Logical Deduction
-    } else if (session.test_id === "172f1772-1bfa-4889-968a-3f74821532d1") {
-      if (totalSeconds > 180) isSlow = true; // > 3 minutes for Attention & Speed
+    // ── Check for BARS questions that need AI evaluation ────────────────────
+    const hasBars = (questions || []).some((q) => q.question_type === "open_bars");
+
+    if (hasBars) {
+      // Delegate to BARS scorer then return its score
+      return await completeMixedTestSession(session, questions, gradedAnswers, cheatFlags, supabase);
     }
 
-    // Performance bonus for Attention & Speed: Fast & Accurate
-    let isFastAndAccurate = false;
-    if (session.test_id === "172f1772-1bfa-4889-968a-3f74821532d1") {
-      if (score === 100 && totalSeconds < 90) isFastAndAccurate = true;
-    }
-
-    const cheatFlags = { 
-      avg_response_time: Math.round(avgTime), 
-      suspected_cheat: suspectedCheat,
-      slow_candidate: isSlow,
-      top_performer: isFastAndAccurate
-    };
-
+    // ── Pure classical/TJS test: save and return ─────────────────────────────
     const { error } = await supabase
       .from("candidate_test_sessions")
       .update({
@@ -299,7 +335,7 @@ export async function completeTestSession(sessionId, questionIds) {
 
     if (error) throw error;
 
-    // ★ Déduire 2 crédits tests (idempotent via flag credits_charged_tests)
+    // Deduct credits
     if (session?.candidate_id) {
       const { data: candidateJob } = await supabase
         .from("candidates")
@@ -307,14 +343,134 @@ export async function completeTestSession(sessionId, questionIds) {
         .eq("id", session.candidate_id)
         .single();
       const recruiterId = candidateJob?.jobs?.user_id;
-      if (recruiterId) {
-        await deductCredits(recruiterId, session.candidate_id, "skill_test");
-      }
+      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
     }
 
     return { success: true, score, cheatFlags };
   } catch (err) {
     console.error("completeTestSession error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Internal helper: score a mixed test that includes open_bars questions.
+ * AI scores each BARS question; combined with pre-computed classical/TJS scores.
+ */
+async function completeMixedTestSession(session, questions, gradedAnswers, cheatFlags, supabase) {
+  try {
+    const barsQuestions = questions.filter((q) => q.question_type === "open_bars");
+    const answers = session.answers || [];
+
+    // Build AI batch prompt for BARS questions
+    const barsItems = barsQuestions.map((q) => {
+      const answer = answers.find((a) => a.question_id === q.id);
+      return {
+        question_id: q.id,
+        question: q.statement || "",
+        answer: answer?.text_answer || "(Sans réponse)",
+        bars_dimensions: q.bars_dimensions || [],
+      };
+    });
+
+    const systemPrompt = `Tu es un évaluateur expert en recrutement commercial B2B. Tu reçois une réponse rédigée par un candidat à une question ouverte, accompagnée d'une grille BARS (Behaviorally Anchored Rating Scales).
+
+Pour chaque question, évalue la réponse en utilisant EXACTEMENT les dimensions fournies dans bars_dimensions. Pour chaque dimension, attribue le score (parmi les niveaux disponibles : 0, 1 ou 2) dont la description correspond le mieux à la réponse.
+
+Sois juste et équitable : valorise les réponses qui montrent une compréhension pratique, même imparfaite. Pénalise uniquement les réponses hors sujet, vides ou du verbiage creux.
+
+Réponds UNIQUEMENT avec un JSON valide, format exact :
+{"evaluations": [{"question_id": "...", "dimension_scores": [{"name": "Nom dimension", "score": 0|1|2, "justification": "1 phrase"}], "total_ratio": 0.0 à 1.0}]}`;
+
+    const userPrompt = `Évalue ${barsItems.length} réponse(s) ouverte(s) :\n\n${JSON.stringify(barsItems, null, 2)}`;
+
+    let barsRatios = {}; // question_id → ratio [0,1]
+    let aiFeedback = [];
+
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 2000,
+        temperature: 0,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+
+      const jsonMatch = response.content[0].text.match(/{[\s\S]*}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        for (const ev of (parsed.evaluations || [])) {
+          // Compute ratio from dimension_scores if total_ratio not provided
+          let ratio = ev.total_ratio ?? null;
+          if (ratio === null && ev.dimension_scores) {
+            const dims = ev.dimension_scores;
+            const maxScore = dims.length * 2;
+            const sumScore = dims.reduce((s, d) => s + (d.score ?? 0), 0);
+            ratio = maxScore > 0 ? sumScore / maxScore : 0;
+          }
+          barsRatios[ev.question_id] = Math.max(0, Math.min(1, ratio ?? 0));
+          aiFeedback.push({ question_id: ev.question_id, dimension_scores: ev.dimension_scores, ratio });
+        }
+      }
+    } catch (aiErr) {
+      console.error("BARS AI evaluation error:", aiErr);
+      // Fallback: score 0 for all BARS questions
+    }
+
+    // Update gradedAnswers with BARS ratios
+    const finalAnswers = gradedAnswers.map((ga) => {
+      if (barsRatios[ga.question_id] !== undefined) {
+        return { ...ga, ratio: barsRatios[ga.question_id] };
+      }
+      return ga;
+    });
+
+    // Recompute global score with BARS ratios
+    const dimensionScores = {};
+    for (const q of questions) {
+      const dim = q.skill_dimension || "general";
+      if (!dimensionScores[dim]) dimensionScores[dim] = [];
+      const ga = finalAnswers.find((a) => a.question_id === q.id);
+      const ratio = ga?.ratio ?? 0;
+      dimensionScores[dim].push(ratio);
+    }
+    const dims = Object.values(dimensionScores);
+    const globalRatio = dims.length > 0
+      ? dims.reduce((sum, ratios) => {
+          const dimAvg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+          return sum + dimAvg;
+        }, 0) / dims.length
+      : 0;
+    const score = Math.round(globalRatio * 100);
+
+    const { error } = await supabase
+      .from("candidate_test_sessions")
+      .update({
+        status: "completed",
+        score,
+        answers: finalAnswers,
+        cheat_flags: cheatFlags,
+        ai_feedback: aiFeedback,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", session.id);
+
+    if (error) throw error;
+
+    // Deduct credits
+    if (session?.candidate_id) {
+      const { data: candidateJob } = await supabase
+        .from("candidates")
+        .select("jobs(user_id)")
+        .eq("id", session.candidate_id)
+        .single();
+      const recruiterId = candidateJob?.jobs?.user_id;
+      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
+    }
+
+    return { success: true, score, cheatFlags };
+  } catch (err) {
+    console.error("completeMixedTestSession error:", err);
     return { success: false, error: err.message };
   }
 }
@@ -628,6 +784,38 @@ export async function submitAssessment(candidateId) {
 }
 
 /**
+ * Soumettre une évaluation manuelle pour une réponse vidéo
+ */
+export async function submitManualVideoScore(candidateId, responseId, scoreOutOf5, justification) {
+  try {
+    const supabase = await createClient();
+    
+    // Convert 1-5 to 0-100%
+    const scorePct = Math.round((scoreOutOf5 / 5) * 100);
+
+    const { error } = await supabase
+      .from("video_interview_responses")
+      .update({
+        ai_score: scorePct,
+        ai_feedback: justification || "Évalué manuellement par le recruteur.",
+        status: "evaluated",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", responseId);
+
+    if (error) throw error;
+
+    // Recalculer le score global
+    await submitAssessment(candidateId);
+
+    return { success: true, score: scorePct };
+  } catch (err) {
+    console.error("submitManualVideoScore error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Generate a brief candidate-facing CV feedback (async, non-blocking)
  */
 async function generateCvFeedback(candidateId, candidate) {
@@ -771,7 +959,8 @@ export async function getVideoQuestionLibrary() {
 }
 
 /**
- * Generate video interview questions with Claude based on job context
+ * Generate video interview questions with Claude based on job context.
+ * Produces BARS-based criteria for each question.
  */
 export async function generateVideoQuestions(jobId) {
   try {
@@ -786,54 +975,50 @@ export async function generateVideoQuestions(jobId) {
 
     const criteria = job.extracted_criteria || {};
     const allSkills = [...(criteria.hard_skills || []), ...(criteria.soft_skills || [])];
-    
-    // Filtrer pour ne garder que les compétences non testables (celles qui vont en interview)
-    const interviewSkills = [];
-    allSkills.forEach(skill => {
-      const taxonomyEntry = TAXONOMIE_COMPETENCES.find(c => c.ID === skill.taxonomy_id) || TAXONOMIE_COMPETENCES.find(c => c.Compétence?.toLowerCase() === skill.name?.toLowerCase());
-      if (!taxonomyEntry || taxonomyEntry["Testable objectivement"] !== "Oui") {
-        interviewSkills.push({
-          name: skill.name,
-          definition: taxonomyEntry?.Définition || "Aucune définition disponible"
-        });
-      }
-    });
-
-    const skillsList = interviewSkills.map(s => `- ${s.name} : ${s.definition}`).join("\n");
+    const skillsList = allSkills.map(s => `- ${s.name}`).join("\n");
     const title = job.title || "Poste inconnu";
     const description = job.description?.slice(0, 1000) || "Aucune description fournie";
 
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 2000,
+      max_tokens: 3000,
       temperature: 0.3,
-      system: `Tu es un expert RH. Tu génères des questions d'entretien vidéo one-way pertinentes pour un poste spécifique. Réponds UNIQUEMENT avec un JSON valide.`,
+      system: `Tu es un expert RH sp\u00e9cialis\u00e9 en \u00e9valuation par grilles BARS (Behaviorally Anchored Rating Scales). Tu g\u00e9n\u00e8res des questions d'entretien vid\u00e9o one-way avec des grilles d'\u00e9valuation structur\u00e9es. R\u00e9ponds UNIQUEMENT avec un JSON valide.`,
       messages: [
         {
           role: "user",
           content: `Poste: ${title}
 Description: ${description}
 
-COMPÉTENCES À ÉVALUER EN ENTRETIEN (non testables objectivement, donc non couvertes par les tests techniques) :
-${skillsList || "Aucune compétence spécifique fournie, basez-vous sur la description du poste."}
+COMP\u00c9TENCES CL\u00c9S DU POSTE :
+${skillsList || "Aucune comp\u00e9tence sp\u00e9cifique fournie, basez-vous sur la description du poste."}
 
-RÈGLES :
-1. Génère 4 questions d'entretien vidéo adaptées à ce poste.
-2. Chaque question doit cibler au moins une des compétences listées ci-dessus.
+R\u00c8GLES :
+1. G\u00e9n\u00e8re 4 questions d'entretien vid\u00e9o adapt\u00e9es \u00e0 ce poste.
+2. Chaque question doit cibler au moins une comp\u00e9tence cl\u00e9.
 3. Formule les questions pour qu'elles soient lues telles quelles au candidat (vouvoiement).
-4. Pour chaque question, génère 2 à 3 critères d'évaluation nommés (maximum 5). Chaque critère a un nom court (2-4 mots) et une description précise (1-2 phrases).
+4. Pour chaque question, g\u00e9n\u00e8re 2 \u00e0 3 crit\u00e8res d'\u00e9valuation BARS (maximum 5).
+5. Chaque crit\u00e8re BARS a un nom court (2-4 mots) ET une grille \u00e0 3 niveaux :
+   - Niveau 1 (Insuffisant) : description du comportement d'un candidat faible
+   - Niveau 3 (Attendu) : description du comportement attendu pour le poste
+   - Niveau 5 (Excellent) : description d'un comportement exceptionnel
+   Les descriptions doivent \u00eatre concr\u00e8tes et observables (comportements, pas traits abstraits).
 
-Réponds avec:
+R\u00e9ponds avec:
 {
   "questions": [
     {
-      "text": "La question complète",
+      "text": "La question compl\u00e8te",
       "category": "Motivation|Experience|Soft Skills|Technique",
       "hint": "Conseil pour le candidat (1 phrase)",
       "criteria": [
         {
-          "name": "Nom du critère (2-4 mots)",
-          "description": "Ce que l'IA doit évaluer précisément (1-2 phrases)"
+          "name": "Nom du crit\u00e8re (2-4 mots)",
+          "bars_levels": [
+            { "level": 1, "label": "Insuffisant", "description": "Comportement de niveau 1..." },
+            { "level": 3, "label": "Attendu", "description": "Comportement de niveau 3..." },
+            { "level": 5, "label": "Excellent", "description": "Comportement de niveau 5..." }
+          ]
         }
       ]
     }
@@ -977,6 +1162,27 @@ export async function markVideoInterviewCompleted(candidateId, averageScore) {
     return { success: true };
   } catch (err) {
     console.error("markVideoInterviewCompleted error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Save candidate feedback for the experience
+ */
+export async function saveCandidateFeedback(candidateId, rating, comment) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("candidates")
+      .update({
+        experience_rating: rating,
+        experience_comment: comment || null,
+      })
+      .eq("id", candidateId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("saveCandidateFeedback error:", err);
     return { success: false, error: err.message };
   }
 }

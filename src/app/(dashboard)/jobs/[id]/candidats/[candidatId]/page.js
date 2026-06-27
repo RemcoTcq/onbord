@@ -12,9 +12,11 @@ import {
 const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
 const CATEGORY_LABELS = { C1: "Stratégie IA", C2: "Prompting", C3: "Esprit critique", C4: "Éthique", C5: "Workflow" };
 import {
-  getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
+  getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs, generateConstructiveFeedback
 } from "@/lib/actions/candidate";
+import { submitManualVideoScore } from "@/lib/actions/assessment";
 import EmailModal from "@/components/candidates/EmailModal";
+import FeedbackModal from "@/components/candidates/FeedbackModal";
 import { createClient } from "@/lib/supabase/client";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -52,7 +54,9 @@ export default function CandidateDetailPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [openAiFeedback, setOpenAiFeedback] = useState({});
-
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [manualScores, setManualScores] = useState({});
+  const [submittingScore, setSubmittingScore] = useState(false);
 
   useEffect(() => {
     loadCandidate();
@@ -83,6 +87,9 @@ export default function CandidateDetailPage() {
     const res = await updateCandidateStatus(candidatId, status);
     if (res.success) {
       setCandidate(prev => ({ ...prev, status }));
+      if (status === 'shortlisted' || status === 'rejected') {
+        generateConstructiveFeedback(candidatId); // fire & forget
+      }
     }
     setActionLoading(false);
   }
@@ -95,6 +102,20 @@ export default function CandidateDetailPage() {
       router.push(`/jobs/${jobId}`);
     }
     setActionLoading(false);
+  }
+
+  async function handleManualVideoScore(responseId) {
+    const data = manualScores[responseId];
+    if (!data || !data.score) return;
+    setSubmittingScore(true);
+    const res = await submitManualVideoScore(candidatId, responseId, data.score, data.justification || "");
+    if (res.success) {
+      // Le composant sera rechargé pour refléter les nouveaux scores
+      loadCandidate();
+    } else {
+      alert("Erreur lors de la sauvegarde du score manuel : " + (res.error || ""));
+    }
+    setSubmittingScore(false);
   }
 
 
@@ -801,6 +822,56 @@ export default function CandidateDetailPage() {
                               )}
                             </div>
                           )}
+
+                          {/* Notation Manuelle */}
+                          {(candidate.jobs?.assessment_config?.modules?.video_interview?.evaluation_mode === "manual" || resp.status === "manual_review") && (
+                            <div style={{ marginTop: "1rem", padding: "1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                              <h4 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "12px" }}>
+                                {resp.status === "evaluated" ? "Modifier la note" : "Évaluer cette réponse"}
+                              </h4>
+                              <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                  <div style={{ display: "flex", gap: "4px" }}>
+                                    {[1, 2, 3, 4, 5].map(star => {
+                                      const currentScore = manualScores[resp.id]?.score || (resp.ai_score ? Math.round(resp.ai_score / 20) : 0);
+                                      const isSelected = currentScore >= star;
+                                      return (
+                                        <button 
+                                          key={star}
+                                          onClick={() => setManualScores(prev => ({ ...prev, [resp.id]: { ...prev[resp.id], score: star } }))}
+                                          style={{ background: "transparent", border: "none", cursor: "pointer", color: isSelected ? "#f59e0b" : "#e2e8f0", padding: 0 }}
+                                        >
+                                          <Star size={24} fill={isSelected ? "#f59e0b" : "transparent"} />
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <span style={{ fontSize: "11px", color: "var(--muted-foreground)", textAlign: "center" }}>Score sur 5</span>
+                                </div>
+                                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px", minWidth: "250px" }}>
+                                  <textarea 
+                                    placeholder="Justification de la note (optionnelle mais recommandée)..." 
+                                    className="input-field" 
+                                    rows={2}
+                                    value={manualScores[resp.id]?.justification !== undefined ? manualScores[resp.id].justification : (resp.status === "evaluated" && !resp.ai_criteria_scores ? resp.ai_feedback : "")}
+                                    onChange={e => setManualScores(prev => ({ ...prev, [resp.id]: { ...prev[resp.id], justification: e.target.value } }))}
+                                    style={{ resize: "vertical", fontSize: "13px" }}
+                                  />
+                                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                    <button 
+                                      className="btn btn-primary btn-sm" 
+                                      disabled={!manualScores[resp.id]?.score && !resp.ai_score || submittingScore}
+                                      onClick={() => handleManualVideoScore(resp.id)}
+                                      style={{ padding: "6px 12px", height: "auto" }}
+                                    >
+                                      {submittingScore ? <Loader2 size={14} className="spin" /> : "Valider la note"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       )}
 
@@ -830,6 +901,15 @@ export default function CandidateDetailPage() {
           currentUser={currentUser}
           existingLogs={mailLogs}
           onLogged={() => getMailLogs(jobId).then(res => res.success && setMailLogs(res.logs.filter(l => l.candidate_id === candidatId)))}
+        />
+      )}
+
+      {feedbackModalOpen && candidate && (
+        <FeedbackModal
+          isOpen={feedbackModalOpen}
+          onClose={() => setFeedbackModalOpen(false)}
+          candidateId={candidatId}
+          candidateName={`${candidate.first_name} ${candidate.last_name}`}
         />
       )}
       

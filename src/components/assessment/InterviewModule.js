@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Loader2, Bot, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function InterviewModule({ candidate, job, onComplete, onBack }) {
+export default function InterviewModule({ candidate, job, recruiter, onComplete, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -12,6 +12,21 @@ export default function InterviewModule({ candidate, job, onComplete, onBack }) 
   const [isTyping, setIsTyping] = useState(false);
   const [interviewEnded, setInterviewEnded] = useState(false);
   const [aiError, setAiError] = useState(false);
+  const lastMessageRef = useRef(null);
+
+  const logoUrl = recruiter?.company_logo_url || null;
+  const companyName = recruiter?.company_name || job?.company || "l'entreprise";
+
+  // Logo component
+  const Logo = () => (
+    <div style={{ padding: "1rem 0", display: "flex", alignItems: "center", justifyContent: "flex-start", width: "100%", marginBottom: "1rem" }}>
+      {logoUrl ? (
+        <img src={logoUrl} alt={companyName} style={{ height: "32px", objectFit: "contain" }} />
+      ) : (
+        <h2 style={{ fontSize: "1.25rem", fontWeight: "700", margin: 0 }}>{companyName}</h2>
+      )}
+    </div>
+  );
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const hasStarted = useRef(false);
@@ -168,12 +183,16 @@ Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de list
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", display: "flex" }}>
           <ArrowLeft size={18} />
         </button>
-        <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bot size={20} />
-        </div>
-        <div>
-          <h1 style={{ fontSize: "14px", fontWeight: "700" }}>Leo — {job?.title || "Poste"}</h1>
-          <p style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Recruteur IA · Onbord</p>
+        {logoUrl ? (
+          <img src={logoUrl} alt={companyName} style={{ height: "36px", width: "36px", objectFit: "contain", borderRadius: "4px" }} />
+        ) : (
+          <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Bot size={20} />
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: "14px", fontWeight: "700" }}>{companyName}</h1>
+          <p style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Entretien écrit · IA</p>
         </div>
       </div>
 
