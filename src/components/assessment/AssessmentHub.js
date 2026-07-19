@@ -13,7 +13,10 @@ import { getCandidateTestSessions, submitAssessment, passQualifyingQuestions } f
 import { createClient } from "@/lib/supabase/client";
 
 // Statuts qui ne doivent plus être rétrogradés
-const STATUS_RANK = { invited: 0, in_progress: 1, termine: 2, soumis: 3 };
+// `interview_completed` (entretien texte terminé) est un état intermédiaire : il doit
+// se situer au-dessus de in_progress pour ne pas être rétrogradé, et sous termine.
+// Son absence lui donnait le rang -1, donc n'importe quel statut pouvait l'écraser.
+const STATUS_RANK = { invited: 0, in_progress: 1, interview_completed: 2, termine: 3, soumis: 4 };
 function shouldUpgradeStatus(currentStatus, newStatus) {
   return (STATUS_RANK[newStatus] ?? -1) > (STATUS_RANK[currentStatus] ?? -1);
 }

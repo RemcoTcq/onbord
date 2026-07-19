@@ -31,6 +31,7 @@ function getStatusBadge(status) {
   const map = {
     invited:       { label: "Invité",       className: "badge-primary" },
     in_progress:   { label: "En cours",     className: "badge-warning" },
+    interview_completed: { label: "Entretien réalisé", className: "badge-outline" },
     termine:       { label: "Terminé",      className: "badge-outline" },
     soumis:        { label: "Soumis",       className: "badge-success" },
     shortlisted:   { label: "Valider",      className: "badge-success" },
