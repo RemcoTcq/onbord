@@ -2,12 +2,67 @@ import anthropic from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
 import { aggregateVideoScore, computeGlobalScore } from "@/lib/scoring";
 
+// ─── Construction du prompt système côté serveur ──────────────────────────────
+// Portée depuis InterviewModule (client) : le client ne construit plus le prompt,
+// ce qui empêche toute manipulation (injection, contournement du scoring).
+function buildInterviewSystemPrompt(candidate, job) {
+  const criteria = job?.extracted_criteria || {};
+  const aiConfig = job?.ai_interview_config || {};
+  const customQuestions = criteria.custom_questions || aiConfig.questions || [];
+  const contextAbout = aiConfig.context_about || "";
+  const contextWhy = aiConfig.context_why || "";
+  const contextMatters = aiConfig.context_what_matters || "";
+
+  const customQuestionsSection = customQuestions.length > 0
+    ? `\nQuestions obligatoires à poser :\n${customQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
+    : "";
+
+  const contextSection = [contextAbout, contextWhy, contextMatters].filter(Boolean).length > 0
+    ? `\nContexte :\n${[contextAbout && `À propos : ${contextAbout}`, contextWhy && `Pourquoi ce recrutement : ${contextWhy}`, contextMatters && `Ce qui compte : ${contextMatters}`].filter(Boolean).join("\n")}`
+    : "";
+
+  const intro = (aiConfig.intro_text || "").replace("{title}", criteria.title || job?.title || "ce poste");
+
+  return `Vous êtes Leo, recruteur IA chez Onbord. Vous menez un entretien pour le poste : ${criteria.title || job?.title || "Poste"}.
+Candidat : ${candidate.first_name} ${candidate.last_name}.
+Compétences techniques requises : ${criteria.hard_skills?.map((s) => s.name).join(", ") || "Non spécifié"}.
+Soft skills à évaluer : ${criteria.soft_skills?.map((s) => s.name).join(", ") || "Non spécifié"}.${contextSection}${customQuestionsSection}
+${intro ? `\nMessage d'introduction à utiliser pour votre premier message : "${intro}"` : ""}
+
+Règles d'entretien :
+1. Présentez-vous brièvement.
+2. Posez UNE SEULE question à la fois.
+3. ÉVALUEZ les compétences techniques MAIS AUSSI le comportement.
+4. Posez des questions anti-triche : exemples précis et personnels.
+5. Challengez les réponses trop vagues.
+6. Soyez professionnel et bienveillant.
+
+Après 6-8 échanges, terminez poliment avec le mot-clé [INTERVIEW_TERMINÉE] à la fin.
+Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de listes.`;
+}
+
 export async function POST(request) {
   try {
-    const { system, messages, candidateId } = await request.json();
+    // `system` et `candidateId` bruts du client ne sont plus dignes de confiance.
+    // On identifie le candidat par son token (fiable) ; `candidateId` reste accepté
+    // en repli le temps de la transition de déploiement (cf. Phase B : à retirer).
+    const { token, candidateId: legacyCandidateId, messages } = await request.json();
+
+    const supabase = await createClient();
+
+    let query = supabase.from("candidates").select("*, jobs(*)");
+    if (token) query = query.eq("interview_token", token);
+    else if (legacyCandidateId) query = query.eq("id", legacyCandidateId);
+    else return Response.json({ error: "token requis." }, { status: 400 });
+
+    const { data: candidate } = await query.single();
+    if (!candidate) return Response.json({ error: "Candidat introuvable." }, { status: 404 });
+
+    // Prompt système reconstruit côté serveur — tout `system` envoyé par le client est ignoré.
+    const system = buildInterviewSystemPrompt(candidate, candidate.jobs);
 
     // Claude requires at least one user message
-    const finalMessages = messages.length === 0
+    const finalMessages = (!messages || messages.length === 0)
       ? [{ role: "user", content: "Bonjour, je suis prêt pour l'entretien." }]
       : messages.map(m => ({ role: m.role, content: m.content }));
 
@@ -15,16 +70,16 @@ export async function POST(request) {
       model: "claude-sonnet-4-6", // Sonnet = much cheaper than Opus
       max_tokens: 600,            // Limit response length for conciseness
       temperature: 0.7,
-      system: system,
+      system,
       messages: finalMessages,
     });
 
     const content = response.content[0].text;
 
     // If interview just ended, score it
-    if (content.includes("[INTERVIEW_TERMINÉE]") && candidateId) {
+    if (content.includes("[INTERVIEW_TERMINÉE]")) {
       try {
-        await scoreInterview(candidateId, finalMessages, content);
+        await scoreInterview(candidate.id, finalMessages, content);
       } catch (scoreErr) {
         console.error("Interview scoring failed:", scoreErr);
         // Don't block the response, scoring can be retried

@@ -83,46 +83,14 @@ export default function InterviewModule({ candidate, job, recruiter, onComplete,
   }
 
   async function sendToAI(currentMessages) {
-    const criteria = job?.extracted_criteria || {};
-    const aiConfig = job?.ai_interview_config || {};
-    const customQuestions = criteria.custom_questions || aiConfig.questions || [];
-    const contextAbout = aiConfig.context_about || "";
-    const contextWhy = aiConfig.context_why || "";
-    const contextMatters = aiConfig.context_what_matters || "";
-
-    const customQuestionsSection = customQuestions.length > 0
-      ? `\nQuestions obligatoires à poser :\n${customQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
-      : "";
-
-    const contextSection = [contextAbout, contextWhy, contextMatters].filter(Boolean).length > 0
-      ? `\nContexte :\n${[contextAbout && `À propos : ${contextAbout}`, contextWhy && `Pourquoi ce recrutement : ${contextWhy}`, contextMatters && `Ce qui compte : ${contextMatters}`].filter(Boolean).join("\n")}`
-      : "";
-
-    const intro = (aiConfig.intro_text || "").replace("{title}", criteria.title || job?.title || "ce poste");
-
-    const systemPrompt = `Vous êtes Leo, recruteur IA chez Onbord. Vous menez un entretien pour le poste : ${criteria.title || job?.title || "Poste"}.
-Candidat : ${candidate.first_name} ${candidate.last_name}.
-Compétences techniques requises : ${criteria.hard_skills?.map((s) => s.name).join(", ") || "Non spécifié"}.
-Soft skills à évaluer : ${criteria.soft_skills?.map((s) => s.name).join(", ") || "Non spécifié"}.${contextSection}${customQuestionsSection}
-${intro ? `\nMessage d'introduction à utiliser pour votre premier message : "${intro}"` : ""}
-
-Règles d'entretien :
-1. Présentez-vous brièvement.
-2. Posez UNE SEULE question à la fois.
-3. ÉVALUEZ les compétences techniques MAIS AUSSI le comportement.
-4. Posez des questions anti-triche : exemples précis et personnels.
-5. Challengez les réponses trop vagues.
-6. Soyez professionnel et bienveillant.
-
-Après 6-8 échanges, terminez poliment avec le mot-clé [INTERVIEW_TERMINÉE] à la fin.
-Formatage : texte brut uniquement, pas d'astérisques, pas d'emojis, pas de listes.`;
-
     setIsTyping(true);
     try {
       const response = await fetch("/api/interview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: systemPrompt, messages: currentMessages, candidateId: candidate.id }),
+        // Le prompt système est désormais construit côté serveur ; on n'envoie que
+        // le token (identité fiable du candidat). Voir /api/interview/route.js.
+        body: JSON.stringify({ token: candidate.interview_token, messages: currentMessages }),
       });
       if (!response.ok) throw new Error("Erreur IA");
       const data = await response.json();
