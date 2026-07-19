@@ -261,28 +261,65 @@ async function updateGlobalScores(supabase, candidateId) {
 // ─── POST handler ─────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { responseId, videoUrl, questionText, jobContext } = body;
-    // Support both new criteria[] and legacy evaluationCriteria string
-    const criteria = body.criteria && body.criteria.length > 0
-      ? body.criteria
-      : normalizeCriteria({ evaluation_criteria: body.evaluationCriteria });
+    const { token, responseId } = await request.json();
+    // NB : videoUrl / questionText / criteria / jobContext éventuellement envoyés par
+    // le client sont volontairement IGNORÉS. Tout est récupéré côté serveur depuis la
+    // DB et le config du job, ce qui empêche l'injection d'une URL à transcrire ou de
+    // critères d'évaluation laxistes.
 
-    if (!responseId || !videoUrl) {
-      return Response.json({ error: "responseId and videoUrl are required" }, { status: 400 });
+    if (!responseId) {
+      return Response.json({ error: "responseId is required" }, { status: 400 });
     }
 
     const supabase = await createClient();
 
-    // Get candidate ID
+    // Ligne de réponse = source fiable pour l'URL vidéo, le job et l'index de question
     const { data: respData } = await supabase
       .from("video_interview_responses")
-      .select("candidate_id")
+      .select("candidate_id, job_id, question_index, question_text, evaluation_criteria, video_url")
       .eq("id", responseId)
       .single();
 
     if (!respData?.candidate_id) {
       throw new Error("Response not found");
+    }
+
+    // Vérification de propriété : le token (si fourni) doit appartenir au candidat
+    // propriétaire de la réponse. Fallback sans token le temps de la transition (Phase B).
+    if (token) {
+      const { data: owner } = await supabase
+        .from("candidates")
+        .select("id")
+        .eq("interview_token", token)
+        .single();
+      if (!owner || owner.id !== respData.candidate_id) {
+        return Response.json({ error: "Accès refusé." }, { status: 403 });
+      }
+    }
+
+    // Question + critères depuis le config du job (défini par le recruteur = fiable),
+    // via le question_index stocké sur la réponse. Reproduit exactement ce que le
+    // client envoyait auparavant, mais sans lui faire confiance.
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("assessment_config, extracted_criteria, title")
+      .eq("id", respData.job_id)
+      .single();
+
+    const vq = job?.assessment_config?.modules?.video_interview?.questions?.[respData.question_index] || {};
+    const questionText = vq.text || respData.question_text || "";
+    const criteria = (vq.criteria && vq.criteria.length > 0)
+      ? vq.criteria
+      : normalizeCriteria({ evaluation_criteria: vq.evaluation_criteria || respData.evaluation_criteria });
+    const jobContext = {
+      title: job?.title,
+      hard_skills: job?.extracted_criteria?.hard_skills?.map((s) => s.name),
+      soft_skills: job?.extracted_criteria?.soft_skills?.map((s) => s.name),
+    };
+    const videoUrl = respData.video_url;
+
+    if (!videoUrl) {
+      return Response.json({ error: "Aucune vidéo enregistrée pour cette réponse." }, { status: 400 });
     }
 
     // Update status to transcribing

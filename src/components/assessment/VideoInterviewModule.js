@@ -271,29 +271,13 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
       await updateVideoResponseAfterUpload(responseId, filePath, videoUrl, duration);
       setUploadProgress(80);
 
-      // Trigger transcription + evaluation (non-blocking, fire and forget)
-      // Send structured criteria[] for per-criterion scoring
-      const questionCriteria = question.criteria && question.criteria.length > 0
-        ? question.criteria
-        : (question.evaluation_criteria
-          ? [{ id: "legacy_0", name: "Évaluation globale", description: question.evaluation_criteria, weight: 1, source: "manual" }]
-          : [{ id: "fallback_0", name: "Pertinence générale", description: "Pertinence, clarté, structure, exemples concrets", weight: 1, source: "manual" }]
-        );
-
+      // Déclenche transcription + évaluation (fire and forget). Le serveur récupère
+      // l'URL vidéo, la question et les critères depuis la DB et le config du job ;
+      // le client n'envoie que le token (identité fiable) et l'id de la réponse.
       fetch("/api/video-interview", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          responseId,
-          videoUrl,
-          questionText: question.text,
-          criteria: questionCriteria,
-          jobContext: {
-            title: job.title,
-            hard_skills: job.extracted_criteria?.hard_skills?.map(s => s.name),
-            soft_skills: job.extracted_criteria?.soft_skills?.map(s => s.name),
-          },
-        }),
+        body: JSON.stringify({ token: candidate.interview_token, responseId }),
       });
 
       setUploadProgress(100);
