@@ -28,8 +28,19 @@ export async function createClient() {
 }
 
 export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  // Aucun repli sur la clé anon : celle-ci est soumise à RLS, ce qui ferait échouer
+  // SILENCIEUSEMENT les opérations admin (crédits, quotas, lectures inter-utilisateurs)
+  // au lieu de signaler une configuration incorrecte. Mieux vaut échouer franchement.
+  if (!serviceRoleKey) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY absente : impossible d'exécuter une opération admin " +
+      "(crédits, quotas, lectures inter-utilisateurs). Renseignez la vraie clé " +
+      "service_role dans .env.local — une valeur placeholder est tout aussi invalide. " +
+      "Aucun repli sur la clé anon n'est effectué."
+    );
+  }
+
+  return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey);
 }
