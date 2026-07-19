@@ -1,5 +1,6 @@
 import anthropic from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
+import { aggregateVideoScore, computeGlobalScore } from "@/lib/scoring";
 
 // ─── Rétrocompatibilité : normalise les critères (string → array) ─────────────
 function normalizeCriteria(question) {
@@ -232,54 +233,20 @@ async function updateGlobalScores(supabase, candidateId) {
   const interviewEnabled = modules.ai_interview?.enabled ?? candidate.jobs?.ai_interview_config?.enabled ?? false;
   const videoEnabled = modules.video_interview?.enabled ?? false;
 
-  let scoreVideo = null;
-  let videoCompleteness = null;
-
   const { data: videoResps } = await supabase
     .from("video_interview_responses")
     .select("ai_score, status")
     .eq("candidate_id", candidateId);
 
-  if (videoResps && videoResps.length > 0) {
-    const evaluated = videoResps.filter(r => r.status === "evaluated" && r.ai_score != null);
-    const total = videoResps.length;
+  const { scoreVideo, videoCompleteness } = aggregateVideoScore(videoResps);
 
-    videoCompleteness = {
-      evaluated: evaluated.length,
-      total,
-      is_complete: evaluated.length === total,
-    };
-
-    if (evaluated.length > 0) {
-      scoreVideo = Math.round(
-        evaluated.reduce((sum, r) => sum + r.ai_score, 0) / evaluated.length
-      );
-    }
-  }
-
-  // Score global : vidéo comptabilisée SEULEMENT si toutes les questions sont évaluées
-  const videoForGlobal = (videoCompleteness?.is_complete && scoreVideo != null)
-    ? scoreVideo
-    : null;
-
-  const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
-  const activeWeights = {};
-  if (cvEnabled && candidate.score_cv != null) activeWeights.cv = baseWeights.cv;
-  if (testsEnabled && candidate.score_tests != null) activeWeights.tests = baseWeights.tests;
-  if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
-  if (videoEnabled && videoForGlobal != null) activeWeights.video = baseWeights.video;
-
-  const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
-
-  let scoreGlobal = null;
-  if (totalBase > 0) {
-    let weighted = 0;
-    if (activeWeights.cv) weighted += (candidate.score_cv * activeWeights.cv) / totalBase;
-    if (activeWeights.tests) weighted += (candidate.score_tests * activeWeights.tests) / totalBase;
-    if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
-    if (activeWeights.video) weighted += (videoForGlobal * activeWeights.video) / totalBase;
-    scoreGlobal = Math.round(weighted);
-  }
+  // Score global — source unique : computeGlobalScore (formule proportionnelle)
+  const scoreGlobal = computeGlobalScore({
+    cvEnabled,        scoreCv: candidate.score_cv,
+    testsEnabled,     scoreTests: candidate.score_tests,
+    interviewEnabled, scoreInterview: candidate.score_interview,
+    videoEnabled,     scoreVideo, videoCompleteness,
+  });
 
   await supabase
     .from("candidates")

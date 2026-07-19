@@ -1,5 +1,6 @@
 import anthropic from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
+import { aggregateVideoScore, computeGlobalScore } from "@/lib/scoring";
 
 export async function POST(request) {
   try {
@@ -121,10 +122,32 @@ Répondez UNIQUEMENT avec un JSON valide :
 
   const evaluation = JSON.parse(jsonMatch[0].replace(/[\u0000-\u001F]+/g, " "));
 
-  // Compute global score (weighted: 40% CV + 60% interview)
-  const scoreCv = candidate.score_cv || 0;
   const scoreInterview = evaluation.score;
-  const scoreGlobal = Math.round(scoreCv * 0.4 + scoreInterview * 0.6);
+
+  // Score global — source unique : computeGlobalScore (formule proportionnelle),
+  // alignée sur submitAssessment et la route vidéo (fin de l'ancien calcul 40/60
+  // qui ignorait tests et vidéo et divergeait des autres chemins).
+  const assessmentConfig = candidate.jobs?.assessment_config || {};
+  const modules = assessmentConfig.modules || {};
+  const cvEnabled = modules.cv_scoring?.enabled ?? true;
+  const testsEnabled = modules.skills_tests?.enabled ?? false;
+  const interviewEnabled = modules.ai_interview?.enabled
+    ?? candidate.jobs?.ai_interview_config?.enabled
+    ?? false;
+  const videoEnabled = modules.video_interview?.enabled ?? false;
+
+  const { data: videoResps } = await supabase
+    .from("video_interview_responses")
+    .select("ai_score, status")
+    .eq("candidate_id", candidateId);
+  const { scoreVideo, videoCompleteness } = aggregateVideoScore(videoResps);
+
+  const scoreGlobal = computeGlobalScore({
+    cvEnabled,        scoreCv: candidate.score_cv,
+    testsEnabled,     scoreTests: candidate.score_tests,
+    interviewEnabled, scoreInterview,
+    videoEnabled,     scoreVideo, videoCompleteness,
+  });
 
   // Update candidate in DB
   await supabase
