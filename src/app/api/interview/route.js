@@ -82,7 +82,14 @@ export async function POST(request) {
         await scoreInterview(candidate.id, finalMessages, content);
       } catch (scoreErr) {
         console.error("Interview scoring failed:", scoreErr);
-        // Don't block the response, scoring can be retried
+        // Échec d'évaluation (JSON illisible, erreur API…) : on bascule explicitement
+        // en revue manuelle plutôt que de laisser le candidat sans score ni alerte.
+        try {
+          await flagInterviewForManualReview(supabase, candidate.id, scoreErr.message);
+        } catch (flagErr) {
+          console.error("Could not flag interview for manual review:", flagErr);
+        }
+        // On ne bloque pas la réponse au candidat : l'entretien se termine normalement.
       }
     }
 
@@ -94,6 +101,24 @@ export async function POST(request) {
       { status: 500 }
     );
   }
+}
+
+// ─── Bascule en revue manuelle ────────────────────────────────────────────────
+// Réplique le comportement de la route vidéo : quand l'évaluation IA échoue, on ne
+// laisse pas le candidat sans score ET sans signal. Le recruteur est informé via
+// interview_summary, affiché sur la fiche candidat. `score_interview` n'est pas
+// touché (il reste null), donc la pondération proportionnelle exclut simplement ce
+// module — mais l'absence devient visible au lieu d'être silencieuse.
+async function flagInterviewForManualReview(supabase, candidateId, reason) {
+  await supabase
+    .from("candidates")
+    .update({
+      interview_summary:
+        "⚠️ Évaluation automatique de l'entretien indisponible — revue manuelle requise. " +
+        `La transcription reste consultable. (Motif technique : ${reason})`,
+      interview_recommendation: "manual_review",
+    })
+    .eq("id", candidateId);
 }
 
 async function scoreInterview(candidateId, messages, lastAiMessage) {
@@ -170,9 +195,10 @@ Répondez UNIQUEMENT avec un JSON valide :
   const scoreText = scoringResponse.content[0].text;
   const jsonMatch = scoreText.match(/\{[\s\S]*\}/);
 
+  // Ne jamais abandonner silencieusement : on remonte l'erreur pour que l'appelant
+  // bascule l'entretien en revue manuelle (même pattern que la route vidéo).
   if (!jsonMatch) {
-    console.error("Interview scoring: no JSON found", scoreText);
-    return;
+    throw new Error("aucun JSON exploitable dans la réponse d'évaluation de l'IA");
   }
 
   const evaluation = JSON.parse(jsonMatch[0].replace(/[\u0000-\u001F]+/g, " "));
