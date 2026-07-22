@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
-import { deductCredits } from "../utils/limits";
+import { deductCredits, chargeCredits, planSetupCharges } from "../utils/limits";
 import { aggregateVideoScore, computeGlobalScore } from "../scoring";
 import { filterNonTestableSkills } from "../constants/taxonomie";
 
@@ -446,15 +446,8 @@ export async function completeTestSession(sessionId, questionIds) {
     if (error) throw error;
 
     // Deduct credits
-    if (session?.candidate_id) {
-      const { data: candidateJob } = await supabase
-        .from("candidates")
-        .select("jobs(user_id)")
-        .eq("id", session.candidate_id)
-        .single();
-      const recruiterId = candidateJob?.jobs?.user_id;
-      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
-    }
+    // Note pricing : les tests de compétences sont facturés une seule fois à l'ajout
+    // du module (charge "setup", cf. saveAssessmentConfig), et non plus par candidat.
 
     return { success: true, score, cheatFlags };
   } catch (err) {
@@ -568,15 +561,8 @@ Réponds UNIQUEMENT avec un JSON valide, format exact :
     if (error) throw error;
 
     // Deduct credits
-    if (session?.candidate_id) {
-      const { data: candidateJob } = await supabase
-        .from("candidates")
-        .select("jobs(user_id)")
-        .eq("id", session.candidate_id)
-        .single();
-      const recruiterId = candidateJob?.jobs?.user_id;
-      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
-    }
+    // Note pricing : les tests de compétences sont facturés une seule fois à l'ajout
+    // du module (charge "setup", cf. saveAssessmentConfig), et non plus par candidat.
 
     return { success: true, score, cheatFlags };
   } catch (err) {
@@ -699,15 +685,8 @@ async function completePersonalityTestSession(session, questions, cheatFlags, su
     if (error) throw error;
 
     // Deduct credits
-    if (session?.candidate_id) {
-      const { data: candidateJob } = await supabase
-        .from("candidates")
-        .select("jobs(user_id)")
-        .eq("id", session.candidate_id)
-        .single();
-      const recruiterId = candidateJob?.jobs?.user_id;
-      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
-    }
+    // Note pricing : les tests de compétences sont facturés une seule fois à l'ajout
+    // du module (charge "setup", cf. saveAssessmentConfig), et non plus par candidat.
 
     return { success: true, score: globalScore, traitScores, validityFlags, cheatFlags };
   } catch (err) {
@@ -850,18 +829,8 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, dans ce for
 
     if (error) throw error;
 
-    // ★ Déduire 2 crédits tests (idempotent — même flag que completeTestSession)
-    if (session?.candidate_id) {
-      const { data: candidateJob } = await supabase
-        .from("candidates")
-        .select("jobs(user_id)")
-        .eq("id", session.candidate_id)
-        .single();
-      const recruiterId = candidateJob?.jobs?.user_id;
-      if (recruiterId) {
-        await deductCredits(recruiterId, session.candidate_id, "skill_test");
-      }
-    }
+    // Note pricing : les tests de compétences sont facturés une seule fois à l'ajout
+    // du module (charge "setup", cf. saveAssessmentConfig), et non plus par candidat.
 
     return { success: true, score };
   } catch (err) {
@@ -976,15 +945,17 @@ export async function submitAssessment(candidateId) {
       generateCvFeedback(candidateId, candidate).catch(console.error);
     }
 
-    // ★ Déduire crédits interview texte
-    if (interviewEnabled && candidate.score_interview != null) {
+    // ★ Déduire les crédits "parcours complet" : 2 crédits par candidat qui soumet
+    // son évaluation, quel que soit le détail des modules. Idempotent par candidat
+    // (flag credits_charged_tests dans deductCredits).
+    {
       const { data: job } = await supabase
         .from("jobs")
         .select("user_id")
         .eq("id", candidate.job_id)
         .single();
       if (job?.user_id) {
-        await deductCredits(job.user_id, candidateId, "text_interview");
+        await deductCredits(job.user_id, candidateId, "candidate_completion");
       }
     }
 
@@ -1090,6 +1061,31 @@ export async function saveAssessmentConfig(jobId, config) {
         }
       }
     }
+
+    // ── Charges "setup" (idempotentes via assessment_config._charged) ──
+    // Registre lu depuis la DB (jamais depuis le client). On facture uniquement les
+    // nouveaux tests de compétences (4 cr/test) et le module vidéo (6 cr), une seule
+    // fois par offre. Débité au moment de la sauvegarde de l'offre.
+    const { data: existingJob } = await supabase
+      .from("jobs")
+      .select("assessment_config")
+      .eq("id", jobId)
+      .eq("user_id", user.id)
+      .single();
+
+    const existingLedger = existingJob?.assessment_config?._charged || { tests: [], video: false };
+    const ledger = { tests: [...existingLedger.tests], video: !!existingLedger.video };
+
+    for (const item of planSetupCharges(existingLedger, config)) {
+      const res = await chargeCredits(user.id, item.cost);
+      // Marqué comme facturé seulement si le débit a réussi (ou compte admin/gratuit) ;
+      // sinon on retentera à la prochaine sauvegarde (crédits insuffisants).
+      if (res.success) {
+        if (item.type === "assessment_setup") ledger.tests.push(item.testId);
+        if (item.type === "video_setup") ledger.video = true;
+      }
+    }
+    config._charged = ledger;
 
     const { error } = await supabase
       .from("jobs")
@@ -1262,10 +1258,14 @@ R\u00e9ponds avec:
 export async function saveVideoInterviewConfig(jobId, videoConfig) {
   try {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Non authentifié");
+
     const { data: job } = await supabase
       .from("jobs")
       .select("assessment_config")
       .eq("id", jobId)
+      .eq("user_id", user.id)
       .single();
 
     const existingConfig = job?.assessment_config || { modules: {} };
@@ -1280,10 +1280,23 @@ export async function saveVideoInterviewConfig(jobId, videoConfig) {
       },
     };
 
+    // Charge setup vidéo (6 cr), une seule fois par offre, via le registre partagé.
+    const existingLedger = existingConfig._charged || { tests: [], video: false };
+    const ledger = { tests: [...existingLedger.tests], video: !!existingLedger.video };
+    for (const item of planSetupCharges(existingLedger, newConfig)) {
+      const res = await chargeCredits(user.id, item.cost);
+      if (res.success) {
+        if (item.type === "assessment_setup") ledger.tests.push(item.testId);
+        if (item.type === "video_setup") ledger.video = true;
+      }
+    }
+    newConfig._charged = ledger;
+
     const { error } = await supabase
       .from("jobs")
       .update({ assessment_config: newConfig })
-      .eq("id", jobId);
+      .eq("id", jobId)
+      .eq("user_id", user.id);
 
     if (error) throw error;
     return { success: true };
