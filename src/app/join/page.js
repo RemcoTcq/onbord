@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { claimInvitePlan } from "@/lib/actions/usage";
 
 function JoinForm() {
   const searchParams = useSearchParams();
@@ -75,18 +76,13 @@ function JoinForm() {
 
       if (signUpError) throw signUpError;
 
-      // 2. Set plan on user row
+      // 2. The invite token validation and plan assignment will be handled by claimInvitePlan
       if (authData.user) {
-        await supabase
-          .from("users")
-          .update({ plan: tokenData.plan })
-          .eq("id", authData.user.id);
-
-        // 3. Mark token as used
-        await supabase
-          .from("invite_tokens")
-          .update({ used: true, used_by: authData.user.id })
-          .eq("id", tokenData.id);
+        // Just call the secure action which handles token validation, user_usage creation, and users.plan update
+        const res = await claimInvitePlan(tokenData.id);
+        if (!res.success) {
+          throw new Error(res.error || "Erreur lors de l'attribution du plan.");
+        }
       }
 
       // 4. Redirect to dashboard
@@ -99,10 +95,10 @@ function JoinForm() {
   };
 
   const PLAN_LABELS = {
-    beta: { label: "Beta", color: "#f59e0b" },
     core: { label: "Core", color: "var(--primary)" },
     pro: { label: "Pro", color: "#8b5cf6" },
     custom: { label: "Custom", color: "#1e293b" },
+    admin: { label: "Admin", color: "#1e293b" },
   };
 
   if (loading) {

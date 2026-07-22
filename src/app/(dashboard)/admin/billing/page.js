@@ -9,10 +9,10 @@ import { isAdmin as checkAdmin } from "@/lib/utils/admin";
 import { PLANS, CREDIT_PACKS } from "@/lib/constants/plans";
 
 const PLAN_COLORS = {
-  beta: { bg: "#fef3c7", color: "#92400e", label: "Beta" },
   core: { bg: "#e0e7ff", color: "#4338ca", label: "Core" },
   pro: { bg: "#ede9fe", color: "#6d28d9", label: "Pro" },
   custom: { bg: "#dcfce7", color: "#166534", label: "Custom" },
+  admin: { bg: "#1e293b", color: "#ffffff", label: "Admin" },
 };
 
 export default function AdminBillingPage() {

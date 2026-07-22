@@ -72,11 +72,6 @@ export default function BillingPage() {
               }}>
                 {info.planLabel}
               </span>
-              {info.plan === "beta" && (
-                <span style={{ fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px", background: "#fef3c7", color: "#92400e" }}>
-                  ACCÈS BETA
-                </span>
-              )}
             </div>
             {planDetails && (
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>

@@ -106,10 +106,10 @@ export default function AdminPage() {
   }
 
   const PLAN_COLORS = {
-    beta: { bg: "#fef3c7", color: "#92400e" },
     core: { bg: "#e0e7ff", color: "#4338ca" },
     pro: { bg: "#ede9fe", color: "#6d28d9" },
     custom: { bg: "#f1f5f9", color: "#1e293b" },
+    admin: { bg: "#1e293b", color: "#ffffff" },
   };
 
   return (
@@ -148,11 +148,10 @@ export default function AdminPage() {
               background: "var(--background)", fontSize: "14px", fontWeight: "600",
               color: "var(--foreground)", cursor: "pointer", flex: 1
             }}
-          >
-            <option value="beta">Beta</option>
             <option value="core">Core</option>
             <option value="pro">Pro</option>
             <option value="custom">Custom</option>
+            <option value="admin">Admin</option>
           </select>
         </div>
         <button

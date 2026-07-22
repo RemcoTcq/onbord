@@ -10,7 +10,15 @@ import {
   checkQuota,
   incrementUsage,
 } from "../utils/limits";
-import { createClient } from "../supabase/server";
+import { createClient, createAdminClient } from "../supabase/server";
+import { isAdmin } from "../utils/admin";
+
+/** Vérifie que l'appelant est bien admin. Renvoie l'user si oui, sinon null. */
+async function requireAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return isAdmin(user) ? user : null;
+}
 
 export { checkQuota, incrementUsage }; // rétrocompatibilité
 
@@ -81,6 +89,7 @@ export async function getUserCreditInfo() {
  */
 export async function adminAddCredits(targetUserId, amount) {
   try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
     return await addCredits(targetUserId, amount);
   } catch (error) {
     console.error("adminAddCredits error:", error);
@@ -93,9 +102,48 @@ export async function adminAddCredits(targetUserId, amount) {
  */
 export async function adminChangePlan(targetUserId, newPlan) {
   try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
     return await changePlan(targetUserId, newPlan);
   } catch (error) {
     console.error("adminChangePlan error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Applique le plan d'une invitation à l'utilisateur connecté (fin d'inscription).
+ * Le plan fait foi côté serveur : il est relu depuis le token d'invitation (le client
+ * ne choisit pas son plan). Alloue les crédits et consomme le token.
+ */
+export async function claimInvitePlan(tokenId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const admin = createAdminClient();
+    const { data: token } = await admin
+      .from("invite_tokens")
+      .select("id, plan, used")
+      .eq("id", tokenId)
+      .single();
+
+    if (!token || token.used) {
+      return { success: false, error: "Invitation invalide ou déjà utilisée" };
+    }
+
+    const plan = token.plan || "core";
+    const res = await changePlan(user.id, plan); // alloue plan + crédits sur user_usage
+    if (!res.success) return res;
+
+    await admin
+      .from("invite_tokens")
+      .update({ used: true, used_by: user.id })
+      .eq("id", tokenId);
+
+    return { success: true, plan };
+  } catch (error) {
+    console.error("claimInvitePlan error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }

@@ -1,16 +1,16 @@
 export const PLANS = {
-  beta: {
-    label: "Beta",
-    creditsPerMonth: 170,
+  admin: {
+    label: "Admin",
+    creditsPerMonth: 999999,
     priceMonthly: 0,
     priceAnnual: 0,
-    extraCreditPrice: 3,
+    extraCreditPrice: 0,
     features: {
       videoInterview: true,
       companyBranding: true,
-      advancedAnalytics: false,
-      automatedEmails: false,
-      historyMonths: 3,
+      advancedAnalytics: true,
+      automatedEmails: true,
+      historyMonths: 999,
     },
   },
   core: {

@@ -63,8 +63,8 @@ export default function ResultsPage() {
           .eq("user_id", recruiterId)
           .single();
 
-        const plan = usage?.plan || "beta";
-        const plansWithBranding = ["core", "pro", "custom", "beta"];
+        const plan = usage?.plan || "core";
+        const plansWithBranding = ["core", "pro", "custom", "admin"];
 
         if (rec && plansWithBranding.includes(plan)) {
           setRecruiter(rec);

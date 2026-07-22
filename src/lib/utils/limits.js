@@ -14,13 +14,18 @@ async function getOrCreateUsage(supabase, userId) {
 
   if (error && error.code === "PGRST116") {
     // Pas encore d'entrée — créer via upsert (plus sûr que insert)
-    const plan = PLANS.beta;
+    const isAdminUser = await (async () => {
+      const { data: { user } } = await createClient().auth.getUser();
+      return isAdmin(user);
+    })();
+    const defaultPlan = isAdminUser ? "admin" : "core";
+    const plan = PLANS[defaultPlan];
     const { data: newUsage, error: upsertError } = await supabase
       .from("user_usage")
       .upsert(
         {
           user_id: userId,
-          plan: "beta",
+          plan: defaultPlan,
           credits_balance: plan.creditsPerMonth,
           credits_allocated: plan.creditsPerMonth,
           last_reset_date: new Date().toISOString(),
@@ -35,7 +40,7 @@ async function getOrCreateUsage(supabase, userId) {
       console.warn("getOrCreateUsage upsert failed, using virtual defaults:", upsertError.message);
       return {
         user_id: userId,
-        plan: "beta",
+        plan: defaultPlan,
         credits_balance: 170,
         credits_allocated: 170,
         last_reset_date: new Date().toISOString(),
@@ -46,7 +51,7 @@ async function getOrCreateUsage(supabase, userId) {
     console.warn("getOrCreateUsage select failed, using virtual defaults:", error.message);
     return {
       user_id: userId,
-      plan: "beta",
+      plan: "core", // Fallback sûr en cas d'erreur totale
       credits_balance: 170,
       credits_allocated: 170,
       last_reset_date: new Date().toISOString(),
@@ -66,7 +71,7 @@ async function checkAndResetMonthly(supabase, usage) {
     lastReset.getMonth() !== now.getMonth() ||
     lastReset.getFullYear() !== now.getFullYear()
   ) {
-    const plan = PLANS[usage.plan] || PLANS.beta;
+    const plan = PLANS[usage.plan] || PLANS.core;
     const { data: resetUsage } = await supabase
       .from("user_usage")
       .update({
@@ -279,7 +284,7 @@ export async function hasFeature(userId, featureName) {
 
   const adminSupabase = createAdminClient();
   const usage = await getOrCreateUsage(adminSupabase, userId);
-  const plan = PLANS[usage.plan] || PLANS.beta;
+  const plan = PLANS[usage.plan] || PLANS.core;
   return plan.features?.[featureName] ?? false;
 }
 
@@ -304,7 +309,7 @@ export async function getCreditInfo(userId) {
   let usage = await getOrCreateUsage(adminSupabase, userId);
   usage = await checkAndResetMonthly(adminSupabase, usage);
 
-  const plan = PLANS[usage.plan] || PLANS.beta;
+  const plan = PLANS[usage.plan] || PLANS.core;
 
   // Calculer la prochaine date de reset (1er du mois suivant)
   const now = new Date();
@@ -344,6 +349,10 @@ export async function changePlan(userId, newPlan) {
   const plan = PLANS[newPlan];
   if (!plan) return { success: false, error: "Plan inconnu" };
 
+  // Garantit l'existence de la ligne user_usage (sinon l'update ne toucherait rien,
+  // par ex. pour un utilisateur fraîchement invité qui n'a pas encore d'usage).
+  await getOrCreateUsage(adminSupabase, userId);
+
   const { data } = await adminSupabase
     .from("user_usage")
     .update({
@@ -354,6 +363,9 @@ export async function changePlan(userId, newPlan) {
     .eq("user_id", userId)
     .select()
     .single();
+
+  // Garde users.plan (affiché dans le dashboard) synchronisé avec user_usage.plan.
+  await adminSupabase.from("users").update({ plan: newPlan }).eq("id", userId);
 
   return { success: true, usage: data };
 }

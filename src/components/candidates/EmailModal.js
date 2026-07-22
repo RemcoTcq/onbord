@@ -61,7 +61,7 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
   const { toast } = useToast();
 
   const isAlreadySent = existingLogs.some(log => log.mail_type === selectedType);
-  const userPlan = currentUser?.user_metadata?.plan || "beta";
+  const userPlan = currentUser?.user_metadata?.plan || "core";
   const canSendDirectly = PLANS[userPlan]?.features?.automatedEmails || userPlan === 'pro' || userPlan === 'custom';
 
   if (!isOpen) return null;
