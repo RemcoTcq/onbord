@@ -109,7 +109,7 @@ export default function AdminPage() {
     beta: { bg: "#fef3c7", color: "#92400e" },
     core: { bg: "#e0e7ff", color: "#4338ca" },
     pro: { bg: "#ede9fe", color: "#6d28d9" },
-    enterprise: { bg: "#f1f5f9", color: "#1e293b" },
+    custom: { bg: "#f1f5f9", color: "#1e293b" },
   };
 
   return (
@@ -152,7 +152,7 @@ export default function AdminPage() {
             <option value="beta">Beta</option>
             <option value="core">Core</option>
             <option value="pro">Pro</option>
-            <option value="enterprise">Enterprise</option>
+            <option value="custom">Custom</option>
           </select>
         </div>
         <button

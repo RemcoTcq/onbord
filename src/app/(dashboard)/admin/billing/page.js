@@ -11,8 +11,8 @@ import { PLANS, CREDIT_PACKS } from "@/lib/constants/plans";
 const PLAN_COLORS = {
   beta: { bg: "#fef3c7", color: "#92400e", label: "Beta" },
   core: { bg: "#e0e7ff", color: "#4338ca", label: "Core" },
-  scale: { bg: "#ede9fe", color: "#6d28d9", label: "Scale" },
-  enterprise: { bg: "#dcfce7", color: "#166534", label: "Enterprise" },
+  pro: { bg: "#ede9fe", color: "#6d28d9", label: "Pro" },
+  custom: { bg: "#dcfce7", color: "#166534", label: "Custom" },
 };
 
 export default function AdminBillingPage() {

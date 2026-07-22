@@ -102,7 +102,7 @@ function JoinForm() {
     beta: { label: "Beta", color: "#f59e0b" },
     core: { label: "Core", color: "var(--primary)" },
     pro: { label: "Pro", color: "#8b5cf6" },
-    enterprise: { label: "Enterprise", color: "#1e293b" },
+    custom: { label: "Custom", color: "#1e293b" },
   };
 
   if (loading) {
