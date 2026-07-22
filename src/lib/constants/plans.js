@@ -86,6 +86,19 @@ export const EXTRA_CREDIT_PRICING = {
 };
 
 /**
+ * Montants d'ajout rapide de crédits — OUTIL ADMIN uniquement (panneau /admin/billing).
+ * Ce ne sont PAS des offres client : la vente de crédits supplémentaires se fait à
+ * l'unité via EXTRA_CREDIT_PRICING. `price` est indicatif (tarif Core à 3 €/crédit).
+ * À ajuster librement si besoin.
+ */
+export const CREDIT_PACKS = [
+  { id: "pack_50", credits: 50, price: 150 },
+  { id: "pack_100", credits: 100, price: 300 },
+  { id: "pack_250", credits: 250, price: 750 },
+  { id: "pack_500", credits: 500, price: 1500 },
+];
+
+/**
  * Grille tarifaire complète pour affichage.
  */
 export const PLAN_PRICING = [
