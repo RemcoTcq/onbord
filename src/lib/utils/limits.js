@@ -192,6 +192,80 @@ export async function deductCredits(userId, candidateId, actionType) {
 }
 
 /**
+ * Déduction "brute" de crédits pour une charge liée à une OFFRE (setup), sans logique
+ * par-candidat ni flag candidat. Utilisée par les charges d'ajout de module.
+ * Non-bloquant : ne fait jamais planter l'action principale.
+ *
+ * @returns {Promise<{ success: boolean, deducted: boolean, remaining?: number, error?: string }>}
+ */
+export async function chargeCredits(userId, cost) {
+  try {
+    if (!cost || cost <= 0) return { success: true, deducted: false };
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (isAdmin(user)) return { success: true, deducted: false, remaining: 999999 };
+
+    const adminSupabase = createAdminClient();
+    let usage = await getOrCreateUsage(adminSupabase, userId);
+    usage = await checkAndResetMonthly(adminSupabase, usage);
+
+    if (usage.credits_balance < cost) {
+      return { success: false, deducted: false, remaining: usage.credits_balance, error: "Crédits insuffisants." };
+    }
+
+    const { data: updated } = await adminSupabase
+      .from("user_usage")
+      .update({ credits_balance: usage.credits_balance - cost })
+      .eq("user_id", userId)
+      .select("credits_balance")
+      .single();
+
+    return { success: true, deducted: true, remaining: updated?.credits_balance ?? usage.credits_balance - cost };
+  } catch (err) {
+    console.error("chargeCredits error (non-blocking):", err.message);
+    return { success: false, deducted: false, error: err.message };
+  }
+}
+
+/**
+ * Détermine les charges "setup" à facturer pour une offre, en comparant sa config
+ * courante au registre de ce qui a DÉJÀ été facturé (`assessment_config._charged`).
+ * Fonction PURE : ne facture rien, retourne seulement la liste des charges à appliquer.
+ *
+ * Règles :
+ * - chaque test de compétences distinct (par test_id) → assessment_setup (une fois par offre)
+ * - le module vidéo activé → video_setup (une fois par offre)
+ * - questions qualificatives et scoring CV : gratuits à l'ajout (aucune charge setup)
+ *
+ * @param {object} existingLedger - { tests: string[], video: boolean }
+ * @param {object} config - assessment_config de l'offre
+ * @returns {Array<{ type: 'assessment_setup'|'video_setup', cost: number, testId?: string }>}
+ */
+export function planSetupCharges(existingLedger, config) {
+  const chargedTests = new Set(existingLedger?.tests || []);
+  const videoCharged = !!existingLedger?.video;
+  const items = [];
+
+  const testsMod = config?.modules?.skills_tests;
+  if (testsMod?.enabled && Array.isArray(testsMod.tests)) {
+    for (const t of testsMod.tests) {
+      if (t?.test_id && !chargedTests.has(t.test_id)) {
+        items.push({ type: "assessment_setup", cost: CREDIT_COSTS.assessment_setup, testId: t.test_id });
+        chargedTests.add(t.test_id); // évite un doublon si le même test_id apparaît deux fois
+      }
+    }
+  }
+
+  const videoMod = config?.modules?.video_interview;
+  if (videoMod?.enabled && !videoCharged) {
+    items.push({ type: "video_setup", cost: CREDIT_COSTS.video_setup });
+  }
+
+  return items;
+}
+
+/**
  * Vérifie si l'utilisateur a accès à une feature selon son plan.
  * @param {string} userId
  * @param {keyof PLANS.core.features} featureName
@@ -218,7 +292,7 @@ export async function getCreditInfo(userId) {
 
   if (isAdmin(user)) {
     return {
-      plan: "enterprise",
+      plan: "custom",
       planLabel: "Admin",
       credits_balance: 999999,
       credits_allocated: 999999,

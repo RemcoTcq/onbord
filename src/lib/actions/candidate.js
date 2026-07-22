@@ -223,7 +223,7 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
       recruiterId = job.user_id;
     }
     if (recruiterId) {
-      await deductCredits(recruiterId, candidate.id, "cv_screening");
+      await deductCredits(recruiterId, candidate.id, "cv_scoring_per_candidate");
     }
 
     return { success: true, candidate };
