@@ -864,3 +864,25 @@ export const TAXONOMIE_COMPETENCES = [
     "Mode d'évaluation suggéré": "Interview IA"
   }
 ];
+
+// Index par ID pour un lookup O(1).
+const TAXONOMIE_BY_ID = Object.fromEntries(TAXONOMIE_COMPETENCES.map((c) => [c.ID, c]));
+
+/**
+ * Une compétence est "non testable objectivement" si son entrée taxonomie porte
+ * "Testable objectivement": "Non". Une compétence sans taxonomy_id ou introuvable
+ * dans la taxonomie est considérée non testable : elle ne peut pas l'être par QCM,
+ * donc elle relève de l'entretien vidéo/oral.
+ */
+export function isSkillNonTestable(skill) {
+  const id = skill?.taxonomy_id;
+  if (!id) return true;
+  const entry = TAXONOMIE_BY_ID[id];
+  if (!entry) return true;
+  return entry["Testable objectivement"] === "Non";
+}
+
+/** Filtre une liste de compétences pour ne garder que les non testables objectivement. */
+export function filterNonTestableSkills(skills) {
+  return (skills || []).filter(isSkillNonTestable);
+}

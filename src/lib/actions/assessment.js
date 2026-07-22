@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
 import { aggregateVideoScore, computeGlobalScore } from "../scoring";
+import { filterNonTestableSkills } from "../constants/taxonomie";
 
 /**
  * Get all active tests from the library
@@ -1186,7 +1187,12 @@ export async function generateVideoQuestions(jobId) {
 
     const criteria = job.extracted_criteria || {};
     const allSkills = [...(criteria.hard_skills || []), ...(criteria.soft_skills || [])];
-    const skillsList = allSkills.map(s => `- ${s.name}`).join("\n");
+    // É8 : l'entretien vidéo ne cible QUE les compétences non testables objectivement
+    // (les testables sont déjà couvertes par les QCM). Repli sur toutes les compétences
+    // si aucune non-testable, pour ne pas générer un questionnaire vide.
+    const nonTestableSkills = filterNonTestableSkills(allSkills);
+    const targetSkills = nonTestableSkills.length > 0 ? nonTestableSkills : allSkills;
+    const skillsList = targetSkills.map(s => `- ${s.name}`).join("\n");
     const title = job.title || "Poste inconnu";
     const description = job.description?.slice(0, 1000) || "Aucune description fournie";
 
