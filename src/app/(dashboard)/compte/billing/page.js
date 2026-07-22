@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getUserCreditInfo } from "@/lib/actions/usage";
 import { Zap, RefreshCw, Mail, ChevronRight, Sparkles, CreditCard } from "lucide-react";
-import { CREDIT_PACKS, PLANS } from "@/lib/constants/plans";
+import { PLANS, CREDIT_COSTS, EXTRA_CREDIT_PRICING, PLAN_PRICING } from "@/lib/constants/plans";
 
 function CreditBar({ value, total, color }) {
   const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 100;
@@ -48,6 +48,7 @@ export default function BillingPage() {
     : null;
 
   const planDetails = PLANS[info.plan];
+  const extraPrice = EXTRA_CREDIT_PRICING[info.plan] || null;
 
   return (
     <div className="fade-in" style={{ maxWidth: "720px" }}>
@@ -80,6 +81,9 @@ export default function BillingPage() {
             {planDetails && (
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
                 {isUnlimited ? "Crédits illimités" : `${planDetails.creditsPerMonth} crédits/mois`}
+                {planDetails.priceAnnual !== null && planDetails.priceAnnual > 0 && (
+                  <span> · {planDetails.priceAnnual}€/mois (annuel)</span>
+                )}
               </p>
             )}
           </div>
@@ -112,59 +116,89 @@ export default function BillingPage() {
       {/* Coût des actions */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
         <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-          <Sparkles size={14} style={{ color: "var(--primary)" }} /> Coût par action IA
+          <Sparkles size={14} style={{ color: "var(--primary)" }} /> Coût par action
         </h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        
+        <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>À l'ajout (par offre)</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "1.25rem" }}>
           {[
-            { label: "CV Screening IA", cost: 1, icon: "📄" },
-            { label: "Test de compétences", cost: 2, icon: "🧠" },
-            { label: "Interview IA texte", cost: 5, icon: "💬" },
-            { label: "Interview IA vidéo", cost: 5, icon: "🎥", locked: !(planDetails?.features?.videoInterview) },
+            { label: "Questions qualificatives", cost: CREDIT_COSTS.qualifying_questions, icon: "✅" },
+            { label: "Test de compétences", cost: CREDIT_COSTS.assessment_setup, icon: "🧠" },
+            { label: "Module vidéo (jusqu'à 3 questions)", cost: CREDIT_COSTS.video_setup, icon: "🎥" },
+            { label: "Scoring CV (IA)", cost: CREDIT_COSTS.cv_scoring_setup, icon: "📄" },
           ].map(item => (
             <div
               key={item.label}
               style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
                 padding: "10px 14px", borderRadius: "8px",
-                background: item.locked ? "var(--secondary)" : "var(--background)",
+                background: "var(--background)",
                 border: "1px solid var(--border)",
-                opacity: item.locked ? 0.6 : 1,
               }}
             >
               <span style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
                 {item.icon} {item.label}
-                {item.locked && <span style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: "600" }}>— Plan Scale requis</span>}
               </span>
               <span style={{ fontSize: "13px", fontWeight: "700" }}>
-                {item.cost} crédit{item.cost > 1 ? "s" : ""} / candidat
+                {item.cost === 0 ? "Gratuit" : `${item.cost} crédits`}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>Par candidat</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {[
+            { label: "Scoring CV par candidat", cost: CREDIT_COSTS.cv_scoring_per_candidate, icon: "📄" },
+            { label: "Parcours complet (candidat)", cost: CREDIT_COSTS.candidate_completion, icon: "🏁" },
+          ].map(item => (
+            <div
+              key={item.label}
+              style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 14px", borderRadius: "8px",
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <span style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+                {item.icon} {item.label}
+              </span>
+              <span style={{ fontSize: "13px", fontWeight: "700" }}>
+                {item.cost} crédits / candidat
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Packs crédits */}
+      {/* Crédits supplémentaires */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "4px" }}>Packs de crédits supplémentaires</h3>
+        <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "4px" }}>Crédits supplémentaires</h3>
         <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
-          Pour commander un pack, contactez-nous et nous l'ajouterons à votre compte.
+          Besoin de plus de crédits ce mois-ci ? Rechargez à tout moment.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
-          {CREDIT_PACKS.map(pack => (
-            <div
-              key={pack.id}
-              style={{
-                padding: "1.25rem", borderRadius: "12px", border: "1px solid var(--border)",
-                textAlign: "center", background: "var(--background)",
-              }}
-            >
-              <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--foreground)" }}>
-                {pack.credits}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "8px" }}>crédits</div>
-              <div style={{ fontSize: "18px", fontWeight: "800", color: "var(--primary)" }}>{pack.price}€</div>
+        <div style={{
+          padding: "1.25rem", borderRadius: "12px", border: "1px solid var(--border)",
+          background: "var(--background)", display: "flex", justifyContent: "space-between", alignItems: "center"
+        }}>
+          <div>
+            <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "4px" }}>Prix par crédit supplémentaire</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--foreground)" }}>
+              {extraPrice !== null ? `${extraPrice.toFixed(2).replace('.', ',')} €` : "Sur devis"}
             </div>
-          ))}
+          </div>
+          <a
+            href="mailto:hello@onbord.be"
+            style={{
+              background: "var(--foreground)", color: "white", padding: "8px 16px",
+              borderRadius: "8px", fontSize: "13px", fontWeight: "700",
+              textDecoration: "none", display: "flex", alignItems: "center", gap: "6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <Mail size={14} /> Commander
+          </a>
         </div>
       </div>
 

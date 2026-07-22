@@ -12,6 +12,8 @@ import {
   PanelLeft,
   LogOut,
   ShieldCheck,
+  Briefcase,
+  BookOpen
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { isAdmin } from "@/lib/utils/admin";
@@ -19,8 +21,9 @@ import CreditBadge from "../billing/CreditBadge";
 
 const navItems = [
   { label: "Accueil", href: "/accueil", icon: Home },
-  { label: "Évaluations", href: "/jobs", icon: ClipboardList },
+  { label: "Offres d'emploi", href: "/jobs", icon: Briefcase },
   { label: "Talents", href: "/talents", icon: Users },
+  { label: "Assessments", href: "/assessments", icon: BookOpen },
 ];
 
 export default function Sidebar() {
@@ -82,10 +85,10 @@ export default function Sidebar() {
       <a
         href="/jobs/nouveau"
         className={`${styles.newDemandBtn} ${collapsed ? styles.collapsed : ""}`}
-        title={collapsed ? "Nouvelle évaluation" : undefined}
+        title={collapsed ? "Nouvelle offre" : undefined}
       >
         <Plus size={18} />
-        {!collapsed && <span>Nouvelle évaluation</span>}
+        {!collapsed && <span>Nouvelle offre</span>}
       </a>
 
       {/* Navigation */}

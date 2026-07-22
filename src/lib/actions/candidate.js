@@ -15,10 +15,12 @@ export async function deleteJob(jobId) {
     // 1. Get all candidates to cleanup their storage files
     const { data: candidates } = await supabase
       .from('candidates')
-      .select('cv_storage_path')
+      .select('id, cv_storage_path')
       .eq('job_id', jobId);
 
     if (candidates && candidates.length > 0) {
+      const candidateIds = candidates.map(c => c.id);
+      
       const filePaths = candidates
         .map(c => c.cv_storage_path)
         .filter(path => !!path);
@@ -26,6 +28,22 @@ export async function deleteJob(jobId) {
       if (filePaths.length > 0) {
         // Delete from storage
         await supabase.storage.from('resumes').remove(filePaths);
+      }
+
+      // Cleanup video responses storage
+      const { data: videoResponses } = await supabase
+        .from('video_interview_responses')
+        .select('video_storage_path')
+        .in('candidate_id', candidateIds);
+        
+      if (videoResponses && videoResponses.length > 0) {
+        const videoPaths = videoResponses
+          .map(v => v.video_storage_path)
+          .filter(path => !!path);
+          
+        if (videoPaths.length > 0) {
+          await supabase.storage.from('video-responses').remove(videoPaths);
+        }
       }
     }
 
@@ -499,6 +517,22 @@ export async function deleteCandidate(candidateId) {
     if (candidate?.cv_storage_path) {
       await supabase.storage.from('resumes').remove([candidate.cv_storage_path]);
     }
+
+    // Cleanup video responses storage
+    const { data: videoResponses } = await supabase
+      .from('video_interview_responses')
+      .select('video_storage_path')
+      .eq('candidate_id', candidateId);
+      
+    if (videoResponses && videoResponses.length > 0) {
+      const videoPaths = videoResponses
+        .map(v => v.video_storage_path)
+        .filter(path => !!path);
+        
+      if (videoPaths.length > 0) {
+        await supabase.storage.from('video-responses').remove(videoPaths);
+      }
+    }
     
     // 2. Delete candidate record
     const { error } = await supabase
@@ -604,6 +638,47 @@ export async function getMailLogs(jobId) {
   }
 }
 
+import { sendEmail } from '@/lib/resend';
+
+export async function sendCandidateEmail(candidateId, jobId, mailType, toEmail, subject, body, replyTo) {
+  try {
+    // Vérification de la session
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Non authentifié");
+
+    if (!toEmail) {
+      return { success: false, error: "Le candidat n'a pas d'adresse e-mail renseignée." };
+    }
+
+    // Envoi de l'e-mail
+    const emailResult = await sendEmail({
+      to: toEmail,
+      subject: subject,
+      html: body.replace(/\n/g, '<br/>'), // Conversion simple texte -> html
+      text: body,
+      replyTo: replyTo,
+    });
+
+    if (!emailResult.success) {
+      return { success: false, error: "Erreur lors de l'envoi de l'e-mail" };
+    }
+
+    // Enregistrement dans l'historique
+    await supabase.from('mail_logs').insert({
+      candidate_id: candidateId,
+      job_id: jobId,
+      user_id: user.id,
+      mail_type: mailType
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Send Candidate Email Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function generateConstructiveFeedback(candidateId) {
   try {
     const supabase = await createClient();
@@ -694,6 +769,61 @@ export async function saveConstructiveFeedback(candidateId, feedback) {
     return { success: true };
   } catch (error) {
     console.error("Save feedback error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update job details (title, location, contract_type, work_mode, status).
+ */
+export async function updateJobDetails(jobId, updates) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    // Only allow safe fields
+    const allowed = ['title', 'location', 'contract_type', 'work_mode', 'status', 'saved_flow_nodes'];
+    const safeUpdates = {};
+    for (const key of allowed) {
+      if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+    }
+
+    const { data, error } = await supabase
+      .from('jobs')
+      .update(safeUpdates)
+      .eq('id', jobId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, job: data };
+  } catch (error) {
+    console.error("Update Job Details Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update the job description / context text.
+ */
+export async function updateJobDescription(jobId, description) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ description })
+      .eq('id', jobId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Update Job Description Error:", error);
     return { success: false, error: error.message };
   }
 }

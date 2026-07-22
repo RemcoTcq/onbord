@@ -87,6 +87,10 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
   }
 
   function addFromAiSuggestions(aiQ) {
+    if (questions.length >= 3) {
+      toast("Maximum 3 questions par module vidéo", "error");
+      return;
+    }
     if (questions.find(q => q.id === aiQ.id)) {
       toast("Cette question est déjà ajoutée", "error");
       return;
@@ -96,6 +100,10 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
   }
 
   function addFromLibrary(libQ) {
+    if (questions.length >= 3) {
+      toast("Maximum 3 questions par module vidéo", "error");
+      return;
+    }
     if (questions.find(q => q.library_id === libQ.id)) {
       toast("Cette question est déjà ajoutée", "error");
       return;
@@ -115,6 +123,10 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
   }
 
   function addCustomQuestion() {
+    if (questions.length >= 3) {
+      toast("Maximum 3 questions par module vidéo", "error");
+      return;
+    }
     const newQ = {
       id: `custom_${Date.now()}`,
       text: "",
@@ -183,6 +195,8 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
     ? libraryQuestions
     : libraryQuestions.filter(q => q.category === libraryFilter);
 
+  const isFull = questions.length >= 3;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
@@ -241,12 +255,13 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       </div>
 
       {/* Action buttons */}
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
         <button
           className="btn btn-primary"
           onClick={handleGenerateAi}
-          disabled={generatingAi}
-          style={{ gap: "8px" }}
+          disabled={generatingAi || isFull}
+          style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
+          title={isFull ? "Limite atteinte : 3 questions max" : ""}
         >
           {generatingAi
             ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Génération IA...</>
@@ -259,8 +274,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
             setShowLibrary(v => !v);
             if (!showLibrary) setShowAiSuggestions(false);
           }}
-          disabled={loadingLibrary}
-          style={{ gap: "8px" }}
+          disabled={loadingLibrary || isFull}
+          style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
+          title={isFull ? "Limite atteinte : 3 questions max" : ""}
         >
           {loadingLibrary
             ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
@@ -271,10 +287,13 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
         <button
           className="btn btn-ghost"
           onClick={addCustomQuestion}
-          style={{ gap: "8px" }}
+          disabled={isFull}
+          style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
+          title={isFull ? "Limite atteinte : 3 questions max" : ""}
         >
           <Plus size={16} /> Question personnalisée
         </button>
+        {isFull && <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>Limite de 3 questions atteinte pour ce module.</span>}
       </div>
 
       {/* AI Suggestions panel */}
@@ -318,8 +337,8 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                   <button
                     className="btn btn-outline"
                     onClick={() => addFromAiSuggestions(q)}
-                    disabled={alreadyAdded}
-                    style={{ flexShrink: 0, fontSize: "12px", padding: "6px 12px", borderColor: "#0ea5e9", color: "#0ea5e9" }}
+                    disabled={alreadyAdded || (!alreadyAdded && isFull)}
+                    style={{ flexShrink: 0, fontSize: "12px", padding: "6px 12px", borderColor: "#0ea5e9", color: "#0ea5e9", opacity: (!alreadyAdded && isFull) ? 0.5 : 1, cursor: (!alreadyAdded && isFull) ? 'not-allowed' : 'pointer' }}
                   >
                     {alreadyAdded ? "Ajoutée" : <><Plus size={14} /> Ajouter</>}
                   </button>
@@ -379,8 +398,8 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                   <button
                     className="btn btn-outline"
                     onClick={() => addFromLibrary(q)}
-                    disabled={alreadyAdded}
-                    style={{ flexShrink: 0, fontSize: "12px", padding: "4px 12px" }}
+                    disabled={alreadyAdded || (!alreadyAdded && isFull)}
+                    style={{ flexShrink: 0, fontSize: "12px", padding: "4px 12px", opacity: (!alreadyAdded && isFull) ? 0.5 : 1, cursor: (!alreadyAdded && isFull) ? 'not-allowed' : 'pointer' }}
                   >
                     {alreadyAdded ? "Ajoutée" : <><Plus size={14} /> Ajouter</>}
                   </button>

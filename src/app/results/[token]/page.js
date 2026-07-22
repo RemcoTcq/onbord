@@ -64,7 +64,7 @@ export default function ResultsPage() {
           .single();
 
         const plan = usage?.plan || "beta";
-        const plansWithBranding = ["core", "scale", "enterprise", "beta"];
+        const plansWithBranding = ["core", "pro", "custom", "beta"];
 
         if (rec && plansWithBranding.includes(plan)) {
           setRecruiter(rec);

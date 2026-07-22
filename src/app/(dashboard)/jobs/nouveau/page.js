@@ -2,16 +2,17 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search, Link as LinkIcon, Copy, CheckCircle2 } from "lucide-react";
+import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search, Link as LinkIcon, Copy, CheckCircle2, AlignLeft, Globe, Info } from "lucide-react";
 import { analyzeJobDescription } from "@/lib/actions/job";
 import { parseFile } from "@/lib/actions/parse-file";
+import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
 import { scoreCandidate } from "@/lib/actions/candidate";
 import { createClient } from "@/lib/supabase/client";
 import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
-import SkillsTestConfig from "@/components/jobs/SkillsTestConfig";
+
 import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
 import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
 import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
@@ -25,12 +26,16 @@ export default function NouvelleDemandePage() {
   const [rawDescription, setRawDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isParsingFile, setIsParsingFile] = useState(false);
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [jobData, setJobData] = useState(null);
   const [fileName, setFileName] = useState("");
   const [savedJobId, setSavedJobId] = useState(null);
   const [savedJob, setSavedJob] = useState(null);
+  // Input mode: 'text' | 'file' | 'url'
+  const [inputMode, setInputMode] = useState('text');
+  const [jobUrl, setJobUrl] = useState("");
 
   
   const fileInputRef = useRef(null);
@@ -90,6 +95,25 @@ export default function NouvelleDemandePage() {
       setIsParsingFile(false);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFetchUrl = async () => {
+    if (!jobUrl.trim()) return;
+    setIsFetchingUrl(true);
+    setError(null);
+    try {
+      const result = await fetchJobFromUrl(jobUrl.trim());
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      // Chain directly into analysis
+      await handleAnalyze(result.text);
+    } catch (err) {
+      setError(err.message || "Erreur lors du chargement de l'URL.");
+    } finally {
+      setIsFetchingUrl(false);
     }
   };
 
@@ -283,11 +307,8 @@ export default function NouvelleDemandePage() {
              setJobData(prev => ({ ...prev, selection_criteria: updatedJobData.selection_criteria }));
           }
         }
-        else if (node.type === 'single_skill_test') {
+        else if (node.type === 'assessment') {
           modules.skills_tests.enabled = true;
-          if (node.config.tests && node.config.tests.length > 0) {
-              modules.skills_tests.tests.push(node.config.tests[0]);
-          }
           if (!flowOrder.includes('skills_tests')) {
               flowOrder.push('skills_tests');
           }
@@ -363,84 +384,179 @@ export default function NouvelleDemandePage() {
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
               Onbord lit votre offre d'emploi et en extrait automatiquement les compétences à évaluer. Vous validez, on construit le parcours de screening.
             </p>
-            
+
+            {/* Mode selector */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '1.25rem', background: 'var(--secondary)', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
+              {[
+                { key: 'text', icon: AlignLeft, label: 'Coller le texte' },
+                { key: 'file', icon: Paperclip, label: 'Importer un fichier' },
+                { key: 'url', icon: Globe, label: 'URL de l\'offre' },
+              ].map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setInputMode(key); setError(null); }}
+                  disabled={isAnalyzing || isParsingFile || isFetchingUrl}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 14px', borderRadius: '6px', border: 'none',
+                    fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    background: inputMode === key ? 'white' : 'transparent',
+                    color: inputMode === key ? 'var(--foreground)' : 'var(--muted-foreground)',
+                    boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  }}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {error && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
                 <AlertCircle size={18} />
                 <span style={{ fontSize: '14px' }}>{error}</span>
               </div>
             )}
-            
-            {/* Bouton Importer */}
-            <div style={{ marginBottom: '0.75rem' }}>
-              <button 
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isParsingFile || isAnalyzing}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--foreground)', fontSize: '14px', fontWeight: '600', background: 'transparent', border: 'none', cursor: (isParsingFile || isAnalyzing) ? 'default' : 'pointer', padding: '4px 0', opacity: (isParsingFile || isAnalyzing) ? 0.5 : 1, transition: 'opacity 0.2s' }}
-              >
-                {isParsingFile ? <Loader2 size={16} className="spin" /> : <Paperclip size={16} />}
-                Importer l'offre d'emploi
-              </button>
-            </div>
 
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              accept=".pdf,.docx,.txt" 
-              style={{ display: 'none' }} 
-            />
-
-            {/* Fichier chargé indicator */}
-            {fileName && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--accent)', borderRadius: 'var(--radius)', marginBottom: '1rem', width: 'fit-content' }}>
-                <FileText size={14} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontSize: '13px', fontWeight: '500' }}>{fileName} importé</span>
+            {/* MODE FILE */}
+            {inputMode === 'file' && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isParsingFile || isAnalyzing}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: '0.75rem', width: '100%', minHeight: '200px',
+                    border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
+                    background: 'var(--secondary)', cursor: isParsingFile ? 'default' : 'pointer',
+                    marginBottom: '1.5rem', transition: 'border-color 0.2s'
+                  }}
+                >
+                  {isParsingFile ? (
+                    <><Loader2 size={24} className="spin" style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>Lecture du fichier...</span></>
+                  ) : fileName ? (
+                    <><FileText size={24} style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{fileName}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>Cliquez pour changer de fichier</span></>
+                  ) : (
+                    <><UploadCloud size={24} style={{ color: 'var(--muted-foreground)' }} />
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--foreground)' }}>Cliquez pour importer votre offre</span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>PDF, DOCX ou TXT — max 2 Mo</span></>
+                  )}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".pdf,.docx,.txt"
+                  style={{ display: 'none' }}
+                />
               </div>
             )}
 
-            {/* Large Textarea */}
-            <div style={{ 
-              border: '1px solid var(--border)', 
-              borderRadius: 'var(--radius)', 
-              backgroundColor: 'white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-              marginBottom: '1.5rem',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <textarea 
-                style={{ 
-                  width: '100%',
-                  minHeight: '300px',
-                  border: 'none', 
-                  outline: 'none', 
-                  fontSize: '15px', 
-                  color: 'var(--foreground)',
-                  background: 'transparent',
-                  padding: '1.25rem',
-                  resize: 'vertical'
-                }}
-                placeholder="Collez ici votre offre d'emploi, ou décrivez le poste : intitulé, missions, compétences attendues, langues..."
-                value={rawDescription}
-                onChange={(e) => {
-                  setRawDescription(e.target.value);
-                  if (error) setError(null);
-                }}
-              />
+            {/* MODE URL */}
+            {inputMode === 'url' && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                {/* Conseil */}
+                <div style={{
+                  display: 'flex', gap: '10px', alignItems: 'flex-start',
+                  background: '#eff6ff', border: '1px solid #bfdbfe',
+                  borderRadius: '8px', padding: '12px 14px', marginBottom: '1rem'
+                }}>
+                  <Info size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <p style={{ fontSize: '12.5px', color: '#1e40af', margin: 0, lineHeight: '1.6' }}>
+                    <strong>Conseil :</strong> Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable.
+                    {' '}Elle peut ne pas fonctionner avec <strong>LinkedIn, Indeed ou Glassdoor</strong> qui protègent leurs pages.
+                    {' '}Dans ce cas, copiez-collez le texte de l&apos;offre directement.
+                  </p>
+                </div>
 
-              <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
-                <button 
-                  type="button"
-                  onClick={() => handleAnalyze()}
-                  disabled={isAnalyzing || rawDescription.trim().length === 0}
-                  style={{ background: '#0f172a', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}
-                >
-                  {isAnalyzing ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-                </button>
+                <div style={{
+                  display: 'flex', gap: '8px',
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                  background: 'white', padding: '4px 4px 4px 14px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                  <Globe size={16} style={{ color: 'var(--muted-foreground)', alignSelf: 'center', flexShrink: 0 }} />
+                  <input
+                    type="url"
+                    value={jobUrl}
+                    onChange={(e) => { setJobUrl(e.target.value); if (error) setError(null); }}
+                    placeholder="https://careers.acme.com/job/account-manager"
+                    disabled={isFetchingUrl || isAnalyzing}
+                    style={{
+                      flex: 1, border: 'none', outline: 'none',
+                      fontSize: '14px', color: 'var(--foreground)', background: 'transparent',
+                      padding: '10px 0'
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchUrl}
+                    disabled={isFetchingUrl || isAnalyzing || !jobUrl.trim()}
+                    style={{
+                      background: '#0f172a', border: 'none', color: 'white',
+                      cursor: jobUrl.trim() ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '8px 16px', borderRadius: '6px',
+                      fontSize: '13px', fontWeight: '600',
+                      opacity: jobUrl.trim() ? 1 : 0.4, transition: 'opacity 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isFetchingUrl ? <><Loader2 size={14} className="spin" /> Chargement...</> : <><Sparkles size={14} /> Analyser</>}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* MODE TEXT (default) */}
+            {inputMode === 'text' && (
+              <div style={{
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                backgroundColor: 'white',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                marginBottom: '1.5rem',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <textarea
+                  style={{
+                    width: '100%',
+                    minHeight: '300px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '15px',
+                    color: 'var(--foreground)',
+                    background: 'transparent',
+                    padding: '1.25rem',
+                    resize: 'vertical'
+                  }}
+                  placeholder="Collez ici votre offre d'emploi, ou décrivez le poste : intitulé, missions, compétences attendues, langues..."
+                  value={rawDescription}
+                  onChange={(e) => {
+                    setRawDescription(e.target.value);
+                    if (error) setError(null);
+                  }}
+                />
+                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleAnalyze()}
+                    disabled={isAnalyzing || rawDescription.trim().length === 0}
+                    style={{ background: '#0f172a', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}
+                  >
+                    {isAnalyzing ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -480,14 +596,14 @@ export default function NouvelleDemandePage() {
               <div></div>
             )}
             
-            {currentStep === 1 && (
-              <button 
+            {currentStep === 1 && inputMode !== 'url' && (
+              <button
                 className="btn btn-primary"
                 style={{ padding: '12px 24px', fontWeight: '600' }}
-                onClick={() => handleAnalyze()}
-                disabled={isAnalyzing || rawDescription.trim().length === 0}
+                onClick={() => inputMode === 'file' ? fileInputRef.current?.click() : handleAnalyze()}
+                disabled={isAnalyzing || isParsingFile || (inputMode === 'text' && rawDescription.trim().length === 0)}
               >
-                {isAnalyzing ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
+                {(isAnalyzing || isParsingFile) ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
                 Suivant
               </button>
             )}
@@ -506,7 +622,7 @@ export default function NouvelleDemandePage() {
       </div>
 
       {/* Overlay d'analyse de l'offre */}
-      {(isAnalyzing || isParsingFile) && (
+      {(isAnalyzing || isParsingFile || isFetchingUrl) && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 999,
           background: 'rgba(255, 255, 255, 0.97)',
@@ -516,15 +632,19 @@ export default function NouvelleDemandePage() {
         }}>
           <div style={{ maxWidth: '480px', width: '100%' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.75rem', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
-              Analyse de l'offre en cours…
+              {isFetchingUrl ? "Chargement de l'offre..." : "Analyse de l'offre en cours\u2026"}
             </h2>
             <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.7', fontSize: '15px' }}>
-              Notre IA lit et structure votre offre d'emploi pour définir automatiquement les critères d'évaluation des candidats.
+              {isFetchingUrl
+                ? "On r\u00e9cup\u00e8re le contenu de la page et on le pr\u00e9pare pour l'analyse IA."
+                : "Notre IA lit et structure votre offre d'emploi pour d\u00e9finir automatiquement les crit\u00e8res d'\u00e9valuation des candidats."}
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
               <Loader2 className="spin" size={18} style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--foreground)' }}>Intelligence artificielle en action</span>
+              <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--foreground)' }}>
+                {isFetchingUrl ? 'Chargement en cours...' : 'Intelligence artificielle en action'}
+              </span>
             </div>
           </div>
         </div>

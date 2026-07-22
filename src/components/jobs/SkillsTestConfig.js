@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Brain, CheckCircle2, Clock, Plus, Trash2, AlertCircle, Loader2 } from "lucide-react";
+import { Brain, CheckCircle2, Clock, Plus, Trash2, AlertCircle, Loader2, Bot } from "lucide-react";
 import { getTestsLibrary } from "@/lib/actions/assessment";
+import AssessmentChatCreator from "../assessment/AssessmentChatCreator";
 
 const CATEGORY_LABELS = {
   cognitif: "Cognitif",
@@ -22,12 +23,13 @@ const CATEGORY_COLORS = {
 
 const MAX_TOTAL_DURATION = 30; // minutes
 
-export default function SkillsTestConfig({ jobId, config, onChange }) {
+export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(
     (config?.tests || []).map((t) => t.test_id)
   );
+  const [showChatCreator, setShowChatCreator] = useState(false);
 
   useEffect(() => {
     loadTests();
@@ -66,6 +68,27 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
     onChange({ ...config, enabled: true, tests: updatedTests });
   }
 
+  async function handleTestCreated(testId) {
+    setShowChatCreator(false);
+    setLoading(true);
+    const res = await getTestsLibrary();
+    if (res.success) {
+      setTests(res.tests);
+      setSelectedIds([testId]);
+      const testData = res.tests.find((t) => t.id === testId);
+      onChange({ 
+        ...config, 
+        enabled: true, 
+        tests: [{
+          test_id: testId,
+          test_name: testData?.name || "",
+          selected_question_ids: [],
+        }]
+      });
+    }
+    setLoading(false);
+  }
+
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "1rem", color: "var(--muted-foreground)" }}>
@@ -100,13 +123,22 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
         <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
           Sélectionnez 1 test
         </span>
-        <span style={{
-          fontSize: "12px", fontWeight: "700", padding: "2px 10px", borderRadius: "99px",
-          background: selectedIds.length === 1 ? "var(--primary)" : "var(--secondary)",
-          color: selectedIds.length === 1 ? "white" : "var(--muted-foreground)",
-        }}>
-          {selectedIds.length} / 1
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button 
+            className="btn btn-outline"
+            onClick={() => setShowChatCreator(true)}
+            style={{ padding: "4px 10px", fontSize: "12px", height: "auto" }}
+          >
+            <Bot size={14} style={{ marginRight: "6px" }} /> Demander un test sur-mesure
+          </button>
+          <span style={{
+            fontSize: "12px", fontWeight: "700", padding: "2px 10px", borderRadius: "99px",
+            background: selectedIds.length === 1 ? "var(--primary)" : "var(--secondary)",
+            color: selectedIds.length === 1 ? "white" : "var(--muted-foreground)",
+          }}>
+            {selectedIds.length} / 1
+          </span>
+        </div>
       </div>
 
       {totalDuration > MAX_TOTAL_DURATION && (
@@ -173,6 +205,16 @@ export default function SkillsTestConfig({ jobId, config, onChange }) {
           );
         })}
       </div>
+
+      {showChatCreator && (
+        <AssessmentChatCreator 
+          onClose={() => setShowChatCreator(false)} 
+          context="job"
+          jobId={jobId}
+          jobData={jobData}
+          onTestCreated={handleTestCreated}
+        />
+      )}
     </div>
   );
 }

@@ -39,13 +39,13 @@ export default function JobsPage() {
   async function handleDelete(e, jobId) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("Supprimer cette évaluation et tous ses candidats ?")) return;
+    if (!confirm("Supprimer cette offre et tous ses candidats ?")) return;
     setDeletingId(jobId);
     try {
       const res = await deleteJob(jobId);
       if (res.success) {
         setJobs(prev => prev.filter(j => j.id !== jobId));
-        toast("Évaluation supprimée");
+        toast("Offre supprimée");
       } else {
         toast(res.error || "Erreur lors de la suppression", "error");
       }
@@ -80,12 +80,12 @@ export default function JobsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Évaluations</h1>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>Gérez vos évaluations et suivez vos candidats.</p>
+          <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Offres d'emploi</h1>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>Gérez vos offres d'emploi et suivez vos candidats.</p>
         </div>
         <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
           <Plus size={15} />
-          Nouvelle évaluation
+          Nouvelle offre
         </Link>
       </div>
 
@@ -128,14 +128,14 @@ export default function JobsPage() {
       {filteredJobs.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
           <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
-            {tab === "active" ? "Aucune évaluation active" : "Aucun brouillon"}
+            {tab === "active" ? "Aucune offre active" : "Aucun brouillon"}
           </p>
           <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
-            {tab === "active" ? "Créez votre première évaluation pour démarrer." : "Vos évaluations non publiées apparaîtront ici."}
+            {tab === "active" ? "Créez votre première offre pour démarrer." : "Vos offres non publiées apparaîtront ici."}
           </p>
           {tab === "active" && (
             <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Plus size={14} /> Créer une évaluation
+              <Plus size={14} /> Créer une offre
             </Link>
           )}
         </div>

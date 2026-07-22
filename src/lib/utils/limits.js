@@ -36,8 +36,8 @@ async function getOrCreateUsage(supabase, userId) {
       return {
         user_id: userId,
         plan: "beta",
-        credits_balance: 500,
-        credits_allocated: 500,
+        credits_balance: 170,
+        credits_allocated: 170,
         last_reset_date: new Date().toISOString(),
       };
     }
@@ -47,8 +47,8 @@ async function getOrCreateUsage(supabase, userId) {
     return {
       user_id: userId,
       plan: "beta",
-      credits_balance: 500,
-      credits_allocated: 500,
+      credits_balance: 170,
+      credits_allocated: 170,
       last_reset_date: new Date().toISOString(),
     };
   }
@@ -115,8 +115,8 @@ export async function checkCredits(userId, cost) {
  * Idempotent : ne déduit pas si l'action a déjà été facturée pour ce candidat.
  *
  * @param {string} userId - ID du recruteur
- * @param {string} candidateId - ID du candidat
- * @param {'cv_screening'|'skill_test'|'text_interview'|'video_interview'} actionType
+ * @param {string} candidateId - ID du candidat (null pour les coûts "setup")
+ * @param {'assessment_setup'|'video_setup'|'cv_scoring_per_candidate'|'candidate_completion'} actionType
  * @returns {Promise<{ success: boolean, deducted: boolean, remaining: number }>}
  */
 export async function deductCredits(userId, candidateId, actionType) {
@@ -132,12 +132,10 @@ export async function deductCredits(userId, candidateId, actionType) {
 
     const adminSupabase = createAdminClient();
 
-    // Vérifier le flag sur le candidat
+    // Vérifier le flag sur le candidat (uniquement pour les coûts par candidat)
     const flagColumn = {
-      cv_screening: "credits_charged_cv",
-      skill_test: "credits_charged_tests",
-      text_interview: "credits_charged_interview",
-      video_interview: "credits_charged_interview",
+      cv_scoring_per_candidate: "credits_charged_cv",
+      candidate_completion: "credits_charged_tests",
     }[actionType];
 
     if (flagColumn) {

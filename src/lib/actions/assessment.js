@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
+import { aggregateVideoScore, computeGlobalScore } from "../scoring";
 
 /**
  * Get all active tests from the library
@@ -13,6 +14,7 @@ export async function getTestsLibrary() {
     const { data, error } = await supabase
       .from("assessment_tests")
       .select("id, name, description, category, difficulty, estimated_duration_minutes, status")
+      .eq("status", "active")
       .order("category")
       .order("name");
 
@@ -20,6 +22,96 @@ export async function getTestsLibrary() {
     return { success: true, tests: data };
   } catch (err) {
     console.error("getTestsLibrary error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getMyAssessments() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data, error } = await supabase
+      .from("company_assessments")
+      .select(`
+        id,
+        status,
+        created_at,
+        assessment_id,
+        assessment_tests (
+          id, name, description, category, difficulty, estimated_duration_minutes, status
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    
+    // Flatten the result
+    const tests = data.map(ref => ({
+      ...ref.assessment_tests,
+      company_assessment_id: ref.id,
+      company_assessment_status: ref.status
+    }));
+
+    return { success: true, tests };
+  } catch (err) {
+    console.error("getMyAssessments error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function addTestToMyAssessments(assessmentId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { error } = await supabase
+      .from("company_assessments")
+      .insert({
+        user_id: user.id,
+        assessment_id: assessmentId,
+        status: 'actif'
+      });
+
+    // Ignore unique constraint violation if already added
+    if (error && error.code !== '23505') throw error;
+    
+    return { success: true };
+  } catch (err) {
+    console.error("addTestToMyAssessments error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function searchAvailableAssessments(role, skills) {
+  try {
+    const supabase = await createClient();
+    
+    // Combine role and skills to search
+    const keywords = [role, ...skills].filter(Boolean);
+    
+    // Or conditions for ILIKE search on name, description, category
+    const orConditions = keywords.flatMap(kw => [
+      `name.ilike.%${kw}%`,
+      `description.ilike.%${kw}%`,
+      `category.ilike.%${kw}%`
+    ]).join(',');
+
+    const { data, error } = await supabase
+      .from("assessment_tests")
+      .select("id, name, description, category, difficulty, estimated_duration_minutes, status")
+      .eq("status", "active")
+      .or(orConditions)
+      .limit(3);
+
+    if (error) throw error;
+    
+    return { success: true, tests: data };
+  } catch (err) {
+    console.error("searchAvailableAssessments error:", err);
     return { success: false, error: err.message };
   }
 }
@@ -237,7 +329,7 @@ export async function completeTestSession(sessionId, questionIds) {
     // Get questions with scoring data (server-side only)
     const { data: questions } = await supabase
       .from("assessment_questions")
-      .select("id, question_type, correct_answer, options, skill_dimension, bars_dimensions")
+      .select("id, question_type, correct_answer, options, skill_dimension, bars_dimensions, scoring_criteria")
       .in("id", questionIds);
 
     const answers = session.answers || [];
@@ -286,11 +378,22 @@ export async function completeTestSession(sessionId, questionIds) {
         gradedAnswer.correct_keys = correctKeys;
         gradedAnswer.ratio = ratio;
 
+      } else if (q.question_type === "numeric") {
+        // Classical numeric: 1 if answer matches, 0 otherwise
+        const correctNum = parseFloat(q.correct_answer);
+        const chosenNum = parseFloat(answer?.chosen);
+        ratio = !isNaN(correctNum) && !isNaN(chosenNum) && correctNum === chosenNum ? 1 : 0;
+        gradedAnswer.correct = ratio === 1;
+        gradedAnswer.correct_answer = q.correct_answer;
+
       } else if (q.question_type === "open_bars") {
-        // BARS: delegated to AI — skip here, handled in completeOpenTestSession
-        // Still record the answer in gradedAnswers
+        // BARS: delegated to AI — skip here, handled in completeMixedTestSession
         gradedAnswer.text_answer = answer?.text_answer ?? "";
         // ratio stays 0 until AI scores it
+
+      } else if (q.question_type === "likert" || q.question_type === "control" || q.question_type === "forced_choice") {
+        // Personality test items — delegate to completePersonalityTestSession
+        gradedAnswer.chosen = answer?.chosen ?? null;
       }
 
       dimensionScores[dim].push(ratio);
@@ -312,6 +415,12 @@ export async function completeTestSession(sessionId, questionIds) {
     const avgTime = times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0;
     const suspectedCheat = avgTime > 0 && avgTime < 4;
     const cheatFlags = { avg_response_time: Math.round(avgTime), suspected_cheat: suspectedCheat };
+
+    // ── Check for personality test ────────────────────────────────────────────
+    const isPersonality = (questions || []).some((q) => ["likert", "forced_choice", "control"].includes(q.question_type));
+    if (isPersonality) {
+      return await completePersonalityTestSession(session, questions, cheatFlags, supabase);
+    }
 
     // ── Check for BARS questions that need AI evaluation ────────────────────
     const hasBars = (questions || []).some((q) => q.question_type === "open_bars");
@@ -471,6 +580,137 @@ Réponds UNIQUEMENT avec un JSON valide, format exact :
     return { success: true, score, cheatFlags };
   } catch (err) {
     console.error("completeMixedTestSession error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Internal helper: score a personality/trait-based test (e.g. Sales Aptitude).
+ *
+ * Scoring rules (from sales_aptitude_import.md):
+ *  - Likert (1-5): reverse_scored items → 6 - response.
+ *    Trait Likert score = ((mean of 4 recoded items - 1) / 4) × 100.
+ *  - Forced-choice: points (2 or 1) → ((points - 1) / 1) × 100 → 0 or 100.
+ *  - Trait composite = 0.8 × Likert + 0.2 × Forced-choice.
+ *  - Control items: count rated 4 or 5. If ≥ 2 → flag (not elimination).
+ *  - Global score = average of trait composites.
+ */
+async function completePersonalityTestSession(session, questions, cheatFlags, supabase) {
+  try {
+    const answers = session.answers || [];
+    const ansMap = {};
+    answers.forEach((a) => { ansMap[a.question_id] = a; });
+
+    // Group questions by trait
+    const traits = {}; // trait → { likert: [{q, answer}], forced: [{q, answer}] }
+    const controlItems = [];
+
+    for (const q of questions) {
+      const trait = q.scoring_criteria?.trait;
+      const qType = q.question_type;
+      const answer = ansMap[q.id];
+
+      if (qType === "control") {
+        controlItems.push({ q, answer });
+        continue;
+      }
+
+      if (!trait) continue;
+      if (!traits[trait]) traits[trait] = { likert: [], forced: [] };
+
+      if (qType === "likert") {
+        traits[trait].likert.push({ q, answer });
+      } else if (qType === "forced_choice") {
+        traits[trait].forced.push({ q, answer });
+      }
+    }
+
+    // Score each trait
+    const traitScores = {};
+    for (const [traitName, items] of Object.entries(traits)) {
+      // Likert score
+      let likertScore = 50; // default if no likert items
+      if (items.likert.length > 0) {
+        const recodedValues = items.likert.map(({ q, answer }) => {
+          const raw = parseInt(answer?.chosen) || 3; // default to neutral
+          const isReverse = q.scoring_criteria?.reverse_scored === true;
+          return isReverse ? (6 - raw) : raw;
+        });
+        const mean = recodedValues.reduce((a, b) => a + b, 0) / recodedValues.length;
+        likertScore = Math.round(((mean - 1) / 4) * 100);
+      }
+
+      // Forced-choice score
+      let forcedScore = 50; // default if no forced item
+      if (items.forced.length > 0) {
+        const fc = items.forced[0]; // one forced-choice per trait
+        const opts = fc.q.options || [];
+        const chosen = opts.find((o) => o.key === fc.answer?.chosen);
+        const points = chosen?.points ?? 1;
+        forcedScore = Math.round(((points - 1) / 1) * 100);
+      }
+
+      // Composite
+      const composite = Math.round(0.8 * likertScore + 0.2 * forcedScore);
+      traitScores[traitName] = { likert: likertScore, forced_choice: forcedScore, composite };
+    }
+
+    // Control items — social desirability check
+    const controlHighCount = controlItems.filter(({ answer }) => {
+      const val = parseInt(answer?.chosen) || 0;
+      return val >= 4;
+    }).length;
+    const validityFlags = {
+      social_desirability_count: controlHighCount,
+      flagged: controlHighCount >= 2,
+    };
+
+    // Global score = average of composites
+    const composites = Object.values(traitScores).map((t) => t.composite);
+    const globalScore = composites.length > 0
+      ? Math.round(composites.reduce((a, b) => a + b, 0) / composites.length)
+      : 0;
+
+    // Build graded answers
+    const gradedAnswers = questions.map((q) => {
+      const answer = ansMap[q.id];
+      return {
+        question_id: q.id,
+        chosen: answer?.chosen ?? null,
+        time_seconds: answer?.time_seconds ?? 0,
+        trait: q.scoring_criteria?.trait || null,
+        item_id: q.scoring_criteria?.item_id || null,
+      };
+    });
+
+    const { error } = await supabase
+      .from("candidate_test_sessions")
+      .update({
+        status: "completed",
+        score: globalScore,
+        answers: gradedAnswers,
+        cheat_flags: cheatFlags,
+        ai_feedback: { trait_scores: traitScores, validity_flags: validityFlags },
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", session.id);
+
+    if (error) throw error;
+
+    // Deduct credits
+    if (session?.candidate_id) {
+      const { data: candidateJob } = await supabase
+        .from("candidates")
+        .select("jobs(user_id)")
+        .eq("id", session.candidate_id)
+        .single();
+      const recruiterId = candidateJob?.jobs?.user_id;
+      if (recruiterId) await deductCredits(recruiterId, session.candidate_id, "skill_test");
+    }
+
+    return { success: true, score: globalScore, traitScores, validityFlags, cheatFlags };
+  } catch (err) {
+    console.error("completePersonalityTestSession error:", err);
     return { success: false, error: err.message };
   }
 }
@@ -698,19 +938,7 @@ export async function submitAssessment(candidateId) {
         .eq("candidate_id", candidateId);
 
       if (videoResps && videoResps.length > 0) {
-        const evaluated = videoResps.filter(r => r.status === "evaluated" && r.ai_score != null);
-        const total = videoResps.length;
-        
-        videoCompleteness = {
-          evaluated: evaluated.length,
-          total,
-          is_complete: evaluated.length === total,
-        };
-
-        if (evaluated.length > 0) {
-          const totalScore = evaluated.reduce((sum, r) => sum + (r.ai_score || 0), 0);
-          scoreVideo = Math.round(totalScore / evaluated.length);
-        }
+        ({ scoreVideo, videoCompleteness } = aggregateVideoScore(videoResps));
       } else if (candidate.video_interview_score && candidate.video_interview_score > 0) {
         // Fallback: use previously stored value if API already ran
         scoreVideo = candidate.video_interview_score;
@@ -718,30 +946,13 @@ export async function submitAssessment(candidateId) {
       }
     }
 
-    // Score global : vidéo comptabilisée SEULEMENT si complète
-    const videoForGlobal = (videoCompleteness?.is_complete && scoreVideo != null)
-      ? scoreVideo
-      : null;
-
-    // Proportional weighting — only active & scored modules count
-    const baseWeights = { cv: 10, tests: 50, interview: 40, video: 40 };
-    const activeWeights = {};
-    if (cvEnabled       && candidate.score_cv    != null) activeWeights.cv        = baseWeights.cv;
-    if (testsEnabled    && scoreTests            != null) activeWeights.tests     = baseWeights.tests;
-    if (interviewEnabled && candidate.score_interview != null) activeWeights.interview = baseWeights.interview;
-    if (videoEnabled    && videoForGlobal        != null) activeWeights.video     = baseWeights.video;
-
-    const totalBase = Object.values(activeWeights).reduce((s, w) => s + w, 0);
-
-    let scoreGlobal = null;
-    if (totalBase > 0) {
-      let weighted = 0;
-      if (activeWeights.cv)        weighted += (candidate.score_cv        * activeWeights.cv)        / totalBase;
-      if (activeWeights.tests)     weighted += (scoreTests                * activeWeights.tests)     / totalBase;
-      if (activeWeights.interview) weighted += (candidate.score_interview * activeWeights.interview) / totalBase;
-      if (activeWeights.video)     weighted += (videoForGlobal            * activeWeights.video)     / totalBase;
-      scoreGlobal = Math.round(weighted);
-    }
+    // Score global — source unique : computeGlobalScore (formule proportionnelle)
+    const scoreGlobal = computeGlobalScore({
+      cvEnabled,        scoreCv: candidate.score_cv,
+      testsEnabled,     scoreTests,
+      interviewEnabled, scoreInterview: candidate.score_interview,
+      videoEnabled,     scoreVideo, videoCompleteness,
+    });
 
     const updates = {
       assessment_status: "submitted",
@@ -1154,8 +1365,11 @@ export async function markVideoInterviewCompleted(candidateId, averageScore) {
       .from("candidates")
       .update({
         video_interview_score: averageScore,
+        // NE PAS écrire `status: "interview_completed"` ici : ce statut est lu comme
+        // « l'entretien TEXTE est terminé » (AssessmentHub, InterviewModule). L'écrire
+        // depuis le chemin vidéo marquait à tort l'entretien texte comme fait et en
+        // privait le candidat. L'état vidéo a son propre champ dédié ci-dessous.
         video_interview_status: "completed",
-        status: "interview_completed",
       })
       .eq("id", candidateId);
     if (error) throw error;

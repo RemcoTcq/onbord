@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, Loader2 } from "lucide-react";
-import { logMailSent } from "@/lib/actions/candidate";
+import { X, Copy, Check, Loader2, Mail, Lock } from "lucide-react";
+import { logMailSent, sendCandidateEmail } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
+import { PLANS } from "@/lib/constants/plans";
 
 const TEMPLATES = {
   selected: {
@@ -60,6 +61,8 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
   const { toast } = useToast();
 
   const isAlreadySent = existingLogs.some(log => log.mail_type === selectedType);
+  const userPlan = currentUser?.user_metadata?.plan || "beta";
+  const canSendDirectly = PLANS[userPlan]?.features?.automatedEmails || userPlan === 'pro' || userPlan === 'custom';
 
   if (!isOpen) return null;
 
@@ -82,22 +85,48 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
   });
 
   const handleCopy = async () => {
-    setLoading(true);
     try {
       const fullText = `Objet : ${subject}\n\n${body}`;
       await navigator.clipboard.writeText(fullText);
-      
-      const res = await logMailSent(candidate.id, job.id, selectedType);
-      if (res.success) {
-        setCopied(true);
-        toast("Mail copié et enregistré dans l'historique !");
-        if (onLogged) onLogged();
-        setTimeout(() => setCopied(false), 2000);
-      } else {
-        toast("Mail copié, mais erreur lors de l'enregistrement de l'historique.", "error");
-      }
+      toast("Mail copié dans le presse-papier !");
     } catch (err) {
       toast("Erreur lors de la copie.", "error");
+    }
+  };
+
+  const handleSend = async () => {
+    if (!candidate.email) {
+      toast("Ce candidat n'a pas d'adresse e-mail renseignée.", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const replyTo = currentUser?.email;
+      
+      const res = await sendCandidateEmail(
+        candidate.id,
+        job.id,
+        selectedType,
+        candidate.email,
+        subject,
+        body,
+        replyTo
+      );
+      
+      if (res.success) {
+        setCopied(true); // Reuse copied state for "sent" feedback
+        toast("E-mail envoyé avec succès !");
+        if (onLogged) onLogged();
+        setTimeout(() => {
+          setCopied(false);
+          onClose(); // Auto-close on success
+        }, 2000);
+      } else {
+        toast(res.error || "Erreur lors de l'envoi de l'e-mail.", "error");
+      }
+    } catch (err) {
+      toast("Erreur lors de l'envoi.", "error");
     } finally {
       setLoading(false);
     }
@@ -158,14 +187,18 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
         {/* Footer */}
         <div style={{ padding: "20px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "12px", background: "var(--card)" }}>
           <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
+          <button className="btn btn-outline" onClick={handleCopy}>
+            <Copy size={18} /> Copier
+          </button>
           <button
             className="btn btn-primary"
-            onClick={handleCopy}
-            disabled={loading || isAlreadySent}
-            style={{ minWidth: "140px", opacity: isAlreadySent ? 0.6 : 1 }}
+            onClick={handleSend}
+            disabled={loading || isAlreadySent || !candidate.email || !canSendDirectly}
+            style={{ minWidth: "140px", opacity: (isAlreadySent || !candidate.email || !canSendDirectly) ? 0.6 : 1 }}
+            title={!canSendDirectly ? "Passez au plan Pro pour envoyer des e-mails directement." : ""}
           >
-            {loading ? <Loader2 size={18} className="spin" /> : copied ? <Check size={18} /> : isAlreadySent ? <Check size={18} /> : <Copy size={18} />}
-            {copied ? "Copié !" : isAlreadySent ? "Mail déjà généré" : "Copier le mail"}
+            {!canSendDirectly ? <Lock size={18} /> : loading ? <Loader2 size={18} className="spin" /> : copied ? <Check size={18} /> : isAlreadySent ? <Check size={18} /> : <Mail size={18} />}
+            {!canSendDirectly ? "Plan Pro Requis" : copied ? "Envoyé !" : isAlreadySent ? "Mail déjà envoyé" : "Envoyer l'e-mail"}
           </button>
         </div>
       </div>

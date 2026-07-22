@@ -36,8 +36,9 @@ export default function UsageWidget({ compact = false }) {
   if (!usage) return null;
 
   const plan = PLANS[usage.plan] || PLANS.core;
-  const jobsPercent = Math.min(100, (usage.jobs_count / plan.maxJobs) * 100);
-  const candidatesPercent = Math.min(100, (usage.candidates_count / plan.maxCandidates) * 100);
+  const creditsTotal = plan.creditsPerMonth;
+  const creditsUsed = Math.max(0, creditsTotal - (usage.credits_balance || 0));
+  const creditsPercent = Math.min(100, (creditsUsed / creditsTotal) * 100);
 
   if (compact) {
     return (
@@ -47,23 +48,13 @@ export default function UsageWidget({ compact = false }) {
           <span style={{ color: "var(--primary)", fontWeight: "bold" }}>UPGRADE</span>
         </div>
         
-        <div style={{ marginBottom: "10px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "white", marginBottom: "4px" }}>
-            <span>Offres</span>
-            <span>{usage.jobs_count}/{plan.maxJobs}</span>
-          </div>
-          <div style={{ height: "4px", background: "rgba(255,255,255,0.1)", borderRadius: "2px" }}>
-            <div style={{ height: "100%", width: `${jobsPercent}%`, background: jobsPercent > 80 ? "#ef4444" : "var(--primary)", borderRadius: "2px", transition: "width 0.3s" }} />
-          </div>
-        </div>
-
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "white", marginBottom: "4px" }}>
-            <span>Candidats</span>
-            <span>{usage.candidates_count}/{plan.maxCandidates}</span>
+            <span>Crédits</span>
+            <span>{usage.credits_balance || 0}/{creditsTotal}</span>
           </div>
           <div style={{ height: "4px", background: "rgba(255,255,255,0.1)", borderRadius: "2px" }}>
-            <div style={{ height: "100%", width: `${candidatesPercent}%`, background: candidatesPercent > 80 ? "#ef4444" : "var(--primary)", borderRadius: "2px", transition: "width 0.3s" }} />
+            <div style={{ height: "100%", width: `${creditsPercent}%`, background: creditsPercent > 80 ? "#ef4444" : "var(--primary)", borderRadius: "2px", transition: "width 0.3s" }} />
           </div>
         </div>
       </div>
@@ -82,23 +73,13 @@ export default function UsageWidget({ compact = false }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-          <span style={{ color: "var(--muted-foreground)" }}>Offres créées</span>
-          <span style={{ fontWeight: "bold" }}>{usage.jobs_count} / {plan.maxJobs}</span>
-        </div>
-        <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${jobsPercent}%`, background: jobsPercent > 80 ? "var(--destructive)" : "var(--primary)", transition: "width 0.5s" }} />
-        </div>
-      </div>
-
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-          <span style={{ color: "var(--muted-foreground)" }}>Candidats analysés</span>
-          <span style={{ fontWeight: "bold" }}>{usage.candidates_count} / {plan.maxCandidates}</span>
+          <span style={{ color: "var(--muted-foreground)" }}>Crédits utilisés</span>
+          <span style={{ fontWeight: "bold" }}>{creditsUsed} / {creditsTotal}</span>
         </div>
         <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${candidatesPercent}%`, background: candidatesPercent > 80 ? "var(--destructive)" : "var(--primary)", transition: "width 0.5s" }} />
+          <div style={{ height: "100%", width: `${creditsPercent}%`, background: creditsPercent > 80 ? "var(--destructive)" : "var(--primary)", transition: "width 0.5s" }} />
         </div>
       </div>
       

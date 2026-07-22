@@ -121,6 +121,7 @@ export default function AssessmentModuleConfig({ job, onSave }) {
           {(modules.skills_tests?.enabled) && (
             <SkillsTestConfig
               jobId={job.id}
+              jobData={job}
               config={modules.skills_tests}
               onChange={(val) => {
                 setConfig((prev) => ({

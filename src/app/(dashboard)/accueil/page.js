@@ -1,101 +1,171 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import {
-  Loader2, ArrowRight, ChevronRight, Upload, FileText,
-  MessageSquare, BarChart2, Play, ExternalLink, Mail,
-  CheckCircle2, Users, Brain, Zap, FlaskConical
-} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { 
+  Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
+  Home, Users, Settings2, BarChart2, Star
+} from "lucide-react";
+import { PLANS } from "@/lib/constants/plans";
 
-const ONBOARDING_STEPS = [
-  {
-    number: "01",
-    icon: FileText,
-    title: "Créez une évaluation",
-    description: "Collez la description du poste. L'IA la lit et structure automatiquement les critères de sélection.",
-    cta: "Nouvelle évaluation",
-    href: "/jobs/nouveau",
-  },
-  {
-    number: "02",
-    icon: Upload,
-    title: "Les candidats s'évaluent",
-    description: "Partagez le lien unique. Chaque candidat passe les tests cognitifs et réalise l'interview IA.",
-    cta: null,
-    href: null,
-  },
-  {
-    number: "03",
-    icon: Brain,
-    title: "L'IA analyse tout",
-    description: "Score CV, résultats aux tests, réponses à l'interview — tout est analysé et expliqué.",
-    cta: null,
-    href: null,
-  },
-  {
-    number: "04",
-    icon: BarChart2,
-    title: "Prenez vos décisions",
-    description: "Consultez le classement des candidats avec leurs scores détaillés. Prenez la bonne décision.",
-    cta: "Voir mes évaluations",
-    href: "/jobs",
-  },
+const ICON_MAP = {
+  Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
+  Home, Users, Settings2, BarChart2, Star
+};
+
+const DEFAULT_SHORTCUTS = [
+  { id: 'new_job', iconName: 'Plus', label: "Nouvelle offre", href: "/jobs/nouveau" },
+  { id: 'jobs', iconName: 'Briefcase', label: "Offres d'emploi", href: "/jobs" },
+  { id: 'assessments', iconName: 'FileText', label: "Évaluations", href: "/assessments" },
 ];
 
-function getJobStage(job) {
-  const candidates = job.candidates || [];
-  const total = candidates.length;
-  const scored = candidates.filter(c => c.score_cv != null).length;
-  const invited = candidates.filter(c => ["invited", "interview_started", "interview_completed"].includes(c.status)).length;
-  const interviewDone = candidates.filter(c => c.status === "interview_completed").length;
-  const shortlisted = candidates.filter(c => c.status === "shortlisted").length;
+function ActionButton({ iconName, label, href, isEditing, onRemove }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const Icon = ICON_MAP[iconName] || FileText;
+  
+  const content = (
+    <div 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: "10px",
+        padding: "12px 24px",
+        border: isEditing ? "1px dashed var(--muted-foreground)" : "1px solid var(--border)", 
+        borderRadius: "8px",
+        fontSize: "15px",
+        fontWeight: "600", color: "var(--foreground)",
+        background: "white", transition: "all 0.15s ease",
+        position: "relative",
+        cursor: isEditing ? "default" : "pointer"
+      }} 
+      className={isEditing ? "" : "hover-bg-secondary"}
+    >
+      {Icon && <Icon size={18} color="var(--muted-foreground)" />}
+      {label}
+      {isEditing && isHovered && (
+        <button 
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
+          style={{
+            position: "absolute", top: "-10px", right: "-10px", 
+            width: "24px", height: "24px", borderRadius: "12px",
+            background: "white", color: "var(--muted-foreground)",
+            border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", padding: 0, boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+            transition: "all 0.15s ease", zIndex: 10
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+        >
+          <X size={14} strokeWidth={2.5} />
+        </button>
+      )}
+    </div>
+  );
 
-  if (total === 0) return { stage: 0, label: "En attente de candidats", progress: 10, total, scored, invited, interviewDone, shortlisted };
-  if (scored === 0) return { stage: 1, label: "Évaluations en cours", progress: 35, total, scored, invited, interviewDone, shortlisted };
-  if (invited === 0 && shortlisted === 0) return { stage: 2, label: "CV analysés", progress: 60, total, scored, invited, interviewDone, shortlisted };
-  if (shortlisted === 0) return { stage: 3, label: "Interviews en cours", progress: 80, total, scored, invited, interviewDone, shortlisted };
-  return { stage: 4, label: "Shortlist prête", progress: 100, total, scored, invited, interviewDone, shortlisted };
+  return isEditing ? content : <Link href={href} style={{ textDecoration: "none" }}>{content}</Link>;
 }
 
-function JobCard({ job }) {
-  const info = getJobStage(job);
-  const progressColors = ["#737373", "#f59e0b", "#0d9488", "#6366f1", "#22c55e"];
-  const color = progressColors[info.stage];
+function AddShortcutModal({ onClose, onAdd, activeJobs }) {
+  const PREDEFINED = [
+    { id: 'home', iconName: 'Home', label: "Accueil", href: "/accueil" },
+    { id: 'new_job', iconName: 'Plus', label: "Nouvelle offre", href: "/jobs/nouveau" },
+    { id: 'jobs', iconName: 'Briefcase', label: "Offres d'emploi", href: "/jobs" },
+    { id: 'assessments', iconName: 'FileText', label: "Évaluations", href: "/assessments" },
+    { id: 'talents', iconName: 'Users', label: "Candidats / Talents", href: "/candidats" },
+    { id: 'settings', iconName: 'Settings2', label: "Paramètres", href: "/compte/profil" },
+  ];
 
   return (
-    <Link href={`/jobs/${job.id}`} style={{ textDecoration: "none" }}>
-      <div className="card card-hover" style={{ padding: "18px 20px", cursor: "pointer" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "14px" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--foreground)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {job.title}
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-              {job.location || "Localisation non précisée"} · {job.contract_type || "CDI"}
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div className="fade-in" style={{
+        background: 'white', borderRadius: '12px', width: '600px', maxWidth: '90vw',
+        maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+      }}>
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Ajouter un raccourci</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--muted-foreground)' }}><X size={24} /></button>
+        </div>
+        <div style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ marginBottom: '40px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--muted-foreground)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pages principales</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {PREDEFINED.map(item => {
+                const Icon = ICON_MAP[item.iconName] || FileText;
+                return (
+                  <button 
+                    key={item.id} 
+                    onClick={() => { onAdd(item); onClose(); }}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', 
+                      border: '1px solid var(--border)', borderRadius: '10px', background: 'white', 
+                      cursor: 'pointer', textAlign: 'left'
+                    }}
+                    className="hover-border-foreground"
+                  >
+                    <Icon size={20} color="var(--muted-foreground)" />
+                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)' }}>{item.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
-          <span style={{ fontSize: "11px", fontWeight: "600", background: color + "18", color, padding: "3px 8px", borderRadius: "4px", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {info.label}
-          </span>
-        </div>
-
-        <div style={{ height: "3px", background: "var(--border)", borderRadius: "2px", marginBottom: "12px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${info.progress}%`, background: color, borderRadius: "2px", transition: "width 0.8s ease" }} />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-          {[
-            { value: info.total, label: "Candidats" },
-            { value: info.interviewDone, label: "Interviews" },
-            { value: info.shortlisted, label: "Sélectionnés" },
-          ].map((m, i) => (
-            <div key={i} style={{ textAlign: "center", background: "var(--secondary)", borderRadius: "6px", padding: "8px 4px" }}>
-              <div style={{ fontSize: "18px", fontWeight: "800", color: "var(--foreground)", lineHeight: 1 }}>{m.value}</div>
-              <div style={{ fontSize: "10px", color: "var(--muted-foreground)", marginTop: "2px" }}>{m.label}</div>
+          
+          {activeJobs && activeJobs.length > 0 && (
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--muted-foreground)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Vos offres d'emploi actives</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {activeJobs.map(job => (
+                  <button 
+                    key={job.id} 
+                    onClick={() => { 
+                      onAdd({ id: `job_${job.id}`, iconName: 'Star', label: job.title, href: `/jobs/${job.id}` }); 
+                      onClose(); 
+                    }}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', 
+                      border: '1px solid var(--border)', borderRadius: '10px', background: 'white', 
+                      cursor: 'pointer', textAlign: 'left'
+                    }}
+                    className="hover-border-foreground"
+                  >
+                    <div style={{ width: '10px', height: '10px', borderRadius: '5px', background: '#22c55e' }}></div>
+                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)' }}>{job.title}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactJobCard({ job }) {
+  const candidates = job.candidates || [];
+  return (
+    <Link href={`/jobs/${job.id}`} style={{ textDecoration: "none" }}>
+      <div style={{
+        padding: "20px 24px", border: "1px solid var(--border)", borderRadius: "10px",
+        marginBottom: "16px", background: "white", transition: "border-color 0.15s ease"
+      }} className="hover-border-foreground">
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+          <div style={{ fontWeight: "700", fontSize: "16px", color: "var(--foreground)" }}>
+            {job.title}
+          </div>
+          <span style={{
+            fontSize: "12px", fontWeight: "700", color: "#22c55e", background: "#22c55e15",
+            padding: "4px 10px", borderRadius: "6px"
+          }}>Open</span>
+        </div>
+        <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
+          {job.location || "Localisation non précisée"} &nbsp;&nbsp; {candidates.length} candidats
         </div>
       </div>
     </Link>
@@ -105,13 +175,34 @@ function JobCard({ job }) {
 export default function Accueil() {
   const [userName, setUserName] = useState("");
   const [activeJobs, setActiveJobs] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({ totalJobs: 0, testsDone: 0, candidates: 0 });
+  const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
-  const [showChecklist, setShowChecklist] = useState(true);
-  const [maxStats, setMaxStats] = useState({ jobs: 0, candidates: 0 });
+  
+  const [customShortcuts, setCustomShortcuts] = useState(DEFAULT_SHORTCUTS);
+  const [showActionEdit, setShowActionEdit] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const savedShortcuts = localStorage.getItem("onbord_custom_shortcuts");
+    if (savedShortcuts) {
+      try { setCustomShortcuts(JSON.parse(savedShortcuts)); } catch (e) {}
+    }
+  }, []);
+
+  const removeShortcut = (id) => {
+    const next = customShortcuts.filter(s => s.id !== id);
+    setCustomShortcuts(next);
+    localStorage.setItem("onbord_custom_shortcuts", JSON.stringify(next));
+  };
+
+  const addShortcut = (shortcut) => {
+    if (customShortcuts.find(s => s.id === shortcut.id)) return;
+    const next = [...customShortcuts, shortcut];
+    setCustomShortcuts(next);
+    localStorage.setItem("onbord_custom_shortcuts", JSON.stringify(next));
+  };
 
   async function loadData() {
     const supabase = createClient();
@@ -119,16 +210,15 @@ export default function Accueil() {
     if (!user) { setLoading(false); return; }
 
     setUserName(user.user_metadata?.first_name || user.email?.split("@")[0] || "");
-    setUserId(user.id);
-
-    const dismissed = localStorage.getItem(`accueil_checklist_dismissed_${user.id}`);
-    if (dismissed === "true") {
-      setShowChecklist(false);
+    
+    const { data: usageData } = await supabase.from('company_usage').select('*').eq('user_id', user.id).single();
+    if (usageData) {
+      setUsage(usageData);
     }
 
     const { data: jobs } = await supabase
       .from("jobs")
-      .select("*, candidates(id, score_cv, score_global, score_interview, status)")
+      .select("*, candidates(id, status)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -137,23 +227,10 @@ export default function Accueil() {
       const active = jobs.filter(j => j.status === "active");
       setActiveJobs(active.slice(0, 3));
 
-      const currentJobsCount = jobs.length;
-      const currentCandCount = allCandidates.length;
-
-      const savedMaxJobs = parseInt(localStorage.getItem(`maxJobs_${user.id}`) || "0");
-      const savedMaxCand = parseInt(localStorage.getItem(`maxCandidates_${user.id}`) || "0");
-      const newMaxJobs = Math.max(savedMaxJobs, currentJobsCount);
-      const newMaxCand = Math.max(savedMaxCand, currentCandCount);
-
-      localStorage.setItem(`maxJobs_${user.id}`, newMaxJobs.toString());
-      localStorage.setItem(`maxCandidates_${user.id}`, newMaxCand.toString());
-      setMaxStats({ jobs: newMaxJobs, candidates: newMaxCand });
-
       setStats({
-        totalJobs: currentJobsCount,
-        activeJobs: active.length,
-        totalCandidates: currentCandCount,
-        interviewsDone: allCandidates.filter(c => c.status === "interview_completed").length,
+        totalJobs: jobs.length,
+        testsDone: allCandidates.filter(c => c.status === "interview_completed" || c.status === "shortlisted").length,
+        candidates: allCandidates.length,
       });
     }
     setLoading(false);
@@ -161,162 +238,150 @@ export default function Accueil() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-        <Loader2 size={28} style={{ animation: "spin 1s linear infinite" }} />
+      <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
+        <div style={{ fontSize: "16px", color: "var(--muted-foreground)" }}>Loading...</div>
       </div>
     );
   }
 
-  const hasJobs = activeJobs.length > 0;
+  const plan = usage ? (PLANS[usage.plan] || PLANS.core) : PLANS.core;
+  const maxCredits = plan.creditsPerMonth || 170;
+  
+  let creditsLeft = maxCredits;
+  if (usage && usage.credits_balance !== undefined && usage.credits_balance !== null) {
+      creditsLeft = usage.credits_balance;
+  } else if (usage) {
+      creditsLeft = Math.max(0, maxCredits - (usage.jobs_count * 10 || 0));
+  }
+  const creditsUsed = maxCredits - creditsLeft;
+  const creditsPercent = Math.min(100, Math.max(0, (creditsUsed / maxCredits) * 100));
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "40px", maxWidth: "960px" }}>
+    <div className="fade-in" style={{ width: "100%", maxWidth: "1600px", margin: "0 auto", padding: "24px 32px", boxSizing: "border-box", overflowX: "hidden" }}>
+      
+      {showAddModal && (
+        <AddShortcutModal 
+          onClose={() => setShowAddModal(false)} 
+          onAdd={addShortcut}
+          activeJobs={activeJobs}
+        />
+      )}
 
-      {/* ===== HEADER ===== */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <h1 style={{ fontSize: "26px", fontWeight: "800", color: "var(--foreground)", letterSpacing: "-0.03em", marginBottom: "4px" }}>
-            {userName ? `Bonjour, ${userName} 👋` : "Bienvenue sur Onbord"}
-          </h1>
-          <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
-            Votre plateforme d'évaluation des candidats pilotée par l'IA.
-          </p>
+      {/* 1. Header (Logo + Welcome) */}
+      <div style={{ textAlign: "center", marginBottom: "32px" }}>
+        <img src="/logo.png" alt="Onbord" style={{ height: "80px", marginBottom: "12px", objectFit: "contain" }} />
+        <div style={{ fontSize: "16px", color: "var(--muted-foreground)" }}>
+          Bonjour, {userName}
         </div>
-        <Link href="/jobs/nouveau" className="btn btn-primary">
-          Nouvelle évaluation
-        </Link>
       </div>
 
-      {/* ===== GRID: VIDEO + ONBOARDING CHECKLIST ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: showChecklist ? "1.8fr 1fr" : "1fr", gap: "24px", alignItems: "start" }}>
+      {/* 2. Action Bar */}
+      <div style={{ 
+        background: "white", borderRadius: "12px", border: "1px solid var(--border)",
+        padding: "20px", marginBottom: "32px", position: "relative",
+        display: "flex", justifyContent: "center", alignItems: "center"
+      }}>
+        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", justifyContent: "center" }}>
+          {customShortcuts.map(shortcut => (
+            <ActionButton 
+              key={shortcut.id} 
+              iconName={shortcut.iconName} 
+              label={shortcut.label} 
+              href={shortcut.href} 
+              isEditing={showActionEdit}
+              onRemove={() => removeShortcut(shortcut.id)}
+            />
+          ))}
+          
+          {showActionEdit && (
+            <button 
+              onClick={() => setShowAddModal(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                padding: "12px 24px", border: "2px dashed var(--border)", borderRadius: "8px",
+                fontSize: "15px", fontWeight: "600", color: "var(--muted-foreground)",
+                background: "transparent", cursor: "pointer"
+              }} className="hover-bg-secondary"
+            >
+              <Plus size={18} /> Add
+            </button>
+          )}
+
+          {!showActionEdit && customShortcuts.length === 0 && <span style={{fontSize: "15px", color: "var(--muted-foreground)"}}>Aucun raccourci configuré</span>}
+        </div>
         
-        {/* ===== VIDEO D'INTRO ===== */}
-        <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border)", background: "var(--foreground)", aspectRatio: "16/9" }}>
-          <video
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            poster="/video-poster.jpg"
-            controls
-            preload="metadata"
+        <div style={{ position: "absolute", right: "32px", top: "50%", transform: "translateY(-50%)" }}>
+          <button 
+            onClick={() => setShowActionEdit(!showActionEdit)} 
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--foreground)", display: "flex", padding: "6px" }}
           >
-            <source src="/intro.mp4" type="video/mp4" />
-          </video>
-          <div style={{
-            position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0,0,0,0.45)", pointerEvents: "none"
-          }}>
-            <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-              <Play size={24} style={{ color: "var(--foreground)", marginLeft: "3px" }} />
-            </div>
-          </div>
-        </div>
-
-        {/* ===== ONBOARDING CHECKLIST ===== */}
-        {showChecklist && (
-          <div className="card" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "20px" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: "700", margin: 0, color: "var(--foreground)", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
-              Checklist de démarrage
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              
-              {/* Étape 1 */}
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (maxStats.jobs > 0) ? 0.5 : 1 }}>
-                {(maxStats.jobs > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (maxStats.jobs > 0) ? "line-through" : "none" }}>
-                    Créer une évaluation
-                  </div>
-                  {!(maxStats.jobs > 0) && (
-                    <Link href="/jobs/nouveau" style={{ display: "inline-block", fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px", textDecoration: "underline" }}>
-                      Commencer
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              {/* Étape 2 */}
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", opacity: (maxStats.candidates > 0) ? 0.5 : 1 }}>
-                {(maxStats.candidates > 0) ? <CheckCircle2 size={18} style={{ color: "var(--foreground)", marginTop: "1px" }} /> : <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid var(--border)", marginTop: "1px", flexShrink: 0 }} />}
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", textDecoration: (maxStats.candidates > 0) ? "line-through" : "none" }}>
-                    Recevoir son premier candidat
-                  </div>
-                  {!(maxStats.candidates > 0) && (
-                    <div style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px", lineHeight: "1.4" }}>
-                      Partagez le lien de votre évaluation pour obtenir vos premières candidatures.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Manual Dismiss */}
-              {(maxStats.jobs > 0 && maxStats.candidates > 0) && (
-                <button 
-                  onClick={() => {
-                    localStorage.setItem(`accueil_checklist_dismissed_${userId}`, "true");
-                    setShowChecklist(false);
-                  }}
-                  style={{ 
-                    background: "transparent", border: "none", color: "var(--muted-foreground)", 
-                    fontSize: "12px", textDecoration: "underline", cursor: "pointer", 
-                    alignSelf: "flex-start", padding: 0, marginTop: "4px"
-                  }}
-                >
-                  Faire disparaître ce guide
-                </button>
-              )}
-
-            </div>
-          </div>
-        )}
-      </div>
-
-
-
-      {/* ===== 2 CARTES (Science + Support) ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-
-        {/* Carte Science */}
-        <div className="card" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <div style={{ fontWeight: "700", fontSize: "15px", color: "var(--foreground)", marginBottom: "6px" }}>
-              La science derrière Onbord
-            </div>
-            <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: "1.6" }}>
-              Découvrez les recherches en psychologie cognitive et en évaluation comportementale qui fondent nos méthodes d'évaluation des candidats.
-            </p>
-          </div>
-          <a
-            href="https://onbord.io/science"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-primary btn-sm"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "auto", width: "fit-content" }}
-          >
-            En savoir plus <ExternalLink size={13} />
-          </a>
-        </div>
-
-        {/* Carte Support */}
-        <div className="card" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <div style={{ fontWeight: "700", fontSize: "15px", color: "var(--foreground)", marginBottom: "6px" }}>
-              Contacter le support
-            </div>
-            <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: "1.6" }}>
-              Une question, un bug ou une suggestion ? Notre équipe est disponible par email et vous répondra dans les meilleurs délais.
-            </p>
-          </div>
-          <a
-            href="mailto:support@onbord.io"
-            className="btn btn-sm"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "auto", width: "fit-content", border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
-          >
-            <Mail size={13} /> support@onbord.io
-          </a>
+            {showActionEdit ? <Check size={22} color="var(--foreground)" /> : <Edit3 size={22} />}
+          </button>
         </div>
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
+        
+        {/* 3. Organization Card */}
+        <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", padding: "32px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>Entreprise</h3>
+            <Link href="/compte/profil" style={{ color: "var(--muted-foreground)" }}>
+              <Settings size={22} />
+            </Link>
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "24px" }}>
+            <span>Plan</span>
+            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{plan.label}</span>
+          </div>
 
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
+            <span>Crédits utilisés</span>
+            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{creditsUsed} / {maxCredits}</span>
+          </div>
+          
+          <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden", marginBottom: "32px" }}>
+            <div style={{ height: "100%", width: `${creditsPercent}%`, background: "var(--foreground)", borderRadius: "4px" }} />
+          </div>
+
+          <div style={{ height: "1px", background: "var(--border)", margin: "0 -32px 32px -32px" }} />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", textAlign: "center" }}>
+            <div>
+              <div style={{ fontSize: "22px", fontWeight: "800", color: "var(--foreground)", marginBottom: "8px" }}>{stats.totalJobs}</div>
+              <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>Offres d'emploi</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "22px", fontWeight: "800", color: "var(--foreground)", marginBottom: "8px" }}>{stats.candidates}</div>
+              <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>Candidats</div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Postings Card */}
+        <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", padding: "32px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>Dernières offres</h3>
+            <Link href="/jobs" style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "6px", textDecoration: "none" }}>
+              Voir tout <ChevronRight size={16} />
+            </Link>
+          </div>
+          
+          {activeJobs.length > 0 ? (
+            <div>
+              {activeJobs.map(job => (
+                <CompactJobCard key={job.id} job={job} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "48px 0", fontSize: "15px", color: "var(--muted-foreground)" }}>
+              Aucune offre d'emploi active
+            </div>
+          )}
+        </div>
+
+      </div>
 
     </div>
   );

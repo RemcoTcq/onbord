@@ -129,7 +129,7 @@ export async function updateEmployerBranding(brandingData) {
     if (!canBrand) {
       return {
         success: false,
-        error: "Votre plan actuel ne permet pas de personnaliser le branding. Passez au plan Scale ou supérieur.",
+        error: "Votre plan actuel ne permet pas de personnaliser le branding. Passez au plan Pro ou supérieur.",
       };
     }
 

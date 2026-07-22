@@ -164,8 +164,11 @@ function TestRunner({ candidate, testId, recruiter, questionIds, existingSession
   const isBars = qType === "open_bars";
   const isNumeric = qType === "numeric";
   const isMultiple = qType === "qcm_multiple";
-  const effectiveTimeLeft = isBars ? null : timeLeft;
-  const timePct = (question && question.time_limit_seconds && !isBars) ? (timeLeft / question.time_limit_seconds) * 100 : 100;
+  const isLikert = qType === "likert" || qType === "control";
+  const isForcedChoice = qType === "forced_choice";
+  const noTimer = isBars || isLikert || isForcedChoice;
+  const effectiveTimeLeft = noTimer ? null : timeLeft;
+  const timePct = (question && question.time_limit_seconds && !noTimer) ? (timeLeft / question.time_limit_seconds) * 100 : 100;
   const timerColor = timePct > 50 ? "#22c55e" : timePct > 25 ? "#f59e0b" : "#ef4444";
 
   const options = question?.options
@@ -386,7 +389,98 @@ function TestRunner({ candidate, testId, recruiter, questionIds, existingSession
             </div>
           )}
 
-          {!isBars && !isMultiple && !isNumeric && (
+          {isLikert && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                {[1, 2, 3, 4, 5].map((val) => {
+                  const labels = { 1: "Pas du tout d'accord", 2: "Plutôt pas d'accord", 3: "Neutre", 4: "Plutôt d'accord", 5: "Tout à fait d'accord" };
+                  const isSelected = selectedAnswer === String(val);
+                  return (
+                    <button
+                      key={val}
+                      onClick={() => { setSelectedAnswer(String(val)); }}
+                      disabled={submitting}
+                      style={{
+                        flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+                        padding: "1rem 0.5rem", borderRadius: "var(--radius)",
+                        background: isSelected ? "var(--primary)" : "var(--card)",
+                        color: isSelected ? "white" : "var(--foreground)",
+                        border: `2px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                        cursor: submitting ? "default" : "pointer", transition: "all 150ms",
+                      }}
+                    >
+                      <span style={{ fontSize: "1.25rem", fontWeight: "800" }}>{val}</span>
+                      <span style={{ fontSize: "10px", fontWeight: "500", textAlign: "center", lineHeight: "1.3", opacity: 0.8 }}>{labels[val]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => handleAnswer(selectedAnswer)}
+                disabled={submitting || !selectedAnswer}
+                style={{
+                  background: !selectedAnswer ? "var(--border)" : "var(--primary)",
+                  color: !selectedAnswer ? "var(--muted-foreground)" : "white",
+                  border: "none", padding: "0.875rem 2rem", borderRadius: "var(--radius)",
+                  fontSize: "15px", fontWeight: "700",
+                  cursor: !selectedAnswer || submitting ? "default" : "pointer",
+                  alignSelf: "flex-end",
+                }}
+              >
+                {submitting ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                Suivant
+              </button>
+            </div>
+          )}
+
+          {isForcedChoice && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <p style={{ fontSize: "13px", color: "var(--muted-foreground)", fontWeight: "600", marginBottom: "0.5rem" }}>
+                Choisissez l'option qui vous correspond le mieux :
+              </p>
+              {(question?.options || []).map(({ key, text }) => {
+                const isSelected = selectedAnswer === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { setSelectedAnswer(key); handleAnswer(key); }}
+                    disabled={submitting || selectedAnswer !== null}
+                    style={{
+                      padding: "1.25rem 1.5rem", borderRadius: "var(--radius)",
+                      background: isSelected ? "var(--primary)" : "var(--card)",
+                      color: isSelected ? "white" : "var(--foreground)",
+                      border: `2px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                      cursor: submitting ? "default" : "pointer", textAlign: "left",
+                      fontSize: "14px", fontWeight: "500", display: "flex", alignItems: "center", gap: "12px",
+                      transition: "all 150ms",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!submitting && !selectedAnswer) {
+                        e.currentTarget.style.borderColor = "var(--primary)";
+                        e.currentTarget.style.background = "var(--accent)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = "var(--border)";
+                        e.currentTarget.style.background = "var(--card)";
+                      }
+                    }}
+                  >
+                    <span style={{
+                      width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
+                      background: isSelected ? "rgba(255,255,255,0.2)" : "var(--secondary)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: "800", fontSize: "14px",
+                    }}>{key}</span>
+                    <span style={{ lineHeight: "1.5" }}>{text}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {!isBars && !isMultiple && !isNumeric && !isLikert && !isForcedChoice && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {options.map(({ key, text }) => {
                 const isSelected = selectedAnswer === key;
