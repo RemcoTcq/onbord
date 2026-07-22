@@ -148,6 +148,7 @@ export default function AdminPage() {
               background: "var(--background)", fontSize: "14px", fontWeight: "600",
               color: "var(--foreground)", cursor: "pointer", flex: 1
             }}
+          >
             <option value="core">Core</option>
             <option value="pro">Pro</option>
             <option value="custom">Custom</option>
