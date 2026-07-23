@@ -1060,7 +1060,7 @@ function CandidatsTab({
             </thead>
             <tbody>
               {candidates.map(candidate => {
-                const globalScoreStyle = candidate.score_global ? getScoreColor(candidate.score_global) : null;
+                const globalScoreStyle = candidate.score_global != null ? getScoreColor(candidate.score_global) : null;
                 const statusBadge = getStatusBadge(candidate.status);
                 const initials = `${(candidate.first_name || "?")[0]}${(candidate.last_name || "?")[0]}`.toUpperCase();
                 const isSelected = selectedIds.includes(candidate.id);

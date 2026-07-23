@@ -207,9 +207,9 @@ export default function CandidateDetailPage() {
     );
   }
 
-  const scoreStyle = candidate.score_cv ? getScoreColor(candidate.score_cv) : null;
-  const interviewScoreStyle = candidate.score_interview ? getScoreColor(candidate.score_interview) : null;
-  const globalScoreStyle = candidate.score_global ? getScoreColor(candidate.score_global) : null;
+  const scoreStyle = candidate.score_cv != null ? getScoreColor(candidate.score_cv) : null;
+  const interviewScoreStyle = candidate.score_interview != null ? getScoreColor(candidate.score_interview) : null;
+  const globalScoreStyle = candidate.score_global != null ? getScoreColor(candidate.score_global) : null;
   const statusBadge = getStatusBadge(candidate.status);
   const initials = `${(candidate.first_name || "?")[0]}${(candidate.last_name || "?")[0]}`.toUpperCase();
   const jobCriteria = candidate.jobs?.extracted_criteria || {};
