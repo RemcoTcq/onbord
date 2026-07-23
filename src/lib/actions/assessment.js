@@ -1192,7 +1192,7 @@ export async function generateVideoQuestions(jobId) {
     const title = job.title || "Poste inconnu";
     const description = job.description?.slice(0, 1000) || "Aucune description fournie";
 
-    const response = await anthropic.messages.create({
+    const callAI = () => anthropic.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 3000,
       temperature: 0.3,
@@ -1241,11 +1241,25 @@ R\u00e9ponds avec:
       ],
     });
 
-    const text = response.content[0].text;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { success: false, error: "AI did not return valid JSON" };
-    const parsed = JSON.parse(jsonMatch[0]);
-    return { success: true, questions: parsed.questions || [] };
+    // L'IA rend parfois du texte non-JSON de façon transitoire : on réessaie une
+    // fois avant d'échouer, plutôt que de renvoyer une erreur au premier hoquet.
+    let lastErr = "";
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const response = await callAI();
+      const text = response.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return { success: true, questions: parsed.questions || [] };
+        } catch (parseErr) {
+          lastErr = parseErr.message;
+        }
+      } else {
+        lastErr = "aucun JSON dans la réponse";
+      }
+    }
+    return { success: false, error: `L'IA n'a pas renvoyé de questions exploitables (${lastErr}). Merci de réessayer.` };
   } catch (err) {
     console.error("generateVideoQuestions error:", err);
     return { success: false, error: err.message };
