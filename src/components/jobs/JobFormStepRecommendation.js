@@ -13,31 +13,13 @@ import VideoInterviewConfig from "./VideoInterviewConfig";
 import AiInterviewConfig from "./AiInterviewConfig";
 import CvScoringCriteria from "./CvScoringCriteria";
 import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
-import PipelineNodeConfigPanel from "./PipelineNodeConfigPanel";
 import PipelineVisualEditor from "./PipelineVisualEditor";
-import AssessmentSelectionModal from '../assessment/AssessmentSelectionModal';
-import AssessmentActionModal from '../assessment/AssessmentActionModal';
-import AssessmentCreationFlow from '../assessment/AssessmentCreationFlow';
-import { getTestsLibrary } from '@/lib/actions/assessment';
 
 export default function JobFormStepRecommendation({ jobData, savedJobId, onSave, isSaving, onBack }) {
   const [flowNodes, setFlowNodes] = useState([]);
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
-  const [showAssessmentActionModal, setShowAssessmentActionModal] = useState(false);
-  const [assessmentCreationMode, setAssessmentCreationMode] = useState(false);
-  const [linkingNodeId, setLinkingNodeId] = useState(null);
-  const [testsLibrary, setTestsLibrary] = useState([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
-  
-  // Load library for linking
-  useEffect(() => {
-    getTestsLibrary().then(res => {
-      if (res.success) setTestsLibrary(res.tests);
-    });
-  }, []);
-  
+
   useEffect(() => {
     if (jobData && isInitializing) {
       console.log("JobFormStepRecommendation init. jobData.saved_flow_nodes:", jobData.saved_flow_nodes);
@@ -106,15 +88,7 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
           type: 'single_video_question',
           config: { 
             evaluation_mode: "ai",
-            questions: [{
-              id: `custom_${Date.now()}`,
-              text: "",
-              category: "Custom",
-              hint: "",
-              weight: 1,
-              source: "custom",
-              criteria: [],
-            }], 
+            questions: [], 
             max_duration_seconds: 120, 
             max_retakes: 1 
           }
@@ -144,32 +118,7 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
     );
   }
 
-  if (assessmentCreationMode) {
-    return (
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--background)', zIndex: 50, overflowY: 'auto' }}>
-        <AssessmentCreationFlow 
-          jobData={jobData}
-          onCancel={() => setAssessmentCreationMode(false)}
-          onTestCreated={async (testId) => {
-            setAssessmentCreationMode(false);
-            const res = await getTestsLibrary();
-            if (res.success) {
-              setTestsLibrary(res.tests);
-              const testData = res.tests.find(t => t.id === testId);
-              if (testData) {
-                handleUpdateNodeConfig(linkingNodeId, {
-                  ...flowNodes.find(n => n.id === linkingNodeId)?.config,
-                  test_id: testId,
-                  title: testData.name
-                });
-                setLinkingNodeId(null);
-              }
-            }
-          }}
-        />
-      </div>
-    );
-  }
+
 
   const ONBORD_NODE_TYPES = new Set(['accueil', 'qualifying_questions', 'cv_scoring', 'assessment', 'ai_interview', 'single_video_question', 'remerciements']);
 
@@ -181,17 +130,14 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
 
   const totalTime = calculateTotalTime();
 
-  const handleUpdateNodeConfig = (nodeId, newConfig) => {
-    setFlowNodes(prev => prev.map(n => n.id === nodeId ? { ...n, config: newConfig } : n));
-  };
+
 
   const handleDeleteNode = (e, nodeId) => {
     e.stopPropagation();
     setFlowNodes(prev => prev.filter(n => n.id !== nodeId));
-    if (selectedNodeId === nodeId) setSelectedNodeId(null);
   };
 
-  const handleSaveFlow = async () => {
+  const handleSaveFlow = () => {
     const saveableNodes = flowNodes.map(n => ({ ...n, v2: true }));
     onSave(saveableNodes, jobData);
   };
@@ -200,15 +146,7 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
     const newNode = {
       id: type + '_' + Date.now(),
       type: type,
-      config: type === 'single_video_question' ? { questions: [{
-                id: `custom_${Date.now()}`,
-                text: "",
-                category: "Custom",
-                hint: "",
-                weight: 1,
-                source: "custom",
-                criteria: [],
-              }], max_duration_seconds: 120, max_retakes: 1 } 
+      config: type === 'single_video_question' ? { questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" } 
             : type === 'assessment' ? { title: "Test de compétences" }
             : type === 'qualifying_questions' ? { questions: [] }
             : {}
@@ -220,17 +158,10 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
     newNodes.splice(insertAt, 0, newNode);
     setFlowNodes(newNodes);
     setShowAddMenu(false);
-    setSelectedNodeId(newNode.id);
   };
 
   const isFlowValid = flowNodes.every(node => {
     if (!ONBORD_NODE_TYPES.has(node.type)) return true;
-    if (node.type === 'qualifying_questions') {
-      return node.config?.questions && node.config.questions.length > 0;
-    }
-    if (node.type === 'single_video_question') {
-      return node.config?.questions && node.config.questions.length > 0;
-    }
     return true;
   });
 
@@ -293,79 +224,12 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
         <PipelineVisualEditor 
           nodes={flowNodes}
           isEditable={true}
-          selectedNodeId={selectedNodeId}
-          onNodeClick={setSelectedNodeId}
-          onAssessmentClick={(nodeId) => {
-            setSelectedNodeId(null);
-            setLinkingNodeId(nodeId);
-            setShowAssessmentActionModal(true);
-          }}
           onAddNode={handleAddNode}
           onDeleteNode={handleDeleteNode}
           onNodesChange={setFlowNodes}
         />
       </div>
-
-      {/* CONFIG SIDEBAR */}
-      {selectedNodeId && (
-        <PipelineNodeConfigPanel 
-          selectedNode={flowNodes.find(n => n.id === selectedNodeId)}
-          nodeTypeInfo={null}
-          jobData={jobData}
-          onClose={() => setSelectedNodeId(null)}
-          onUpdateConfig={handleUpdateNodeConfig}
-          onLinkAssessmentClick={(nodeId) => {
-            setSelectedNodeId(null);
-            setLinkingNodeId(nodeId);
-            setShowAssessmentModal(true);
-          }}
-          onAIAssessmentClick={(nodeId) => {
-            setSelectedNodeId(null);
-            setLinkingNodeId(nodeId);
-            setShowAssessmentActionModal(true);
-          }}
-        />
-      )}
-
-      {/* Modals for Assessments */}
-      {showAssessmentModal && linkingNodeId && (
-        <AssessmentSelectionModal
-          isOpen={true}
-          jobId={savedJobId}
-          onClose={() => {
-            setShowAssessmentModal(false);
-            setLinkingNodeId(null);
-          }}
-          onSelect={(test) => {
-            handleUpdateNodeConfig(linkingNodeId, {
-              ...flowNodes.find(n => n.id === linkingNodeId)?.config,
-              test_id: test.id,
-              title: test.name
-            });
-            setShowAssessmentModal(false);
-            setLinkingNodeId(null);
-          }}
-          testsLibrary={testsLibrary}
-        />
-      )}
-
-      {showAssessmentActionModal && linkingNodeId && (
-        <AssessmentActionModal
-          isOpen={true}
-          onClose={() => {
-            setShowAssessmentActionModal(false);
-            setLinkingNodeId(null);
-          }}
-          onAddAI={() => {
-            setShowAssessmentActionModal(false);
-            setAssessmentCreationMode(true);
-          }}
-          onSelectLibrary={() => {
-            setShowAssessmentActionModal(false);
-            setShowAssessmentModal(true);
-          }}
-        />
-      )}
     </div>
   );
 }
+

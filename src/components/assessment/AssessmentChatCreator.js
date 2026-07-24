@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, X, PlusCircle } from "lucide-react";
-import { addTestToMyAssessments } from "@/lib/actions/assessment";
+import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
 import { useToast } from "@/components/ui/Toast";
 
@@ -157,7 +157,17 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       const res = await addTestToMyAssessments(testId);
       if (res.success) {
         toast("Test ajouté à Mes Assessments !");
-        if (context === "job") toast("Test attaché à l'offre avec succès !");
+
+        // Auto-lier le test au job quand on est en contexte job
+        if (context === "job" && jobId) {
+          const syncRes = await selectQuestionsForJob(jobId, testId);
+          if (syncRes.success) {
+            toast("Test attaché à l'offre avec succès !");
+          } else {
+            toast("Test ajouté mais erreur lors de la liaison à l'offre", "error");
+          }
+        }
+
         if (onTestCreated) onTestCreated(testId);
         
         const currentMessages = [...messages];
@@ -169,11 +179,11 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
             toolResults.push({
               type: "tool_result",
               tool_use_id: t.id,
-              content: t.id === toolUseId ? "Le test a été ajouté avec succès aux assessments de l'utilisateur." : "Action ignorée."
+              content: t.id === toolUseId ? "Le test a été ajouté avec succès aux assessments de l'utilisateur et lié à l'offre." : "Action ignorée."
             });
           });
         } else {
-          toolResults.push({ type: "tool_result", tool_use_id: toolUseId, content: "Le test a été ajouté avec succès aux assessments de l'utilisateur." });
+          toolResults.push({ type: "tool_result", tool_use_id: toolUseId, content: "Le test a été ajouté avec succès aux assessments de l'utilisateur et lié à l'offre." });
         }
 
         currentMessages.push({

@@ -184,8 +184,15 @@ export async function selectQuestionsForJob(jobId, testId, questionCount = 10) {
     const tests = skillsTests.tests || [];
 
     // Update or add the test config
+    // Fetch the test name to store it alongside the config
+    const { data: testMeta } = await supabase
+      .from("assessment_tests")
+      .select("name")
+      .eq("id", testId)
+      .single();
+
     const testIndex = tests.findIndex((t) => t.test_id === testId);
-    const testConfig = { test_id: testId, selected_question_ids: selectedIds };
+    const testConfig = { test_id: testId, test_name: testMeta?.name || null, selected_question_ids: selectedIds };
     if (testIndex >= 0) {
       tests[testIndex] = testConfig;
     } else {

@@ -321,15 +321,7 @@ export default function JobDetailPage() {
       id: type + '_' + Date.now(),
       type: type,
       v2: true,
-      config: type === 'single_video_question' ? { questions: [{
-                id: `custom_${Date.now()}`,
-                text: "",
-                category: "Custom",
-                hint: "",
-                weight: 1,
-                source: "custom",
-                criteria: [],
-              }], max_duration_seconds: 120, max_retakes: 1 } 
+      config: type === 'single_video_question' ? { questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" } 
             : type === 'assessment' ? { title: "Test de compétences" }
             : type === 'qualifying_questions' ? { questions: [] }
             : {}
@@ -442,11 +434,13 @@ export default function JobDetailPage() {
           });
         } else if (testId) {
           const testInfo = testsLibrary.find(lib => lib.id === testId);
+          // Chercher aussi le nom dans assessment_config pour les tests liés après création
+          const configTest = (job?.assessment_config?.modules?.skills_tests?.tests || []).find(t => t.test_id === testId);
           cards.push({
             id: testId,
             nodeId: node.id,
-            name: node.config?.title || testInfo?.name || "Test",
-            category: testInfo?.category || "Test métier",
+            name: node.config?.title || testInfo?.name || configTest?.test_name || "Test",
+            category: testInfo?.category || "Évaluation",
             questions: testInfo?.questions?.length || null,
             questionCount: testInfo?.questions?.length || 10,
             duration: testInfo?.estimated_duration_minutes || 7,
@@ -512,12 +506,13 @@ export default function JobDetailPage() {
             }
           };
         } else {
+          const testName = typeof test === 'object' ? test.name : null;
           return {
             ...node,
             config: {
               ...node.config,
               test_id: typeof test === 'object' ? test.id : test,
-              title: typeof test === 'object' ? test.name : "Test métier",
+              title: testName || node.config?.title || "Test de compétences",
               isCustomRequest: false
             }
           };
@@ -548,7 +543,7 @@ export default function JobDetailPage() {
                     enabled: true,
                     tests: [
                       ...((prev.assessment_config?.modules?.skills_tests?.tests || []).filter(t => t.test_id !== testId)),
-                      { test_id: testId, selected_question_ids: syncRes.selectedIds || [] },
+                      { test_id: testId, test_name: typeof test === 'object' ? test.name : null, selected_question_ids: syncRes.selectedIds || [] },
                     ],
                   },
                 },
@@ -569,15 +564,24 @@ export default function JobDetailPage() {
   }
 
   async function handleTestCreated(testId) {
-    setShowChatCreator(false);
+    setAssessmentCreationMode(false);
     
-    // Reload tests library
-    const res = await getTestsLibrary();
-    if (res.success) {
-      setTestsLibrary(res.tests);
-      const testData = res.tests.find(t => t.id === testId);
+    // Reload tests library and job data to pick up the test sync
+    const [testsRes, jobRes] = await Promise.all([
+      getTestsLibrary(),
+      getJobDetail(jobId),
+    ]);
+    if (testsRes.success) {
+      setTestsLibrary(testsRes.tests);
+    }
+    if (jobRes.success) {
+      setJob(jobRes.job);
+    }
+    // If we have a linking node, also update the pipeline node
+    if (testsRes.success) {
+      const testData = testsRes.tests.find(t => t.id === testId);
       if (testData && linkingNodeId) {
-         handleLinkAssessment({ id: testId, name: testData.name });
+        handleLinkAssessment({ id: testId, name: testData.name });
       }
     }
   }

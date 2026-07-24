@@ -60,6 +60,7 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
           onTestCreated={onTestCreated}
           standalone={true}
           context="job"
+          jobId={jobData?.id}
           jobData={jobData}
         />
       </div>
