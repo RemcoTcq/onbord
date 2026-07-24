@@ -16,7 +16,7 @@ import {
   updateJobDetails, updateJobDescription,
   deleteJob
 } from "@/lib/actions/candidate";
-import { getTestsLibrary } from "@/lib/actions/assessment";
+import { getTestsLibrary, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import PipelineNodeConfigPanel from "@/components/jobs/PipelineNodeConfigPanel";
@@ -506,6 +506,37 @@ export default function JobDetailPage() {
 
     const res = await updateJobDetails(jobId, { saved_flow_nodes: updatedFlowNodes });
     if (res.success) {
+      // Synchronise le test choisi dans assessment_config.modules.skills_tests — c'est
+      // ce que lit le parcours candidat. Sans ça, le test apparaît dans le pipeline
+      // mais le candidat ne le voit jamais (bug « tests pas sauvegardés »).
+      const isCustom = typeof test === 'object' && test.custom;
+      if (!isCustom) {
+        const testId = typeof test === 'object' ? test.id : test;
+        if (testId) {
+          const syncRes = await selectQuestionsForJob(jobId, testId);
+          if (syncRes.success) {
+            setJob(prev => ({
+              ...prev,
+              assessment_config: {
+                ...(prev.assessment_config || {}),
+                modules: {
+                  ...(prev.assessment_config?.modules || {}),
+                  skills_tests: {
+                    ...(prev.assessment_config?.modules?.skills_tests || {}),
+                    enabled: true,
+                    tests: [
+                      ...((prev.assessment_config?.modules?.skills_tests?.tests || []).filter(t => t.test_id !== testId)),
+                      { test_id: testId, selected_question_ids: syncRes.selectedIds || [] },
+                    ],
+                  },
+                },
+              },
+            }));
+          } else {
+            toast("Test associé au pipeline, mais erreur de synchronisation candidat", "error");
+          }
+        }
+      }
       setJob(prev => ({ ...prev, saved_flow_nodes: updatedFlowNodes }));
       setShowAssessmentModal(false);
       setLinkingNodeId(null);

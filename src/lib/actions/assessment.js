@@ -196,7 +196,8 @@ export async function selectQuestionsForJob(jobId, testId, questionCount = 10) {
       ...config,
       modules: {
         ...modules,
-        skills_tests: { ...skillsTests, tests },
+        // enabled: true — sélectionner un test active forcément le module côté candidat.
+        skills_tests: { ...skillsTests, enabled: true, tests },
       },
     };
 
