@@ -16,7 +16,7 @@ import {
   updateJobDetails, updateJobDescription,
   deleteJob
 } from "@/lib/actions/candidate";
-import { getTestsLibrary, selectQuestionsForJob } from "@/lib/actions/assessment";
+import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import PipelineNodeConfigPanel from "@/components/jobs/PipelineNodeConfigPanel";
@@ -279,16 +279,38 @@ export default function JobDetailPage() {
     }
   }
 
+  // Synchronise les questions vidéo des nœuds "single_video_question" du pipeline vers
+  // assessment_config.modules.video_interview — ce que lit le parcours candidat. Sans
+  // ça, les questions vidéo configurées dans le pipeline restent invisibles au candidat.
+  async function syncVideoConfigFromNodes(nodes) {
+    const videoNodes = nodes.filter(n => n.type === 'single_video_question');
+    const questions = videoNodes
+      .flatMap(n => n.config?.questions || [])
+      .filter(q => q && typeof q.text === 'string' && q.text.trim());
+    if (questions.length === 0) return;
+    const firstCfg = videoNodes[0]?.config || {};
+    await saveVideoInterviewConfig(jobId, {
+      questions,
+      max_duration_seconds: firstCfg.max_duration_seconds || 120,
+      max_retakes: firstCfg.max_retakes !== undefined ? firstCfg.max_retakes : 1,
+    });
+  }
+
   async function handleUpdateNodeConfig(nodeId, newConfig) {
     const currentNodes = getPipelineNodes();
-    const newNodes = currentNodes.map(n => 
+    const newNodes = currentNodes.map(n =>
       n.id === nodeId ? { ...n, config: { ...n.config, ...newConfig }, v2: true } : { ...n, v2: true }
     );
-    
+
     // Auto-save
     const res = await updateJobDetails(jobId, { saved_flow_nodes: newNodes });
     if (res.success) {
       setJob({ ...job, saved_flow_nodes: newNodes });
+      // Sync vidéo → config candidat si le nœud édité est une question vidéo
+      const editedNode = newNodes.find(n => n.id === nodeId);
+      if (editedNode?.type === 'single_video_question') {
+        await syncVideoConfigFromNodes(newNodes);
+      }
     } else {
       toast(res.error || "Erreur", "error");
     }
