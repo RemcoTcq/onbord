@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, ArrowRight, ArrowLeft, Check, Bot } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { startRun, saveStepResponse, submitRun } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
+import AssistantPanel from "@/components/assessment/AssistantPanel";
 
 export default function RunPage() {
   const { token } = useParams();
@@ -110,11 +111,7 @@ export default function RunPage() {
           {step.title && <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: "0.75rem" }}>{step.title}</h2>}
           <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", marginBottom: "1.5rem" }}>{step.prompt}</p>
 
-          {step.ai_assistant_allowed && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#eff6ff", color: "#1d4ed8", borderRadius: 8, padding: "8px 12px", fontSize: 13, marginBottom: "1.25rem" }}>
-              <Bot size={16} /> Un assistant IA est disponible pour cette étape — vous pouvez l'utiliser librement (arrive à l'étape suivante).
-            </div>
-          )}
+          {step.ai_assistant_allowed && <AssistantPanel token={token} stepId={step.id} />}
 
           {/* Renderer selon le format de réponse (paramètre du step) */}
           {step.response_format === "text" && (
