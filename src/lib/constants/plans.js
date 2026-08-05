@@ -67,9 +67,10 @@ export const PLANS = {
 export const CREDIT_COSTS = {
   // --- Coûts à l'ajout (setup, par offre) ---
   qualifying_questions: 0,   // Gratuit
-  assessment_setup: 4,       // Ajout d'un test de compétences
-  video_setup: 6,            // Ajout d'un module vidéo
-  cv_scoring_setup: 0,       // Gratuit à l'ajout
+  assessment_setup: 4,       // Ajout d'un test de compétences (hérité)
+  video_setup: 6,            // Ajout d'un module vidéo (hérité)
+  cv_scoring_setup: 0,       // Gratuit à l'ajout (hérité)
+  experience_setup: 6,       // Publication d'une expérience (une fois par offre) — à ajuster
 
   // --- Coûts par candidat ---
   cv_scoring_per_candidate: 2,  // Scoring CV par candidat testé

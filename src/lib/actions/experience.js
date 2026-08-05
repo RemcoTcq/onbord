@@ -4,6 +4,8 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { scoreRun } from "@/lib/runScoring";
+import { chargeCredits } from "@/lib/utils/limits";
+import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -287,11 +289,26 @@ export async function publishExperience(experienceId) {
       .single();
     if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
 
+    // Setup facturé UNE fois par offre : vrai seulement si aucune autre version
+    // de cette offre n'a jamais été publiée (regénérer/republier ne re-facture pas).
+    const { count: priorPublished } = await supabase
+      .from("experiences")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", exp.job_id)
+      .not("published_at", "is", null)
+      .neq("id", experienceId);
+    const isFirstPublish = (priorPublished || 0) === 0;
+
     const { error } = await supabase
       .from("experiences")
       .update({ status: "published", published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", experienceId);
     if (error) throw error;
+
+    if (isFirstPublish) {
+      // Non-bloquant : ne fait jamais échouer la publication.
+      await chargeCredits(user.id, CREDIT_COSTS.experience_setup);
+    }
 
     // Une seule version publiée à la fois pour une offre : on archive les autres
     // versions publiées. Leurs runs candidat existants restent intacts (FK

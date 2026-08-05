@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { deductCredits } from "@/lib/utils/limits";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -147,7 +148,9 @@ export async function saveVideoResponse(token, stepId, videoUrl, durationSeconds
   }
 }
 
-// Soumet le run. Le scoring unique (scoreRun) sera branché à l'étape 6.
+// Soumet le run. Le scoring unique (scoreRun) est déclenché PARESSEUSEMENT à la
+// première ouverture du rapport par le recruteur (getRunReport) — inutile de
+// faire attendre le candidat ~30 s sur "Terminer".
 export async function submitRun(token) {
   try {
     const admin = createAdminClient();
@@ -158,7 +161,17 @@ export async function submitRun(token) {
       .update({ status: "submitted", submitted_at: new Date().toISOString() })
       .eq("id", ctx.run.id);
 
-    // TODO (étape 6) : déclencher scoreRun(ctx.run.id).
+    // Facturation "candidat qui complète le parcours" — au propriétaire de
+    // l'offre, idempotente (flag credits_charged_tests sur le candidat).
+    // Non-bloquant : n'empêche jamais la soumission.
+    try {
+      const { data: job } = await admin
+        .from("jobs").select("user_id").eq("id", ctx.candidate.job_id).single();
+      if (job?.user_id) await deductCredits(job.user_id, ctx.candidate.id, "candidate_completion");
+    } catch (e) {
+      console.error("submitRun completion charge failed (non-blocking):", e.message);
+    }
+
     return { success: true };
   } catch (err) {
     console.error("submitRun error:", err);
