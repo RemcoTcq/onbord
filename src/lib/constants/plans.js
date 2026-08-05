@@ -70,7 +70,9 @@ export const CREDIT_COSTS = {
   assessment_setup: 4,       // Ajout d'un test de compétences (hérité)
   video_setup: 6,            // Ajout d'un module vidéo (hérité)
   cv_scoring_setup: 0,       // Gratuit à l'ajout (hérité)
-  experience_setup: 6,       // Publication d'une expérience (une fois par offre) — à ajuster
+  experience_setup: 5,       // 1re publication d'une expérience (une fois par offre). PROVISOIRE :
+                             // à recalculer sur le coût réel complet par run (génération + scoring + assistant).
+                             // Regénérer ne coûte rien ; seule la 1re publication du poste facture.
 
   // --- Coûts par candidat ---
   cv_scoring_per_candidate: 2,  // Scoring CV par candidat testé
