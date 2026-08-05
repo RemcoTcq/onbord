@@ -37,22 +37,24 @@ ${companyBlock}
 
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
 - "qualifying" : filtre binaire éliminatoire (langue, expérience min, diplôme, localisation). Réponse attendue oui/non. PAS de critères BARS.
-- "question" : question ciblée sur une compétence, réponse déclarative courte.
+- "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
 - "task" : tâche courte et réaliste inspirée du poste (rédiger un email client, répondre à une situation, produire un court document/analyse). C'est le cœur de la preuve.
 - "classic_qcm" : QCM quand une connaissance se teste mieux ainsi et qu'aucune tâche n'est pertinente.
 
 RÈGLES :
 1. 3 à 6 étapes au total, durée cumulée 5–20 min. Mets les "qualifying" en premier.
-2. Inclus AU MOINS une "task" réaliste ancrée dans le métier et le contexte entreprise.
-3. Pour CHAQUE étape non-"qualifying", propose "response_format" par défaut :
+2. Inclus AU MOINS DEUX "task" réalistes ancrées dans le métier et le contexte entreprise. C'est le cœur de la preuve.
+3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
+4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
+5. Pour CHAQUE étape non-"qualifying", propose "response_format" par défaut :
    - "text" pour l'écrit (emails, analyses, réponses techniques),
-   - "video" pour l'oral/le relationnel (posture commerciale, communication),
+   - "video" pour l'oral/le relationnel — TOUJOURS sous forme de mise en situation jouée en direct (règle 4),
    - "qcm" pour un QCM,
    - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
    Le recruteur pourra changer ce défaut ; propose le plus pertinent.
-4. Pour CHAQUE étape non-"qualifying", génère 2 à 3 critères BARS : nom court (2–4 mots) + grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent) avec des descriptions COMPORTEMENTALES et OBSERVABLES.
-5. Propose "ai_assistant_allowed" = true quand l'usage d'un assistant IA reflète le travail réel sur cette étape (tâches de production), false pour les questions de connaissance pure ou les QCM.
-6. "sandbox_kind" : "email" | "client_reply" | "document" | "code" pour les tâches, sinon "none".
+6. Pour CHAQUE étape non-"qualifying", génère 2 à 3 critères BARS : nom court (2–4 mots) + grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent) avec des descriptions COMPORTEMENTALES et OBSERVABLES.
+7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
+8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" pour les tâches, sinon "none".
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
