@@ -18,6 +18,7 @@ import {
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { getRunsForJob } from "@/lib/actions/experience";
+import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import PipelineNodeConfigPanel from "@/components/jobs/PipelineNodeConfigPanel";
@@ -49,9 +50,14 @@ function getStatusBadge(status) {
 }
 
 // ─── Main tabs ───
-const TABS = [
+// Bascule douce (EXPERIENCE_V1_ONLY) : les onglets hérités Pipelines/Évaluations
+// (catégorie C) sont masqués ; la configuration passe par l'écran Expérience.
+const LEGACY_TABS = [
   { id: "pipelines",   label: "Pipelines" },
   { id: "evaluations", label: "Évaluations" },
+];
+const TABS = [
+  ...(EXPERIENCE_V1_ONLY ? [] : LEGACY_TABS),
   { id: "candidats",   label: "Candidats" },
   { id: "context",     label: "Context" },
   { id: "parametres",  label: "Paramètres" },
@@ -84,7 +90,7 @@ export default function JobDetailPage() {
   const [job, setJob] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("pipelines");
+  const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
   const [runsByCandidate, setRunsByCandidate] = useState({});
 

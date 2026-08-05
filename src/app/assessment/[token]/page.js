@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import CandidateOnboardingFlow from "@/components/assessment/CandidateOnboardingFlow";
 import AssessmentHub from "@/components/assessment/AssessmentHub";
+import { hasPublishedExperience } from "@/lib/actions/run";
 
 export default function AssessmentPage() {
   const params = useParams();
+  const router = useRouter();
   const token = params.token;
 
   const [candidate, setCandidate] = useState(null);
@@ -26,6 +28,14 @@ export default function AssessmentPage() {
   async function loadAssessment() {
     setLoading(true);
     try {
+      // Bascule douce : si une expérience est publiée pour l'offre, le candidat
+      // passe par le nouveau run Experience (même token). Sinon, parcours hérité.
+      const entry = await hasPublishedExperience(token);
+      if (entry.hasExperience) {
+        router.replace(`/run/${token}`);
+        return;
+      }
+
       const supabase = createClient();
       const { data: cand, error: candError } = await supabase
         .from("candidates")

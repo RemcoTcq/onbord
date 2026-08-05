@@ -17,13 +17,16 @@ import {
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { isAdmin } from "@/lib/utils/admin";
+import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import CreditBadge from "../billing/CreditBadge";
 
+// "Assessments" (bibliothèque de tests QCM héritée, catégorie C) est masqué en
+// bascule douce. Remettre EXPERIENCE_V1_ONLY à false le restaure.
 const navItems = [
   { label: "Accueil", href: "/accueil", icon: Home },
   { label: "Offres d'emploi", href: "/jobs", icon: Briefcase },
   { label: "Talents", href: "/talents", icon: Users },
-  { label: "Assessments", href: "/assessments", icon: BookOpen },
+  ...(EXPERIENCE_V1_ONLY ? [] : [{ label: "Assessments", href: "/assessments", icon: BookOpen }]),
 ];
 
 export default function Sidebar() {

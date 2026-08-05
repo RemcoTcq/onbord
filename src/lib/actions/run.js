@@ -45,6 +45,26 @@ async function resolveCandidateAndRun(admin, token) {
   return { candidate, exp, run };
 }
 
+// Le candidat doit-il être routé vers le nouveau run Experience ?
+// Vrai dès qu'une expérience est publiée pour l'offre du candidat (sinon on
+// laisse le parcours hérité — bascule douce, cf. étape 7c).
+export async function hasPublishedExperience(token) {
+  try {
+    if (!token) return { hasExperience: false };
+    const admin = createAdminClient();
+    const { data: candidate } = await admin
+      .from("candidates").select("job_id").eq("interview_token", token).single();
+    if (!candidate) return { hasExperience: false };
+    const { data: exp } = await admin
+      .from("experiences").select("id")
+      .eq("job_id", candidate.job_id).eq("status", "published").limit(1).maybeSingle();
+    return { hasExperience: !!exp };
+  } catch (err) {
+    console.error("hasPublishedExperience error:", err);
+    return { hasExperience: false };
+  }
+}
+
 // Démarre (ou reprend) le run du candidat sur l'expérience publiée.
 export async function startRun(token) {
   try {
