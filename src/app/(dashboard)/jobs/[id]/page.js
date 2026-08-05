@@ -17,6 +17,7 @@ import {
   deleteJob
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { getRunsForJob } from "@/lib/actions/experience";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import PipelineNodeConfigPanel from "@/components/jobs/PipelineNodeConfigPanel";
@@ -85,6 +86,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pipelines");
   const [copiedId, setCopiedId] = useState(null);
+  const [runsByCandidate, setRunsByCandidate] = useState({});
 
   // Candidates tab state
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,11 +134,13 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes, runsRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
+      getRunsForJob(jobId),
     ]);
+    if (runsRes?.success) setRunsByCandidate(runsRes.runsByCandidate || {});
     if (jobRes.success) {
       setJob(jobRes.job);
       setContextDescription(jobRes.job.description || "");
@@ -617,14 +621,24 @@ export default function JobDetailPage() {
           </p>
         </div>
 
-        <button
-          onClick={copyApplyLink}
-          className="btn btn-primary"
-          style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}
-        >
-          {copiedId === "apply_link" ? <CheckCircle2 size={16} /> : <Link2 size={16} />}
-          {copiedId === "apply_link" ? "Lien copié !" : "Copier le lien public"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <Link
+            href={`/jobs/${jobId}/experience`}
+            className="btn btn-outline"
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <BrainCircuit size={16} />
+            Expérience de présélection
+          </Link>
+          <button
+            onClick={copyApplyLink}
+            className="btn btn-primary"
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            {copiedId === "apply_link" ? <CheckCircle2 size={16} /> : <Link2 size={16} />}
+            {copiedId === "apply_link" ? "Lien copié !" : "Copier le lien public"}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -710,6 +724,7 @@ export default function JobDetailPage() {
           handleBulkDelete={handleBulkDelete}
           actionLoading={actionLoading}
           jobId={jobId}
+          runsByCandidate={runsByCandidate}
         />
       )}
       {activeTab === "context" && (
@@ -970,7 +985,7 @@ function CandidatsTab({
   candidates, allCandidates, searchQuery, setSearchQuery,
   sortBy, setSortBy, sortMenuOpen, setSortMenuOpen, sortMenuRef,
   selectedIds, toggleSelect, toggleSelectAll,
-  handleDelete, handleBulkDelete, actionLoading, jobId
+  handleDelete, handleBulkDelete, actionLoading, jobId, runsByCandidate = {}
 }) {
   return (
     <div>
@@ -1165,6 +1180,16 @@ function CandidatsTab({
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        {runsByCandidate[candidate.id] && (
+                          <Link
+                            href={`/jobs/${jobId}/runs/${runsByCandidate[candidate.id].runId}`}
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: "12px" }}
+                            title="Rapport de preuves de l'expérience"
+                          >
+                            <FileCheck2 size={14} /> Rapport
+                          </Link>
+                        )}
                         <Link
                           href={`/jobs/${jobId}/candidats/${candidate.id}`}
                           className="btn btn-ghost btn-sm"

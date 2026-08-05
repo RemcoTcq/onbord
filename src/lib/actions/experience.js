@@ -416,6 +416,41 @@ export async function getRunReport(runId) {
   }
 }
 
+// ─── Runs d'une offre (recruteur) : map candidat -> run, pour lister les rapports ─
+export async function getRunsForJob(jobId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: job } = await supabase.from("jobs").select("id, user_id").eq("id", jobId).single();
+    if (!job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const admin = createAdminClient();
+    const { data: exps } = await admin.from("experiences").select("id").eq("job_id", jobId);
+    const expIds = (exps || []).map((e) => e.id);
+    if (!expIds.length) return { success: true, runsByCandidate: {} };
+
+    const { data: runs } = await admin
+      .from("candidate_runs")
+      .select("id, candidate_id, status, run_scores(overall)")
+      .in("experience_id", expIds);
+
+    const runsByCandidate = {};
+    for (const r of runs || []) {
+      runsByCandidate[r.candidate_id] = {
+        runId: r.id,
+        status: r.status,
+        overall: Array.isArray(r.run_scores) ? r.run_scores[0]?.overall ?? null : r.run_scores?.overall ?? null,
+      };
+    }
+    return { success: true, runsByCandidate };
+  } catch (err) {
+    console.error("getRunsForJob error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── Déplacement d'un step (échange l'order_index avec le voisin) ─────────────
 export async function moveStep(stepId, direction) {
   try {
