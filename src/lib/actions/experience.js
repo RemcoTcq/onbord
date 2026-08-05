@@ -7,9 +7,9 @@ import { computeAiCost } from "@/lib/constants/aiPricing";
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
 // ─── Prompt de génération (offre + contexte entreprise → expérience) ──────────
-// Exporté pour être réutilisé à l'identique par le script de démonstration hors
-// repo (évite toute divergence de prompt entre la démo et la production).
-export function buildExperienceGenerationPrompt({ title, description, criteria, companyContext }) {
+// Interne : dans un module "use server", seuls des exports async sont permis.
+// La démo hors repo garde une copie identique de ce prompt.
+function buildExperienceGenerationPrompt({ title, description, criteria, companyContext }) {
   const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}${s.priority ? ` (${s.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
   const ctx = companyContext || {};
@@ -273,6 +273,80 @@ export async function publishExperience(experienceId) {
     return { success: true };
   } catch (err) {
     console.error("publishExperience error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Ajout d'un step vide (relecture) ─────────────────────────────────────────
+export async function addStep(experienceId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: exp } = await supabase
+      .from("experiences").select("id, jobs!inner(user_id)").eq("id", experienceId).single();
+    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const { data: last } = await supabase
+      .from("experience_steps").select("order_index")
+      .eq("experience_id", experienceId).order("order_index", { ascending: false }).limit(1).maybeSingle();
+    const nextIndex = (last?.order_index ?? -1) + 1;
+
+    const { data: step, error } = await supabase.from("experience_steps").insert({
+      experience_id: experienceId, order_index: nextIndex,
+      kind: "question", response_format: "text", title: "Nouvelle étape",
+      prompt: "", sandbox_kind: "none", ai_assistant_allowed: false, criteria: [], config: {},
+    }).select().single();
+    if (error) throw error;
+    return { success: true, step };
+  } catch (err) {
+    console.error("addStep error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Suppression d'un step (relecture) ────────────────────────────────────────
+export async function deleteStep(stepId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+    if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
+
+    const { error } = await supabase.from("experience_steps").delete().eq("id", stepId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("deleteStep error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Déplacement d'un step (échange l'order_index avec le voisin) ─────────────
+export async function moveStep(stepId, direction) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+    if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
+
+    const { data: current } = await supabase
+      .from("experience_steps").select("id, order_index, experience_id").eq("id", stepId).single();
+
+    let neighborQuery = supabase
+      .from("experience_steps").select("id, order_index").eq("experience_id", current.experience_id);
+    neighborQuery = direction === "up"
+      ? neighborQuery.lt("order_index", current.order_index).order("order_index", { ascending: false })
+      : neighborQuery.gt("order_index", current.order_index).order("order_index", { ascending: true });
+    const { data: neighbor } = await neighborQuery.limit(1).maybeSingle();
+    if (!neighbor) return { success: true }; // déjà en bout de liste
+
+    await supabase.from("experience_steps").update({ order_index: neighbor.order_index }).eq("id", current.id);
+    await supabase.from("experience_steps").update({ order_index: current.order_index }).eq("id", neighbor.id);
+    return { success: true };
+  } catch (err) {
+    console.error("moveStep error:", err);
     return { success: false, error: err.message };
   }
 }
