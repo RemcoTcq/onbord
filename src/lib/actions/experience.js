@@ -144,12 +144,33 @@ export async function generateExperience(jobId) {
 
     const { steps = [], estimated_minutes = null } = gen.experience;
 
-    // Crée l'expérience (registre du snapshot + coût de génération)
+    // Versionnage : une régénération crée TOUJOURS une nouvelle version. On ne
+    // réécrit jamais une expérience existante — surtout pas une sur laquelle des
+    // runs candidat existent (elle reste intacte, publiée ou non).
+    const { data: latest } = await supabase
+      .from("experiences").select("version").eq("job_id", job.id)
+      .order("version", { ascending: false }).limit(1).maybeSingle();
+    const nextVersion = (latest?.version ?? 0) + 1;
+
+    // Nettoyage : on archive les brouillons précédents SANS run (superseded par
+    // celui-ci). Les expériences avec des runs — ou publiées — ne sont pas touchées.
+    const { data: priorDrafts } = await supabase
+      .from("experiences").select("id").eq("job_id", job.id).in("status", ["draft", "pending_review"]);
+    for (const d of priorDrafts || []) {
+      const { count } = await supabase
+        .from("candidate_runs").select("id", { count: "exact", head: true }).eq("experience_id", d.id);
+      if (!count) {
+        await supabase.from("experiences").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", d.id);
+      }
+    }
+
+    // Crée la nouvelle version (registre du snapshot + coût de génération)
     const { data: experience, error: expErr } = await supabase
       .from("experiences")
       .insert({
         job_id: job.id,
         status: "pending_review",
+        version: nextVersion,
         estimated_minutes,
         generated_from: { criteria: job.extracted_criteria || {}, company_ai_context: profile?.company_ai_context || {} },
         generation_usage: gen.usage,
@@ -260,7 +281,7 @@ export async function publishExperience(experienceId) {
 
     const { data: exp } = await supabase
       .from("experiences")
-      .select("id, jobs!inner(user_id)")
+      .select("id, job_id, jobs!inner(user_id)")
       .eq("id", experienceId)
       .single();
     if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
@@ -270,6 +291,17 @@ export async function publishExperience(experienceId) {
       .update({ status: "published", published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", experienceId);
     if (error) throw error;
+
+    // Une seule version publiée à la fois pour une offre : on archive les autres
+    // versions publiées. Leurs runs candidat existants restent intacts (FK
+    // on delete restrict) — on ne fait que changer le statut, jamais supprimer.
+    await supabase
+      .from("experiences")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("job_id", exp.job_id)
+      .eq("status", "published")
+      .neq("id", experienceId);
+
     return { success: true };
   } catch (err) {
     console.error("publishExperience error:", err);
