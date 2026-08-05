@@ -1,8 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
+import { scoreRun } from "@/lib/runScoring";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -351,6 +352,49 @@ export async function deleteStep(stepId) {
     return { success: true };
   } catch (err) {
     console.error("deleteStep error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Rapport de preuves d'un run (recruteur) ─────────────────────────────────
+// Scoring paresseux : si le run est soumis mais pas encore noté, on le note à la
+// première ouverture (évite de faire attendre le candidat à la soumission).
+export async function getRunReport(runId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    // Les tables du run sont RLS deny-all : lecture via service_role, ownership
+    // vérifiée en comparant jobs.user_id à l'utilisateur authentifié.
+    const admin = createAdminClient();
+    const { data: run } = await admin
+      .from("candidate_runs")
+      .select("id, status, submitted_at, scored_at, candidate_id, experience_id, experiences!inner(job_id, jobs!inner(user_id, title)), candidates!inner(first_name, last_name, email)")
+      .eq("id", runId).single();
+    if (!run || run.experiences?.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    if (run.status === "submitted") {
+      try { await scoreRun(runId); } catch (e) { console.error("lazy scoreRun failed:", e); }
+    }
+
+    const [{ data: scores }, { data: steps }, { data: responses }] = await Promise.all([
+      admin.from("run_scores").select("*").eq("run_id", runId).maybeSingle(),
+      admin.from("experience_steps").select("id, order_index, kind, title, response_format").eq("experience_id", run.experience_id).order("order_index"),
+      admin.from("run_step_responses").select("step_id, response_format, text_answer, transcript, meta, status, video_url").eq("run_id", runId),
+    ]);
+
+    return {
+      success: true,
+      candidate: { name: `${run.candidates.first_name || ""} ${run.candidates.last_name || ""}`.trim(), email: run.candidates.email },
+      jobTitle: run.experiences?.jobs?.title,
+      run: { id: run.id, status: run.status },
+      scores: scores || null,
+      steps: steps || [],
+      responses: responses || [],
+    };
+  } catch (err) {
+    console.error("getRunReport error:", err);
     return { success: false, error: err.message };
   }
 }
