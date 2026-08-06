@@ -46,6 +46,17 @@ export default function RunPage() {
   const step = steps[idx];
   const isLast = idx === steps.length - 1;
 
+  // Aucune étape ne peut être validée sans réponse (tous les formats).
+  function stepHasAnswer(s, a) {
+    if (!s) return false;
+    const fmt = s.response_format;
+    if (fmt === "video") return !!a.videoSaved;
+    if (fmt === "qcm") return a.selected_index != null;
+    if (fmt === "choice") return !!a.choice;
+    // text + formats sandbox texte (email_reply, client_reply, ...) + code
+    return !!(a.text && a.text.trim());
+  }
+
   function setAnswer(field, value) {
     setAnswers((p) => ({ ...p, [step.id]: { ...(p[step.id] || {}), [field]: value } }));
   }
@@ -188,7 +199,8 @@ export default function RunPage() {
                 style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <ArrowLeft size={16} /> Précédent
               </button>
-              <button className="btn btn-primary" onClick={next} disabled={saving}
+              <button className="btn btn-primary" onClick={next} disabled={saving || !stepHasAnswer(step, ans)}
+                title={!stepHasAnswer(step, ans) ? "Répondez à cette étape pour continuer" : undefined}
                 style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : isLast ? <Check size={16} /> : <ArrowRight size={16} />}
                 {isLast ? "Terminer" : "Suivant"}
@@ -211,9 +223,3 @@ export default function RunPage() {
 function Center({ children, style }) {
   return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#f8fafc", padding: "2rem", ...style }}>{children}</div>;
 }
-
-const taStyle = {
-  width: "100%", padding: "12px", borderRadius: 10, border: "1px solid var(--border)",
-  fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, resize: "vertical",
-  background: "var(--background)", color: "var(--foreground)",
-};

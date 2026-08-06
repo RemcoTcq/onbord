@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Video, Square, RotateCcw, Loader2, Check } from "lucide-react";
+import { Video, Square, RotateCcw, Loader2, Check, Mic } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { saveVideoResponse } from "@/lib/actions/run";
 
 // Composant réutilisable : un step en response_format="video" l'invoque au même
-// titre qu'une zone de texte. Enregistre, upload, puis déclenche la transcription
-// serveur. Rien de spécifique à un "module vidéo" — c'est un format de réponse.
+// titre qu'une zone de texte. Flux : test caméra/micro (aperçu + niveau sonore,
+// confirmation explicite) -> enregistrement -> relecture -> upload -> transcription.
 export default function ResponseRecorder({ token, stepId, maxDuration = 120, existingVideoUrl, onSaved }) {
-  const [phase, setPhase] = useState(existingVideoUrl ? "done" : "idle"); // idle | recording | review | uploading | done
+  const [phase, setPhase] = useState(existingVideoUrl ? "done" : "idle"); // idle | testing | recording | review | uploading | done
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const [blob, setBlob] = useState(null);
+  const [level, setLevel] = useState(0); // niveau sonore 0-100 (écran de test)
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -20,48 +21,101 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
   const chunksRef = useRef([]);
   const startRef = useRef(0);
   const timerRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => () => stopStream(), []);
 
-  function stopStream() {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+  function stopMeter() {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
+    setLevel(0);
   }
 
-  async function startRecording() {
+  function stopStream() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    stopMeter();
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  // Analyse du niveau sonore du micro pour l'indicateur de l'écran de test.
+  function startMeter(stream) {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / data.length);
+        setLevel(Math.min(100, Math.round(rms * 320)));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch { /* pas de niveau sonore : non bloquant */ }
+  }
+
+  // Étape 1 : ouvre la caméra/le micro pour le test (aperçu live + niveau sonore).
+  async function startTest() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.muted = true; await videoRef.current.play(); }
-      chunksRef.current = [];
-      const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : "" });
-      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      rec.onstop = () => {
-        const b = new Blob(chunksRef.current, { type: "video/webm" });
-        setBlob(b);
-        stopStream();
-        if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current.src = URL.createObjectURL(b); videoRef.current.muted = false; }
-        setPhase("review");
-      };
-      recorderRef.current = rec;
-      rec.start();
-      startRef.current = Date.now();
-      setElapsed(0);
-      setPhase("recording");
-      timerRef.current = setInterval(() => {
-        const s = Math.floor((Date.now() - startRef.current) / 1000);
-        setElapsed(s);
-        if (s >= maxDuration) stopRecording();
-      }, 500);
-    } catch (e) {
-      setError("Impossible d'accéder à la caméra/au micro. Vérifiez les autorisations.");
+      startMeter(stream);
+      setPhase("testing");
+    } catch {
+      setError("Impossible d'accéder à la caméra/au micro. Vérifiez les autorisations du navigateur.");
     }
+  }
+
+  // Étape 2 : le candidat a confirmé que ça fonctionne → enregistrement réel,
+  // en réutilisant le flux déjà ouvert pendant le test.
+  function beginRecording() {
+    setError(null);
+    const stream = streamRef.current;
+    if (!stream) { startTest(); return; }
+    stopMeter(); // on coupe l'indicateur de test, on garde le flux
+    if (videoRef.current) videoRef.current.muted = true;
+    chunksRef.current = [];
+    const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : "" });
+    rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    rec.onstop = () => {
+      const b = new Blob(chunksRef.current, { type: "video/webm" });
+      setBlob(b);
+      stopStream();
+      if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current.src = URL.createObjectURL(b); videoRef.current.muted = false; }
+      setPhase("review");
+    };
+    recorderRef.current = rec;
+    rec.start();
+    startRef.current = Date.now();
+    setElapsed(0);
+    setPhase("recording");
+    timerRef.current = setInterval(() => {
+      const s = Math.floor((Date.now() - startRef.current) / 1000);
+      setElapsed(s);
+      if (s >= maxDuration) stopRecording();
+    }, 500);
   }
 
   function stopRecording() {
     if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
     if (timerRef.current) clearInterval(timerRef.current);
+  }
+
+  function cancelTest() {
+    stopStream();
+    if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current.src = ""; }
+    setPhase("idle");
   }
 
   function reset() {
@@ -119,10 +173,44 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
             ● {mm(elapsed)} / {mm(maxDuration)}
           </div>
         )}
+        {phase === "testing" && (
+          <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(15,23,42,0.75)", color: "white", padding: "3px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 700 }}>
+            Test — aperçu en direct
+          </div>
+        )}
       </div>
+
+      {/* Écran de test : indicateur de niveau sonore + confirmation explicite */}
+      {phase === "testing" && (
+        <div style={{ marginBottom: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13, color: "var(--muted-foreground)" }}>
+            <Mic size={15} /> Niveau du micro — parlez pour vérifier que la barre bouge
+          </div>
+          <div style={{ height: 10, background: "#e2e8f0", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ width: `${level}%`, height: "100%", background: level > 8 ? "#16a34a" : "#94a3b8", transition: "width .1s linear" }} />
+          </div>
+          <p style={{ fontSize: 13, color: "var(--foreground)", marginTop: 10 }}>
+            Vous voyez votre image et la barre de son réagit ? Démarrez l'enregistrement quand vous êtes prêt·e.
+          </p>
+        </div>
+      )}
+
       {error && <p style={{ color: "#991b1b", fontSize: "13px", marginBottom: "0.5rem" }}>{error}</p>}
+
       <div style={{ display: "flex", gap: "0.5rem" }}>
-        {phase === "idle" && <button className="btn btn-primary" onClick={startRecording} style={{ display: "flex", alignItems: "center", gap: "6px" }}><Video size={16} /> Enregistrer</button>}
+        {phase === "idle" && (
+          <button className="btn btn-primary" onClick={startTest} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Video size={16} /> Tester caméra &amp; micro
+          </button>
+        )}
+        {phase === "testing" && (
+          <>
+            <button className="btn btn-primary" onClick={beginRecording} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Video size={16} /> Ça fonctionne — démarrer l'enregistrement
+            </button>
+            <button className="btn btn-ghost" onClick={cancelTest} style={{ display: "flex", alignItems: "center", gap: "6px" }}>Annuler</button>
+          </>
+        )}
         {phase === "recording" && <button className="btn btn-outline" onClick={stopRecording} style={{ display: "flex", alignItems: "center", gap: "6px" }}><Square size={16} /> Arrêter</button>}
         {phase === "review" && (
           <>
