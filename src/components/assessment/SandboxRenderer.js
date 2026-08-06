@@ -1,12 +1,11 @@
 "use client";
 
-import { Mail, MessageSquare, Terminal, Layout, FileText, Send, Code, CornerDownRight } from "lucide-react";
-import { useState } from "react";
+import { Mail, MessageSquare, Terminal, Layout, Send } from "lucide-react";
 
 export default function SandboxRenderer({ format, value, onChange }) {
   if (format === "email_reply") {
     return (
-      <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "white", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}>
+      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "white", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}>
         <div style={{ background: "#f8fafc", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
           <Mail size={16} style={{ color: "var(--muted-foreground)" }} />
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>Nouveau Message</span>
@@ -38,7 +37,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
 
   if (format === "client_reply") {
     return (
-      <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "#f8fafc" }}>
+      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "#f8fafc" }}>
         <div style={{ background: "white", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
           <MessageSquare size={16} style={{ color: "var(--primary)" }} />
           <span style={{ fontSize: 13, fontWeight: 600 }}>Chat Interne / Client</span>
@@ -66,7 +65,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
 
   if (format === "technical_architecture") {
     return (
-      <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "white" }}>
+      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "white" }}>
         <div style={{ background: "#1e293b", color: "white", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
           <Layout size={16} />
           <span style={{ fontSize: 13, fontWeight: 600 }}>Architecture / Conception Document</span>
@@ -86,7 +85,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
 
   if (format === "code" || format === "code_editor") {
     return (
-      <div style={{ border: "1px solid #334155", borderRadius: 10, overflow: "hidden", background: "#0f172a" }}>
+      <div style={{ border: "1px solid #334155", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "#0f172a" }}>
         <div style={{ background: "#1e293b", color: "#cbd5e1", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, borderBottom: "1px solid #334155" }}>
           <Terminal size={14} />
           <span>Éditeur de code (Mode Sandbox)</span>

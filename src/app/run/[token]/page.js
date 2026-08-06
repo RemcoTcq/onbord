@@ -94,12 +94,15 @@ export default function RunPage() {
     }
   }
 
-  if (loading) return <Center><Loader2 size={30} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} /></Center>;
-  if (error && !steps.length) return <Center><div className="card" style={{ padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
-
+  // Branding client appliqué à tout le run : la couleur de marque surcharge
+  // --primary (et son état hover) sur le conteneur → boutons, barre de
+  // progression, accents des sandbox en héritent par cascade CSS.
   const pageStyle = recruiter?.brand_primary_color
-    ? { "--primary": recruiter.brand_primary_color }
+    ? { "--primary": recruiter.brand_primary_color, "--primary-hover": recruiter.brand_primary_color }
     : {};
+
+  if (loading) return <Center><Loader2 size={30} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} /></Center>;
+  if (error && !steps.length) return <Center style={pageStyle}><div className="card" style={{ padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
 
   if (submitted) {
     return (
