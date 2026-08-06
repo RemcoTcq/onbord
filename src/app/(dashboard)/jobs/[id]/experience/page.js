@@ -437,9 +437,24 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
           <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
             <input type="checkbox" checked={!!local.ai_assistant_allowed} onChange={(e) => set("ai_assistant_allowed", e.target.checked)} />
             <Bot size={15} style={{ color: local.ai_assistant_allowed ? "var(--primary)" : "var(--muted-foreground)" }} />
-            Assistant IA
+            Claude (assistant complet)
           </label>
         </div>
+        {local.ai_assistant_allowed && (
+          <div style={{ flex: "0 0 150px" }}>
+            <label style={labelStyle}>Plafond d'échanges</label>
+            <input
+              type="number" min={1} max={200}
+              value={local.config?.ai_max_messages ?? 50}
+              onChange={(e) => {
+                const v = e.target.value === "" ? "" : Math.max(1, parseInt(e.target.value, 10) || 1);
+                setLocal((p) => ({ ...p, config: { ...(p.config || {}), ai_max_messages: v } }));
+                setDirty(true);
+              }}
+              style={inputStyle}
+            />
+          </div>
+        )}
       </div>
 
       {/* Critères BARS (non qualifying, non QCM) */}

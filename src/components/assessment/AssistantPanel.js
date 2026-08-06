@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Bot, Send, Loader2 } from "lucide-react";
 
-// Assistant IA optionnel pour un step. Chat plafonné + loggé côté serveur
-// (/api/run/assistant). Pas de partage d'écran, pas d'outils externes.
+// Accès à Claude complet (Sonnet) pendant un step. Chat plafonné (50 échanges
+// par défaut, configurable par step) et intégralement loggé côté serveur
+// (/api/run/assistant → run_ai_messages). On mesure COMMENT le candidat l'utilise.
 export default function AssistantPanel({ token, stepId }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]); // {role, content}
@@ -49,25 +50,25 @@ export default function AssistantPanel({ token, stepId }) {
     return (
       <button onClick={() => setOpen(true)} className="btn btn-outline btn-sm"
         style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "1.25rem" }}>
-        <Bot size={15} /> Ouvrir l'assistant IA
+        <Bot size={15} /> Ouvrir Claude
       </button>
     );
   }
 
   return (
-    <div style={{ border: "1px solid #dbeafe", background: "#f8fbff", borderRadius: 10, marginBottom: "1.25rem", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#eff6ff", color: "#1d4ed8", fontSize: 13, fontWeight: 700 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Bot size={15} /> Assistant IA</span>
+    <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", background: "white", borderRadius: 10, marginBottom: "1.25rem", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafc", color: "var(--primary)", fontSize: 13, fontWeight: 700, borderBottom: "1px solid var(--border)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Bot size={15} /> Claude</span>
         <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {remaining != null && <span style={{ fontWeight: 500, opacity: 0.8 }}>{remaining} échange{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}</span>}
-          <button onClick={() => setOpen(false)} className="btn btn-ghost btn-sm" style={{ padding: 2, color: "#1d4ed8" }}>×</button>
+          {remaining != null && <span style={{ fontWeight: 500, opacity: 0.7, color: "var(--muted-foreground)" }}>{remaining} échange{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}</span>}
+          <button onClick={() => setOpen(false)} className="btn btn-ghost btn-sm" style={{ padding: 2, color: "var(--muted-foreground)" }}>×</button>
         </span>
       </div>
 
-      <div style={{ maxHeight: 260, overflowY: "auto", padding: "12px" }}>
+      <div style={{ maxHeight: 320, overflowY: "auto", padding: "12px" }}>
         {messages.length === 0 && (
           <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-            Utilisez l'assistant comme au travail : demandez une clarification, un angle, un retour. Il vous aide, il ne fait pas la tâche à votre place. Tout est enregistré.
+            Vous avez accès à Claude comme au travail : posez vos questions, demandez un brouillon, un angle, une vérification. Tout l'échange est enregistré et fait partie de l'évaluation — c'est votre <em>façon</em> d'utiliser l'IA qui compte.
           </p>
         )}
         {messages.map((m, i) => (
@@ -85,7 +86,7 @@ export default function AssistantPanel({ token, stepId }) {
       </div>
 
       {!limitReached && (
-        <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderTop: "1px solid #dbeafe" }}>
+        <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
             placeholder="Posez votre question…" disabled={sending}
             style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13.5, background: "white" }} />

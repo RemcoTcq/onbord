@@ -22,7 +22,7 @@ export async function POST(request) {
 
     const { data: step } = await admin
       .from("experience_steps")
-      .select("id, prompt, ai_assistant_allowed, experience_id, experiences!inner(ai_assistant_config)")
+      .select("id, prompt, ai_assistant_allowed, config, experience_id, experiences!inner(ai_assistant_config)")
       .eq("id", stepId).single();
     if (!step || !step.ai_assistant_allowed) {
       return Response.json({ error: "Assistant non disponible pour cette étape" }, { status: 403 });
@@ -35,9 +35,11 @@ export async function POST(request) {
       return Response.json({ error: "Run non actif" }, { status: 403 });
     }
 
-    const cfg = step.experiences?.ai_assistant_config || {};
-    const maxMessages = cfg.max_messages ?? 10;
-    const model = cfg.model || "claude-haiku-4-5";
+    // Accès à Claude complet (Sonnet) pendant l'étape. Plafond généreux mais non
+    // illimité : 50 échanges par défaut, configurable par step (config.ai_max_messages).
+    const perStep = Number(step.config?.ai_max_messages);
+    const maxMessages = perStep > 0 ? perStep : 50;
+    const model = "claude-sonnet-4-6";
 
     // Plafond appliqué serveur : nombre de messages candidat déjà envoyés sur ce run.
     const { count: usedCount } = await admin
@@ -52,11 +54,13 @@ export async function POST(request) {
       .from("run_ai_messages").select("role, content, created_at")
       .eq("run_id", run.id).eq("step_id", stepId).order("created_at", { ascending: true });
 
-    const system = `Tu es un assistant de travail intégré, disponible pendant une évaluation de recrutement. Le candidat réalise la tâche suivante :
+    // Claude complet : assistant généraliste, sans bridage — on mesure COMMENT le
+    // candidat s'en sert (noté séparément), pas s'il s'en sert. Tout est loggé.
+    const system = `Tu es Claude, un assistant IA généraliste développé par Anthropic. Tu aides l'utilisateur du mieux possible : réponses claires, utiles et honnêtes. Contexte : l'utilisateur travaille sur la tâche suivante pendant une évaluation professionnelle.
 """
 ${step.prompt || ""}
 """
-Aide-le comme le ferait un collègue compétent : clarifie la consigne, propose des angles, donne un retour critique, explique un concept. RÈGLE ABSOLUE : ne réalise JAMAIS la tâche à sa place et ne rédige pas la réponse finale pour lui — tu l'accompagnes, il produit. Reste concis et concret. Réponds en français.`;
+Réponds naturellement, comme dans une conversation normale, dans la langue de l'utilisateur.`;
 
     const messages = [
       ...(history || []).map((m) => ({ role: m.role, content: m.content })),
@@ -64,7 +68,7 @@ Aide-le comme le ferait un collègue compétent : clarifie la consigne, propose 
     ];
 
     const response = await anthropic.messages.create({
-      model, max_tokens: 600, temperature: 0.4, system, messages,
+      model, max_tokens: 2000, temperature: 0.7, system, messages,
     });
     const reply = response.content[0].text;
     const usage = computeAiCost(model, response.usage);

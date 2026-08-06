@@ -153,6 +153,12 @@ export default function RunPage() {
 
   const pct = Math.round(((idx + 1) / steps.length) * 100);
   const ans = answers[step.id] || {};
+  // Le type de sandbox (mise en situation) vient de sandbox_kind, pas de
+  // response_format. On dérive le format de rendu à passer à SandboxRenderer.
+  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code" };
+  const sandboxFormat = step.sandbox_kind && step.sandbox_kind !== "none"
+    ? (SANDBOX_FORMAT[step.sandbox_kind] || step.response_format)
+    : step.response_format;
   const isSidebarMode = step.ai_assistant_allowed;
   const containerMaxWidth = isSidebarMode ? 1040 : 720;
 
@@ -193,9 +199,9 @@ export default function RunPage() {
               {step.title && <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
               <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: "1.5rem" }}>{step.prompt}</p>
 
-              {/* Renderer selon le format de réponse (paramètre du step) */}
-              {["text", "email_reply", "client_reply", "technical_architecture", "code", "code_editor"].includes(step.response_format) && (
-                <SandboxRenderer format={step.response_format} value={ans.text} onChange={(val) => setAnswer("text", val)} />
+              {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
+              {["text", "code"].includes(step.response_format) && (
+                <SandboxRenderer format={sandboxFormat} value={ans.text} onChange={(val) => setAnswer("text", val)} />
               )}
 
               {step.response_format === "choice" && (

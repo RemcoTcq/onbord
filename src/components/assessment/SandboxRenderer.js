@@ -1,38 +1,11 @@
 "use client";
 
-import { Mail, MessageSquare, Terminal, Layout, Send } from "lucide-react";
+import { MessageSquare, Terminal, Layout } from "lucide-react";
+import EmailComposer from "./EmailComposer";
 
 export default function SandboxRenderer({ format, value, onChange }) {
   if (format === "email_reply") {
-    return (
-      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "white", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}>
-        <div style={{ background: "#f8fafc", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-          <Mail size={16} style={{ color: "var(--muted-foreground)" }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>Nouveau Message</span>
-        </div>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", fontSize: 13 }}>
-            <span style={{ width: 40, color: "var(--muted-foreground)" }}>À :</span>
-            <span style={{ color: "var(--foreground)" }}>client@example.com</span>
-          </div>
-          <div style={{ display: "flex", fontSize: 13 }}>
-            <span style={{ width: 40, color: "var(--muted-foreground)" }}>Objet :</span>
-            <span style={{ color: "var(--foreground)", fontWeight: 500 }}>Re: Votre demande</span>
-          </div>
-        </div>
-        <textarea
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Rédigez votre email ici..."
-          style={{ width: "100%", padding: "16px", minHeight: 200, maxHeight: 420, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, outline: "none" }}
-        />
-        <div style={{ padding: "12px 16px", background: "#f8fafc", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn btn-primary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.7 }} disabled>
-            <Send size={14} /> Envoyer
-          </button>
-        </div>
-      </div>
-    );
+    return <EmailComposer value={value} onChange={onChange} />;
   }
 
   if (format === "client_reply") {
