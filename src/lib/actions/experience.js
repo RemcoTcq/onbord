@@ -289,6 +289,31 @@ export async function updateStep(stepId, updates) {
   }
 }
 
+// ─── Messages paramétrables de l'expérience (accueil + remerciements) ─────────
+export async function updateExperienceMessages(experienceId, updates) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: exp } = await supabase
+      .from("experiences").select("id, jobs!inner(user_id)").eq("id", experienceId).single();
+    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const allowed = ["welcome_message", "thank_you_message"];
+    const safe = {};
+    for (const k of allowed) if (updates[k] !== undefined) safe[k] = updates[k];
+    safe.updated_at = new Date().toISOString();
+
+    const { error } = await supabase.from("experiences").update(safe).eq("id", experienceId);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("updateExperienceMessages error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── Publication (gate de validation : rien n'est visible candidat avant ça) ──
 export async function publishExperience(experienceId) {
   try {

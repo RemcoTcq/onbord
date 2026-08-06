@@ -107,7 +107,12 @@ export async function startRun(token) {
       candidate: { id: candidate.id, first_name: candidate.first_name },
       job: { id: job.id, company: job.company, title: job.title },
       recruiter: recruiter || {},
-      experience: { id: exp.id, estimated_minutes: exp.estimated_minutes },
+      experience: {
+        id: exp.id,
+        estimated_minutes: exp.estimated_minutes,
+        welcome_message: exp.welcome_message || null,
+        thank_you_message: exp.thank_you_message || null,
+      },
       steps: (steps || []).map(sanitizeStepForCandidate),
       responses: responses || [],
     };

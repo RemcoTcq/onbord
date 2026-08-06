@@ -21,6 +21,7 @@ export default function RunPage() {
   const [idx, setIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [showIntro, setShowIntro] = useState(false); // écran d'accueil avant la 1re étape
 
   useEffect(() => { load(); }, [token]);
 
@@ -34,6 +35,8 @@ export default function RunPage() {
     setRecruiter(res.recruiter);
     setSteps(res.steps);
     setSubmitted(res.run.status === "submitted" || res.run.status === "scored");
+    // Écran d'accueil affiché au tout début (aucune réponse encore, run actif)
+    setShowIntro((res.responses || []).length === 0 && res.run.status === "in_progress");
     // Préremplir depuis les réponses existantes
     const a = {};
     for (const r of res.responses || []) {
@@ -109,7 +112,37 @@ export default function RunPage() {
           )}
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><Check size={28} /></div>
           <h1 style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "0.5rem" }}>Merci, c'est terminé !</h1>
-          <p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>Vos réponses ont bien été soumises à {recruiter?.company_name || job?.company || "l'équipe recrutement"}. Vous pouvez maintenant fermer cet onglet.</p>
+          <p style={{ fontSize: 14, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
+            {experience?.thank_you_message
+              || `Vos réponses ont bien été soumises à ${recruiter?.company_name || job?.company || "l'équipe recrutement"}. Vous pouvez maintenant fermer cet onglet.`}
+          </p>
+        </div>
+      </Center>
+    );
+  }
+
+  // Écran d'accueil : invite le candidat à démarrer l'expérience (message
+  // paramétrable par le recruteur, cf. experiences.welcome_message).
+  if (showIntro) {
+    return (
+      <Center style={pageStyle}>
+        <div className="card" style={{ padding: "2.5rem 2rem", maxWidth: 520, width: "100%", textAlign: "center" }}>
+          {recruiter?.company_logo_url ? (
+            <img src={recruiter.company_logo_url} alt={recruiter?.company_name || "Logo"} style={{ height: 48, width: "auto", margin: "0 auto 1.5rem", borderRadius: 8, objectFit: "contain" }} />
+          ) : (
+            <div style={{ width: 48, height: 48, borderRadius: 10, background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 1.5rem" }}>
+              {(recruiter?.company_name || job?.company || "O")[0].toUpperCase()}
+            </div>
+          )}
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>{job?.title || "Votre évaluation"}</h1>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", marginBottom: "1.75rem" }}>
+            {experience?.welcome_message
+              || `Bienvenue ! ${recruiter?.company_name || job?.company || "L'équipe recrutement"} vous invite à réaliser une courte mise en situation${experience?.estimated_minutes ? ` (~${experience.estimated_minutes} min)` : ""}. Prenez votre temps, il n'y a pas de piège : montrez comment vous travaillez.`}
+          </p>
+          <button className="btn btn-primary" onClick={() => setShowIntro(false)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            Commencer <ArrowRight size={16} />
+          </button>
         </div>
       </Center>
     );
