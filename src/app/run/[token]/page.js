@@ -35,11 +35,24 @@ export default function RunPage() {
     setRecruiter(res.recruiter);
     setSteps(res.steps);
     setSubmitted(res.run.status === "submitted" || res.run.status === "scored");
-    // Écran d'accueil affiché au tout début (aucune réponse encore, run actif)
-    setShowIntro((res.responses || []).length === 0 && res.run.status === "in_progress");
+    const stepList = res.steps || [];
+    const responses = res.responses || [];
+    // Reprend l'étape après la plus loin déjà répondue (déduit des réponses
+    // enregistrées — le pointeur n'est plus purement client, il survit au
+    // rechargement / à la redirection /assessment -> /run).
+    const orderById = Object.fromEntries(stepList.map((s, i) => [s.id, i]));
+    let furthest = -1;
+    for (const r of responses) {
+      const i = orderById[r.step_id];
+      if (i != null && i > furthest) furthest = i;
+    }
+    const resumeIdx = Math.min(furthest + 1, Math.max(stepList.length - 1, 0));
+    setIdx(resumeIdx);
+    // Écran d'accueil : seulement au tout début (aucune progression, run actif)
+    setShowIntro(resumeIdx === 0 && responses.length === 0 && res.run.status === "in_progress");
     // Préremplir depuis les réponses existantes
     const a = {};
-    for (const r of res.responses || []) {
+    for (const r of responses) {
       a[r.step_id] = { text: r.text_answer || "", choice: r.meta?.choice, selected_index: r.meta?.selected_index, videoSaved: !!r.video_url };
     }
     setAnswers(a);
@@ -82,15 +95,22 @@ export default function RunPage() {
 
   async function next() {
     setSaving(true);
-    const ok = await persistCurrent();
-    setSaving(false);
-    if (!ok) { setError("Impossible d'enregistrer la réponse."); return; }
-    if (isLast) {
-      const res = await submitRun(token);
-      if (res.success) setSubmitted(true);
-      else setError(res.error || "Échec de la soumission");
-    } else {
-      setIdx((i) => i + 1);
+    setError(null);
+    try {
+      const ok = await persistCurrent();
+      if (!ok) { setError("Impossible d'enregistrer la réponse."); return; }
+      if (isLast) {
+        const res = await submitRun(token);
+        if (res.success) setSubmitted(true);
+        else setError(res.error || "Échec de la soumission");
+      } else {
+        setIdx((i) => Math.min(i + 1, steps.length - 1));
+      }
+    } catch (e) {
+      setError("Une erreur est survenue. Réessayez.");
+      console.error("next() error:", e);
+    } finally {
+      setSaving(false);
     }
   }
 
