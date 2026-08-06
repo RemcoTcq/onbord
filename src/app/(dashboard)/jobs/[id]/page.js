@@ -57,7 +57,8 @@ const LEGACY_TABS = [
   { id: "evaluations", label: "Évaluations" },
 ];
 const TABS = [
-  ...(EXPERIENCE_V1_ONLY ? [] : LEGACY_TABS),
+  { id: "pipelines",   label: "Parcours (Pipeline)" },
+  ...(EXPERIENCE_V1_ONLY ? [] : [{ id: "evaluations", label: "Évaluations" }]),
   { id: "candidats",   label: "Candidats" },
   { id: "context",     label: "Context" },
   { id: "parametres",  label: "Paramètres" },
@@ -512,7 +513,8 @@ export default function JobDetailPage() {
               title: "Création sur-mesure",
               isCustomRequest: true,
               customRole: test.role,
-              customSkills: test.skills
+              customSkills: test.skills,
+              configured: true
             }
           };
         } else {
@@ -522,8 +524,9 @@ export default function JobDetailPage() {
             config: {
               ...node.config,
               test_id: typeof test === 'object' ? test.id : test,
-              title: testName || node.config?.title || "Test de compétences",
-              isCustomRequest: false
+              title: testName || node.config?.title || "Évaluation IA (Expérience)",
+              isCustomRequest: false,
+              configured: true
             }
           };
         }
@@ -613,6 +616,20 @@ export default function JobDetailPage() {
 
   return (
     <div className="fade-in">
+      {/* Overlay for Assessment/Experience Creation */}
+      {assessmentCreationMode && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'white', overflow: 'auto' }}>
+          <AssessmentCreationFlow 
+            jobData={job}
+            onCancel={() => setAssessmentCreationMode(false)}
+            onTestCreated={async (test) => {
+              await handleLinkAssessment(test);
+              setAssessmentCreationMode(false);
+            }}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.25rem" }}>
         <button className="btn btn-ghost btn-icon" onClick={() => router.push("/jobs")} title="Retour" style={{ marginTop: "4px" }}>

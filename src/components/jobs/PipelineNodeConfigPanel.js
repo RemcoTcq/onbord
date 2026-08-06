@@ -139,7 +139,7 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
               </div>
             </div>
           )}
-          {selectedNode.type === 'assessment' && (
+          {selectedNode.type === 'experience' && (
             <div style={{ margin: '-1.5rem' }}>
               <div style={{ padding: '1.5rem' }}>
                 <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -147,39 +147,32 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
                   </div>
                   <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
-                    {selectedNode.config?.title || "Test de compétences"}
+                    {selectedNode.config?.title || "Évaluation IA (Expérience)"}
                   </h4>
-                  {selectedNode.config?.test_id ? (
+                  {selectedNode.config?.configured ? (
                     <div style={{ marginTop: '16px' }}>
                       <p style={{ color: 'var(--success, #16a34a)', fontSize: '14px', fontWeight: '500', marginBottom: '16px' }}>
-                        ✅ Évaluation configurée avec succès.
+                        ✅ Expérience IA configurée avec succès.
                       </p>
                       <button 
                         className="btn btn-outline"
-                        onClick={() => onLinkAssessmentClick && onLinkAssessmentClick(selectedNode.id)}
+                        onClick={() => onAIAssessmentClick && onAIAssessmentClick(selectedNode.id)}
                       >
-                        Changer le test
+                        Modifier avec l'IA
                       </button>
                     </div>
                   ) : (
                     <div>
                       <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', maxWidth: '300px', margin: '0 auto 16px' }}>
-                        Le parcours intègrera une étape d'évaluation technique.
+                        Générez une expérience de mise en situation complète et ultra-réaliste grâce au Tchat IA.
                       </p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
                         <button 
                           className="btn btn-primary"
-                          onClick={() => onLinkAssessmentClick && onLinkAssessmentClick(selectedNode.id)}
-                          style={{ width: '200px' }}
-                        >
-                          Lier une évaluation
-                        </button>
-                        <button 
-                          className="btn btn-outline"
                           onClick={() => onAIAssessmentClick && onAIAssessmentClick(selectedNode.id)}
-                          style={{ width: '200px' }}
+                          style={{ width: '250px' }}
                         >
-                          Créer un test avec l'IA
+                          Créer l'expérience avec l'IA
                         </button>
                       </div>
                     </div>
@@ -188,43 +181,7 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
               </div>
             </div>
           )}
-          {selectedNode.type === 'single_video_question' && (
-            <div style={{ margin: '-1.5rem' }}>
-              <div style={{ padding: '1.5rem' }}>
-                <VideoInterviewConfig 
-                  jobId={jobData?.id}
-                  config={{ 
-                      questions: selectedNode.config?.questions || [],
-                      max_duration_seconds: selectedNode.config?.max_duration_seconds || 120,
-                      max_retakes: selectedNode.config?.max_retakes || 1,
-                      evaluation_mode: selectedNode.config?.evaluation_mode || "ai"
-                  }}
-                  onChange={(newConfig) => {
-                    const latestQs = newConfig.questions;
-                    if (latestQs.length > 3) {
-                        onUpdateConfig(selectedNode.id, { ...newConfig, questions: latestQs.slice(0, 3) });
-                    } else {
-                        onUpdateConfig(selectedNode.id, newConfig);
-                    }
-                  }}
-                />
-                <p style={{fontSize: '12px', color: 'var(--muted-foreground)', marginTop: '1rem', fontStyle: 'italic', textAlign: 'center'}}>
-                    Jusqu'à 3 questions vidéo pour cette étape.
-                </p>
-              </div>
-            </div>
-          )}
-          {selectedNode.type === 'ai_interview' && (
-            <div style={{ margin: '-1.5rem' }}>
-              <div style={{ padding: '1.5rem' }}>
-                <AiInterviewConfig 
-                  jobId={jobData?.id}
-                  config={{ enabled: true }}
-                  onChange={() => {}} 
-                />
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
     </>

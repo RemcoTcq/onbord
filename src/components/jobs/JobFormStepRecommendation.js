@@ -62,38 +62,13 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
           });
         }
         
-        if (rec.steps.some(s => s.type === 'skills_test')) {
-          const skillsTestStep = rec.steps.find(s => s.type === 'skills_test');
-          if (skillsTestStep && skillsTestStep.covered_skills) {
-            const uniqueTests = [];
-            skillsTestStep.covered_skills.forEach(skill => {
-              if (skill.test_db_id && !uniqueTests.find(t => t.id === skill.test_db_id)) {
-                uniqueTests.push({ id: skill.test_db_id, name: skill.suggested_test });
-              }
-            });
-          
-          uniqueTests.forEach((t, idx) => {
-            onbordNodes.push({
-              id: 'skill_' + t.id + '_' + Date.now() + idx,
-              type: 'assessment',
-              config: { title: "Test de compétences" }
-            });
+        if (rec.steps.some(s => s.type === 'skills_test' || s.type === 'video_interview' || s.type === 'ai_interview')) {
+          onbordNodes.push({
+            id: 'experience_' + Date.now(),
+            type: 'experience',
+            config: { title: "Évaluation IA (Expérience)", configured: false }
           });
         }
-      }
-
-      if (rec.steps.some(s => s.type === 'video_interview')) {
-        onbordNodes.push({
-          id: 'video_' + Date.now(),
-          type: 'single_video_question',
-          config: { 
-            evaluation_mode: "ai",
-            questions: [], 
-            max_duration_seconds: 120, 
-            max_retakes: 1 
-          }
-        });
-      }
 
       onbordNodes.push({
         id: 'remerciements',

@@ -14,9 +14,7 @@ export const NODE_TYPES = {
   accueil: { icon: User, label: "Accueil Candidat", color: "#3b82f6", time: 0 },
   qualifying_questions: { icon: ShieldCheck, label: "Questions qualificatives", color: "#8b5cf6", time: 2 },
   cv_scoring: { icon: FileCheck2, label: "Scoring CV (IA)", color: "#10b981", time: 0 },
-  assessment: { icon: BrainCircuit, label: "Test technique", color: "#f59e0b", time: 8 },
-  ai_interview: { icon: MessageSquare, label: "Interview IA par Texte", color: "#ec4899", time: 12 },
-  single_video_question: { icon: Video, label: "Question Vidéo", color: "#ef4444", time: 3 },
+  experience: { icon: BrainCircuit, label: "Évaluation IA (Expérience)", color: "#f59e0b", time: 10 },
   remerciements: { icon: HandHeart, label: "Remerciements", color: "#14b8a6", time: 0 },
 };
 
@@ -70,27 +68,15 @@ function SortableNodeCard({
     const meta = NODE_TYPES[node.type];
     if (!meta) return null;
 
-    if (node.type === 'assessment') {
-      if (node.config?.isCustomRequest) {
-        label = "Création sur-mesure";
-        subtitle = "L'équipe Onbord crée votre test";
-      } else {
-        label = node.config?.title || "Test de compétences";
-        subtitle = node.config?.title ? "Test configuré" : "À configurer dans l'onglet Évaluations";
-      }
-    } else if (node.type === 'single_video_question') {
-      const questionText = node.config?.questions?.[0]?.text;
-      label = questionText ? 'Question Vidéo' : 'Question Vidéo';
-      subtitle = questionText ? questionText.substring(0, 30) + '...' : 'Cliquer pour configurer';
+    if (node.type === 'experience') {
+      label = "Évaluation IA (Expérience)";
+      subtitle = node.config?.configured ? "Expérience configurée" : "Cliquez pour configurer via Tchat IA";
     } else if (node.type === 'qualifying_questions') {
       label = 'Questions qualificatives';
       subtitle = `${node.config?.questions?.length || 0} questions`;
     } else if (node.type === 'cv_scoring') {
       label = 'Scoring CV (IA)';
       subtitle = 'Filtrage automatique';
-    } else if (node.type === 'ai_interview') {
-      label = 'Interview IA';
-      subtitle = 'Interview par texte';
     } else if (node.type === 'accueil') {
       label = 'Accueil Candidat';
       subtitle = '';

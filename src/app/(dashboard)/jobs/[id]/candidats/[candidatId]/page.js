@@ -6,7 +6,7 @@ import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
   User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
-  Download, FileDown, FileText, Clock, Sparkles, Video
+  Download, FileDown, FileText, Clock, Sparkles, Video, Bot
 } from "lucide-react";
 
 const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
@@ -445,8 +445,60 @@ export default function CandidateDetailPage() {
             </div>
           )}
 
-          {/* Tests de compétences */}
-          {candidate.test_sessions && candidate.test_sessions.length > 0 && (
+          {/* Nouveau Module Expérience (remplace Tests et Interviews) */}
+          {candidate.experience_run && (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Sparkles size={18} style={{ color: "var(--primary)" }} /> Évaluation IA (Expérience)
+                </h3>
+                <span className={`badge ${candidate.experience_run.status === 'scored' ? 'badge-success' : 'badge-warning'}`}>
+                  {candidate.experience_run.status === 'scored' ? 'Évalué' : 'En cours'}
+                </span>
+              </div>
+              
+              {candidate.experience_run.status === 'scored' && candidate.experience_run.run_scores?.[0] && (() => {
+                const rs = candidate.experience_run.run_scores[0];
+                return (
+                  <div>
+                    {rs.summary && <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.5rem" }}>{rs.summary}</p>}
+                    
+                    <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>Détail par critère</h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      {(rs.criterion_scores || []).map((cs, idx) => (
+                        <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                             <span style={{ fontSize: '13px', fontWeight: '700' }}>{cs.criterion_name}</span>
+                             <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(cs.score).color }}>{cs.score}%</span>
+                           </div>
+                           {cs.verbatim && (
+                             <p style={{ fontSize: "12px", color: "var(--foreground)", fontStyle: "italic", marginBottom: "6px", borderLeft: "2px solid #e2e8f0", paddingLeft: "8px" }}>
+                               « {cs.verbatim} »
+                               {cs.verbatim_verified === false && <span style={{ color: "#991b1b", fontSize: "10px", marginLeft: "6px" }}>(Non vérifié)</span>}
+                             </p>
+                           )}
+                           {cs.justification && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>🧠 {cs.justification}</p>}
+                        </div>
+                      ))}
+                    </div>
+
+                    {rs.ai_usage_used && (
+                      <div style={{ marginTop: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14}/> Usage de l'Assistant IA</span>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(rs.ai_usage_score).color }}>{rs.ai_usage_score}%</span>
+                        </div>
+                        <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>Évaluation de la capacité du candidat à utiliser l'IA de manière critique et pertinente.</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Tests de compétences (Legacy) */}
+          {!candidate.experience_run && candidate.test_sessions && candidate.test_sessions.length > 0 && (
             <div className="card" style={{ padding: "1.5rem" }}>
               <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.5rem" }}>
                 <TrendingUp size={18} style={{ color: "var(--primary)" }} /> Tests de compétences
@@ -554,8 +606,8 @@ export default function CandidateDetailPage() {
             </div>
           )}
 
-          {/* AI Interview Module */}
-          {candidate.interview_summary && (
+          {/* AI Interview Module (Legacy) */}
+          {!candidate.experience_run && candidate.interview_summary && (
             <div className="card" style={{ padding: "1.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -630,8 +682,8 @@ export default function CandidateDetailPage() {
             </div>
           )}
 
-          {/* Entretien Vidéo */}
-          {candidate.video_responses && candidate.video_responses.length > 0 && (
+          {/* Entretien Vidéo (Legacy) */}
+          {!candidate.experience_run && candidate.video_responses && candidate.video_responses.length > 0 && (
             <div className="card" style={{ padding: "1.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>

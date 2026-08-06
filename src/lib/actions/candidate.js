@@ -419,6 +419,13 @@ export async function getCandidateDetail(candidateId) {
       }
     }
 
+    // Fetch Experience Run (new assessment flow)
+    const { data: expRun } = await supabase
+      .from('candidate_runs')
+      .select('*, run_scores(*), experiences(*)')
+      .eq('candidate_id', candidateId)
+      .maybeSingle();
+
     return { 
       success: true, 
       candidate: { 
@@ -427,6 +434,7 @@ export async function getCandidateDetail(candidateId) {
         interview_messages: messages,
         test_sessions: testSessions,
         video_responses: videoResponses,
+        experience_run: expRun || null,
       } 
     };
   } catch (error) {

@@ -19,7 +19,13 @@ const RESPONSE_FORMATS = [
   { value: "choice", label: "Choix (oui/non)", icon: CircleHelp },
   { value: "code", label: "Code (sandbox)", icon: Code2 },
 ];
-const SANDBOX_KINDS = ["none", "email", "client_reply", "document", "code"];
+const SANDBOX_KINDS = [
+  { value: "none", label: "Aucun" },
+  { value: "email", label: "📧  Email" },
+  { value: "client_reply", label: "💬  Réponse client" },
+  { value: "document", label: "📄  Document" },
+  { value: "code", label: "💻  Code" },
+];
 const KIND_LABELS = {
   qualifying: "Qualificative",
   question: "Question ciblée",
@@ -34,6 +40,7 @@ export default function ExperienceReviewPage() {
 
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [genStep, setGenStep] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [experience, setExperience] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -54,7 +61,17 @@ export default function ExperienceReviewPage() {
 
   async function handleGenerate() {
     setGenerating(true);
+    setGenStep(0);
+    
+    const interval = setInterval(() => {
+      setGenStep(prev => prev < 4 ? prev + 1 : prev);
+    }, 2500);
+
     const res = await generateExperience(jobId);
+    
+    clearInterval(interval);
+    setGenStep(5); // Marquer toutes les étapes comme finies
+    
     if (res.success) {
       toast("Expérience générée — à relire avant publication");
       await load();
@@ -62,6 +79,7 @@ export default function ExperienceReviewPage() {
       toast(res.error || "Échec de la génération", "error");
     }
     setGenerating(false);
+    setGenStep(0);
   }
 
   async function handlePublish() {
@@ -108,17 +126,64 @@ export default function ExperienceReviewPage() {
 
       {/* Aucune expérience → génération */}
       {!experience && (
-        <div className="card" style={{ padding: "2.5rem", textAlign: "center" }}>
-          <Sparkles size={32} style={{ color: "var(--primary)", marginBottom: "1rem" }} />
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.5rem" }}>Générer l'expérience de présélection</h2>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "14px", maxWidth: "460px", margin: "0 auto 1.5rem" }}>
-            L'IA construit un parcours court (5–20 min) à partir de l'offre et du contexte de votre entreprise.
-            Vous relisez et validez chaque étape avant qu'un candidat ne la voie.
-          </p>
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={generating} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            {generating ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={16} />}
-            {generating ? "Génération en cours…" : "Générer avec l'IA"}
-          </button>
+        <div className="card" style={{ padding: "2.5rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          {!generating ? (
+            <>
+              <Sparkles size={32} style={{ color: "var(--primary)", marginBottom: "1rem" }} />
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.5rem" }}>Générer l'expérience de présélection</h2>
+              <p style={{ color: "var(--muted-foreground)", fontSize: "14px", maxWidth: "460px", margin: "0 auto 1.5rem" }}>
+                L'IA construit un parcours court (5–20 min) à partir de l'offre et du contexte de votre entreprise.
+                Vous relisez et validez chaque étape avant qu'un candidat ne la voie.
+              </p>
+              <button className="btn btn-primary" onClick={handleGenerate} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <Sparkles size={16} /> Générer avec l'IA
+              </button>
+            </>
+          ) : (
+            <div style={{ width: "100%", maxWidth: "400px", margin: "0 auto", textAlign: "left" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "2rem", justifyContent: "center" }}>
+                <div style={{ padding: "12px", background: "#f0fdf4", borderRadius: "50%", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={24} style={{ animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "15px", fontWeight: "700", margin: 0 }}>L'IA travaille…</h3>
+                  <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: "4px 0 0" }}>Génération en cours (~15-20s)</p>
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {[
+                  "Analyse de l'offre d'emploi…",
+                  "Identification des compétences clés…",
+                  "Construction des mises en situation…",
+                  "Calibrage des critères BARS…",
+                  "Finalisation de l'expérience…"
+                ].map((text, i) => {
+                  const isActive = genStep === i;
+                  const isDone = genStep > i;
+                  return (
+                    <div key={i} style={{ 
+                      display: "flex", alignItems: "center", gap: "12px", 
+                      opacity: isDone || isActive ? 1 : 0.4,
+                      transition: "opacity 0.3s ease" 
+                    }}>
+                      <div style={{ 
+                        width: "24px", height: "24px", borderRadius: "50%", 
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: isDone ? "#dcfce7" : isActive ? "var(--primary)" : "var(--secondary)",
+                        color: isDone ? "#166534" : isActive ? "white" : "var(--muted-foreground)"
+                      }}>
+                        {isDone ? <Check size={14} /> : isActive ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <span style={{ fontSize: "11px", fontWeight: 700 }}>{i + 1}</span>}
+                      </div>
+                      <span style={{ fontSize: "14px", fontWeight: isActive ? 600 : 500, color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}>
+                        {text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -133,7 +198,6 @@ export default function ExperienceReviewPage() {
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
                 {steps.length} étape{steps.length > 1 ? "s" : ""}
                 {experience.estimated_minutes ? ` · ~${experience.estimated_minutes} min` : ""}
-                {experience.generation_usage?.cost_usd != null ? ` · génération $${experience.generation_usage.cost_usd}` : ""}
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -154,6 +218,12 @@ export default function ExperienceReviewPage() {
           {experience.status === "published" && (
             <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", borderRadius: "10px", padding: "10px 14px", fontSize: "13px", marginBottom: "1.5rem" }}>
               ✓ Publiée — les candidats voient cette version. Toute modification sera visible immédiatement.
+            </div>
+          )}
+
+          {experience.locked_at && (
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#c2410c", borderRadius: "10px", padding: "10px 14px", fontSize: "13px", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              ⚠️ Au moins un candidat a déjà commencé cette expérience. Vos modifications seront prises en compte pour les <strong>prochains</strong> candidats uniquement.
             </div>
           )}
 
@@ -248,6 +318,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
       title: local.title, prompt: local.prompt,
       response_format: local.response_format, sandbox_kind: local.sandbox_kind,
       ai_assistant_allowed: local.ai_assistant_allowed, criteria: local.criteria,
+      config: local.config,
     });
     if (res.success) { setDirty(false); toast("Étape enregistrée"); }
     else { toast(res.error || "Erreur", "error"); }
@@ -255,6 +326,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
   }
 
   const isQualifying = local.kind === "qualifying";
+  const isQcm = local.kind === "classic_qcm";
 
   return (
     <div className="card" style={{ padding: "1.25rem 1.5rem", borderLeft: dirty ? "3px solid var(--primary)" : "3px solid transparent" }}>
@@ -295,14 +367,14 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
         <div style={{ flex: "1 1 200px" }}>
           <label style={labelStyle}>Format de réponse</label>
-          <select value={local.response_format} onChange={(e) => set("response_format", e.target.value)} style={inputStyle}>
+          <select value={local.response_format} onChange={(e) => set("response_format", e.target.value)} style={selectStyle}>
             {RESPONSE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
           </select>
         </div>
         <div style={{ flex: "1 1 160px" }}>
           <label style={labelStyle}>Sandbox</label>
-          <select value={local.sandbox_kind || "none"} onChange={(e) => set("sandbox_kind", e.target.value)} style={inputStyle}>
-            {SANDBOX_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          <select value={local.sandbox_kind || "none"} onChange={(e) => set("sandbox_kind", e.target.value)} style={selectStyle}>
+            {SANDBOX_KINDS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: "2px" }}>
@@ -314,8 +386,8 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         </div>
       </div>
 
-      {/* Critères BARS */}
-      {!isQualifying && (
+      {/* Critères BARS (non qualifying, non QCM) */}
+      {!isQualifying && !isQcm && (
         <div style={{ marginTop: "1.25rem" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
             <label style={{ ...labelStyle, margin: 0 }}>Critères d'évaluation (BARS)</label>
@@ -342,6 +414,71 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         </div>
       )}
 
+      {/* QCM Editor */}
+      {isQcm && (
+        <div style={{ marginTop: "1.25rem" }}>
+          <label style={{ ...labelStyle, margin: "0 0 0.5rem" }}>Options QCM</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            {(local.config?.options || []).map((opt, oi) => (
+              <div key={oi} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", flexShrink: 0 }} title="Bonne réponse">
+                  <input
+                    type="radio"
+                    name={`qcm-correct-${step.id}`}
+                    checked={local.config?.correct_index === oi}
+                    onChange={() => {
+                      setLocal((p) => ({ ...p, config: { ...p.config, correct_index: oi } }));
+                      setDirty(true);
+                    }}
+                    style={{ accentColor: "var(--primary)", width: "16px", height: "16px" }}
+                  />
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: local.config?.correct_index === oi ? "#166534" : "var(--muted-foreground)" }}>
+                    {local.config?.correct_index === oi ? "✓" : ""}
+                  </span>
+                </label>
+                <input
+                  value={opt}
+                  onChange={(e) => {
+                    const newOpts = [...(local.config?.options || [])];
+                    newOpts[oi] = e.target.value;
+                    setLocal((p) => ({ ...p, config: { ...p.config, options: newOpts } }));
+                    setDirty(true);
+                  }}
+                  placeholder={`Option ${oi + 1}`}
+                  style={{ ...inputStyle, marginBottom: 0 }}
+                />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    const newOpts = (local.config?.options || []).filter((_, i) => i !== oi);
+                    let newCorrect = local.config?.correct_index;
+                    if (newCorrect === oi) newCorrect = 0;
+                    else if (newCorrect > oi) newCorrect--;
+                    setLocal((p) => ({ ...p, config: { ...p.config, options: newOpts, correct_index: newCorrect } }));
+                    setDirty(true);
+                  }}
+                  style={{ padding: "4px", color: "#dc2626" }}
+                ><Trash2 size={14} /></button>
+              </div>
+            ))}
+          </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              const newOpts = [...(local.config?.options || []), ""];
+              setLocal((p) => ({ ...p, config: { ...p.config, options: newOpts } }));
+              setDirty(true);
+            }}
+            style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", marginTop: "0.5rem" }}
+          >
+            <Plus size={13} /> Ajouter une option
+          </button>
+          <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
+            Sélectionnez la bonne réponse avec le bouton radio. Le candidat sera noté automatiquement (correct/incorrect).
+          </p>
+        </div>
+      )}
+
       {/* Enregistrer */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
         <button className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -356,6 +493,16 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
 const inputStyle = {
   width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border)",
   fontSize: "14px", fontFamily: "inherit", background: "var(--background)", color: "var(--foreground)", marginBottom: "2px",
+};
+const selectStyle = {
+  ...inputStyle,
+  appearance: "none",
+  WebkitAppearance: "none",
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 10px center",
+  paddingRight: "32px",
+  cursor: "pointer",
 };
 const labelStyle = {
   display: "block", fontSize: "11px", fontWeight: 700, textTransform: "uppercase",

@@ -45,10 +45,32 @@ export async function scoreRun(runId) {
   for (const m of aiMessages || []) { (aiByStep[m.step_id] ||= []).push(m); }
   const aiUsed = (aiMessages || []).some((m) => m.role === "user");
 
-  // Steps notables = ceux qui ont des critères BARS
-  const scored = (steps || []).filter((s) => (s.criteria || []).length > 0);
+  // Steps notables = ceux qui ont des critères BARS (exclut QCM qui sont scorés directement)
+  const scored = (steps || []).filter((s) => (s.criteria || []).length > 0 && s.kind !== "classic_qcm");
 
-  // ── Construit la trajectoire pour le prompt ──
+  // ── QCM : scoring direct (bonne/mauvaise réponse) ──
+  const qcmSteps = (steps || []).filter((s) => s.kind === "classic_qcm");
+  const qcmScores = qcmSteps.map((s) => {
+    const resp = respByStep[s.id];
+    const selectedIdx = resp?.meta?.selected_index;
+    const correctIdx = s.config?.correct_index;
+    const isCorrect = selectedIdx != null && correctIdx != null && selectedIdx === correctIdx;
+    return {
+      step_id: s.id,
+      criterion_name: "QCM — Bonne réponse",
+      bars_level: isCorrect ? 5 : 1,
+      score: isCorrect ? 100 : 0,
+      justification: isCorrect
+        ? `Bonne réponse sélectionnée (option ${selectedIdx + 1})`
+        : selectedIdx != null
+          ? `Mauvaise réponse (option ${selectedIdx + 1}, attendue : ${correctIdx + 1})`
+          : "Pas de réponse",
+      verbatim: "",
+      verbatim_verified: false,
+    };
+  });
+
+  // ── Construit la trajectoire pour le prompt (uniquement les steps non-QCM) ──
   const traj = scored.map((s, i) => {
     const resp = respByStep[s.id];
     const answer = candidateAnswerText(s, resp);
@@ -89,37 +111,47 @@ Réponds avec ce JSON exact :
 }
 Le champ score de chaque critère sera calculé automatiquement à partir du bars_level ; ne le fournis pas. Si used=false, mets ai_usage.score à null.`;
 
-  const response = await anthropic.messages.create({
-    model: SCORING_MODEL, max_tokens: Math.min(4000, 600 + scored.length * 500), temperature: 0.1,
-    system, messages: [{ role: "user", content: user }],
-  });
-  const usage = computeAiCost(SCORING_MODEL, response.usage);
-  const match = response.content[0].text.match(/\{[\s\S]*\}/);
-  if (!match) {
-    await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
-    return { success: false, error: "Scoring : JSON invalide" };
+  let critScores = [];
+  let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
+  let usage = {};
+
+  // Appeler Claude seulement s'il y a des steps BARS à évaluer
+  if (scored.length > 0) {
+    const response = await anthropic.messages.create({
+      model: SCORING_MODEL, max_tokens: Math.min(4000, 600 + scored.length * 500), temperature: 0.1,
+      system, messages: [{ role: "user", content: user }],
+    });
+    usage = computeAiCost(SCORING_MODEL, response.usage);
+    const match = response.content[0].text.match(/\{[\s\S]*\}/);
+    if (!match) {
+      await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
+      return { success: false, error: "Scoring : JSON invalide" };
+    }
+    parsed = JSON.parse(match[0]);
+
+    // Post-traitement : score dérivé du niveau BARS + vérification verbatim
+    critScores = (parsed.criterion_scores || []).map((c) => {
+      const level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
+      const score = (level - 1) * 25;
+      const step = scored.find((s) => s.id === c.step_id);
+      const src = step ? candidateAnswerText(step, respByStep[step.id]) : "";
+      return {
+        step_id: c.step_id,
+        criterion_name: c.criterion_name,
+        bars_level: level,
+        score,
+        justification: c.justification || "",
+        verbatim: c.verbatim || "",
+        verbatim_verified: verifyVerbatim(c.verbatim, src),
+      };
+    });
   }
-  const parsed = JSON.parse(match[0]);
 
-  // Post-traitement : score dérivé du niveau BARS + vérification verbatim
-  const critScores = (parsed.criterion_scores || []).map((c) => {
-    const level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
-    const score = (level - 1) * 25;
-    const step = scored.find((s) => s.id === c.step_id);
-    const src = step ? candidateAnswerText(step, respByStep[step.id]) : "";
-    return {
-      step_id: c.step_id,
-      criterion_name: c.criterion_name,
-      bars_level: level,
-      score,
-      justification: c.justification || "",
-      verbatim: c.verbatim || "",
-      verbatim_verified: verifyVerbatim(c.verbatim, src),
-    };
-  });
+  // Fusionne les scores BARS (venant de Claude) et les scores QCM (directs)
+  const allScores = [...critScores, ...qcmScores];
 
-  const overall = critScores.length
-    ? Math.round(critScores.reduce((s, c) => s + c.score, 0) / critScores.length)
+  const overall = allScores.length
+    ? Math.round(allScores.reduce((s, c) => s + c.score, 0) / allScores.length)
     : null;
   const rawAi = parsed.ai_usage?.used ? parsed.ai_usage?.score : null;
   const aiUsageScore = rawAi == null ? null : Math.round(Math.max(0, Math.min(100, Number(rawAi))));
@@ -130,7 +162,7 @@ Le champ score de chaque critère sera calculé automatiquement à partir du bar
     ai_usage_used: !!parsed.ai_usage?.used,
     ai_usage_score: aiUsageScore,
     summary: parsed.summary || "",
-    criterion_scores: critScores,
+    criterion_scores: allScores,
     scoring_usage: usage,
   }, { onConflict: "run_id" });
 

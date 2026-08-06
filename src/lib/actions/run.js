@@ -29,8 +29,16 @@ function sanitizeStepForCandidate(step) {
 
 async function resolveCandidateAndRun(admin, token) {
   const { data: candidate } = await admin
-    .from("candidates").select("id, job_id").eq("interview_token", token).single();
+    .from("candidates").select("id, job_id, first_name").eq("interview_token", token).single();
   if (!candidate) return { error: "Lien d'évaluation invalide." };
+  
+  const { data: job, error: jobError } = await admin
+    .from("jobs").select("id, user_id, title").eq("id", candidate.job_id).single();
+  if (jobError) console.error("resolveCandidateAndRun job error:", jobError);
+  if (!job) return { error: "Offre introuvable." };
+
+  const { data: recruiter } = await admin
+    .from("users").select("company_name, brand_primary_color, company_logo_url").eq("id", job.user_id).single();
 
   const { data: exp } = await admin
     .from("experiences").select("*")
@@ -42,7 +50,7 @@ async function resolveCandidateAndRun(admin, token) {
     .from("candidate_runs").select("*")
     .eq("candidate_id", candidate.id).eq("experience_id", exp.id).maybeSingle();
 
-  return { candidate, exp, run };
+  return { candidate, job, recruiter, exp, run };
 }
 
 // Le candidat doit-il être routé vers le nouveau run Experience ?
@@ -71,7 +79,7 @@ export async function startRun(token) {
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error) return { success: false, error: ctx.error };
-    const { candidate, exp } = ctx;
+    const { candidate, exp, job, recruiter } = ctx;
     let run = ctx.run;
 
     if (!run) {
@@ -95,6 +103,9 @@ export async function startRun(token) {
     return {
       success: true,
       run: { id: run.id, status: run.status },
+      candidate: { id: candidate.id, first_name: candidate.first_name },
+      job: { id: job.id, company: job.company, title: job.title },
+      recruiter: recruiter || {},
       experience: { id: exp.id, estimated_minutes: exp.estimated_minutes },
       steps: (steps || []).map(sanitizeStepForCandidate),
       responses: responses || [],

@@ -56,8 +56,23 @@ RÈGLES :
    - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
    Le recruteur pourra changer ce défaut ; propose le plus pertinent.
 6. Pour CHAQUE étape non-"qualifying", génère 2 à 3 critères BARS : nom court (2–4 mots) + grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent) avec des descriptions COMPORTEMENTALES et OBSERVABLES.
+   IMPORTANT pour les niveaux BARS :
+   - Chaque description DOIT inclure un exemple concret de ce que le candidat fait ou écrit (un mini-verbatim fictif illustratif entre guillemets).
+   - Exemple pour "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
+   - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
 8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" pour les tâches, sinon "none".
+   Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
+   - Pour "email" : config.to, config.subject, config.context (ex: { "to": "client@example.com", "subject": "Suivi de votre demande", "context": "Email professionnel à un client mécontent" })
+   - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
+   - Pour "document" : config.document_context (description du document à produire)
+9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
+
+RÈGLES QCM ANTI-BIAIS :
+- TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
+- Chaque distracteur doit être PLAUSIBLE pour quelqu'un qui connaît partiellement le sujet. Pas de réponses absurdes.
+- Formulation HOMOGÈNE : si la bonne réponse commence par "Le…", les distracteurs aussi.
+- 4 options par QCM (ni plus, ni moins).
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
@@ -83,7 +98,7 @@ Réponds UNIQUEMENT avec un JSON valide :
   ]
 }
 Pour "qualifying", mets "criteria": [] et "config": { "expected_answer": "yes" }.
-Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 }.`;
+Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — SANS critères BARS (criteria: []).`;
 }
 
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────

@@ -177,6 +177,8 @@ export default function NouvelleDemandePage() {
         throw new Error(quota.error);
       }
 
+      let targetJobId = savedJobId || savedJob?.id;
+
       // 1. Upsert Job
       if (savedJobId) {
         const { error: jobError } = await supabase
@@ -214,9 +216,8 @@ export default function NouvelleDemandePage() {
         if (jobError) throw jobError;
         setSavedJobId(job.id);
         setSavedJob(job);
+        targetJobId = job.id;
       }
-
-      const targetJobId = savedJobId || savedJob?.id;
 
       // NOUVEAU : Logger la famille et sous-famille
       if ((jobData.category || jobData.sub_family) && targetJobId) {
