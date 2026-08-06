@@ -640,24 +640,16 @@ export default function JobDetailPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          <Link
-            href={`/jobs/${jobId}/experience`}
-            className="btn btn-outline"
-            style={{ display: "flex", alignItems: "center", gap: "8px" }}
-          >
-            <BrainCircuit size={16} />
-            Expérience de présélection
-          </Link>
-          <button
-            onClick={copyApplyLink}
-            className="btn btn-primary"
-            style={{ display: "flex", alignItems: "center", gap: "8px" }}
-          >
-            {copiedId === "apply_link" ? <CheckCircle2 size={16} /> : <Link2 size={16} />}
-            {copiedId === "apply_link" ? "Lien copié !" : "Copier le lien public"}
-          </button>
-        </div>
+        {/* Le pilotage de l'expérience passe par les cartes de la pipeline
+            (onglet Parcours), plus par un bouton en haut de page. */}
+        <button
+          onClick={copyApplyLink}
+          className="btn btn-primary"
+          style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}
+        >
+          {copiedId === "apply_link" ? <CheckCircle2 size={16} /> : <Link2 size={16} />}
+          {copiedId === "apply_link" ? "Lien copié !" : "Copier le lien public"}
+        </button>
       </div>
 
       {/* Tabs */}
