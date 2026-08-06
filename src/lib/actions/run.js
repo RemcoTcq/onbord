@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { deductCredits } from "@/lib/utils/limits";
+import { scoreRun } from "@/lib/runScoring";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -179,9 +180,9 @@ export async function saveVideoResponse(token, stepId, videoUrl, durationSeconds
   }
 }
 
-// Soumet le run. Le scoring unique (scoreRun) est déclenché PARESSEUSEMENT à la
-// première ouverture du rapport par le recruteur (getRunReport) — inutile de
-// faire attendre le candidat ~30 s sur "Terminer".
+// Soumet le run. Le scoring unique (scoreRun) est déclenché ICI, à la soumission
+// finale : le recruteur qui ouvre la fiche candidat voit un résultat déjà prêt,
+// jamais un déclenchement à la volée.
 export async function submitRun(token) {
   try {
     const admin = createAdminClient();
@@ -201,6 +202,14 @@ export async function submitRun(token) {
       if (job?.user_id) await deductCredits(job.user_id, ctx.candidate.id, "candidate_completion");
     } catch (e) {
       console.error("submitRun completion charge failed (non-blocking):", e.message);
+    }
+
+    // Scoring unique à la soumission. Non-bloquant : si le scoring échoue, la
+    // soumission reste valide (run "submitted"), le recruteur pourra relancer.
+    try {
+      await scoreRun(ctx.run.id);
+    } catch (e) {
+      console.error("submitRun scoreRun failed (non-blocking):", e.message);
     }
 
     return { success: true };

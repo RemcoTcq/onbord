@@ -1,9 +1,8 @@
 "use server";
 
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { scoreRun } from "@/lib/runScoring";
 import { chargeCredits } from "@/lib/utils/limits";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 
@@ -388,83 +387,9 @@ export async function deleteStep(stepId) {
   }
 }
 
-// ─── Rapport de preuves d'un run (recruteur) ─────────────────────────────────
-// Scoring paresseux : si le run est soumis mais pas encore noté, on le note à la
-// première ouverture (évite de faire attendre le candidat à la soumission).
-export async function getRunReport(runId) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    // Les tables du run sont RLS deny-all : lecture via service_role, ownership
-    // vérifiée en comparant jobs.user_id à l'utilisateur authentifié.
-    const admin = createAdminClient();
-    const { data: run } = await admin
-      .from("candidate_runs")
-      .select("id, status, submitted_at, scored_at, candidate_id, experience_id, experiences!inner(job_id, jobs!inner(user_id, title)), candidates!inner(first_name, last_name, email)")
-      .eq("id", runId).single();
-    if (!run || run.experiences?.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
-
-    if (run.status === "submitted") {
-      try { await scoreRun(runId); } catch (e) { console.error("lazy scoreRun failed:", e); }
-    }
-
-    const [{ data: scores }, { data: steps }, { data: responses }] = await Promise.all([
-      admin.from("run_scores").select("*").eq("run_id", runId).maybeSingle(),
-      admin.from("experience_steps").select("id, order_index, kind, title, response_format").eq("experience_id", run.experience_id).order("order_index"),
-      admin.from("run_step_responses").select("step_id, response_format, text_answer, transcript, meta, status, video_url").eq("run_id", runId),
-    ]);
-
-    return {
-      success: true,
-      candidate: { name: `${run.candidates.first_name || ""} ${run.candidates.last_name || ""}`.trim(), email: run.candidates.email },
-      jobTitle: run.experiences?.jobs?.title,
-      run: { id: run.id, status: run.status },
-      scores: scores || null,
-      steps: steps || [],
-      responses: responses || [],
-    };
-  } catch (err) {
-    console.error("getRunReport error:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-// ─── Runs d'une offre (recruteur) : map candidat -> run, pour lister les rapports ─
-export async function getRunsForJob(jobId) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    const { data: job } = await supabase.from("jobs").select("id, user_id").eq("id", jobId).single();
-    if (!job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
-
-    const admin = createAdminClient();
-    const { data: exps } = await admin.from("experiences").select("id").eq("job_id", jobId);
-    const expIds = (exps || []).map((e) => e.id);
-    if (!expIds.length) return { success: true, runsByCandidate: {} };
-
-    const { data: runs } = await admin
-      .from("candidate_runs")
-      .select("id, candidate_id, status, run_scores(overall)")
-      .in("experience_id", expIds);
-
-    const runsByCandidate = {};
-    for (const r of runs || []) {
-      runsByCandidate[r.candidate_id] = {
-        runId: r.id,
-        status: r.status,
-        overall: Array.isArray(r.run_scores) ? r.run_scores[0]?.overall ?? null : r.run_scores?.overall ?? null,
-      };
-    }
-    return { success: true, runsByCandidate };
-  } catch (err) {
-    console.error("getRunsForJob error:", err);
-    return { success: false, error: err.message };
-  }
-}
+// Le rapport de preuves est désormais intégré à la fiche candidat
+// (candidats/[candidatId]) via getCandidateDetail ; le scoring est déclenché à
+// la soumission du run (submitRun). Plus de route/écran de rapport séparés.
 
 // ─── Déplacement d'un step (échange l'order_index avec le voisin) ─────────────
 export async function moveStep(stepId, direction) {

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
 
@@ -419,8 +419,13 @@ export async function getCandidateDetail(candidateId) {
       }
     }
 
-    // Fetch Experience Run (new assessment flow)
-    const { data: expRun } = await supabase
+    // Fetch Experience Run (new assessment flow).
+    // candidate_runs / run_scores sont RLS deny-all (service_role only, cf.
+    // migration 011) : lecture via admin. Le candidat est déjà owner-scopé —
+    // la lecture RLS de `candidates` ci-dessus n'a réussi que si le recruteur
+    // possède ce candidat.
+    const admin = createAdminClient();
+    const { data: expRun } = await admin
       .from('candidate_runs')
       .select('*, run_scores(*), experiences(*)')
       .eq('candidate_id', candidateId)

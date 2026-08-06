@@ -8,7 +8,7 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, TrendingDown, TrendingUp,
   CalendarArrowDown, CalendarArrowUp, ArrowDownAZ, ArrowUpZA,
   Lock, Unlock, Plus, MoreHorizontal, ChevronRight, Save,
-  Users, X, ShieldCheck, FileCheck2, BrainCircuit, MessageSquare, Video, Check, Info
+  Users, X, ShieldCheck, BrainCircuit, MessageSquare, Video, Check, Info
 } from "lucide-react";
 import {
   getCandidatesForJob, getJobDetail,
@@ -17,7 +17,6 @@ import {
   deleteJob
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
-import { getRunsForJob } from "@/lib/actions/experience";
 import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
@@ -93,7 +92,6 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
-  const [runsByCandidate, setRunsByCandidate] = useState({});
 
   // Candidates tab state
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,13 +139,11 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes, runsRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
-      getRunsForJob(jobId),
     ]);
-    if (runsRes?.success) setRunsByCandidate(runsRes.runsByCandidate || {});
     if (jobRes.success) {
       setJob(jobRes.job);
       setContextDescription(jobRes.job.description || "");
@@ -747,7 +743,6 @@ export default function JobDetailPage() {
           handleBulkDelete={handleBulkDelete}
           actionLoading={actionLoading}
           jobId={jobId}
-          runsByCandidate={runsByCandidate}
         />
       )}
       {activeTab === "context" && (
@@ -1008,7 +1003,7 @@ function CandidatsTab({
   candidates, allCandidates, searchQuery, setSearchQuery,
   sortBy, setSortBy, sortMenuOpen, setSortMenuOpen, sortMenuRef,
   selectedIds, toggleSelect, toggleSelectAll,
-  handleDelete, handleBulkDelete, actionLoading, jobId, runsByCandidate = {}
+  handleDelete, handleBulkDelete, actionLoading, jobId
 }) {
   return (
     <div>
@@ -1203,16 +1198,6 @@ function CandidatsTab({
                     </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        {runsByCandidate[candidate.id] && (
-                          <Link
-                            href={`/jobs/${jobId}/runs/${runsByCandidate[candidate.id].runId}`}
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: "12px" }}
-                            title="Rapport de preuves de l'expérience"
-                          >
-                            <FileCheck2 size={14} /> Rapport
-                          </Link>
-                        )}
                         <Link
                           href={`/jobs/${jobId}/candidats/${candidate.id}`}
                           className="btn btn-ghost btn-sm"
