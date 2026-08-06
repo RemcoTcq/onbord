@@ -139,11 +139,12 @@ export default function RunPage() {
         </div>
 
         <div style={{ display: isSidebarMode ? "grid" : "block", gridTemplateColumns: isSidebarMode ? "1fr 340px" : "1fr", gap: "2rem", alignItems: "start" }}>
-          {/* Main Column */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <div className="card" style={{ padding: "1.75rem" }}>
-              {step.title && <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: "0.75rem" }}>{step.title}</h2>}
-              <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", marginBottom: "1.5rem" }}>{step.prompt}</p>
+          {/* Main Column — minWidth:0 essentiel : sans ça, un enfant de grid ne
+              rétrécit pas sous sa largeur de contenu et un texte long déborde du bloc. */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", minWidth: 0 }}>
+            <div className="card" style={{ padding: "1.75rem", minWidth: 0, overflowWrap: "break-word" }}>
+              {step.title && <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
+              <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: "1.5rem" }}>{step.prompt}</p>
 
               {/* Renderer selon le format de réponse (paramètre du step) */}
               {["text", "email_reply", "client_reply", "technical_architecture", "code", "code_editor"].includes(step.response_format) && (
@@ -166,7 +167,7 @@ export default function RunPage() {
                   {(step.config?.options || []).map((opt, i) => (
                     <button key={i} onClick={() => setAnswer("selected_index", i)}
                       className={`btn ${ans.selected_index === i ? "btn-primary" : "btn-outline"}`}
-                      style={{ justifyContent: "flex-start", textAlign: "left" }}>
+                      style={{ justifyContent: "flex-start", textAlign: "left", whiteSpace: "normal", wordBreak: "break-word", height: "auto", minHeight: 40 }}>
                       {opt}
                     </button>
                   ))}

@@ -25,7 +25,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Rédigez votre email ici..."
-          style={{ width: "100%", padding: "16px", minHeight: 200, border: "none", resize: "vertical", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, outline: "none" }}
+          style={{ width: "100%", padding: "16px", minHeight: 200, maxHeight: 420, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, outline: "none" }}
         />
         <div style={{ padding: "12px 16px", background: "#f8fafc", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
           <button className="btn btn-primary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.7 }} disabled>
@@ -56,7 +56,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
                 value={value || ""}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="Votre réponse dans le chat..."
-                style={{ width: "100%", maxWidth: "80%", padding: "8px 12px", borderRadius: 12, borderTopRightRadius: 0, fontSize: 13, border: "1px solid var(--primary)", minHeight: 80, resize: "vertical", outline: "none" }}
+                style={{ width: "100%", maxWidth: "80%", padding: "8px 12px", borderRadius: 12, borderTopRightRadius: 0, fontSize: 13, border: "1px solid var(--primary)", minHeight: 80, maxHeight: 320, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", resize: "vertical", outline: "none" }}
              />
            </div>
         </div>
@@ -78,7 +78,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder="# Architecture proposée..."
-          style={{ width: "100%", padding: "16px", minHeight: 300, border: "none", resize: "vertical", fontSize: 14, fontFamily: "monospace", lineHeight: 1.6, outline: "none", background: "var(--background)" }}
+          style={{ width: "100%", padding: "16px", minHeight: 300, maxHeight: 480, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "monospace", lineHeight: 1.6, outline: "none", background: "var(--background)" }}
         />
       </div>
     );
@@ -100,7 +100,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder="// Écrivez votre code ici..."
-          style={{ width: "100%", padding: "16px", minHeight: 300, border: "none", resize: "vertical", fontSize: 14, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", lineHeight: 1.6, outline: "none", background: "#0f172a", color: "#e2e8f0" }}
+          style={{ width: "100%", padding: "16px", minHeight: 300, maxHeight: 480, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", lineHeight: 1.6, outline: "none", background: "#0f172a", color: "#e2e8f0" }}
           spellCheck="false"
         />
       </div>
@@ -114,7 +114,7 @@ export default function SandboxRenderer({ format, value, onChange }) {
       onChange={(e) => onChange(e.target.value)}
       rows={8}
       placeholder="Votre réponse…"
-      style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, resize: "vertical", background: "var(--background)", color: "var(--foreground)" }}
+      style={{ width: "100%", padding: "12px", maxHeight: 420, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, resize: "vertical", background: "var(--background)", color: "var(--foreground)" }}
     />
   );
 }
