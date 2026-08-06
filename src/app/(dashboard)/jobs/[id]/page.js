@@ -691,10 +691,11 @@ export default function JobDetailPage() {
           setPipelineLocked={setPipelineLocked} 
           getPipelineNodes={getPipelineNodes} 
           testsLibrary={testsLibrary} 
-          handleDeletePipelineNode={handleDeletePipelineNode} 
+          handleDeletePipelineNode={handleDeletePipelineNode}
           selectedNodeId={selectedNodeId}
           setSelectedNodeId={setSelectedNodeId}
           handleAddPipelineNode={handleAddPipelineNode}
+          onOpenExperience={() => router.push(`/jobs/${jobId}/experience`)}
           onNodesChange={async (newNodes) => {
             const res = await updateJobDetails(jobId, { saved_flow_nodes: newNodes });
             if (res.success) {
@@ -830,17 +831,44 @@ export default function JobDetailPage() {
 // TAB 1 — Pipelines
 // ═══════════════════════════════════════════════════════
 
-function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onNodesChange, onAIAssessmentClick }) {
-  const pipelineNodes = getPipelineNodes();
+// Types de nœuds hérités désormais obsolètes (bascule Experience) : leurs
+// écrans de config (scoring CV, tests QCM humains, entretien vidéo one-way,
+// interview IA texte) n'ont plus de raison d'être. On les masque du pipeline et
+// on garantit un bloc "Expérience candidat" cliquable vers l'écran de config.
+const LEGACY_EVAL_NODE_TYPES = ["cv_scoring", "assessment", "ai_interview", "single_video_question"];
+
+function buildV1PipelineNodes(rawNodes) {
+  if (!EXPERIENCE_V1_ONLY) return rawNodes;
+  const filtered = rawNodes.filter((n) => !LEGACY_EVAL_NODE_TYPES.includes(n.type));
+  // Garantit la présence d'un unique bloc Expérience (la mise en situation du poste).
+  if (!filtered.some((n) => n.type === "experience")) {
+    // Insère juste avant les étapes verrouillées de fin (entretien visio…).
+    const firstLockedAfter = filtered.findIndex((n) => n.locked && n.type !== "sourcing");
+    const at = firstLockedAfter === -1 ? Math.max(0, filtered.length - 1) : firstLockedAfter;
+    filtered.splice(at, 0, { id: "experience_main", type: "experience", v2: true, config: {} });
+  }
+  return filtered;
+}
+
+function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onNodesChange, onAIAssessmentClick }) {
+  const pipelineNodes = buildV1PipelineNodes(getPipelineNodes());
   const [showAddMenu, setShowAddMenu] = useState(false);
+
+  // Cliquer le bloc Expérience ouvre l'écran de config/relecture (étape 3) ;
+  // les autres nœuds éditables ouvrent leur panneau latéral comme avant.
+  function handleNodeClick(nodeId) {
+    const node = pipelineNodes.find((n) => n.id === nodeId);
+    if (node?.type === "experience") { onOpenExperience?.(); return; }
+    setSelectedNodeId(nodeId);
+  }
 
   return (
     <div style={{ paddingTop: "8px" }}>
-      <PipelineVisualEditor 
+      <PipelineVisualEditor
         nodes={pipelineNodes}
         isEditable={!pipelineLocked}
         selectedNodeId={selectedNodeId}
-        onNodeClick={setSelectedNodeId}
+        onNodeClick={handleNodeClick}
         onAssessmentClick={(nodeId) => {
           setSelectedNodeId(null);
           if (onAIAssessmentClick) onAIAssessmentClick(nodeId);

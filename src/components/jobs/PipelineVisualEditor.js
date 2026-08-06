@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Check, BrainCircuit, FileCheck2, Video, MessageSquare, ShieldCheck, 
-  User, HandHeart, Plus, Trash2, X, ChevronRight, Search, Phone, 
-  MapPin, CheckSquare, GripVertical 
+import {
+  Check, BrainCircuit, ShieldCheck,
+  User, HandHeart, Plus, Trash2, X, ChevronRight, Search, Phone,
+  MapPin, CheckSquare, GripVertical
 } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -13,8 +13,9 @@ import { CSS } from '@dnd-kit/utilities';
 export const NODE_TYPES = {
   accueil: { icon: User, label: "Accueil Candidat", color: "#3b82f6", time: 0 },
   qualifying_questions: { icon: ShieldCheck, label: "Questions qualificatives", color: "#8b5cf6", time: 2 },
-  cv_scoring: { icon: FileCheck2, label: "Scoring CV (IA)", color: "#10b981", time: 0 },
-  experience: { icon: BrainCircuit, label: "Évaluation IA (Expérience)", color: "#f59e0b", time: 10 },
+  // Bascule Experience : le scoring CV, les tests QCM humains et l'interview
+  // vidéo one-way sont obsolètes → l'évaluation est portée par le bloc Expérience.
+  experience: { icon: BrainCircuit, label: "Expérience candidat", color: "#f59e0b", time: 10 },
   remerciements: { icon: HandHeart, label: "Remerciements", color: "#14b8a6", time: 0 },
 };
 
@@ -69,8 +70,8 @@ function SortableNodeCard({
     if (!meta) return null;
 
     if (node.type === 'experience') {
-      label = "Évaluation IA (Expérience)";
-      subtitle = node.config?.configured ? "Expérience configurée" : "Cliquez pour configurer via Tchat IA";
+      label = "Expérience candidat";
+      subtitle = "Cliquez pour configurer la mise en situation";
     } else if (node.type === 'qualifying_questions') {
       label = 'Questions qualificatives';
       subtitle = `${node.config?.questions?.length || 0} questions`;
@@ -249,7 +250,7 @@ export default function PipelineVisualEditor({
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {Object.entries(NODE_TYPES).filter(([k]) => k !== 'accueil' && k !== 'remerciements').map(([type, meta]) => {
-                    const isUnique = type === 'qualifying_questions' || type === 'cv_scoring' || type === 'ai_interview';
+                    const isUnique = type === 'qualifying_questions' || type === 'experience';
                     const exists = isUnique ? nodes.some(n => n.type === type) : false;
                     const Icon = meta.icon;
                     return (
