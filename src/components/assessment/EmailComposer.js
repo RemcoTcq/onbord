@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { Mail, Send, Bold, Italic, List } from "lucide-react";
+import { getContrastColor, DEFAULT_PRIMARY } from "./candidateUi";
 
 // Composeur d'email réaliste (type Gmail) : champs À / Cc / Objet + corps avec
 // mise en forme basique (gras, italique, liste). La valeur est sérialisée en une
@@ -18,7 +19,7 @@ function serialize({ to, cc, subject, body }) {
   return `À : ${to}\nCc : ${cc}\nObjet : ${subject}\n\n${body}`;
 }
 
-export default function EmailComposer({ value, onChange }) {
+export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMARY }) {
   const init = useRef(parse(value));
   const [to, setTo] = useState(init.current.to);
   const [cc, setCc] = useState(init.current.cc);
@@ -48,7 +49,7 @@ export default function EmailComposer({ value, onChange }) {
   const toolBtn = { display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 28, border: "1px solid var(--border)", borderRadius: 6, background: "white", cursor: "pointer", color: "var(--foreground)" };
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "white", boxShadow: "0 6px 16px -6px rgb(0 0 0 / 0.15)" }}>
+    <div style={{ border: "1px solid var(--border)", borderTop: `3px solid ${primary}`, borderRadius: 16, overflow: "hidden", background: "white" }}>
       <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:var(--muted-foreground);pointer-events:none;}`}</style>
       {/* Barre de titre façon fenêtre de composition */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f2f4f7", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
@@ -97,7 +98,7 @@ export default function EmailComposer({ value, onChange }) {
         <button title="Gras" onMouseDown={(e) => { e.preventDefault(); fmt("bold"); }} style={toolBtn}><Bold size={14} /></button>
         <button title="Italique" onMouseDown={(e) => { e.preventDefault(); fmt("italic"); }} style={toolBtn}><Italic size={14} /></button>
         <button title="Liste à puces" onMouseDown={(e) => { e.preventDefault(); fmt("insertUnorderedList"); }} style={toolBtn}><List size={14} /></button>
-        <button className="btn btn-primary btn-sm" disabled style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, opacity: 0.6 }}>
+        <button disabled style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, opacity: 0.5, cursor: "not-allowed", background: primary, color: getContrastColor(primary), border: "none", borderRadius: 8, padding: "0.5rem 1rem", fontSize: 13, fontWeight: 600 }}>
           <Send size={14} /> Envoyer
         </button>
       </div>

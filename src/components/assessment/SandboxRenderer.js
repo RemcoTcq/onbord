@@ -2,35 +2,38 @@
 
 import { MessageSquare, Terminal, Layout } from "lucide-react";
 import EmailComposer from "./EmailComposer";
+import { field, DEFAULT_PRIMARY } from "./candidateUi";
 
-export default function SandboxRenderer({ format, value, onChange }) {
+// Renderers de mise en situation. Même langage visuel que l'onboarding : champs
+// #fafafa (radius 12), focus-ring de marque (classe nodal-input), liseré de
+// marque en haut du conteneur. L'éditeur de code (pas d'équivalent onboarding)
+// reste sombre mais garde le même esprit (radius, espacements, liseré).
+export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY }) {
   if (format === "email_reply") {
-    return <EmailComposer value={value} onChange={onChange} />;
+    return <EmailComposer value={value} onChange={onChange} primary={primary} />;
   }
 
   if (format === "client_reply") {
     return (
-      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "#f8fafc" }}>
-        <div style={{ background: "white", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-          <MessageSquare size={16} style={{ color: "var(--primary)" }} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Chat Interne / Client</span>
+      <div style={{ border: "1px solid var(--border)", borderTop: `3px solid ${primary}`, borderRadius: 16, overflow: "hidden", background: "#ffffff" }}>
+        <div style={{ background: "#fafafa", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <MessageSquare size={16} style={{ color: primary }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Chat interne / client</span>
         </div>
         <div style={{ padding: "16px", minHeight: 100, display: "flex", flexDirection: "column", gap: 12 }}>
-           <div style={{ display: "flex", gap: 8 }}>
-             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: "bold" }}>C</div>
-             <div style={{ background: "white", padding: "8px 12px", borderRadius: 12, borderTopLeftRadius: 0, fontSize: 13, border: "1px solid var(--border)", maxWidth: "80%" }}>
-               Pouvez-vous m'expliquer pourquoi cette solution est préférable ?
-             </div>
-           </div>
-           <div style={{ display: "flex", gap: 8, flexDirection: "row-reverse" }}>
-             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: "bold" }}>Moi</div>
-             <textarea
-                value={value || ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="Votre réponse dans le chat..."
-                style={{ width: "100%", maxWidth: "80%", padding: "8px 12px", borderRadius: 12, borderTopRightRadius: 0, fontSize: 13, border: "1px solid var(--primary)", minHeight: 80, maxHeight: 320, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", resize: "vertical", outline: "none" }}
-             />
-           </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: "bold", flexShrink: 0 }}>C</div>
+            <div style={{ background: "#fafafa", padding: "10px 14px", borderRadius: 12, borderTopLeftRadius: 0, fontSize: 14, border: "1px solid var(--border)", maxWidth: "80%" }}>
+              Pouvez-vous m'expliquer pourquoi cette solution est préférable ?
+            </div>
+          </div>
+          <textarea
+            className="nodal-input"
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Votre réponse dans le chat…"
+            style={{ ...field, minHeight: 96, maxHeight: 320, overflowY: "auto", resize: "vertical" }}
+          />
         </div>
       </div>
     );
@@ -38,40 +41,39 @@ export default function SandboxRenderer({ format, value, onChange }) {
 
   if (format === "technical_architecture") {
     return (
-      <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "white" }}>
-        <div style={{ background: "#1e293b", color: "white", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
-          <Layout size={16} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Architecture / Conception Document</span>
-        </div>
-        <div style={{ padding: "16px", background: "#f8fafc", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted-foreground)" }}>
-          Rédigez votre proposition d'architecture (Markdown supporté).
+      <div style={{ border: "1px solid var(--border)", borderTop: `3px solid ${primary}`, borderRadius: 16, overflow: "hidden", background: "#ffffff" }}>
+        <div style={{ background: "#fafafa", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <Layout size={16} style={{ color: primary }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Document d'architecture / conception</span>
         </div>
         <textarea
+          className="nodal-input"
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="# Architecture proposée..."
-          style={{ width: "100%", padding: "16px", minHeight: 300, maxHeight: 480, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "monospace", lineHeight: 1.6, outline: "none", background: "var(--background)" }}
+          placeholder="# Architecture proposée…"
+          style={{ ...field, borderRadius: 0, border: "none", minHeight: 300, maxHeight: 480, overflowY: "auto", resize: "vertical", fontFamily: "monospace", background: "#ffffff" }}
         />
       </div>
     );
   }
 
   if (format === "code" || format === "code_editor") {
+    // Pas d'équivalent onboarding : éditeur sombre lisible, même esprit (liseré, radius).
     return (
-      <div style={{ border: "1px solid #334155", borderTop: "3px solid var(--primary)", borderRadius: 10, overflow: "hidden", background: "#0f172a" }}>
-        <div style={{ background: "#1e293b", color: "#cbd5e1", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, borderBottom: "1px solid #334155" }}>
+      <div style={{ border: "1px solid #334155", borderTop: `3px solid ${primary}`, borderRadius: 16, overflow: "hidden", background: "#0f172a" }}>
+        <div style={{ background: "#1e293b", color: "#cbd5e1", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, borderBottom: "1px solid #334155" }}>
           <Terminal size={14} />
-          <span>Éditeur de code (Mode Sandbox)</span>
+          <span>Éditeur de code (sandbox)</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }}/>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#eab308" }}/>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }}/>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#eab308" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }} />
           </div>
         </div>
         <textarea
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="// Écrivez votre code ici..."
+          placeholder="// Écrivez votre code ici…"
           style={{ width: "100%", padding: "16px", minHeight: 300, maxHeight: 480, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", lineHeight: 1.6, outline: "none", background: "#0f172a", color: "#e2e8f0" }}
           spellCheck="false"
         />
@@ -79,14 +81,15 @@ export default function SandboxRenderer({ format, value, onChange }) {
     );
   }
 
-  // Fallback / standard text
+  // Texte standard — champ de saisie de l'onboarding.
   return (
     <textarea
+      className="nodal-input"
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       rows={8}
       placeholder="Votre réponse…"
-      style={{ width: "100%", padding: "12px", maxHeight: 420, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.6, resize: "vertical", background: "var(--background)", color: "var(--foreground)" }}
+      style={{ ...field, minHeight: 180, maxHeight: 460, overflowY: "auto", resize: "vertical" }}
     />
   );
 }

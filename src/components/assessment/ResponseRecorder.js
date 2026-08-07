@@ -4,11 +4,15 @@ import { useState, useRef, useEffect } from "react";
 import { Video, Square, RotateCcw, Loader2, Check, Mic } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { saveVideoResponse } from "@/lib/actions/run";
+import { primaryBtn, ghostBtn, DEFAULT_PRIMARY } from "./candidateUi";
+
+// Bouton neutre bordé (esprit champ onboarding) pour les actions secondaires.
+const outlineBtn = { display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "#fafafa", color: "var(--foreground)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.875rem 1.5rem", fontSize: "1rem", fontWeight: 600, cursor: "pointer" };
 
 // Composant réutilisable : un step en response_format="video" l'invoque au même
 // titre qu'une zone de texte. Flux : test caméra/micro (aperçu + niveau sonore,
 // confirmation explicite) -> enregistrement -> relecture -> upload -> transcription.
-export default function ResponseRecorder({ token, stepId, maxDuration = 120, existingVideoUrl, onSaved }) {
+export default function ResponseRecorder({ token, stepId, maxDuration = 120, existingVideoUrl, onSaved, primary = DEFAULT_PRIMARY }) {
   const [phase, setPhase] = useState(existingVideoUrl ? "done" : "idle"); // idle | testing | recording | review | uploading | done
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
@@ -159,14 +163,14 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#166534", fontSize: "14px", fontWeight: 600 }}>
         <Check size={18} /> Réponse vidéo enregistrée
-        <button className="btn btn-ghost btn-sm" onClick={reset} style={{ marginLeft: "auto" }}>Refaire</button>
+        <button onClick={reset} style={{ ...ghostBtn, marginLeft: "auto" }}>Refaire</button>
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ background: "#0f172a", borderRadius: "10px", overflow: "hidden", aspectRatio: "16/9", marginBottom: "0.75rem", position: "relative" }}>
+      <div style={{ background: "#0f172a", borderRadius: "16px", overflow: "hidden", aspectRatio: "16/9", marginBottom: "0.75rem", position: "relative" }}>
         <video ref={videoRef} playsInline controls={phase === "review"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         {phase === "recording" && (
           <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(220,38,38,0.9)", color: "white", padding: "3px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 700 }}>
@@ -197,28 +201,28 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
 
       {error && <p style={{ color: "#991b1b", fontSize: "13px", marginBottom: "0.5rem" }}>{error}</p>}
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         {phase === "idle" && (
-          <button className="btn btn-primary" onClick={startTest} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button onClick={startTest} style={primaryBtn(primary)}>
             <Video size={16} /> Tester caméra &amp; micro
           </button>
         )}
         {phase === "testing" && (
           <>
-            <button className="btn btn-primary" onClick={beginRecording} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <button onClick={beginRecording} style={primaryBtn(primary)}>
               <Video size={16} /> Ça fonctionne — démarrer l'enregistrement
             </button>
-            <button className="btn btn-ghost" onClick={cancelTest} style={{ display: "flex", alignItems: "center", gap: "6px" }}>Annuler</button>
+            <button onClick={cancelTest} style={ghostBtn}>Annuler</button>
           </>
         )}
-        {phase === "recording" && <button className="btn btn-outline" onClick={stopRecording} style={{ display: "flex", alignItems: "center", gap: "6px" }}><Square size={16} /> Arrêter</button>}
+        {phase === "recording" && <button onClick={stopRecording} style={outlineBtn}><Square size={16} /> Arrêter</button>}
         {phase === "review" && (
           <>
-            <button className="btn btn-primary" onClick={validate} style={{ display: "flex", alignItems: "center", gap: "6px" }}><Check size={16} /> Valider</button>
-            <button className="btn btn-ghost" onClick={reset} style={{ display: "flex", alignItems: "center", gap: "6px" }}><RotateCcw size={16} /> Refaire</button>
+            <button onClick={validate} style={primaryBtn(primary)}><Check size={16} /> Valider</button>
+            <button onClick={reset} style={ghostBtn}><RotateCcw size={16} /> Refaire</button>
           </>
         )}
-        {phase === "uploading" && <button className="btn btn-primary" disabled style={{ display: "flex", alignItems: "center", gap: "6px" }}><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Envoi…</button>}
+        {phase === "uploading" && <button disabled style={primaryBtn(primary, true)}><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Envoi…</button>}
       </div>
     </div>
   );

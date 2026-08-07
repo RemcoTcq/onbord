@@ -7,6 +7,7 @@ import { startRun, saveStepResponse, submitRun } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
+import { primaryBtn, pillBtn, ghostBtn, optionBtn, container, heading, focusStyle, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "@/components/assessment/candidateUi";
 
 export default function RunPage() {
   const { token } = useParams();
@@ -114,28 +115,26 @@ export default function RunPage() {
     }
   }
 
-  // Branding client appliqué à tout le run : la couleur de marque surcharge
-  // --primary (et son état hover) sur le conteneur → boutons, barre de
-  // progression, accents des sandbox en héritent par cascade CSS.
-  const pageStyle = recruiter?.brand_primary_color
-    ? { "--primary": recruiter.brand_primary_color, "--primary-hover": recruiter.brand_primary_color }
-    : {};
+  // Branding client : couleur de marque explicite (texte à contraste sur les
+  // boutons) + surcharge de --primary pour ce qui cascade (barre de progression).
+  const primary = recruiter?.brand_primary_color || DEFAULT_PRIMARY;
+  const pageStyle = { "--primary": primary, "--primary-hover": primary };
 
-  if (loading) return <Center><Loader2 size={30} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} /></Center>;
-  if (error && !steps.length) return <Center style={pageStyle}><div className="card" style={{ padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+  if (loading) return <Center><Loader2 size={30} style={{ color: primary, animation: "spin 1s linear infinite" }} /></Center>;
+  if (error && !steps.length) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
 
   if (submitted) {
     return (
       <Center style={pageStyle}>
-        <div className="card" style={{ padding: "3rem 2rem", textAlign: "center", maxWidth: 480, width: "100%" }}>
+        <div style={{ ...container, padding: "3rem 2rem", textAlign: "center", maxWidth: 480, width: "100%" }}>
           {recruiter?.company_logo_url && (
             <div style={{ marginBottom: "2rem" }}>
               <img src={recruiter.company_logo_url} alt={recruiter?.company_name || "Logo"} style={{ height: 48, width: "auto", margin: "0 auto", borderRadius: 8, objectFit: "contain" }} />
             </div>
           )}
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><Check size={28} /></div>
-          <h1 style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "0.5rem" }}>Merci, c'est terminé !</h1>
-          <p style={{ fontSize: 14, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
+          <h1 style={{ ...heading, marginBottom: "0.5rem" }}>Merci, c'est terminé !</h1>
+          <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
             {experience?.thank_you_message
               || `Vos réponses ont bien été soumises à ${recruiter?.company_name || job?.company || "l'équipe recrutement"}. Vous pouvez maintenant fermer cet onglet.`}
           </p>
@@ -149,21 +148,20 @@ export default function RunPage() {
   if (showIntro) {
     return (
       <Center style={pageStyle}>
-        <div className="card" style={{ padding: "2.5rem 2rem", maxWidth: 520, width: "100%", textAlign: "center" }}>
+        <div style={{ ...container, padding: "2.5rem 2rem", maxWidth: 520, width: "100%", textAlign: "center" }}>
           {recruiter?.company_logo_url ? (
             <img src={recruiter.company_logo_url} alt={recruiter?.company_name || "Logo"} style={{ height: 48, width: "auto", margin: "0 auto 1.5rem", borderRadius: 8, objectFit: "contain" }} />
           ) : (
-            <div style={{ width: 48, height: 48, borderRadius: 10, background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 1.5rem" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 10, background: primary, color: getContrastColor(primary), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 1.5rem" }}>
               {(recruiter?.company_name || job?.company || "O")[0].toUpperCase()}
             </div>
           )}
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.75rem" }}>{job?.title || "Votre évaluation"}</h1>
-          <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", marginBottom: "1.75rem" }}>
+          <h1 style={{ ...heading, marginBottom: "0.75rem" }}>{job?.title || "Votre évaluation"}</h1>
+          <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", marginBottom: "1.75rem" }}>
             {experience?.welcome_message
               || `Bienvenue ! ${recruiter?.company_name || job?.company || "L'équipe recrutement"} vous invite à réaliser une courte mise en situation${experience?.estimated_minutes ? ` (~${experience.estimated_minutes} min)` : ""}. Prenez votre temps, il n'y a pas de piège : montrez comment vous travaillez.`}
           </p>
-          <button className="btn btn-primary" onClick={() => setShowIntro(false)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setShowIntro(false)} style={pillBtn(primary)}>
             Commencer <ArrowRight size={16} />
           </button>
         </div>
@@ -183,13 +181,14 @@ export default function RunPage() {
   const containerMaxWidth = isSidebarMode ? 1040 : 720;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "2rem 1.5rem", ...pageStyle }}>
+    <div style={{ minHeight: "100vh", background: PAGE_BG, padding: "2rem 1.5rem", ...pageStyle }}>
+      <style>{focusStyle(primary)}</style>
       {/* Header Brandé */}
       <div style={{ maxWidth: containerMaxWidth, margin: "0 auto 2rem", display: "flex", alignItems: "center", gap: "1rem", transition: "max-width 0.3s" }}>
         {recruiter?.company_logo_url ? (
           <img src={recruiter.company_logo_url} alt="Logo" style={{ height: 40, width: "auto", borderRadius: 6, objectFit: "contain", background: "white", padding: "4px" }} />
         ) : (
-          <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 800, fontSize: 18 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 6, background: primary, display: "flex", alignItems: "center", justifyContent: "center", color: getContrastColor(primary), fontWeight: 800, fontSize: 18 }}>
             {(recruiter?.company_name || job?.company || "O")[0].toUpperCase()}
           </div>
         )}
@@ -215,20 +214,20 @@ export default function RunPage() {
           {/* Main Column — minWidth:0 essentiel : sans ça, un enfant de grid ne
               rétrécit pas sous sa largeur de contenu et un texte long déborde du bloc. */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", minWidth: 0 }}>
-            <div className="card" style={{ padding: "1.75rem", minWidth: 0, overflowWrap: "break-word" }}>
-              {step.title && <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
-              <p style={{ fontSize: 15, lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: "1.5rem" }}>{step.prompt}</p>
+            <div style={{ ...container, minWidth: 0, overflowWrap: "break-word" }}>
+              {step.title && <h2 style={{ ...heading, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
+              <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: "1.5rem" }}>{step.prompt}</p>
 
               {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
               {["text", "code"].includes(step.response_format) && (
-                <SandboxRenderer format={sandboxFormat} value={ans.text} onChange={(val) => setAnswer("text", val)} />
+                <SandboxRenderer format={sandboxFormat} value={ans.text} onChange={(val) => setAnswer("text", val)} primary={primary} />
               )}
 
               {step.response_format === "choice" && (
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                   {["yes", "no"].map((v) => (
                     <button key={v} onClick={() => setAnswer("choice", v)}
-                      className={`btn ${ans.choice === v ? "btn-primary" : "btn-outline"}`} style={{ flex: 1 }}>
+                      style={{ ...optionBtn(primary, ans.choice === v), flex: 1, justifyContent: "center" }}>
                       {v === "yes" ? "Oui" : "Non"}
                     </button>
                   ))}
@@ -239,8 +238,7 @@ export default function RunPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {(step.config?.options || []).map((opt, i) => (
                     <button key={i} onClick={() => setAnswer("selected_index", i)}
-                      className={`btn ${ans.selected_index === i ? "btn-primary" : "btn-outline"}`}
-                      style={{ justifyContent: "flex-start", textAlign: "left", whiteSpace: "normal", wordBreak: "break-word", height: "auto", minHeight: 40 }}>
+                      style={optionBtn(primary, ans.selected_index === i)}>
                       {opt}
                     </button>
                   ))}
@@ -249,21 +247,21 @@ export default function RunPage() {
 
               {step.response_format === "video" && (
                 <ResponseRecorder token={token} stepId={step.id} existingVideoUrl={ans.videoSaved}
-                  onSaved={() => setAnswer("videoSaved", true)} />
+                  onSaved={() => setAnswer("videoSaved", true)} primary={primary} />
               )}
             </div>
             
             {error && <p style={{ color: "#991b1b", fontSize: 13 }}>{error}</p>}
 
             {/* Navigation */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <button className="btn btn-ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}
+                style={{ ...ghostBtn, opacity: idx === 0 ? 0.4 : 1, cursor: idx === 0 ? "not-allowed" : "pointer" }}>
                 <ArrowLeft size={16} /> Précédent
               </button>
-              <button className="btn btn-primary" onClick={next} disabled={saving || !stepHasAnswer(step, ans)}
+              <button onClick={next} disabled={saving || !stepHasAnswer(step, ans)}
                 title={!stepHasAnswer(step, ans) ? "Répondez à cette étape pour continuer" : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                style={primaryBtn(primary, saving || !stepHasAnswer(step, ans))}>
                 {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : isLast ? <Check size={16} /> : <ArrowRight size={16} />}
                 {isLast ? "Terminer" : "Suivant"}
               </button>
@@ -273,7 +271,7 @@ export default function RunPage() {
           {/* Sidebar Column */}
           {isSidebarMode && (
             <div style={{ position: "sticky", top: "2rem" }}>
-              <AssistantPanel token={token} stepId={step.id} />
+              <AssistantPanel token={token} stepId={step.id} primary={primary} />
             </div>
           )}
         </div>
@@ -283,5 +281,5 @@ export default function RunPage() {
 }
 
 function Center({ children, style }) {
-  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#f8fafc", padding: "2rem", ...style }}>{children}</div>;
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: PAGE_BG, padding: "2rem", ...style }}>{children}</div>;
 }

@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bot, Send, Loader2 } from "lucide-react";
+import { getContrastColor, DEFAULT_PRIMARY } from "./candidateUi";
 
 // Accès à Claude complet (Sonnet) pendant un step. Chat plafonné (50 échanges
 // par défaut, configurable par step) et intégralement loggé côté serveur
 // (/api/run/assistant → run_ai_messages). On mesure COMMENT le candidat l'utilise.
-export default function AssistantPanel({ token, stepId }) {
+export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMARY }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]); // {role, content}
   const [input, setInput] = useState("");
@@ -56,8 +57,8 @@ export default function AssistantPanel({ token, stepId }) {
   }
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--primary)", background: "white", borderRadius: 10, marginBottom: "1.25rem", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafc", color: "var(--primary)", fontSize: 13, fontWeight: 700, borderBottom: "1px solid var(--border)" }}>
+    <div style={{ border: "1px solid var(--border)", borderTop: `3px solid ${primary}`, background: "white", borderRadius: 16, marginBottom: "1.25rem", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#fafafa", color: primary, fontSize: 13, fontWeight: 700, borderBottom: "1px solid var(--border)" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Bot size={15} /> Claude</span>
         <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {remaining != null && <span style={{ fontWeight: 500, opacity: 0.7, color: "var(--muted-foreground)" }}>{remaining} échange{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}</span>}
@@ -74,9 +75,9 @@ export default function AssistantPanel({ token, stepId }) {
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 8 }}>
             <div style={{
-              maxWidth: "85%", padding: "8px 12px", borderRadius: 10, fontSize: 13.5, lineHeight: 1.5, whiteSpace: "pre-wrap",
-              background: m.role === "user" ? "var(--primary)" : "white",
-              color: m.role === "user" ? "white" : "var(--foreground)",
+              maxWidth: "85%", padding: "8px 12px", borderRadius: 12, fontSize: 13.5, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "break-word",
+              background: m.role === "user" ? primary : "#fafafa",
+              color: m.role === "user" ? getContrastColor(primary) : "var(--foreground)",
               border: m.role === "user" ? "none" : "1px solid var(--border)",
             }}>{m.content}</div>
           </div>
@@ -87,10 +88,11 @@ export default function AssistantPanel({ token, stepId }) {
 
       {!limitReached && (
         <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border)" }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+          <input className="nodal-input" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
             placeholder="Posez votre question…" disabled={sending}
-            style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13.5, background: "white" }} />
-          <button onClick={send} disabled={sending || !input.trim()} className="btn btn-primary btn-sm" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", fontSize: 14, background: "#fafafa", outline: "none", fontFamily: "inherit" }} />
+          <button onClick={send} disabled={sending || !input.trim()}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, background: primary, color: getContrastColor(primary), border: "none", borderRadius: 10, padding: "0 14px", cursor: sending || !input.trim() ? "not-allowed" : "pointer", opacity: sending || !input.trim() ? 0.5 : 1 }}>
             <Send size={14} />
           </button>
         </div>
