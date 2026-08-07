@@ -6,7 +6,7 @@ import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/ass
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
 import { useToast } from "@/components/ui/Toast";
 
-export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated }) {
+export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated }) {
   const [messages, setMessages] = useState(() => {
     if (standalone && initialPrompt) {
       return [];
@@ -15,12 +15,12 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     if (context === "job" && jobData) {
       const role = jobData.title || jobData.role || "ce poste";
       return [
-        { role: "assistant", content: [{ type: "text", text: `Je vois que vous configurez le parcours pour **${role}**. Qu'avez-vous besoin de vérifier techniquement ?` }] }
+        { role: "assistant", content: [{ type: "text", text: `On conçoit ensemble l'expérience de présélection pour ${role}. Dites-moi votre intention en quelques mots — par ex. le type de mise en situation qui compte le plus, le ton attendu, ou le profil de client typique. Je vous poserai quelques questions puis je génère.` }] }
       ];
     }
 
     return [
-      { role: "assistant", content: [{ type: "text", text: "Bonjour ! Je suis l'expert Onbord. Pour quel poste cherchez-vous un test aujourd'hui ?" }] }
+      { role: "assistant", content: [{ type: "text", text: "Bonjour ! On conçoit ensemble l'expérience de présélection. Décrivez votre besoin en langage libre." }] }
     ];
   });
   const [input, setInput] = useState("");
@@ -80,6 +80,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       } else {
         setMessages([...newMessages, { role: "assistant", content: data.message.content }]);
       }
+
+      // Le chat a déclenché la génération de l'expérience → le parent ouvre/
+      // rafraîchit l'écran de relecture (flow chat-first, étapes B→C).
+      if (data.generated && onGenerated) onGenerated();
 
     } catch (err) {
       console.error("Chat Error:", err);

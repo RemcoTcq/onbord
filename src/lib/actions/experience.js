@@ -11,7 +11,7 @@ const GENERATION_MODEL = "claude-sonnet-4-6";
 // ─── Prompt de génération (offre + contexte entreprise → expérience) ──────────
 // Interne : dans un module "use server", seuls des exports async sont permis.
 // La démo hors repo garde une copie identique de ce prompt.
-function buildExperienceGenerationPrompt({ title, description, criteria, companyContext }) {
+function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext }) {
   const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}${s.priority ? ` (${s.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
   const ctx = companyContext || {};
@@ -36,7 +36,7 @@ ${soft || "Non précisés"}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
-
+${additionalContext ? `\nPRÉCISIONS DU RECRUTEUR (issues de l'échange — À PRENDRE EN COMPTE EN PRIORITÉ) :\n${additionalContext}\n` : ""}
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
 - "qualifying" : filtre binaire éliminatoire (langue, expérience min, diplôme, localisation). Réponse attendue oui/non. PAS de critères BARS.
 - "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
@@ -101,8 +101,8 @@ Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct
 }
 
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
-export async function generateExperienceContent({ title, description, criteria, companyContext }) {
-  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext });
+export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext }) {
+  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext });
 
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -131,7 +131,9 @@ export async function generateExperienceContent({ title, description, criteria, 
 }
 
 // ─── Génère et persiste une expérience (draft → pending_review) ───────────────
-export async function generateExperience(jobId) {
+// `additionalContext` : précisions libres issues du chat-first (ton souhaité,
+// type de client, spécificités du poste non couvertes par l'offre).
+export async function generateExperience(jobId, additionalContext = "") {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,6 +158,7 @@ export async function generateExperience(jobId) {
       description: job.description,
       criteria: job.extracted_criteria || {},
       companyContext: profile?.company_ai_context || {},
+      additionalContext: (additionalContext || "").slice(0, 4000),
     });
     if (!gen.success) return gen;
 

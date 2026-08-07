@@ -1,181 +1,110 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
+import { generateExperience } from '@/lib/actions/experience';
 
-
-
-// The tool definition for Anthropic
-const SEARCH_TOOL = {
-  name: "search_assessment_catalog",
-  description: "Search the Onbord assessment catalog to find a test that matches the user's needs. Use this tool ONLY when you have collected the role (poste) and the specific skills (compétences).",
+// Chat-first de conception d'expérience : le chat prend l'offre + le contexte
+// entreprise en entrée, pose les questions nécessaires pour affiner, puis
+// déclenche generateExperience (mises en situation, pas de tests piochés dans
+// une bibliothèque). Plus de recherche de catalogue.
+const GENERATE_TOOL = {
+  name: "generate_experience",
+  description: "Génère l'expérience de présélection complète pour l'offre, une fois que tu as clarifié le besoin avec le recruteur (au moins un ou deux échanges). N'appelle cet outil qu'après avoir posé les questions utiles (ton souhaité, type de client/candidat visé, spécificités du poste non couvertes par l'offre). Ne génère pas à l'aveugle après un seul message vague.",
   input_schema: {
     type: "object",
     properties: {
-      role: {
+      brief: {
         type: "string",
-        description: "The job role or title, e.g., 'Account Executive', 'Développeur React'."
+        description: "Synthèse en français des précisions recueillies auprès du recruteur (ton, type de client typique, spécificités du poste, contraintes) qui doivent guider la génération. 3 à 8 phrases.",
       },
-      skills: {
-        type: "array",
-        items: { type: "string" },
-        description: "The list of specific skills to evaluate, e.g., ['SQL', 'Python', 'Gestion des objections']."
-      }
     },
-    required: ["role", "skills"]
-  }
+    required: ["brief"],
+  },
 };
 
-const PROPOSE_ADD_TOOL = {
-  name: "propose_add_assessment",
-  description: "Appelle cet outil UNIQUEMENT lorsque la recherche a donné un test existant parfait pour le proposer à l'utilisateur.",
-  input_schema: {
-    type: "object",
-    properties: {
-      testId: { type: "string" },
-      testName: { type: "string" }
-    },
-    required: ["testId", "testName"]
-  }
-};
+function buildSystemPrompt({ title, skillsStr, companyContext }) {
+  const ctx = companyContext || {};
+  const companyBlock = [
+    ctx.description && `Description : ${ctx.description}`,
+    ctx.industry && `Secteur : ${ctx.industry}`,
+    ctx.target_market && `Marché cible : ${ctx.target_market}`,
+    ctx.domain && `Modèle : ${ctx.domain}`,
+  ].filter(Boolean).join(" | ") || "Aucun contexte entreprise renseigné.";
 
-const PROPOSE_CUSTOM_TOOL = {
-  name: "propose_custom_creation",
-  description: "Appelle cet outil UNIQUEMENT lorsque la recherche n'a rien donné et que tu proposes à l'utilisateur de lancer une création de test sur-mesure.",
-  input_schema: {
-    type: "object",
-    properties: {
-      role: { type: "string" },
-      skills: { type: "array", items: { type: "string" } },
-      summary: { type: "string", description: "Bref résumé du besoin (1-2 phrases)" }
-    },
-    required: ["role", "skills", "summary"]
-  }
-};
+  return `Tu es le concepteur d'expériences de présélection de Onbord. Tu aides le recruteur à concevoir une expérience courte (5–20 min) de MISES EN SITUATION qui prouvent les compétences — pas un questionnaire théorique, pas un test pioché dans une bibliothèque.
 
-const SYSTEM_PROMPT = `Tu es l'expert en évaluation (Assessment Expert) de Onbord. Ton rôle est d'aider les recruteurs à trouver ou créer le test technique/métier parfait pour leurs candidats.
+OFFRE : ${title || "Non précisée"}
+COMPÉTENCES EXTRAITES : ${skillsStr}
+CONTEXTE ENTREPRISE : ${companyBlock}
 
-RÈGLES ABSOLUES (CRITIQUES) :
-1. Tu dois obligatoirement collecter 3 informations avant de chercher un test : 
-   - Le poste ou la fonction (ex: "Account Executive B2B")
-   - La ou les compétences précises à évaluer (ex: "gestion des objections", "React")
-   - S'ils ont déjà testé ces compétences avant ou si c'est nouveau.
-2. Pose UNE SEULE QUESTION de clarification à la fois. Si c'est trop vague, demande des précisions.
-3. Une fois les 3 informations collectées, TU DOIS APPELER l'outil \`search_assessment_catalog\`. NE PROPOSE JAMAIS DE TEST AVANT D'AVOIR APPELÉ L'OUTIL.
-4. N'INVENTE JAMAIS UN TEST. Si l'outil ne retourne rien, dis-le honnêtement : "Je n'ai rien dans la bibliothèque qui couvre précisément ça."
-5. Si l'outil retourne un test, présente-le et APPELLE IMMÉDIATEMENT l'outil \`propose_add_assessment\` pour déclencher l'interface d'ajout. Ne demande pas textuellement s'il veut l'ajouter sans appeler l'outil.
-6. Si aucun test ne correspond, recommande le "Sur-mesure" et APPELLE IMMÉDIATEMENT l'outil \`propose_custom_creation\` pour déclencher l'interface de confirmation. Ne pose pas la question textuellement sans appeler l'outil.
-7. Si l'utilisateur demande à créer le test lui-même seul avec l'IA tout de suite, réponds : "Cette option sera bientôt disponible."
-8. Ton ton est direct et utile. Pas de bla-bla commercial. N'utilise JAMAIS de formatage Markdown (pas de **, pas de liste avec astérisques). Écris uniquement du texte brut normal.`;
+DÉROULÉ :
+1. Tu connais déjà l'offre et le contexte ci-dessus : ne redemande pas le poste ou les compétences générales.
+2. Pose des questions de CADRAGE, une à la fois, pour affiner ce qui n'est pas dans l'offre : ton souhaité (formel/direct), type de client ou d'interlocuteur typique, spécificités du poste ou pièges à éviter, contraintes de durée. Reste bref.
+3. Ne génère PAS à l'aveugle. Après un ou deux échanges utiles, quand tu as de quoi personnaliser, APPELLE l'outil \`generate_experience\` avec une synthèse (brief) des précisions. Tu peux proposer de générer et attendre un accord.
+4. Après génération, l'écran de relecture s'ouvre automatiquement. Dis au recruteur qu'il peut relire/éditer chaque étape, ou continuer à te demander des ajustements.
 
-import { searchAvailableAssessments } from '@/lib/actions/assessment';
+Ton direct et concret, pas de bla-bla. N'utilise JAMAIS de Markdown (pas de **, pas de listes à astérisques) — uniquement du texte brut.`;
+}
 
 export async function POST(req) {
   try {
-    // Route outil recruteur : exiger un utilisateur authentifié (empêche un tiers
-    // non connecté de brûler le quota Anthropic ou d'interroger la bibliothèque).
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return Response.json({ error: "Authentification requise." }, { status: 401 });
+    if (!user) return Response.json({ error: "Authentification requise." }, { status: 401 });
+
+    const { messages, jobId } = await req.json();
+    if (!jobId) return Response.json({ error: "jobId requis." }, { status: 400 });
+
+    // Ownership + contexte offre
+    const { data: job } = await supabase
+      .from("jobs").select("id, user_id, title, extracted_criteria").eq("id", jobId).single();
+    if (!job || job.user_id !== user.id) return Response.json({ error: "Accès refusé à cette offre." }, { status: 403 });
+
+    const { data: profile } = await supabase
+      .from("users").select("company_ai_context").eq("id", user.id).single();
+
+    const criteria = job.extracted_criteria || {};
+    const allSkills = [];
+    for (const key of ["hard_skills", "soft_skills", "skills"]) {
+      if (Array.isArray(criteria[key])) allSkills.push(...criteria[key].map((s) => (typeof s === "string" ? s : s.name)).filter(Boolean));
     }
+    const skillsStr = allSkills.length ? allSkills.join(", ") : "Aucune compétence extraite.";
+    const system = buildSystemPrompt({ title: job.title, skillsStr, companyContext: profile?.company_ai_context });
 
-    const { messages, jobContext, jobId } = await req.json();
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
 
-    // Si une offre est référencée, vérifier que le recruteur en est bien propriétaire
-    // — sinon un client pourrait configurer/chercher des tests pour l'offre d'un autre.
-    if (jobId) {
-      const { data: job } = await supabase
-        .from("jobs")
-        .select("user_id")
-        .eq("id", jobId)
-        .single();
-      if (job && job.user_id !== user.id) {
-        return Response.json({ error: "Accès refusé à cette offre." }, { status: 403 });
-      }
-    }
-
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY || '',
+    let currentResponse = await anthropic.messages.create({
+      model: "claude-sonnet-4-6", max_tokens: 1200, temperature: 0.3,
+      system, messages, tools: [GENERATE_TOOL],
     });
 
-    let dynamicSystemPrompt = SYSTEM_PROMPT;
-    if (jobContext) {
-      const title = jobContext.title || "Non spécifié";
-      
-      let allSkills = [];
-      const criteria = jobContext.extracted_criteria || jobContext;
-
-      if (Array.isArray(criteria.hard_skills)) {
-        allSkills.push(...criteria.hard_skills.map(s => typeof s === 'string' ? s : s.name).filter(Boolean));
-      }
-      if (Array.isArray(criteria.soft_skills)) {
-        allSkills.push(...criteria.soft_skills.map(s => typeof s === 'string' ? s : s.name).filter(Boolean));
-      }
-      if (Array.isArray(criteria.skills)) {
-        allSkills.push(...criteria.skills.map(s => typeof s === 'string' ? s : s.name).filter(Boolean));
-      }
-      
-      const skillsStr = allSkills.length > 0 ? allSkills.join(', ') : 'Aucune compétence technique extraite.';
-
-      dynamicSystemPrompt += `\n\nCONTEXTE ACTUEL DE L'OFFRE D'EMPLOI :
-Le recruteur configure actuellement une évaluation technique pour l'offre d'emploi suivante :
-- Poste : ${title}
-- Compétences extraites de l'offre : ${skillsStr}
-
-PUISQUE TU CONNAIS DÉJÀ le poste et les compétences :
-- NE DEMANDE PLUS au recruteur pour quel poste il cherche.
-- NE DEMANDE PLUS quelles sont les compétences en général.
-- Demande-lui plutôt quelles compétences techniques spécifiques, parmi celles listées, il souhaite évaluer, ou propose-lui de chercher directement un test pour les compétences qui te semblent les plus techniques.
-- Tu peux appeler l'outil search_assessment_catalog directement si tu estimes avoir assez d'informations techniques.`;
-    }
-
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      temperature: 0.2,
-      system: dynamicSystemPrompt,
-      messages: messages,
-      tools: [SEARCH_TOOL, PROPOSE_ADD_TOOL, PROPOSE_CUSTOM_TOOL],
-    });
-
-    let currentResponse = response;
     let currentMessages = messages;
+    let generated = false;
 
     while (currentResponse.stop_reason === "tool_use") {
-      const toolUses = currentResponse.content.filter(c => c.type === "tool_use");
-      
-      // If ANY tool use is a UI action, return to frontend to handle
-      if (toolUses.some(t => t.name === "propose_add_assessment" || t.name === "propose_custom_creation")) {
-        return Response.json({ message: currentResponse, messages: currentMessages });
-      }
-
-      // Otherwise, process backend tools (search_assessment_catalog)
-      currentMessages.push({ role: "assistant", content: currentResponse.content });
-      
+      currentMessages = [...currentMessages, { role: "assistant", content: currentResponse.content }];
       const toolResults = [];
-      for (const t of toolUses) {
-        if (t.name === "search_assessment_catalog") {
-          const { role, skills } = t.input;
-          const searchResult = await searchAvailableAssessments(role, skills);
-          toolResults.push({ type: "tool_result", tool_use_id: t.id, content: JSON.stringify(searchResult.tests || []) });
+      for (const t of currentResponse.content.filter((c) => c.type === "tool_use")) {
+        if (t.name === "generate_experience") {
+          const res = await generateExperience(jobId, t.input?.brief || "");
+          generated = res.success;
+          toolResults.push({
+            type: "tool_result", tool_use_id: t.id, is_error: !res.success,
+            content: res.success
+              ? "Expérience générée avec succès. L'écran de relecture va s'ouvrir pour le recruteur."
+              : `Échec de la génération : ${res.error || "erreur inconnue"}.`,
+          });
         } else {
-          toolResults.push({ type: "tool_result", tool_use_id: t.id, content: "Tool not supported." });
+          toolResults.push({ type: "tool_result", tool_use_id: t.id, content: "Outil non supporté." });
         }
       }
-      
-      currentMessages.push({ role: "user", content: toolResults });
-      
+      currentMessages = [...currentMessages, { role: "user", content: toolResults }];
       currentResponse = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        temperature: 0.2,
-        system: dynamicSystemPrompt,
-        messages: currentMessages,
-        tools: [SEARCH_TOOL, PROPOSE_ADD_TOOL, PROPOSE_CUSTOM_TOOL],
+        model: "claude-sonnet-4-6", max_tokens: 1200, temperature: 0.3,
+        system, messages: currentMessages, tools: [GENERATE_TOOL],
       });
     }
 
-    return Response.json({ message: currentResponse, messages: currentMessages });
-
+    return Response.json({ message: currentResponse, messages: currentMessages, generated });
   } catch (error) {
     console.error("Chat API error:", error);
     const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);

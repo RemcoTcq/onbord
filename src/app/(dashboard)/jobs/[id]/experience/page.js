@@ -11,6 +11,8 @@ import {
   addStep, deleteStep, moveStep, publishExperience,
   updateExperienceMessages,
 } from "@/lib/actions/experience";
+import { getJobDetail } from "@/lib/actions/candidate";
+import AssessmentChatCreator from "@/components/assessment/AssessmentChatCreator";
 import { useToast } from "@/components/ui/Toast";
 
 const RESPONSE_FORMATS = [
@@ -45,12 +47,15 @@ export default function ExperienceReviewPage() {
   const [publishing, setPublishing] = useState(false);
   const [experience, setExperience] = useState(null);
   const [steps, setSteps] = useState([]);
+  const [job, setJob] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false); // panneau chat d'ajustement (expérience existante)
 
   useEffect(() => { load(); }, [jobId]);
 
   async function load() {
     setLoading(true);
-    const res = await getExperienceForJob(jobId);
+    const [res, jobRes] = await Promise.all([getExperienceForJob(jobId), getJobDetail(jobId)]);
+    if (jobRes?.success) setJob(jobRes.job);
     if (res.success) {
       setExperience(res.experience);
       setSteps(res.steps || []);
@@ -58,6 +63,13 @@ export default function ExperienceReviewPage() {
       toast(res.error || "Erreur de chargement", "error");
     }
     setLoading(false);
+  }
+
+  // Le chat a généré l'expérience → on recharge : l'écran de relecture s'ouvre
+  // automatiquement (flow chat-first, étape C).
+  async function handleChatGenerated() {
+    toast("Expérience générée — relisez et ajustez avant publication");
+    await load();
   }
 
   async function handleGenerate() {
@@ -125,22 +137,31 @@ export default function ExperienceReviewPage() {
         <ArrowLeft size={16} /> Retour à l'offre
       </button>
 
-      {/* Aucune expérience → génération */}
-      {!experience && (
+      {/* Aucune expérience, pas de génération en cours → chat-first (conception) */}
+      {!experience && !generating && (
+        <div>
+          <div style={{ marginBottom: "1rem" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Sparkles size={20} style={{ color: "var(--primary)" }} /> Concevez l'expérience avec l'assistant
+            </h2>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "14px", maxWidth: "560px" }}>
+              Décrivez votre intention. L'assistant vous pose quelques questions pour affiner, puis génère le parcours (mises en situation). Vous relisez et validez chaque étape avant publication.
+            </p>
+          </div>
+          <div className="card" style={{ height: "min(60vh, 560px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
+            <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job} onGenerated={handleChatGenerated} />
+          </div>
+          <div style={{ textAlign: "center", marginTop: "1rem" }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
+              Ou générer directement, sans dialoguer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Génération directe (raccourci) → animation de construction progressive */}
+      {!experience && generating && (
         <div className="card" style={{ padding: "2.5rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {!generating ? (
-            <>
-              <Sparkles size={32} style={{ color: "var(--primary)", marginBottom: "1rem" }} />
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.5rem" }}>Générer l'expérience de présélection</h2>
-              <p style={{ color: "var(--muted-foreground)", fontSize: "14px", maxWidth: "460px", margin: "0 auto 1.5rem" }}>
-                L'IA construit un parcours court (5–20 min) à partir de l'offre et du contexte de votre entreprise.
-                Vous relisez et validez chaque étape avant qu'un candidat ne la voie.
-              </p>
-              <button className="btn btn-primary" onClick={handleGenerate} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                <Sparkles size={16} /> Générer avec l'IA
-              </button>
-            </>
-          ) : (
             <div style={{ width: "100%", maxWidth: "400px", margin: "0 auto", textAlign: "left" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "2rem", justifyContent: "center" }}>
                 <div style={{ padding: "12px", background: "#f0fdf4", borderRadius: "50%", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -184,7 +205,6 @@ export default function ExperienceReviewPage() {
                 })}
               </div>
             </div>
-          )}
         </div>
       )}
 
@@ -203,6 +223,9 @@ export default function ExperienceReviewPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <StatusBadge status={experience.status} />
+              <button className="btn btn-outline btn-sm" onClick={() => setChatOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={14} /> {chatOpen ? "Fermer l'assistant" : "Ajuster avec l'assistant"}
+              </button>
               {experience.status !== "published" ? (
                 <button className="btn btn-primary btn-sm" onClick={handlePublish} disabled={publishing} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   {publishing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />}
@@ -225,6 +248,15 @@ export default function ExperienceReviewPage() {
           {experience.locked_at && (
             <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#c2410c", borderRadius: "10px", padding: "10px 14px", fontSize: "13px", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "8px" }}>
               ⚠️ Au moins un candidat a déjà commencé cette expérience. Vos modifications seront prises en compte pour les <strong>prochains</strong> candidats uniquement.
+            </div>
+          )}
+
+          {/* Ajustement par dialogue (coexiste avec l'édition directe ci-dessous).
+              Régénère une nouvelle version ; les retouches fines passent par
+              l'édition directe des étapes. */}
+          {chatOpen && (
+            <div className="card" style={{ height: "min(55vh, 520px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0, marginBottom: "1.5rem" }}>
+              <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job} onGenerated={handleChatGenerated} />
             </div>
           )}
 
