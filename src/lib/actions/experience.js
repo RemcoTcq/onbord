@@ -108,13 +108,22 @@ export async function generateExperienceContent({ title, description, criteria, 
   for (let attempt = 1; attempt <= 2; attempt++) {
     const response = await anthropic.messages.create({
       model: GENERATION_MODEL,
-      max_tokens: 4000,
+      // 8000 : une expérience complète (3-6 étapes + grilles BARS détaillées avec
+      // exemples) dépasse largement 4000 tokens et se faisait tronquer -> JSON invalide.
+      max_tokens: 8000,
       temperature: 0.4,
-      system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide.",
+      system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       messages: [{ role: "user", content: prompt }],
     });
-    const text = response.content[0].text;
+    const text = response.content[0]?.text || "";
     const usage = computeAiCost(GENERATION_MODEL, response.usage);
+
+    // Troncature : la réponse a atteint le plafond de tokens -> JSON incomplet.
+    if (response.stop_reason === "max_tokens") {
+      lastErr = "réponse tronquée (expérience trop longue) — réessai";
+      continue;
+    }
+
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
       try {
