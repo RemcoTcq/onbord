@@ -127,12 +127,19 @@ export default function AdminPage() {
         >
           Invitations
         </button>
-        <a 
-          href="/admin/tests" 
-          className="btn btn-ghost" 
+        <a
+          href="/admin/tests"
+          className="btn btn-ghost"
           style={{ padding: "10px 20px", border: "1px solid var(--border)" }}
         >
           Tests de compétences
+        </a>
+        <a
+          href="/admin/couts"
+          className="btn btn-ghost"
+          style={{ padding: "10px 20px", border: "1px solid var(--border)" }}
+        >
+          Coûts API
         </a>
       </div>
 
