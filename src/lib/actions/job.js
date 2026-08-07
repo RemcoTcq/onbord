@@ -108,6 +108,42 @@ En vous basant sur la description de l'offre et le <test_catalog> fourni, choisi
 }
 
 /**
+ * Crée un poste "à la volée" depuis le hub Expériences : offre + infos de base.
+ * L'analyse IA de l'offre est best-effort (enrichit extracted_criteria) et non
+ * bloquante — la génération d'expérience fonctionne même sans critères extraits.
+ */
+export async function createRoleQuick(title, description) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    let criteria = {};
+    if (description && description.trim().length >= 50) {
+      try { criteria = await analyzeJobDescription(description); } catch (e) { console.error("analyse offre (non bloquant):", e.message); }
+    }
+    const finalTitle = (title && title.trim()) || criteria?.title || "Nouveau poste";
+
+    const { data: job, error } = await supabase
+      .from("jobs")
+      .insert({
+        user_id: user.id,
+        title: finalTitle,
+        description: description || null,
+        extracted_criteria: criteria || {},
+        status: "active",
+      })
+      .select("id, title, extracted_criteria")
+      .single();
+    if (error) throw error;
+    return { success: true, job };
+  } catch (err) {
+    console.error("createRoleQuick error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Logs unmapped skills to the unmapped_skills_log table for future taxonomy enrichment.
  * Non-blocking — errors are caught and logged, never thrown.
  */

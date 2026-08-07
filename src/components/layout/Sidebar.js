@@ -17,16 +17,15 @@ import {
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { isAdmin } from "@/lib/utils/admin";
-import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import CreditBadge from "../billing/CreditBadge";
 
-// "Assessments" (bibliothèque de tests QCM héritée, catégorie C) est masqué en
-// bascule douce. Remettre EXPERIENCE_V1_ONLY à false le restaure.
+// "/assessments" = hub de génération d'expériences (chat-first). Remplace
+// l'ancienne bibliothèque de tests QCM.
 const navItems = [
   { label: "Accueil", href: "/accueil", icon: Home },
   { label: "Offres d'emploi", href: "/jobs", icon: Briefcase },
   { label: "Talents", href: "/talents", icon: Users },
-  ...(EXPERIENCE_V1_ONLY ? [] : [{ label: "Assessments", href: "/assessments", icon: BookOpen }]),
+  { label: "Expériences", href: "/assessments", icon: BookOpen },
 ];
 
 export default function Sidebar() {
