@@ -49,6 +49,7 @@ export default function ExperienceReviewPage() {
   const [steps, setSteps] = useState([]);
   const [job, setJob] = useState(null);
   const [chatOpen, setChatOpen] = useState(false); // panneau chat d'ajustement (expérience existante)
+  const [chatStarted, setChatStarted] = useState(false); // ≥1 échange → cache la génération directe
 
   useEffect(() => { load(); }, [jobId]);
 
@@ -149,13 +150,18 @@ export default function ExperienceReviewPage() {
             </p>
           </div>
           <div className="card" style={{ height: "min(60vh, 560px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
-            <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job} onGenerated={handleChatGenerated} />
+            <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job}
+              onGenerated={handleChatGenerated} onUserMessage={() => setChatStarted(true)} />
           </div>
-          <div style={{ textAlign: "center", marginTop: "1rem" }}>
-            <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
-              Ou générer directement, sans dialoguer
-            </button>
-          </div>
+          {/* Le raccourci disparaît dès qu'on engage la conversation : un seul
+              chemin de génération à la fois. */}
+          {!chatStarted && (
+            <div style={{ textAlign: "center", marginTop: "1rem" }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
+                Ou générer directement, sans dialoguer
+              </button>
+            </div>
+          )}
         </div>
       )}
 
