@@ -431,16 +431,59 @@ export async function getCandidateDetail(candidateId) {
       .eq('candidate_id', candidateId)
       .maybeSingle();
 
-    return { 
-      success: true, 
-      candidate: { 
+    // Rapport de preuves complet, structuré PAR STEP dans l'ordre du parcours :
+    // réponse intégrale + critères BARS (justif + verbatim) + log assistant IA.
+    let experienceReport = null;
+    if (expRun) {
+      const [{ data: rSteps }, { data: rResponses }, { data: rAiMsgs }] = await Promise.all([
+        admin.from('experience_steps')
+          .select('id, order_index, kind, title, prompt, response_format, sandbox_kind')
+          .eq('experience_id', expRun.experience_id).order('order_index'),
+        admin.from('run_step_responses')
+          .select('step_id, response_format, text_answer, transcript, video_url, meta, status')
+          .eq('run_id', expRun.id),
+        admin.from('run_ai_messages')
+          .select('step_id, role, content, created_at')
+          .eq('run_id', expRun.id).order('created_at'),
+      ]);
+      const respByStep = Object.fromEntries((rResponses || []).map((r) => [r.step_id, r]));
+      const critByStep = {};
+      const rs = expRun.run_scores?.[0];
+      for (const c of rs?.criterion_scores || []) { (critByStep[c.step_id] ||= []).push(c); }
+      const aiByStep = {};
+      for (const m of rAiMsgs || []) { (aiByStep[m.step_id] ||= []).push(m); }
+
+      experienceReport = {
+        scored: expRun.status === 'scored',
+        overall: rs?.overall ?? null,
+        summary: rs?.summary || null,
+        ai_usage_used: !!rs?.ai_usage_used,
+        ai_usage_score: rs?.ai_usage_score ?? null,
+        steps: (rSteps || []).map((s) => ({
+          id: s.id,
+          order_index: s.order_index,
+          kind: s.kind,
+          title: s.title,
+          prompt: s.prompt,
+          response_format: s.response_format,
+          response: respByStep[s.id] || null,
+          criteria: critByStep[s.id] || [],
+          ai_messages: aiByStep[s.id] || [],
+        })),
+      };
+    }
+
+    return {
+      success: true,
+      candidate: {
         ...candidate,
         score_tests: finalScoreTests,
         interview_messages: messages,
         test_sessions: testSessions,
         video_responses: videoResponses,
         experience_run: expRun || null,
-      } 
+        experience_report: experienceReport,
+      }
     };
   } catch (error) {
     console.error("Get Candidate Detail Error:", error);

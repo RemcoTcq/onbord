@@ -27,6 +27,21 @@ function getScoreColor(score) {
   return { bg: "#fee2e2", color: "#991b1b", label: "Faible" };
 }
 
+// Réponse intégrale du candidat pour un step du rapport d'expérience.
+function expAnswerText(step) {
+  const r = step.response;
+  if (!r) return "(pas de réponse)";
+  if (step.response_format === "video") return r.transcript || "(transcription en attente)";
+  if (step.response_format === "qcm") {
+    const idx = r.meta?.selected_index;
+    return idx != null ? `Option ${idx + 1} sélectionnée` : "(pas de réponse)";
+  }
+  if (step.response_format === "choice") return r.meta?.choice ? (r.meta.choice === "yes" ? "Oui" : "Non") : "(pas de réponse)";
+  return r.text_answer || "(pas de réponse)";
+}
+
+const EXP_KIND_LABELS = { qualifying: "Qualificative", question: "Question ciblée", task: "Tâche", classic_qcm: "QCM" };
+
 function getStatusBadge(status) {
   const map = {
     invited:       { label: "Invité",       className: "badge-primary" },
@@ -445,57 +460,99 @@ export default function CandidateDetailPage() {
             </div>
           )}
 
-          {/* Nouveau Module Expérience (remplace Tests et Interviews) */}
-          {candidate.experience_run && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Sparkles size={18} style={{ color: "var(--primary)" }} /> Évaluation IA (Expérience)
-                </h3>
-                <span className={`badge ${candidate.experience_run.status === 'scored' ? 'badge-success' : 'badge-warning'}`}>
-                  {candidate.experience_run.status === 'scored' ? 'Évalué' : 'En cours'}
-                </span>
-              </div>
-              
-              {candidate.experience_run.status === 'scored' && candidate.experience_run.run_scores?.[0] && (() => {
-                const rs = candidate.experience_run.run_scores[0];
-                return (
-                  <div>
-                    {rs.summary && <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.5rem" }}>{rs.summary}</p>}
-                    
-                    <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>Détail par critère</h4>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                      {(rs.criterion_scores || []).map((cs, idx) => (
-                        <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                             <span style={{ fontSize: '13px', fontWeight: '700' }}>{cs.criterion_name}</span>
-                             <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(cs.score).color }}>{cs.score}%</span>
-                           </div>
-                           {cs.verbatim && (
-                             <p style={{ fontSize: "12px", color: "var(--foreground)", fontStyle: "italic", marginBottom: "6px", borderLeft: "2px solid #e2e8f0", paddingLeft: "8px" }}>
-                               « {cs.verbatim} »
-                               {cs.verbatim_verified === false && <span style={{ color: "#991b1b", fontSize: "10px", marginLeft: "6px" }}>(Non vérifié)</span>}
-                             </p>
-                           )}
-                           {cs.justification && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>🧠 {cs.justification}</p>}
-                        </div>
-                      ))}
-                    </div>
+          {/* Rapport de preuves complet — un bloc par step, dans l'ordre */}
+          {candidate.experience_report && (() => {
+            const rep = candidate.experience_report;
+            return (
+              <div className="card" style={{ padding: "1.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+                  <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Sparkles size={18} style={{ color: "var(--primary)" }} /> Rapport de preuves (Expérience)
+                  </h3>
+                  <span className={`badge ${rep.scored ? 'badge-success' : 'badge-warning'}`}>{rep.scored ? 'Évalué' : 'En cours'}</span>
+                </div>
 
-                    {rs.ai_usage_used && (
-                      <div style={{ marginTop: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                          <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14}/> Usage de l'Assistant IA</span>
-                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(rs.ai_usage_score).color }}>{rs.ai_usage_score}%</span>
-                        </div>
-                        <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>Évaluation de la capacité du candidat à utiliser l'IA de manière critique et pertinente.</p>
-                      </div>
-                    )}
+                {rep.summary && <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.25rem" }}>{rep.summary}</p>}
+
+                {rep.ai_usage_used && (
+                  <div style={{ marginBottom: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> Usage de l'Assistant IA</span>
+                      {rep.ai_usage_score != null && <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(rep.ai_usage_score).color }}>{rep.ai_usage_score}%</span>}
+                    </div>
+                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>Mesure <em>comment</em> le candidat a piloté l'IA (voir les échanges par étape ci-dessous).</p>
                   </div>
-                );
-              })()}
-            </div>
-          )}
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {rep.steps.map((step, i) => (
+                    <div key={step.id} style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+                      {/* En-tête étape */}
+                      <div style={{ padding: "10px 14px", background: "var(--background)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted-foreground)" }}>#{i + 1}</span>
+                        <span style={{ fontSize: "13px", fontWeight: 700 }}>{step.title || EXP_KIND_LABELS[step.kind] || step.kind}</span>
+                        <span style={{ marginLeft: "auto", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", color: "var(--muted-foreground)", background: "var(--secondary)", padding: "2px 8px", borderRadius: "99px" }}>{EXP_KIND_LABELS[step.kind] || step.kind}</span>
+                      </div>
+
+                      <div style={{ padding: "14px" }}>
+                        {step.prompt && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "10px", whiteSpace: "pre-wrap" }}>{step.prompt}</p>}
+
+                        {/* Réponse intégrale du candidat */}
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>Réponse du candidat</div>
+                        <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderLeft: "3px solid var(--primary)", borderRadius: "6px", padding: "10px 12px", fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", maxHeight: 360, overflowY: "auto" }}>
+                          {expAnswerText(step)}
+                        </div>
+                        {step.response?.video_url && (
+                          <video src={step.response.video_url} controls style={{ width: "100%", maxWidth: 400, marginTop: "10px", borderRadius: 8, border: "1px solid var(--border)", background: "black" }} />
+                        )}
+
+                        {/* Critères BARS + justification + verbatim */}
+                        {step.criteria.length > 0 && (
+                          <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {step.criteria.map((cs, ci) => (
+                              <div key={ci} style={{ background: "var(--background)", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", gap: 8 }}>
+                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>{cs.criterion_name}</span>
+                                  <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(cs.score).color, whiteSpace: "nowrap" }}>N{cs.bars_level} · {cs.score}%</span>
+                                </div>
+                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+                                {cs.verbatim && (
+                                  <div style={{ borderLeft: cs.verbatim_verified ? "3px solid #22c55e" : "3px solid #f59e0b", background: cs.verbatim_verified ? "#f0fdf4" : "#fffbeb", padding: "6px 10px", borderRadius: "0 6px 6px 0" }}>
+                                    <div style={{ fontSize: "10px", fontWeight: 600, color: cs.verbatim_verified ? "#166534" : "#b45309", marginBottom: "2px" }}>
+                                      {cs.verbatim_verified ? "✓ Extrait vérifié dans la réponse" : "⚠ Extrait non retrouvé tel quel"}
+                                    </div>
+                                    <p style={{ fontSize: "12px", fontStyle: "italic", color: "var(--foreground)" }}>« {cs.verbatim} »</p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Log complet des échanges avec l'assistant IA sur CE step */}
+                        {step.ai_messages.length > 0 && (
+                          <div style={{ marginTop: "14px" }}>
+                            <div style={{ fontSize: "11px", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                              <Bot size={13} /> Échanges avec l'assistant IA ({step.ai_messages.filter((m) => m.role === "user").length} message{step.ai_messages.filter((m) => m.role === "user").length > 1 ? "s" : ""})
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: 320, overflowY: "auto", padding: "4px" }}>
+                              {step.ai_messages.map((m, mi) => (
+                                <div key={mi} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                                  <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: 10, fontSize: 12.5, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "break-word", background: m.role === "user" ? "var(--primary)" : "white", color: m.role === "user" ? "white" : "var(--foreground)", border: m.role === "user" ? "none" : "1px solid var(--border)" }}>
+                                    {m.content}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Tests de compétences (Legacy) */}
           {!candidate.experience_run && candidate.test_sessions && candidate.test_sessions.length > 0 && (
