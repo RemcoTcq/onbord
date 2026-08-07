@@ -11,12 +11,12 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStr
 import { CSS } from '@dnd-kit/utilities';
 
 export const NODE_TYPES = {
-  accueil: { icon: User, label: "Accueil Candidat", color: "#3b82f6", time: 0 },
+  welcome_message: { icon: User, label: "Message de bienvenue", color: "#3b82f6", time: 0 },
   qualifying_questions: { icon: ShieldCheck, label: "Questions qualificatives", color: "#8b5cf6", time: 2 },
   // Bascule Experience : le scoring CV, les tests QCM humains et l'interview
   // vidéo one-way sont obsolètes → l'évaluation est portée par le bloc Expérience.
   experience: { icon: BrainCircuit, label: "Expérience candidat", color: "#f59e0b", time: 10 },
-  remerciements: { icon: HandHeart, label: "Remerciements", color: "#14b8a6", time: 0 },
+  thank_you_message: { icon: HandHeart, label: "Message de remerciement", color: "#14b8a6", time: 0 },
 };
 
 export const LOCKED_NODE_TYPES = {
@@ -75,15 +75,12 @@ function SortableNodeCard({
     } else if (node.type === 'qualifying_questions') {
       label = 'Questions qualificatives';
       subtitle = `${node.config?.questions?.length || 0} questions`;
-    } else if (node.type === 'cv_scoring') {
-      label = 'Scoring CV (IA)';
-      subtitle = 'Filtrage automatique';
-    } else if (node.type === 'accueil') {
-      label = 'Accueil Candidat';
-      subtitle = '';
-    } else if (node.type === 'remerciements') {
-      label = 'Remerciements';
-      subtitle = '';
+    } else if (node.type === 'welcome_message') {
+      label = 'Message de bienvenue';
+      subtitle = 'Cliquez pour éditer le texte';
+    } else if (node.type === 'thank_you_message') {
+      label = 'Message de remerciement';
+      subtitle = 'Cliquez pour éditer le texte';
     } else {
       label = meta.label;
     }
@@ -249,7 +246,7 @@ export default function PipelineVisualEditor({
                   Ajouter une étape
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {Object.entries(NODE_TYPES).filter(([k]) => k !== 'accueil' && k !== 'remerciements').map(([type, meta]) => {
+                  {Object.entries(NODE_TYPES).filter(([k]) => !['welcome_message', 'thank_you_message'].includes(k)).map(([type, meta]) => {
                     const isUnique = type === 'qualifying_questions' || type === 'experience';
                     const exists = isUnique ? nodes.some(n => n.type === type) : false;
                     const Icon = meta.icon;

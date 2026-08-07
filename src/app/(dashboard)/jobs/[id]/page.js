@@ -17,6 +17,7 @@ import {
   deleteJob
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { getExperienceForJob, updateExperienceMessages } from "@/lib/actions/experience";
 import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
@@ -92,6 +93,8 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
+  const [experience, setExperience] = useState(null); // pour les cartes messages (welcome/thank_you)
+  const [msgModal, setMsgModal] = useState(null); // { kind } | null
 
   // Candidates tab state
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,11 +142,13 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes, expRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
+      getExperienceForJob(jobId),
     ]);
+    if (expRes?.success) setExperience(expRes.experience);
     if (jobRes.success) {
       setJob(jobRes.job);
       setContextDescription(jobRes.job.description || "");
@@ -688,6 +693,7 @@ export default function JobDetailPage() {
           setSelectedNodeId={setSelectedNodeId}
           handleAddPipelineNode={handleAddPipelineNode}
           onOpenExperience={() => router.push(`/jobs/${jobId}/experience`)}
+          onEditMessage={(kind) => setMsgModal({ kind })}
           onNodesChange={async (newNodes) => {
             const res = await updateJobDetails(jobId, { saved_flow_nodes: newNodes });
             if (res.success) {
@@ -814,6 +820,60 @@ export default function JobDetailPage() {
           }}
         />
       )}
+
+      {/* Éditeur de message (bienvenue / remerciement), lié à experiences */}
+      {msgModal && (
+        <MessageEditModal
+          kind={msgModal.kind}
+          experience={experience}
+          onClose={() => setMsgModal(null)}
+          onSave={async (value) => {
+            if (!experience) { toast("Générez d'abord l'expérience candidat.", "error"); return; }
+            const res = await updateExperienceMessages(experience.id, { [msgModal.kind]: value.trim() || null });
+            if (res.success) {
+              setExperience((p) => ({ ...p, [msgModal.kind]: value.trim() || null }));
+              toast("Message enregistré");
+              setMsgModal(null);
+            } else {
+              toast(res.error || "Erreur", "error");
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal d'édition d'un message candidat (welcome_message / thank_you_message) ─
+function MessageEditModal({ kind, experience, onClose, onSave }) {
+  const isWelcome = kind === "welcome_message";
+  const title = isWelcome ? "Message de bienvenue" : "Message de remerciement";
+  const hint = isWelcome
+    ? "Affiché au candidat à son arrivée dans l'expérience, avant la 1re étape."
+    : "Affiché au candidat sur la page de fin, une fois le parcours terminé.";
+  const [value, setValue] = useState(experience?.[kind] || "");
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
+      <div className="card" style={{ width: "560px", maxWidth: "100%", padding: "1.5rem" }} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: "0.25rem" }}>{title}</h3>
+        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>{hint}</p>
+        {!experience && (
+          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#c2410c", borderRadius: 8, padding: "8px 12px", fontSize: 13, marginBottom: "1rem" }}>
+            Aucune expérience n'existe encore. Générez l'expérience candidat (carte du milieu) avant d'enregistrer un message.
+          </div>
+        )}
+        <textarea value={value} onChange={(e) => setValue(e.target.value)} rows={6}
+          placeholder={isWelcome ? "Bienvenue ! Voici une courte mise en situation…" : "Merci d'avoir pris le temps ! Nous revenons vers vous rapidement."}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.5, resize: "vertical", boxSizing: "border-box" }} />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+          <button className="btn btn-primary btn-sm" disabled={saving || !experience} onClick={async () => { setSaving(true); await onSave(value); setSaving(false); }}>
+            {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />} Enregistrer
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -823,34 +883,39 @@ export default function JobDetailPage() {
 // TAB 1 — Pipelines
 // ═══════════════════════════════════════════════════════
 
-// Types de nœuds hérités désormais obsolètes (bascule Experience) : leurs
-// écrans de config (scoring CV, tests QCM humains, entretien vidéo one-way,
-// interview IA texte) n'ont plus de raison d'être. On les masque du pipeline et
-// on garantit un bloc "Expérience candidat" cliquable vers l'écran de config.
-const LEGACY_EVAL_NODE_TYPES = ["cv_scoring", "assessment", "ai_interview", "single_video_question"];
+// Types de nœuds hérités désormais obsolètes (bascule Experience). On les retire
+// et on reconstruit une pipeline V1 déterministe :
+//   [sourcing] → Message bienvenue → Questions qualif (si présentes) →
+//   Expérience candidat → Message remerciement → [étapes verrouillées de fin]
+// Les 3 cartes (bienvenue / expérience / remerciement) sont le point d'entrée.
+const LEGACY_EVAL_NODE_TYPES = ["cv_scoring", "assessment", "ai_interview", "single_video_question", "accueil", "remerciements"];
 
 function buildV1PipelineNodes(rawNodes) {
   if (!EXPERIENCE_V1_ONLY) return rawNodes;
   const filtered = rawNodes.filter((n) => !LEGACY_EVAL_NODE_TYPES.includes(n.type));
-  // Garantit la présence d'un unique bloc Expérience (la mise en situation du poste).
-  if (!filtered.some((n) => n.type === "experience")) {
-    // Insère juste avant les étapes verrouillées de fin (entretien visio…).
-    const firstLockedAfter = filtered.findIndex((n) => n.locked && n.type !== "sourcing");
-    const at = firstLockedAfter === -1 ? Math.max(0, filtered.length - 1) : firstLockedAfter;
-    filtered.splice(at, 0, { id: "experience_main", type: "experience", v2: true, config: {} });
-  }
-  return filtered;
+  const before = filtered.filter((n) => n.locked && n.type === "sourcing");
+  const after = filtered.filter((n) => n.locked && n.type !== "sourcing");
+  const qualifying = filtered.find((n) => n.type === "qualifying_questions");
+  const middle = [
+    { id: "welcome_message", type: "welcome_message", v2: true, config: {} },
+    ...(qualifying ? [qualifying] : []),
+    { id: "experience_main", type: "experience", v2: true, config: {} },
+    { id: "thank_you_message", type: "thank_you_message", v2: true, config: {} },
+  ];
+  return [...before, ...middle, ...after];
 }
 
-function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onNodesChange, onAIAssessmentClick }) {
+function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onEditMessage, onNodesChange, onAIAssessmentClick }) {
   const pipelineNodes = buildV1PipelineNodes(getPipelineNodes());
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Cliquer le bloc Expérience ouvre l'écran de config/relecture (étape 3) ;
-  // les autres nœuds éditables ouvrent leur panneau latéral comme avant.
+  // les cartes messages ouvrent leur éditeur de texte dédié ; les autres nœuds
+  // éditables ouvrent leur panneau latéral comme avant.
   function handleNodeClick(nodeId) {
     const node = pipelineNodes.find((n) => n.id === nodeId);
     if (node?.type === "experience") { onOpenExperience?.(); return; }
+    if (node?.type === "welcome_message" || node?.type === "thank_you_message") { onEditMessage?.(node.type); return; }
     setSelectedNodeId(nodeId);
   }
 

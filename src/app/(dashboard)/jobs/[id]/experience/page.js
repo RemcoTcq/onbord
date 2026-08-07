@@ -9,7 +9,6 @@ import {
 import {
   getExperienceForJob, generateExperience, updateStep,
   addStep, deleteStep, moveStep, publishExperience,
-  updateExperienceMessages,
 } from "@/lib/actions/experience";
 import { getJobDetail } from "@/lib/actions/candidate";
 import AssessmentChatCreator from "@/components/assessment/AssessmentChatCreator";
@@ -266,9 +265,6 @@ export default function ExperienceReviewPage() {
             </div>
           )}
 
-          {/* Messages candidat (accueil + remerciement) */}
-          <MessagesCard experience={experience} toast={toast} />
-
           {/* Steps */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {steps.map((step, i) => (
@@ -293,57 +289,6 @@ export default function ExperienceReviewPage() {
   );
 }
 
-// Messages paramétrables affichés au candidat : accueil (avant la 1re étape)
-// et remerciement (page de fin). Vides = messages par défaut côté candidat.
-function MessagesCard({ experience, toast }) {
-  const [welcome, setWelcome] = useState(experience.welcome_message || "");
-  const [thanks, setThanks] = useState(experience.thank_you_message || "");
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    setWelcome(experience.welcome_message || "");
-    setThanks(experience.thank_you_message || "");
-    setDirty(false);
-  }, [experience.id, experience.welcome_message, experience.thank_you_message]);
-
-  async function save() {
-    setSaving(true);
-    const res = await updateExperienceMessages(experience.id, {
-      welcome_message: welcome.trim() || null,
-      thank_you_message: thanks.trim() || null,
-    });
-    if (res.success) { setDirty(false); toast("Messages enregistrés"); }
-    else { toast(res.error || "Erreur", "error"); }
-    setSaving(false);
-  }
-
-  return (
-    <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem", borderLeft: dirty ? "3px solid var(--primary)" : "3px solid transparent" }}>
-      <h2 style={{ fontSize: "0.95rem", fontWeight: 800, marginBottom: "0.25rem" }}>Messages candidat</h2>
-      <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>
-        Personnalisez l'accueil (avant la 1re étape) et le remerciement (page de fin). Laissez vide pour utiliser un texte par défaut.
-      </p>
-
-      <label style={labelStyle}>Message d'accueil (invitation à démarrer)</label>
-      <textarea value={welcome} onChange={(e) => { setWelcome(e.target.value); setDirty(true); }} rows={3}
-        placeholder="Bienvenue ! Voici une courte mise en situation…"
-        style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
-
-      <label style={labelStyle}>Message de remerciement (fin du parcours)</label>
-      <textarea value={thanks} onChange={(e) => { setThanks(e.target.value); setDirty(true); }} rows={3}
-        placeholder="Merci d'avoir pris le temps ! Nous revenons vers vous rapidement."
-        style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
-
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.75rem" }}>
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />}
-          {dirty ? "Enregistrer" : "Enregistré"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function StatusBadge({ status }) {
   const map = {
