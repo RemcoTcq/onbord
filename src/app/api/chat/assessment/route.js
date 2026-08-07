@@ -1,6 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import { generateExperience } from '@/lib/actions/experience';
 
 // Chat-first de conception d'expérience : le chat prend l'offre + le contexte
 // entreprise en entrée, pose les questions nécessaires pour affiner, puis
@@ -72,39 +71,27 @@ export async function POST(req) {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
 
-    let currentResponse = await anthropic.messages.create({
+    const currentResponse = await anthropic.messages.create({
       model: "claude-sonnet-4-6", max_tokens: 1200, temperature: 0.3,
       system, messages, tools: [GENERATE_TOOL],
     });
 
-    let currentMessages = messages;
-    let generated = false;
-
-    while (currentResponse.stop_reason === "tool_use") {
-      currentMessages = [...currentMessages, { role: "assistant", content: currentResponse.content }];
-      const toolResults = [];
-      for (const t of currentResponse.content.filter((c) => c.type === "tool_use")) {
-        if (t.name === "generate_experience") {
-          const res = await generateExperience(jobId, t.input?.brief || "");
-          generated = res.success;
-          toolResults.push({
-            type: "tool_result", tool_use_id: t.id, is_error: !res.success,
-            content: res.success
-              ? "Expérience générée avec succès. L'écran de relecture va s'ouvrir pour le recruteur."
-              : `Échec de la génération : ${res.error || "erreur inconnue"}.`,
-          });
-        } else {
-          toolResults.push({ type: "tool_result", tool_use_id: t.id, content: "Outil non supporté." });
-        }
+    // Décision de générer : on NE lance PAS generateExperience ici (appeler une
+    // server action "use server" depuis un route handler échoue en Next 16). On
+    // renvoie le brief au client, qui déclenche la server action (chemin éprouvé)
+    // et affiche le feed de génération, puis nous renvoie le tool_result.
+    if (currentResponse.stop_reason === "tool_use") {
+      const gen = currentResponse.content.find((c) => c.type === "tool_use" && c.name === "generate_experience");
+      if (gen) {
+        return Response.json({
+          message: currentResponse,
+          messages: [...messages, { role: "assistant", content: currentResponse.content }],
+          pendingGenerate: { toolUseId: gen.id, brief: gen.input?.brief || "" },
+        });
       }
-      currentMessages = [...currentMessages, { role: "user", content: toolResults }];
-      currentResponse = await anthropic.messages.create({
-        model: "claude-sonnet-4-6", max_tokens: 1200, temperature: 0.3,
-        system, messages: currentMessages, tools: [GENERATE_TOOL],
-      });
     }
 
-    return Response.json({ message: currentResponse, messages: currentMessages, generated });
+    return Response.json({ message: currentResponse, messages });
   } catch (error) {
     console.error("Chat API error:", error);
     const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);

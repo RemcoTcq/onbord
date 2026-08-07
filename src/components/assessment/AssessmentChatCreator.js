@@ -1,12 +1,25 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, X, PlusCircle } from "lucide-react";
+import { Send, Bot, User, Loader2, X, PlusCircle, Check, Sparkles } from "lucide-react";
 import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
+import { generateExperience } from "@/lib/actions/experience";
 import { useToast } from "@/components/ui/Toast";
 
-export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated }) {
+// Étapes affichées pendant la génération (feed visible dans le chat).
+const GEN_FEED = [
+  "Analyse de l'offre et du contexte entreprise…",
+  "Conception des mises en situation réalistes…",
+  "Rédaction des énoncés lus au candidat…",
+  "Calibrage des critères d'évaluation (BARS)…",
+  "Finalisation de l'expérience…",
+];
+
+export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onUserMessage }) {
+  const [genActive, setGenActive] = useState(false); // feed de génération en cours
+  const [genIdx, setGenIdx] = useState(0);
+  const notifiedUserMsg = useRef(false);
   const [messages, setMessages] = useState(() => {
     if (standalone && initialPrompt) {
       return [];
@@ -74,16 +87,16 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
       const data = await res.json();
       
-      // Update history with any intermediate tool calls if present
-      if (data.messages && data.messages.length > newMessages.length) {
+      // L'assistant a décidé de générer : data.messages contient déjà son
+      // message (avec l'appel d'outil). On lance la génération côté client.
+      if (data.pendingGenerate) {
+        setMessages(data.messages);
+        await runGeneration(data.pendingGenerate, data.messages);
+      } else if (data.messages && data.messages.length > newMessages.length) {
         setMessages([...data.messages, { role: "assistant", content: data.message.content }]);
       } else {
         setMessages([...newMessages, { role: "assistant", content: data.message.content }]);
       }
-
-      // Le chat a déclenché la génération de l'expérience → le parent ouvre/
-      // rafraîchit l'écran de relecture (flow chat-first, étapes B→C).
-      if (data.generated && onGenerated) onGenerated();
 
     } catch (err) {
       console.error("Chat Error:", err);
@@ -93,11 +106,45 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     }
   };
 
+  // Lance la génération côté client (server action éprouvée) avec feed visible,
+  // puis renvoie le tool_result au chat pour obtenir le message de clôture.
+  const runGeneration = async (pending, baseMessages) => {
+    setGenActive(true);
+    setGenIdx(0);
+    const timer = setInterval(() => setGenIdx((i) => Math.min(i + 1, GEN_FEED.length - 1)), 3000);
+    let res;
+    try {
+      res = await generateExperience(jobId, pending.brief || "");
+    } catch (e) {
+      res = { success: false, error: e?.message || "Erreur inattendue" };
+    }
+    clearInterval(timer);
+    setGenActive(false);
+
+    if (res.success && onGenerated) onGenerated();
+    else if (!res.success) toast(res.error || "Échec de la génération", "error");
+
+    // Renvoie le résultat de l'outil pour la réponse de clôture de l'assistant.
+    const toolResultMsg = {
+      role: "user",
+      content: [{
+        type: "tool_result",
+        tool_use_id: pending.toolUseId,
+        is_error: !res.success,
+        content: res.success
+          ? "Expérience générée avec succès. L'écran de relecture est maintenant ouvert pour le recruteur."
+          : `Échec de la génération : ${res.error || "erreur inconnue"}.`,
+      }],
+    };
+    await submitMessage(null, [...baseMessages, toolResultMsg], true);
+  };
+
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!input.trim() || loading) return;
     const msg = input;
     setInput("");
+    if (!notifiedUserMsg.current) { notifiedUserMsg.current = true; onUserMessage?.(); }
     await submitMessage(msg, messages);
   };
 
@@ -377,8 +424,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       }}>
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
           {renderMessages()}
-          
-          {loading && (
+
+          {genActive && <GenerationFeed idx={genIdx} />}
+
+          {loading && !genActive && (
             <div style={{ display: 'flex', width: '100%' }}>
                <div style={{ width: '100%', padding: '8px 0' }}>
                   <Loader2 size={20} className="spin" color="var(--muted-foreground)" />
@@ -487,6 +536,33 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+// Feed de génération visible, à l'intérieur du chat (étape par étape).
+function GenerationFeed({ idx }) {
+  return (
+    <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)' }}>
+        <Sparkles size={15} /> Génération de l'expérience…
+      </div>
+      {GEN_FEED.map((label, i) => {
+        const done = i < idx, active = i === idx;
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: done || active ? 1 : 0.4, transition: 'opacity .3s' }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: done ? '#dcfce7' : active ? 'var(--primary)' : 'var(--secondary)',
+              color: done ? '#166534' : active ? 'white' : 'var(--muted-foreground)',
+            }}>
+              {done ? <Check size={12} /> : active ? <Loader2 size={12} className="spin" /> : <span style={{ fontSize: 10, fontWeight: 700 }}>{i + 1}</span>}
+            </div>
+            <span style={{ fontSize: 13, color: active ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: active ? 600 : 400 }}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
