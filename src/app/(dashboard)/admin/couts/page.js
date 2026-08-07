@@ -59,7 +59,6 @@ export default function AdminCostsPage() {
       {/* Nav admin */}
       <div style={{ display: "flex", gap: "12px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
         <a href="/admin" className="btn btn-ghost" style={{ padding: "10px 20px", border: "1px solid var(--border)" }}>Invitations</a>
-        <a href="/admin/tests" className="btn btn-ghost" style={{ padding: "10px 20px", border: "1px solid var(--border)" }}>Tests de compétences</a>
         <button className="btn btn-primary" style={{ padding: "10px 20px" }}>Coûts API</button>
       </div>
 

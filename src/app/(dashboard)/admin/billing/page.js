@@ -114,9 +114,6 @@ export default function AdminBillingPage() {
         <button className="btn btn-primary" style={{ padding: "10px 20px" }}>
           Crédits &amp; Plans
         </button>
-        <a href="/admin/tests" className="btn btn-ghost" style={{ padding: "10px 20px", border: "1px solid var(--border)" }}>
-          Tests de compétences
-        </a>
       </div>
 
       {/* Résumé */}
