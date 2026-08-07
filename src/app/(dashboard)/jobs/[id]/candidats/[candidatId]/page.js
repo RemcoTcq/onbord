@@ -6,7 +6,7 @@ import {
   ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
   Loader2, AlertTriangle, TrendingUp, Shield, Flag,
   User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
-  Download, FileDown, FileText, Clock, Sparkles, Video, Bot
+  FileText, Clock, Sparkles, Video, Bot
 } from "lucide-react";
 
 const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
@@ -18,8 +18,6 @@ import { submitManualVideoScore } from "@/lib/actions/assessment";
 import EmailModal from "@/components/candidates/EmailModal";
 import FeedbackModal from "@/components/candidates/FeedbackModal";
 import { createClient } from "@/lib/supabase/client";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 function getScoreColor(score) {
   if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: "Excellent" };
@@ -68,7 +66,6 @@ export default function CandidateDetailPage() {
   const [mailLogs, setMailLogs] = useState([]);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [downloading, setDownloading] = useState(false);
   const [openAiFeedback, setOpenAiFeedback] = useState({});
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [manualScores, setManualScores] = useState({});
@@ -136,75 +133,6 @@ export default function CandidateDetailPage() {
 
 
 
-  async function downloadScorecard() {
-    setDownloading(true);
-    const element = document.getElementById("scorecard-template");
-    const originalStyle = element.style.display;
-    element.style.display = "block";
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 20;
-    let currentY = 35;
-    let pageNum = 1;
-
-    const addHeaderAndFooter = async (doc, page, headerImg, headerRatio) => {
-      if (headerImg) {
-        const headerWidth = pageWidth - (margin * 2);
-        const headerHeight = headerWidth * headerRatio;
-        doc.addImage(headerImg, "PNG", margin, 4, headerWidth, headerHeight);
-      }
-      doc.setDrawColor(226, 232, 240);
-      doc.line(margin, 20, pageWidth - margin, 20);
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text("Onbord - Rapport d'évaluation intelligent par IA", pageWidth / 2, pageHeight - 10, { align: "center" });
-      doc.text(`Page ${page}`, pageWidth - margin, pageHeight - 10, { align: "right" });
-    };
-
-    const addBlockToPdf = async (blockId) => {
-      const block = document.getElementById(blockId);
-      if (!block) return;
-      const canvas = await html2canvas(block, { scale: 2, backgroundColor: "#ffffff" });
-      const imgData = canvas.toDataURL("image/png");
-      const imgWidth = pageWidth - (margin * 2);
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      if (currentY + imgHeight > pageHeight - 20) {
-        pdf.addPage();
-        pageNum++;
-        await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
-        currentY = 26;
-      }
-      pdf.addImage(imgData, "PNG", margin, currentY, imgWidth, imgHeight);
-      currentY += imgHeight + 10;
-    };
-
-    let headerImgData = null;
-    let headerImgRatio = 0;
-    try {
-      const headerBlock = document.getElementById("sc-block-header");
-      const headerCanvas = await html2canvas(headerBlock, { scale: 2, backgroundColor: "#ffffff" });
-      headerImgData = headerCanvas.toDataURL("image/png");
-      headerImgRatio = headerCanvas.height / headerCanvas.width;
-      await addHeaderAndFooter(pdf, pageNum, headerImgData, headerImgRatio);
-      currentY = 26;
-      await addBlockToPdf("sc-block-profile");
-      await addBlockToPdf("sc-block-scores");
-      await addBlockToPdf("sc-block-summary");
-      await addBlockToPdf("sc-block-interview");
-      await addBlockToPdf("sc-block-flags");
-      pdf.save(`Onbord_Scorecard_${candidate.first_name}_${candidate.last_name}.pdf`);
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-      alert("Erreur lors de la génération du PDF.");
-    } finally {
-      element.style.display = originalStyle;
-      setDownloading(false);
-    }
-  }
-
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
@@ -241,9 +169,6 @@ export default function CandidateDetailPage() {
           <ArrowLeft size={18} /> Retour aux candidats
         </button>
         <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button className="btn btn-outline btn-sm" onClick={downloadScorecard} disabled={downloading}>
-            {downloading ? <Loader2 size={16} className="spin" /> : <Download size={16} />} Scorecard PDF
-          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setEmailModalOpen(true)}>
             <Mail size={16} /> Contacter
           </button>
@@ -1023,114 +948,6 @@ export default function CandidateDetailPage() {
         />
       )}
       
-      {/* Hidden Scorecard Template for PDF Export */}
-      <div 
-        id="scorecard-template" 
-        style={{ 
-          display: "none", 
-          width: "210mm",
-          background: "white",
-          color: "#0f172a",
-          fontFamily: "var(--font-geist), sans-serif"
-        }}
-      >
-        {/* Header Block */}
-        <div id="sc-block-header" style={{ padding: "3mm 25mm 2mm 25mm", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <img src="/logo.png" alt="Onbord" style={{ height: "24px", width: "auto" }} />
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 4px 0", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em" }}>Scorecard Officielle</p>
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#0f172a", margin: 0 }}>Généré le {new Date().toLocaleDateString("fr-FR")}</p>
-          </div>
-        </div>
-
-        {/* Profile Block */}
-        <div id="sc-block-profile" style={{ padding: "10mm 25mm 15mm 25mm" }}>
-          <div style={{ display: "flex", gap: "35px", alignItems: "center" }}>
-            <div style={{ 
-              width: "80px", height: "80px", borderRadius: "18px", 
-              background: "#07294b", color: "white", 
-              display: "flex", alignItems: "center", justifyContent: "center", 
-              fontSize: "32px", fontWeight: "700"
-            }}>
-              {initials}
-            </div>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: "28px", fontWeight: "900", margin: "0 0 6px 0", color: "#0f172a" }}>{candidate.first_name} {candidate.last_name}</h1>
-              <p style={{ fontSize: "14px", color: "#475569", margin: "0 0 10px 0" }}>{candidate.email}</p>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <div style={{ padding: "4px 10px", borderRadius: "4px", background: "#f1f5f9", fontSize: "10px", fontWeight: "800", color: "#475569", textTransform: "uppercase" }}>
-                  Statut: {statusBadge.label}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Scores Block */}
-        <div id="sc-block-scores" style={{ padding: "0 25mm 15mm 25mm" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-            <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #e2e8f0", textAlign: "center" }}>
-              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>CV</p>
-              <div style={{ fontSize: "30px", fontWeight: "900", color: scoreStyle?.color || "#07294b" }}>{candidate.score_cv || "—"}%</div>
-            </div>
-            <div style={{ padding: "15px", borderRadius: "15px", border: "1px solid #e2e8f0", textAlign: "center" }}>
-              <p style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Interview</p>
-              <div style={{ fontSize: "30px", fontWeight: "900", color: interviewScoreStyle?.color || "#07294b" }}>{candidate.score_interview || "—"}%</div>
-            </div>
-            <div style={{ padding: "15px", borderRadius: "15px", border: "2px solid #07294b", background: "#f8fafc", textAlign: "center" }}>
-              <p style={{ fontSize: "10px", fontWeight: "900", color: "#07294b", textTransform: "uppercase" }}>Score Global</p>
-              <div style={{ fontSize: "34px", fontWeight: "900", color: "#07294b" }}>{candidate.score_global || "—"}%</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Block */}
-        <div id="sc-block-summary" style={{ padding: "0 25mm 10mm 25mm" }}>
-          <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", marginBottom: "10px", borderBottom: "1px solid #e2e8f0", paddingBottom: "5px" }}>Analyse IA du profil</h3>
-          <p style={{ fontSize: "12px", lineHeight: "1.6", color: "#334155" }}>{candidate.ai_summary || candidate.interview_summary}</p>
-        </div>
-
-        {/* Interview Block */}
-        <div id="sc-block-interview" style={{ padding: "0 25mm 10mm 25mm" }}>
-          <h3 style={{ fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", marginBottom: "15px", borderBottom: "1px solid #e2e8f0", paddingBottom: "5px" }}>Détails de l'Interview</h3>
-          {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {candidate.interview_score_breakdown.map((item, idx) => (
-                <div key={idx} style={{ padding: "10px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: "700", color: "#07294b" }}>Question : {item.question}</span>
-                    <span style={{ fontSize: "11px", fontWeight: "800", color: getScoreColor(item.score * 10).color }}>{item.score}/10</span>
-                  </div>
-                  <p style={{ fontSize: "11px", color: "#475569", fontStyle: "italic", marginBottom: "4px" }}>Réponse : {item.answer}</p>
-                  <p style={{ fontSize: "10px", color: "#64748b", borderTop: "1px dashed #e2e8f0", paddingTop: "4px", marginTop: "4px" }}>{item.explanation}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ fontSize: "11px", color: "#64748b" }}>Aucun détail d'entretien disponible.</p>
-          )}
-        </div>
-
-        {/* Flags Block */}
-        <div id="sc-block-flags" style={{ padding: "0 25mm 20mm 25mm" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
-            <div style={{ padding: "12px", borderRadius: "10px", background: "#f0fdf4", border: "1px solid #dcfce7" }}>
-              <h4 style={{ fontSize: "10px", fontWeight: "800", color: "#166534", textTransform: "uppercase", marginBottom: "8px" }}>Points Forts</h4>
-              <ul style={{ margin: 0, paddingLeft: "15px", fontSize: "11px", color: "#166534" }}>
-                {(candidate.green_flags || candidate.interview_strengths || []).map((f, i) => <li key={i}>{f}</li>)}
-              </ul>
-            </div>
-            <div style={{ padding: "12px", borderRadius: "10px", background: "#fef2f2", border: "1px solid #fee2e2" }}>
-              <h4 style={{ fontSize: "10px", fontWeight: "800", color: "#991b1b", textTransform: "uppercase", marginBottom: "8px" }}>Points d'attention</h4>
-              <ul style={{ margin: 0, paddingLeft: "15px", fontSize: "11px", color: "#991b1b" }}>
-                {(candidate.red_flags || candidate.interview_weaknesses || []).map((f, i) => <li key={i}>{f}</li>)}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
