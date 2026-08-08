@@ -31,8 +31,23 @@ export async function proxy(request) {
 
   const { pathname } = request.nextUrl;
 
-  // Public routes (interview pages are public for candidates)
-  const publicRoutes = ["/login", "/register", "/interview", "/join"];
+  // Routes publiques : tout le parcours candidat. Un candidat n'a PAS de compte —
+  // son identité est son interview_token, vérifié côté serveur à chaque appel
+  // (server actions et routes /api/run, client service_role, tables du run en RLS
+  // deny-all). Le proxy n'est donc pas ce qui les protège, et l'exigence de session
+  // renvoyait le candidat vers /login : /interview (public) redirige vers
+  // /assessment puis /run, qui ne l'étaient pas — le parcours entier était
+  // inatteignable sans session recruteur.
+  const publicRoutes = [
+    "/login", "/register", "/join",
+    "/interview",       // ancien lien, redirige vers /assessment
+    "/assessment",      // hub hérité + bascule vers /run
+    "/run",             // expérience candidat (+ ses server actions)
+    "/apply",           // formulaire de candidature public
+    "/results",         // résultats communiqués au candidat
+    "/api/run",         // assistant IA du run (token vérifié serveur)
+    "/api/transcribe",  // transcription des réponses vidéo (token vérifié serveur)
+  ];
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
 
   // Redirect unauthenticated users to login
