@@ -4,21 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, X, PlusCircle, Check, Sparkles } from "lucide-react";
 import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
-import { generateExperience } from "@/lib/actions/experience";
+import GenerationFeed, { streamExperienceGeneration } from "./GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 
-// Étapes affichées pendant la génération (feed visible dans le chat).
-const GEN_FEED = [
-  "Analyse de l'offre et du contexte entreprise…",
-  "Conception des mises en situation réalistes…",
-  "Rédaction des énoncés lus au candidat…",
-  "Calibrage des critères d'évaluation (BARS)…",
-  "Finalisation de l'expérience…",
-];
-
 export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onUserMessage }) {
-  const [genActive, setGenActive] = useState(false); // feed de génération en cours
-  const [genIdx, setGenIdx] = useState(0);
+  const [genActive, setGenActive] = useState(false); // génération en cours
+  const [genEvents, setGenEvents] = useState([]);    // flux réel poussé par le serveur
   const notifiedUserMsg = useRef(false);
   const [messages, setMessages] = useState(() => {
     if (standalone && initialPrompt) {
@@ -106,19 +97,18 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     }
   };
 
-  // Lance la génération côté client (server action éprouvée) avec feed visible,
-  // puis renvoie le tool_result au chat pour obtenir le message de clôture.
+  // Lance la génération en STREAMING : chaque ligne du flux est une étape réelle
+  // du pipeline serveur, affichée au moment où elle se produit. Le feed n'avance
+  // donc pas à vitesse constante — une étape lente se voit.
   const runGeneration = async (pending, baseMessages) => {
     setGenActive(true);
-    setGenIdx(0);
-    const timer = setInterval(() => setGenIdx((i) => Math.min(i + 1, GEN_FEED.length - 1)), 3000);
-    let res;
-    try {
-      res = await generateExperience(jobId, pending.brief || "");
-    } catch (e) {
-      res = { success: false, error: e?.message || "Erreur inattendue" };
-    }
-    clearInterval(timer);
+    setGenEvents([]);
+
+    const res = await streamExperienceGeneration(
+      jobId,
+      pending.brief || "",
+      (event) => setGenEvents((prev) => [...prev, event])
+    );
     setGenActive(false);
 
     if (res.success && onGenerated) onGenerated();
@@ -425,7 +415,8 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
           {renderMessages()}
 
-          {genActive && <GenerationFeed idx={genIdx} />}
+          {/* Le feed reste affiché après coup : c'est la trace de ce qui a été fait. */}
+          {genEvents.length > 0 && <GenerationFeed events={genEvents} active={genActive} />}
 
           {loading && !genActive && (
             <div style={{ display: 'flex', width: '100%' }}>
@@ -540,29 +531,3 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
   );
 }
 
-// Feed de génération visible, à l'intérieur du chat (étape par étape).
-function GenerationFeed({ idx }) {
-  return (
-    <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)' }}>
-        <Sparkles size={15} /> Génération de l'expérience…
-      </div>
-      {GEN_FEED.map((label, i) => {
-        const done = i < idx, active = i === idx;
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: done || active ? 1 : 0.4, transition: 'opacity .3s' }}>
-            <div style={{
-              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: done ? '#dcfce7' : active ? 'var(--primary)' : 'var(--secondary)',
-              color: done ? '#166534' : active ? 'white' : 'var(--muted-foreground)',
-            }}>
-              {done ? <Check size={12} /> : active ? <Loader2 size={12} className="spin" /> : <span style={{ fontSize: 10, fontWeight: 700 }}>{i + 1}</span>}
-            </div>
-            <span style={{ fontSize: 13, color: active ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: active ? 600 : 400 }}>{label}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}

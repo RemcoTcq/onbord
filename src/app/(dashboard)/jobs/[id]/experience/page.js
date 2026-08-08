@@ -7,11 +7,12 @@ import {
   ArrowLeft, Bot, Video, Type, ListChecks, Code2, CircleHelp, ClipboardList,
 } from "lucide-react";
 import {
-  getExperienceForJob, generateExperience, updateStep,
+  getExperienceForJob, updateStep,
   addStep, deleteStep, moveStep, publishExperience,
 } from "@/lib/actions/experience";
 import { getJobDetail } from "@/lib/actions/candidate";
 import AssessmentChatCreator from "@/components/assessment/AssessmentChatCreator";
+import GenerationFeed, { streamExperienceGeneration } from "@/components/assessment/GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 
 const RESPONSE_FORMATS = [
@@ -50,7 +51,7 @@ export default function ExperienceReviewPage() {
 
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [genStep, setGenStep] = useState(0);
+  const [genEvents, setGenEvents] = useState([]); // flux réel du pipeline serveur
   const [publishing, setPublishing] = useState(false);
   const [experience, setExperience] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -80,19 +81,16 @@ export default function ExperienceReviewPage() {
     await load();
   }
 
+  // Même flux de génération que le chat : les étapes affichées sont celles que
+  // le serveur pousse réellement, au moment où elles se produisent.
   async function handleGenerate() {
     setGenerating(true);
-    setGenStep(0);
-    
-    const interval = setInterval(() => {
-      setGenStep(prev => prev < 4 ? prev + 1 : prev);
-    }, 2500);
+    setGenEvents([]);
 
-    const res = await generateExperience(jobId);
-    
-    clearInterval(interval);
-    setGenStep(5); // Marquer toutes les étapes comme finies
-    
+    const res = await streamExperienceGeneration(jobId, "", (event) => {
+      setGenEvents((prev) => [...prev, event]);
+    });
+
     if (res.success) {
       toast("Expérience générée — à relire avant publication");
       await load();
@@ -100,7 +98,6 @@ export default function ExperienceReviewPage() {
       toast(res.error || "Échec de la génération", "error");
     }
     setGenerating(false);
-    setGenStep(0);
   }
 
   async function handlePublish() {
@@ -172,52 +169,10 @@ export default function ExperienceReviewPage() {
         </div>
       )}
 
-      {/* Génération directe (raccourci) → animation de construction progressive */}
+      {/* Génération directe (raccourci) → flux réel du pipeline, étape par étape */}
       {!experience && generating && (
-        <div className="card" style={{ padding: "2.5rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <div style={{ width: "100%", maxWidth: "400px", margin: "0 auto", textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "2rem", justifyContent: "center" }}>
-                <div style={{ padding: "12px", background: "#f0fdf4", borderRadius: "50%", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Sparkles size={24} style={{ animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: "15px", fontWeight: "700", margin: 0 }}>L'IA travaille…</h3>
-                  <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: "4px 0 0" }}>Génération en cours (~15-20s)</p>
-                </div>
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {[
-                  "Analyse de l'offre d'emploi…",
-                  "Identification des compétences clés…",
-                  "Construction des mises en situation…",
-                  "Calibrage des critères BARS…",
-                  "Finalisation de l'expérience…"
-                ].map((text, i) => {
-                  const isActive = genStep === i;
-                  const isDone = genStep > i;
-                  return (
-                    <div key={i} style={{ 
-                      display: "flex", alignItems: "center", gap: "12px", 
-                      opacity: isDone || isActive ? 1 : 0.4,
-                      transition: "opacity 0.3s ease" 
-                    }}>
-                      <div style={{ 
-                        width: "24px", height: "24px", borderRadius: "50%", 
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: isDone ? "#dcfce7" : isActive ? "var(--primary)" : "var(--secondary)",
-                        color: isDone ? "#166534" : isActive ? "white" : "var(--muted-foreground)"
-                      }}>
-                        {isDone ? <Check size={14} /> : isActive ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <span style={{ fontSize: "11px", fontWeight: 700 }}>{i + 1}</span>}
-                      </div>
-                      <span style={{ fontSize: "14px", fontWeight: isActive ? 600 : 500, color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}>
-                        {text}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="card" style={{ padding: "1.75rem 2rem" }}>
+          <GenerationFeed events={genEvents} active={generating} />
         </div>
       )}
 
