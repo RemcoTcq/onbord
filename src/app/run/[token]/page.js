@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { startRun, saveStepResponse, submitRun } from "@/lib/actions/run";
+import { startRun, saveStepResponse, submitRun, checkCrmAnswer } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
@@ -23,6 +23,7 @@ export default function RunPage() {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showIntro, setShowIntro] = useState(false); // écran d'accueil avant la 1re étape
+  const [crmNotice, setCrmNotice] = useState(null);  // avertissement CRM (une fois par étape)
 
   useEffect(() => { load(); }, [token]);
 
@@ -54,7 +55,15 @@ export default function RunPage() {
     // Préremplir depuis les réponses existantes
     const a = {};
     for (const r of responses) {
-      a[r.step_id] = { text: r.text_answer || "", choice: r.meta?.choice, selected_index: r.meta?.selected_index, videoSaved: !!r.video_url };
+      a[r.step_id] = {
+        text: r.text_answer || "",
+        choice: r.meta?.choice,
+        selected_index: r.meta?.selected_index,
+        videoSaved: !!r.video_url,
+        // Fiche CRM : on repeuple depuis la donnée structurée, pas depuis
+        // text_answer (qui n'est qu'un rendu lisible dérivé côté serveur).
+        crm: r.meta?.crm ? { fields: r.meta.crm.fields || {}, notes: r.meta.crm.notes || "" } : undefined,
+      };
     }
     setAnswers(a);
     setLoading(false);
@@ -70,6 +79,14 @@ export default function RunPage() {
     if (fmt === "video") return !!a.videoSaved;
     if (fmt === "qcm") return a.selected_index != null;
     if (fmt === "choice") return !!a.choice;
+    // Fiche CRM : on ne valide pas une fiche à moitié vide. Si aucun champ n'est
+    // configuré (étape mal paramétrée côté recruteur), on ne bloque pas le
+    // candidat pour autant.
+    if (s.sandbox_kind === "crm") {
+      const crmFields = s.config?.crm?.fields || [];
+      const filled = a.crm?.fields || {};
+      return crmFields.every((f) => String(filled[f.key] ?? "").trim() !== "");
+    }
     // text + formats sandbox texte (email_reply, client_reply, ...) + code
     return !!(a.text && a.text.trim());
   }
@@ -83,7 +100,10 @@ export default function RunPage() {
     const ans = answers[step.id] || {};
     if (step.response_format === "video") return true; // géré par ResponseRecorder
     const payload = { text_answer: null, meta: {} };
-    if (step.response_format === "text" || step.response_format === "code") {
+    if (step.sandbox_kind === "crm") {
+      // text_answer est dérivé côté serveur depuis meta.crm (source de vérité).
+      payload.meta = { crm: { fields: ans.crm?.fields || {}, notes: ans.crm?.notes || "" } };
+    } else if (step.response_format === "text" || step.response_format === "code") {
       payload.text_answer = ans.text || "";
     } else if (step.response_format === "choice") {
       payload.meta = { choice: ans.choice || null };
@@ -100,11 +120,25 @@ export default function RunPage() {
     try {
       const ok = await persistCurrent();
       if (!ok) { setError("Impossible d'enregistrer la réponse."); return; }
+
+      // Fiche CRM — filet UNIQUE et sans oracle : si des informations ne
+      // correspondent pas aux sources, on invite à relire une seule fois, sans
+      // jamais dire quel champ (sinon le candidat tâtonnerait jusqu'au ✓). Il
+      // reste libre de continuer : un second clic passe à la suite.
+      if (step.sandbox_kind === "crm" && !crmNotice) {
+        const check = await checkCrmAnswer(token, step.id);
+        if (check.success && check.hasMismatch) {
+          setCrmNotice("Certaines informations de la fiche ne correspondent pas à ce que disent les sources. Prenez le temps de relire — ou continuez si vous êtes sûr de vous.");
+          return;
+        }
+      }
+
       if (isLast) {
         const res = await submitRun(token);
         if (res.success) setSubmitted(true);
         else setError(res.error || "Échec de la soumission");
       } else {
+        setCrmNotice(null);
         setIdx((i) => Math.min(i + 1, steps.length - 1));
       }
     } catch (e) {
@@ -173,12 +207,14 @@ export default function RunPage() {
   const ans = answers[step.id] || {};
   // Le type de sandbox (mise en situation) vient de sandbox_kind, pas de
   // response_format. On dérive le format de rendu à passer à SandboxRenderer.
-  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code" };
+  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code", crm: "crm" };
   const sandboxFormat = step.sandbox_kind && step.sandbox_kind !== "none"
     ? (SANDBOX_FORMAT[step.sandbox_kind] || step.response_format)
     : step.response_format;
+  const isCrm = sandboxFormat === "crm";
   const isSidebarMode = step.ai_assistant_allowed;
-  const containerMaxWidth = isSidebarMode ? 1040 : 720;
+  // La fiche CRM est à deux colonnes (sources | fiche) : il lui faut de la place.
+  const containerMaxWidth = isSidebarMode ? (isCrm ? 1200 : 1040) : (isCrm ? 980 : 720);
 
   return (
     <div style={{ minHeight: "100vh", background: PAGE_BG, padding: "2rem 1.5rem", ...pageStyle }}>
@@ -220,7 +256,20 @@ export default function RunPage() {
 
               {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
               {["text", "code"].includes(step.response_format) && (
-                <SandboxRenderer format={sandboxFormat} value={ans.text} onChange={(val) => setAnswer("text", val)} primary={primary} />
+                <SandboxRenderer
+                  format={sandboxFormat}
+                  config={step.config}
+                  compact={isCrm && isSidebarMode}
+                  value={isCrm ? (ans.crm || { fields: {}, notes: "" }) : ans.text}
+                  onChange={(val) => setAnswer(isCrm ? "crm" : "text", val)}
+                  primary={primary}
+                />
+              )}
+
+              {crmNotice && (
+                <div style={{ marginTop: "1rem", background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: 12, padding: "12px 14px", fontSize: 13.5, lineHeight: 1.55 }}>
+                  {crmNotice}
+                </div>
               )}
 
               {step.response_format === "choice" && (
@@ -255,7 +304,7 @@ export default function RunPage() {
 
             {/* Navigation */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}
+              <button onClick={() => { setCrmNotice(null); setIdx((i) => Math.max(0, i - 1)); }} disabled={idx === 0}
                 style={{ ...ghostBtn, opacity: idx === 0 ? 0.4 : 1, cursor: idx === 0 ? "not-allowed" : "pointer" }}>
                 <ArrowLeft size={16} /> Précédent
               </button>

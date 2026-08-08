@@ -440,7 +440,34 @@ export default function CandidateDetailPage() {
                                   <span style={{ fontSize: "13px", fontWeight: 700 }}>{cs.criterion_name}</span>
                                   <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(cs.score).color, whiteSpace: "nowrap" }}>N{cs.bars_level} · {cs.score}%</span>
                                 </div>
-                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+
+                                {/* Sandbox CRM — correction déterministe, champ par champ.
+                                    La ligne du piège est mise en évidence : c'est le
+                                    signal qui distingue "a lu" de "a croisé les sources". */}
+                                {cs.crm_details?.length > 0 && (
+                                  <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                                    {cs.crm_details.map((d, di) => (
+                                      <div key={di} style={{
+                                        display: "flex", alignItems: "flex-start", gap: "8px", padding: "7px 10px", fontSize: "12px",
+                                        borderTop: di === 0 ? "none" : "1px solid var(--border)",
+                                        background: d.is_trap ? "#fffbeb" : "transparent",
+                                      }}>
+                                        <span style={{ flexShrink: 0, fontWeight: 800, color: d.correct ? "#166534" : "#991b1b" }}>{d.correct ? "✓" : "✗"}</span>
+                                        <span style={{ flex: "0 0 34%", fontWeight: 600 }}>
+                                          {d.label}
+                                          {d.is_trap && <span style={{ marginLeft: 6, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: "#b45309", border: "1px solid #fcd34d", borderRadius: "99px", padding: "1px 6px" }}>piège</span>}
+                                        </span>
+                                        <span style={{ flex: 1, color: d.correct ? "var(--foreground)" : "#991b1b", overflowWrap: "anywhere" }}>
+                                          {d.given ?? <em style={{ color: "var(--muted-foreground)" }}>non renseigné</em>}
+                                        </span>
+                                        {!d.correct && (
+                                          <span style={{ flex: "0 0 28%", color: "var(--muted-foreground)", overflowWrap: "anywhere" }}>attendu : {d.expected}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                                 {cs.verbatim && (
                                   <div style={{ borderLeft: cs.verbatim_verified ? "3px solid #22c55e" : "3px solid #f59e0b", background: cs.verbatim_verified ? "#f0fdf4" : "#fffbeb", padding: "6px 10px", borderRadius: "0 6px 6px 0" }}>
                                     <div style={{ fontSize: "10px", fontWeight: 600, color: cs.verbatim_verified ? "#166534" : "#b45309", marginBottom: "2px" }}>

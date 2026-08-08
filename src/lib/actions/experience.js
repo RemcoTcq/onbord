@@ -60,11 +60,14 @@ RÈGLES :
    - Exemple pour "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
    - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
-8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" pour les tâches, sinon "none".
+8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
    - Pour "email" : config.to, config.subject, config.context (ex: { "to": "client@example.com", "subject": "Suivi de votre demande", "context": "Email professionnel à un client mécontent" })
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
    - Pour "document" : config.document_context (description du document à produire)
+   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation (qui est le prospect/client, ce qu'il demande, par quels canaux l'information arrive). Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
+   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers (email, appel, message) et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat. C'est la seule sandbox qui teste l'EXTRACTION et l'ORGANISATION de l'information plutôt que la communication.
+   NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience (c'est le step le plus long à remplir), et son "response_format" doit être "text".
 9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
 
 RÈGLES QCM ANTI-BIAIS :
@@ -100,6 +103,123 @@ Pour "qualifying", mets "criteria": [] et "config": { "expected_answer": "yes" }
 Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — SANS critères BARS (criteria: []).`;
 }
 
+// ─── Prompt de la 2e passe : scénario complet d'un step "crm" ─────────────────
+// Passe séparée à dessein : un config.crm complet (deux sources rédigées) pèse
+// 600-900 tokens et refait dérailler la passe principale, qui a déjà été
+// tronquée par le passé (d'où max_tokens 8000). On isole le risque.
+function buildCrmScenarioPrompt({ title, description, companyContext, step }) {
+  const ctx = companyContext || {};
+  const companyBlock = [
+    ctx.description && `Description : ${ctx.description}`,
+    ctx.industry && `Secteur : ${ctx.industry}`,
+    ctx.target_market && `Marché cible : ${ctx.target_market}`,
+  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+
+  return `Tu conçois une MISE EN SITUATION "fiche CRM" pour une évaluation de recrutement.
+
+Le candidat reçoit un brief réaliste et EN DÉSORDRE (comme dans la vraie vie), puis doit structurer cette information dans une fiche type CRM. On mesure sa capacité à EXTRAIRE et ORGANISER l'information — pas sa communication.
+
+POSTE : ${title || "Non précisé"}
+DESCRIPTION : ${(description || "").slice(0, 800) || "Non fournie"}
+CONTEXTE ENTREPRISE :
+${companyBlock}
+
+ÉNONCÉ DE L'ÉTAPE (déjà écrit, lu au candidat) :
+${step.prompt || "(non fourni)"}
+SITUATION À METTRE EN SCÈNE : ${step.config?.crm_brief || "À toi de la choisir, cohérente avec le poste."}
+
+RÈGLES DE CONCEPTION :
+1. SOURCES : exactement 2 ou 3, de FORMATS DIFFÉRENTS (email, retranscription d'appel, message entrant). Elles doivent être RÉALISTES et DÉSORDONNÉES : l'information utile est noyée dans du bavardage, des digressions, des politesses. Pas de liste à puces qui donne les réponses. 120 à 250 mots par source.
+2. CHAMPS : 5 à 7. Chaque champ a une "nature" :
+   - "factual" : la réponse est une valeur COURTE (5 mots maximum) recopiable TELLE QUELLE depuis une source — nom du contact, société, effectif, montant, date, intitulé de poste, nom d'un concurrent. Fournis "expected" : { "value": …, "accept": [variantes acceptables] }, et "tolerance" pour les nombres si pertinent. L'"expected.value" doit apparaître MOT POUR MOT dans une source : il est corrigé par comparaison automatique, sans IA.
+   - "judgment" : tout le reste — ce qui suppose de reformuler, résumer, synthétiser ou arbitrer (besoin exprimé, enjeu, priorité, étape du pipeline, prochaine action). PAS de "expected".
+   RÈGLE DE TRANCHAGE : si deux bons candidats peuvent formuler la réponse différemment, le champ est "judgment", jamais "factual".
+   Il faut AU MOINS 2 champs "factual" et AU MOINS 2 champs "judgment".
+3. PIÈGE OBLIGATOIRE — exactement UN : une information CONTRADICTOIRE entre deux sources (l'email annonce un chiffre, l'appel plus récent en annonce un autre). Elle doit porter sur un champ "factual", et l'"expected" de ce champ doit être la valeur RÉSOLUE (celle qui fait foi). La règle de résolution doit être déductible des sources (une date, une mention "finalement", "après arbitrage", "je corrige"), jamais arbitraire.
+4. Les valeurs attendues doivent être TEXTUELLEMENT PRÉSENTES dans les sources. N'invente jamais un attendu que le candidat ne pourrait pas trouver.
+5. Pour un champ "select", les options doivent être un vocabulaire métier plausible (4 à 5 options), et l'attendu doit être EXACTEMENT l'une des options.
+6. Le type "date" est réservé aux échéances DATÉES ; son "expected" doit alors être au format jj/mm/aaaa et cette date doit figurer dans une source. Si la source ne donne qu'une échéance vague ("fin juin", "avant l'été"), utilise le type "text".
+7. ÉNONCÉ : réécris l'énoncé de l'étape ("step_prompt"). Il doit être COURT (2 à 3 phrases), poser la scène et demander de compléter la fiche à partir des documents affichés. Il ne doit SURTOUT PAS contenir les informations à extraire (ni le nom, ni les chiffres, ni l'échéance) : tout doit se trouver uniquement dans les sources, sinon l'exercice n'a plus d'objet. Il ne doit pas non plus mentionner qu'il y a une contradiction.
+8. Aucun emoji. Vouvoiement. Français professionnel.
+
+Réponds UNIQUEMENT avec un JSON valide :
+{
+  "step_prompt": "Énoncé court lu au candidat, sans aucune information à extraire.",
+  "record_title": "Titre de la fiche, ex: Fiche prospect — nouvelle opportunité",
+  "sources": [
+    { "id": "s1", "type": "email", "from": "prenom.nom@societe.fr", "subject": "…", "received_at": "Lundi 14:32", "body": "…" },
+    { "id": "s2", "type": "call_transcript", "title": "Appel — mardi 9h10", "body": "…" }
+  ],
+  "fields": [
+    { "key": "contact_name", "label": "Contact", "type": "text", "nature": "factual", "expected": { "value": "…", "accept": ["…"] } },
+    { "key": "budget", "label": "Budget annoncé", "type": "number", "unit": "€", "nature": "factual", "expected": { "value": 30000, "tolerance": 0 } },
+    { "key": "priority", "label": "Priorité", "type": "select", "options": ["Basse","Moyenne","Haute"], "nature": "judgment" },
+    { "key": "next_action", "label": "Prochaine action", "type": "textarea", "nature": "judgment" }
+  ],
+  "notes_field": true,
+  "traps": [
+    { "id": "…", "kind": "contradiction", "fields": ["budget"], "sources": ["s1","s2"],
+      "description": "Ce que dit chaque source et en quoi elles se contredisent.",
+      "resolution": "Quelle valeur fait foi et pourquoi.",
+      "expected_signal": "Ce que fait un bon candidat (retient la bonne valeur ET/OU signale l'écart dans ses notes)." }
+  ]
+}
+Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
+}
+
+// Critère BARS ajouté d'office sur un step CRM : la justesse du champ piégé est
+// corrigée automatiquement, mais VOIR la contradiction est un comportement
+// distinct — un candidat peut avoir juste par chance. Les deux signaux comptent.
+const CRM_CROSS_CHECK_CRITERION = {
+  name: "Croisement des sources",
+  bars_levels: [
+    { level: 1, label: "Insuffisant", description: "Recopie une valeur d'une seule source sans voir qu'une autre la contredit, et ne mentionne aucun écart, ex. : notes vides ou « RAS, fiche complétée »." },
+    { level: 3, label: "Attendu", description: "Retient la bonne valeur (celle qui fait foi) : il a lu les deux sources et tranché, même sans l'expliciter, ex. : le budget saisi correspond à l'information la plus récente." },
+    { level: 5, label: "Excellent", description: "Retient la bonne valeur ET signale l'écart en indiquant laquelle fait foi, ex. : « Attention : 45 k€ annoncés par mail le 12, ramenés à 30 k€ lors de l'appel du 14 — je retiens 30 k€ »." },
+  ],
+};
+
+// Génère le scénario complet d'un step "crm" (2e passe).
+async function generateCrmScenario({ title, description, companyContext, step }) {
+  const prompt = buildCrmScenarioPrompt({ title, description, companyContext, step });
+  let lastErr = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await anthropic.messages.create({
+      model: GENERATION_MODEL,
+      max_tokens: 4000,
+      temperature: 0.5,
+      system: "Tu conçois des mises en situation de recrutement. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
+      messages: [{ role: "user", content: prompt }],
+    });
+    const usage = computeAiCost(GENERATION_MODEL, response.usage);
+    if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
+    const match = (response.content[0]?.text || "").match(/\{[\s\S]*\}/);
+    if (!match) { lastErr = "aucun JSON dans la réponse"; continue; }
+    try {
+      const crm = JSON.parse(match[0]);
+      if (!Array.isArray(crm.fields) || !crm.fields.length) { lastErr = "aucun champ généré"; continue; }
+      return { success: true, crm, usage };
+    } catch (e) {
+      lastErr = e.message;
+    }
+  }
+  return { success: false, error: `Scénario CRM invalide (${lastErr}).` };
+}
+
+// Additionne les usages de plusieurs appels en gardant la forme à plat attendue
+// par la page Coûts API (generation_usage.cost_usd).
+function mergeUsage(usages) {
+  const list = usages.filter(Boolean);
+  if (!list.length) return null;
+  return {
+    model: list[0].model,
+    calls: list.length,
+    input_tokens: list.reduce((s, u) => s + (u.input_tokens || 0), 0),
+    output_tokens: list.reduce((s, u) => s + (u.output_tokens || 0), 0),
+    cost_usd: Number(list.reduce((s, u) => s + (u.cost_usd || 0), 0).toFixed(6)),
+  };
+}
+
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
 export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext }) {
   const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext });
@@ -128,7 +248,32 @@ export async function generateExperienceContent({ title, description, criteria, 
     if (match) {
       try {
         const parsed = JSON.parse(match[0]);
-        return { success: true, experience: parsed, usage };
+        // 2e passe : les steps "crm" n'ont qu'un brief d'une phrase ; on génère
+        // maintenant leur scénario complet (sources, champs, piège).
+        const extraUsages = [];
+        for (const s of parsed.steps || []) {
+          if (s.sandbox_kind !== "crm") continue;
+          const scenario = await generateCrmScenario({ title, description, companyContext, step: s });
+          if (!scenario.success) {
+            // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
+            // simple plutôt que d'exposer une fiche vide au candidat.
+            console.error("generateCrmScenario failed:", scenario.error);
+            s.sandbox_kind = "none";
+            continue;
+          }
+          extraUsages.push(scenario.usage);
+          s.response_format = "text";
+          // L'énoncé de la 1re passe a été écrit sans connaître le scénario : il
+          // re-livre souvent l'information à extraire (et peut la contredire).
+          // Celui de la 2e passe est écrit en connaissance des sources.
+          const { step_prompt, ...crmConfig } = scenario.crm;
+          if (step_prompt) s.prompt = step_prompt;
+          s.config = { ...(s.config || {}), crm: crmConfig };
+          delete s.config.crm_brief;
+          const hasCrossCheck = (s.criteria || []).some((c) => /crois|source/i.test(c.name || ""));
+          if (!hasCrossCheck) s.criteria = [...(s.criteria || []), CRM_CROSS_CHECK_CRITERION];
+        }
+        return { success: true, experience: parsed, usage: mergeUsage([usage, ...extraUsages]) };
       } catch (e) {
         lastErr = e.message;
       }

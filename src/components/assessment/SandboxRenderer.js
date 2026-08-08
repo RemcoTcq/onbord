@@ -2,15 +2,22 @@
 
 import { MessageSquare, Terminal, Layout } from "lucide-react";
 import EmailComposer from "./EmailComposer";
+import CrmSandbox from "./CrmSandbox";
 import { field, DEFAULT_PRIMARY } from "./candidateUi";
 
 // Renderers de mise en situation. Même langage visuel que l'onboarding : champs
 // #fafafa (radius 12), focus-ring de marque (classe nodal-input), liseré de
 // marque en haut du conteneur. L'éditeur de code (pas d'équivalent onboarding)
 // reste sombre mais garde le même esprit (radius, espacements, liseré).
-export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY }) {
+export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY, config, compact = false }) {
   if (format === "email_reply") {
     return <EmailComposer value={value} onChange={onChange} primary={primary} />;
+  }
+
+  // Seul renderer dont la valeur n'est pas une chaîne : la fiche CRM est un
+  // objet { fields, notes } (cf. meta.crm de la réponse).
+  if (format === "crm") {
+    return <CrmSandbox crm={config?.crm} value={value} onChange={onChange} primary={primary} compact={compact} />;
   }
 
   if (format === "client_reply") {

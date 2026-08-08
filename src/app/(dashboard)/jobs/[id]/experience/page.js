@@ -27,7 +27,15 @@ const SANDBOX_KINDS = [
   { value: "client_reply", label: "💬  Réponse client" },
   { value: "document", label: "📄  Document" },
   { value: "code", label: "💻  Code" },
+  { value: "crm", label: "🗂️  Fiche CRM" },
 ];
+const CRM_SOURCE_TYPES = [
+  { value: "email", label: "Email" },
+  { value: "call_transcript", label: "Retranscription d'appel" },
+  { value: "chat", label: "Message entrant" },
+  { value: "note", label: "Note interne" },
+];
+const CRM_FIELD_TYPES = ["text", "number", "select", "textarea", "date"];
 const KIND_LABELS = {
   qualifying: "Qualificative",
   question: "Question ciblée",
@@ -533,6 +541,14 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         </div>
       )}
 
+      {/* Éditeur de fiche CRM */}
+      {local.sandbox_kind === "crm" && (
+        <CrmEditor
+          crm={local.config?.crm}
+          onChange={(crm) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), crm } })); setDirty(true); }}
+        />
+      )}
+
       {/* Enregistrer */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
         <button className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -540,6 +556,179 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
           {dirty ? "Enregistrer" : "Enregistré"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Éditeur du sandbox "crm". C'est ici que le recruteur corrige un attendu mal
+// généré : la correction des champs factuels est déterministe, donc une valeur
+// attendue fausse pénalise injustement tous les candidats. Rien n'est plus
+// important à relire sur ce type d'étape.
+function CrmEditor({ crm, onChange }) {
+  const c = crm || { sources: [], fields: [], traps: [], notes_field: true };
+  const sources = c.sources || [];
+  const fields = c.fields || [];
+  const traps = c.traps || [];
+  const set = (patch) => onChange({ ...c, ...patch });
+
+  const setSource = (i, patch) => set({ sources: sources.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  const setField = (i, patch) => set({ fields: fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) });
+  const setExpected = (i, patch) => setField(i, { expected: { ...(fields[i].expected || {}), ...patch } });
+  const setTrap = (i, patch) => set({ traps: traps.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+
+  const factualKeys = fields.filter((f) => f.nature === "factual").map((f) => f.key);
+
+  // Un attendu introuvable dans les sources est incorrigible pour le candidat et
+  // pénalise tout le monde. On le signale sans bloquer : le repérage textuel est
+  // approximatif (une date reformatée, un montant écrit en toutes lettres).
+  const sourcesText = sources.map((s) => `${s.body || ""} ${s.subject || ""} ${s.from || ""}`).join(" ").toLowerCase();
+  // Comparaison aussi sans les espaces : un montant attendu "18000" s'écrit
+  // "18 000 €" dans la source — ce n'est pas un attendu manquant.
+  const sourcesTight = sourcesText.replace(/[\s ]/g, "");
+  const missingFromSources = (f) => {
+    const value = String(f.expected?.value ?? "").trim().toLowerCase();
+    if (!value) return false;
+    const candidates = [value, ...(f.expected?.accept || []).map((a) => String(a).toLowerCase())];
+    return !candidates.some((cand) => cand && (sourcesText.includes(cand) || sourcesTight.includes(cand.replace(/[\s ]/g, ""))));
+  };
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <label style={{ ...labelStyle, margin: "0 0 0.5rem" }}>Fiche CRM — titre de l&apos;enregistrement</label>
+      <input value={c.record_title || ""} onChange={(e) => set({ record_title: e.target.value })}
+        placeholder="Fiche prospect — nouvelle opportunité" style={inputStyle} />
+
+      {/* Sources du brief */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>Sources du brief ({sources.length})</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+          onClick={() => set({ sources: [...sources, { id: `s${sources.length + 1}`, type: "email", body: "" }] })}>
+          <Plus size={13} /> Source
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {sources.map((s, i) => (
+          <div key={i} style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "0.75rem" }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
+              <select value={s.type || "email"} onChange={(e) => setSource(i, { type: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 200px" }}>
+                {CRM_SOURCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <input value={s.title || ""} onChange={(e) => setSource(i, { title: e.target.value })}
+                placeholder="Libellé de l'onglet (ex. Appel — mardi 9h10)" style={{ ...inputStyle, marginBottom: 0 }} />
+              <button className="btn btn-ghost btn-sm" onClick={() => set({ sources: sources.filter((_, j) => j !== i) })}
+                style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+            </div>
+            {s.type === "email" && (
+              <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
+                <input value={s.from || ""} onChange={(e) => setSource(i, { from: e.target.value })} placeholder="De…" style={{ ...inputStyle, marginBottom: 0 }} />
+                <input value={s.subject || ""} onChange={(e) => setSource(i, { subject: e.target.value })} placeholder="Objet…" style={{ ...inputStyle, marginBottom: 0 }} />
+                <input value={s.received_at || ""} onChange={(e) => setSource(i, { received_at: e.target.value })} placeholder="Reçu le…" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 140px" }} />
+              </div>
+            )}
+            <textarea value={s.body || ""} onChange={(e) => setSource(i, { body: e.target.value })} rows={6}
+              placeholder="Contenu de la source, tel que le candidat le lira…"
+              style={{ ...inputStyle, marginBottom: 0, resize: "vertical", lineHeight: 1.5, fontSize: "13px" }} />
+          </div>
+        ))}
+      </div>
+
+      {/* Champs de la fiche */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>Champs de la fiche ({fields.length})</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+          onClick={() => set({ fields: [...fields, { key: `champ_${fields.length + 1}`, label: "", type: "text", nature: "judgment" }] })}>
+          <Plus size={13} /> Champ
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {fields.map((f, i) => {
+          const isFactual = f.nature === "factual";
+          return (
+            <div key={i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${isFactual ? "#0ea5e9" : "#a855f7"}`, borderRadius: "8px", padding: "0.75rem" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                <input value={f.label || ""} onChange={(e) => setField(i, { label: e.target.value })} placeholder="Libellé affiché" style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontWeight: 600 }} />
+                <input value={f.key || ""} onChange={(e) => setField(i, { key: e.target.value })} placeholder="clé" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 130px", fontFamily: "monospace", fontSize: "12px" }} />
+                <select value={f.type || "text"} onChange={(e) => setField(i, { type: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 120px" }}>
+                  {CRM_FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={f.nature || "judgment"} onChange={(e) => setField(i, { nature: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px" }}>
+                  <option value="factual">Factuel (corrigé auto)</option>
+                  <option value="judgment">Jugement (noté BARS)</option>
+                </select>
+                <button className="btn btn-ghost btn-sm" onClick={() => set({ fields: fields.filter((_, j) => j !== i) })}
+                  style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+              </div>
+
+              {f.type === "select" && (
+                <input value={(f.options || []).join(", ")} onChange={(e) => setField(i, { options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean) })}
+                  placeholder="Options séparées par des virgules" style={{ ...inputStyle, marginBottom: "6px", fontSize: "13px" }} />
+              )}
+              {f.type === "number" && (
+                <input value={f.unit || ""} onChange={(e) => setField(i, { unit: e.target.value })}
+                  placeholder="Unité (€, j, …)" style={{ ...inputStyle, marginBottom: "6px", fontSize: "13px", maxWidth: 160 }} />
+              )}
+
+              {isFactual && (
+                <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "6px", padding: "8px" }}>
+                  <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#0369a1", textTransform: "uppercase", marginBottom: "5px" }}>
+                    Valeur attendue — vérifiez qu&apos;elle est bien présente dans les sources
+                  </div>
+                  {missingFromSources(f) && (
+                    <div style={{ fontSize: "11.5px", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "5px", padding: "5px 8px", marginBottom: "6px", lineHeight: 1.45 }}>
+                      ⚠ Cette valeur ne se retrouve pas telle quelle dans les sources. Le candidat ne pourra pas la deviner — corrigez l&apos;attendu, ajoutez une variante acceptée, ou complétez la source.
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <input value={f.expected?.value ?? ""} onChange={(e) => setExpected(i, { value: e.target.value })}
+                      placeholder="Réponse exacte" style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px" }} />
+                    <input value={(f.expected?.accept || []).join(", ")} onChange={(e) => setExpected(i, { accept: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })}
+                      placeholder="Variantes acceptées (virgules)" style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px" }} />
+                    {f.type === "number" && (
+                      <input type="number" value={f.expected?.tolerance ?? 0} onChange={(e) => setExpected(i, { tolerance: Number(e.target.value) || 0 })}
+                        placeholder="Tolérance" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 110px" }} />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Piège / incohérence */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>Incohérence volontaire ({traps.length})</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+          onClick={() => set({ traps: [...traps, { id: `trap_${traps.length + 1}`, kind: "contradiction", fields: [], description: "", resolution: "", expected_signal: "" }] })}>
+          <Plus size={13} /> Incohérence
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {traps.map((t, i) => (
+          <div key={i} style={{ border: "1px solid #fed7aa", background: "#fffbeb", borderRadius: "8px", padding: "0.75rem" }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
+              <select value={(t.fields || [])[0] || ""} onChange={(e) => setTrap(i, { fields: e.target.value ? [e.target.value] : [] })}
+                style={{ ...selectStyle, marginBottom: 0, flex: "1 1 auto" }}>
+                <option value="">Champ factuel concerné…</option>
+                {factualKeys.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+              <button className="btn btn-ghost btn-sm" onClick={() => set({ traps: traps.filter((_, j) => j !== i) })}
+                style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+            </div>
+            <textarea value={t.description || ""} onChange={(e) => setTrap(i, { description: e.target.value })} rows={2}
+              placeholder="Ce que dit chaque source et en quoi elles se contredisent" style={{ ...inputStyle, marginBottom: "6px", resize: "vertical", fontSize: "13px" }} />
+            <input value={t.resolution || ""} onChange={(e) => setTrap(i, { resolution: e.target.value })}
+              placeholder="Quelle valeur fait foi, et pourquoi" style={{ ...inputStyle, marginBottom: "6px", fontSize: "13px" }} />
+            <input value={t.expected_signal || ""} onChange={(e) => setTrap(i, { expected_signal: e.target.value })}
+              placeholder="Comportement recherché chez un bon candidat" style={{ ...inputStyle, marginBottom: 0, fontSize: "13px" }} />
+          </div>
+        ))}
+      </div>
+
+      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.75rem", lineHeight: 1.5 }}>
+        Les champs <strong>factuels</strong> sont corrigés automatiquement (sans IA) et regroupés en un critère « Extraction d&apos;information ».
+        Les champs de <strong>jugement</strong> sont notés par les critères BARS ci-dessus. Le candidat ne voit aucune différence entre les deux.
+      </p>
     </div>
   );
 }

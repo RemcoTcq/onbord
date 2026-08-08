@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { deductCredits } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
+import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -15,6 +16,16 @@ function sanitizeStepForCandidate(step) {
   const config = { ...(step.config || {}) };
   delete config.correct_index;
   delete config.expected_answer;
+  // Sandbox CRM : le corrigé des champs factuels et la description du piège ne
+  // doivent JAMAIS partir dans le HTML du candidat. On retire aussi `nature`,
+  // qui révélerait quels champs sont corrigés automatiquement.
+  if (config.crm) {
+    config.crm = {
+      ...config.crm,
+      fields: (config.crm.fields || []).map(({ expected, nature, ...rest }) => rest),
+    };
+    delete config.crm.traps;
+  }
   return {
     id: step.id,
     order_index: step.order_index,
@@ -133,16 +144,45 @@ export async function saveStepResponse(token, stepId, payload) {
 
     // Le step doit bien appartenir à l'expérience du run.
     const { data: step } = await admin
-      .from("experience_steps").select("id, experience_id, response_format")
+      .from("experience_steps").select("id, experience_id, response_format, sandbox_kind, config")
       .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
     if (!step) return { success: false, error: "Étape invalide" };
+
+    let meta = payload.meta ?? {};
+    let textAnswer = payload.text_answer ?? null;
+
+    // Sandbox CRM : la fiche structurée arrive dans meta.crm ; le texte lisible
+    // (utilisé par le scoring et le rapport) est dérivé ICI, jamais envoyé par le
+    // client. Les drapeaux `warned`/`revised` appartiennent au serveur : le
+    // client ne peut ni les poser ni les effacer.
+    if (step.sandbox_kind === "crm" && step.config?.crm) {
+      const crm = step.config.crm;
+      const submitted = { fields: meta.crm?.fields || {}, notes: meta.crm?.notes || "" };
+      const { data: existing } = await admin
+        .from("run_step_responses").select("meta")
+        .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+      const prior = existing?.meta?.crm || {};
+      const changed = JSON.stringify(prior.fields || {}) !== JSON.stringify(submitted.fields)
+        || (prior.notes || "") !== submitted.notes;
+      meta = {
+        ...meta,
+        crm: {
+          ...submitted,
+          warned: !!prior.warned,
+          // Signal de rigueur : le candidat a-t-il retouché sa fiche APRÈS
+          // l'avertissement ? (l'avertissement ne dit jamais quel champ.)
+          revised: !!prior.revised || (!!prior.warned && changed),
+        },
+      };
+      textAnswer = crmAnswerToText(crm, submitted);
+    }
 
     const row = {
       run_id: ctx.run.id,
       step_id: stepId,
       response_format: step.response_format,
-      text_answer: payload.text_answer ?? null,
-      meta: payload.meta ?? {},
+      text_answer: textAnswer,
+      meta,
       status: "submitted",
       updated_at: new Date().toISOString(),
     };
@@ -152,6 +192,45 @@ export async function saveStepResponse(token, stepId, payload) {
     return { success: true };
   } catch (err) {
     console.error("saveStepResponse error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Vérification "sans oracle" d'une fiche CRM, appelée une seule fois par étape.
+// Elle ne renvoie JAMAIS quel champ est faux ni la bonne valeur : juste un
+// booléen. Sinon le candidat tâtonnerait jusqu'au ✓ et le signal d'extraction ne
+// vaudrait plus rien. Le drapeau `warned` est posé côté serveur pour que
+// l'avertissement ne puisse pas être rejoué.
+export async function checkCrmAnswer(token, stepId) {
+  try {
+    const admin = createAdminClient();
+    const ctx = await resolveCandidateAndRun(admin, token);
+    if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
+
+    const { data: step } = await admin
+      .from("experience_steps").select("id, sandbox_kind, config")
+      .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
+    if (!step || step.sandbox_kind !== "crm" || !step.config?.crm) {
+      return { success: true, hasMismatch: false };
+    }
+
+    const { data: existing } = await admin
+      .from("run_step_responses").select("meta")
+      .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+    const stored = existing?.meta?.crm;
+    if (!stored || stored.warned) return { success: true, hasMismatch: false };
+
+    const { factualCount, correctCount } = evaluateCrm(step.config.crm, stored);
+    const hasMismatch = factualCount > 0 && correctCount < factualCount;
+    if (!hasMismatch) return { success: true, hasMismatch: false };
+
+    await admin.from("run_step_responses")
+      .update({ meta: { ...existing.meta, crm: { ...stored, warned: true } }, updated_at: new Date().toISOString() })
+      .eq("run_id", ctx.run.id).eq("step_id", stepId);
+
+    return { success: true, hasMismatch: true };
+  } catch (err) {
+    console.error("checkCrmAnswer error:", err);
     return { success: false, error: err.message };
   }
 }
