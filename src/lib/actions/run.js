@@ -39,13 +39,28 @@ function sanitizeStepForCandidate(step) {
   };
 }
 
+// Questions qualificatives DE LA PIPELINE (nœud "qualifying_questions" de
+// l'éditeur visuel). C'est la source de vérité : saved_flow_nodes est ce que le
+// recruteur édite. assessment_config.modules n'est renseigné qu'à la création de
+// l'offre et n'est plus resynchronisé ensuite — d'où le repli, et dans cet ordre.
+function getQualifyingQuestions(job) {
+  const node = (job?.saved_flow_nodes || []).find((n) => n.type === "qualifying_questions");
+  const fromNode = node?.config?.questions;
+  if (Array.isArray(fromNode) && fromNode.length) return fromNode;
+
+  const legacy = job?.assessment_config?.modules?.qualifying_questions;
+  if (legacy?.enabled && Array.isArray(legacy.questions) && legacy.questions.length) return legacy.questions;
+
+  return [];
+}
+
 async function resolveCandidateAndRun(admin, token) {
   const { data: candidate } = await admin
-    .from("candidates").select("id, job_id, first_name").eq("interview_token", token).single();
+    .from("candidates").select("id, job_id, first_name, assessment_status").eq("interview_token", token).single();
   if (!candidate) return { error: "Lien d'évaluation invalide." };
-  
+
   const { data: job, error: jobError } = await admin
-    .from("jobs").select("id, user_id, title").eq("id", candidate.job_id).single();
+    .from("jobs").select("id, user_id, title, saved_flow_nodes, assessment_config").eq("id", candidate.job_id).single();
   if (jobError) console.error("resolveCandidateAndRun job error:", jobError);
   if (!job) return { error: "Offre introuvable." };
 
@@ -94,6 +109,34 @@ export async function startRun(token) {
     const { candidate, exp, job, recruiter } = ctx;
     let run = ctx.run;
 
+    const branding = {
+      job: { id: job.id, title: job.title },
+      recruiter: recruiter || {},
+    };
+
+    // ── Porte qualificative ────────────────────────────────────────────────
+    // Un candidat déjà recalé ne revoit jamais l'expérience, même avec son lien.
+    if (candidate.assessment_status === "disqualified") {
+      return { success: true, disqualified: true, ...branding };
+    }
+
+    // Les questions de la pipeline sont posées AVANT tout : tant qu'elles n'ont
+    // pas été passées, on ne crée même pas le run (sinon un candidat recalé
+    // verrouillerait l'expérience via locked_at et compterait comme participant).
+    // Deux marqueurs de "porte franchie" : un run déjà entamé, ou
+    // assessment_status = 'in_progress' (posé à la réussite, comme le parcours
+    // hérité — un candidat qualifié là-bas n'a pas à repasser la porte ici).
+    const qualifying = getQualifyingQuestions(job);
+    if (!run && qualifying.length > 0 && candidate.assessment_status !== "in_progress") {
+      return {
+        success: true,
+        ...branding,
+        // La réponse attendue ne sort JAMAIS du serveur : sinon la porte se lit
+        // dans le HTML. La correction se fait dans submitQualifyingAnswers.
+        qualifying: { questions: qualifying.map((q, i) => ({ id: q.id ?? String(i), text: q.text })) },
+      };
+    }
+
     if (!run) {
       const ins = await admin.from("candidate_runs")
         .insert({ candidate_id: candidate.id, experience_id: exp.id, status: "in_progress" })
@@ -129,6 +172,55 @@ export async function startRun(token) {
     };
   } catch (err) {
     console.error("startRun error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Corrige les questions qualificatives de la pipeline. La correction est
+// SERVEUR : le client n'a jamais reçu les réponses attendues, il ne peut donc
+// pas se qualifier lui-même. Une seule mauvaise réponse suffit à recaler.
+export async function submitQualifyingAnswers(token, answers) {
+  try {
+    const admin = createAdminClient();
+    const ctx = await resolveCandidateAndRun(admin, token);
+    if (ctx.error) return { success: false, error: ctx.error };
+    const { candidate, job } = ctx;
+
+    if (candidate.assessment_status === "disqualified") {
+      return { success: true, passed: false };
+    }
+
+    const questions = getQualifyingQuestions(job);
+    if (questions.length === 0) return { success: true, passed: true };
+
+    // Une réponse manquante vaut une réponse fausse : on ne laisse pas passer
+    // un candidat qui n'aurait pas répondu à tout.
+    const given = answers || {};
+    const passed = questions.every((q, i) => {
+      const key = q.id ?? String(i);
+      return given[key] === (q.expectedAnswer || "yes");
+    });
+
+    if (!passed) {
+      // Mêmes champs que la disqualification du parcours hérité, pour que la
+      // fiche candidat et les listes affichent l'état sans traitement spécial.
+      await admin.from("candidates").update({
+        assessment_status: "disqualified",
+        status: "rejected",
+        assessment_submitted_at: new Date().toISOString(),
+      }).eq("id", candidate.id);
+      return { success: true, passed: false };
+    }
+
+    // Marque la porte comme franchie, sinon le candidat y serait renvoyé à
+    // chaque chargement (le run, lui, n'est créé qu'à l'étape suivante).
+    await admin.from("candidates")
+      .update({ assessment_status: "in_progress" })
+      .eq("id", candidate.id);
+
+    return { success: true, passed: true };
+  } catch (err) {
+    console.error("submitQualifyingAnswers error:", err);
     return { success: false, error: err.message };
   }
 }

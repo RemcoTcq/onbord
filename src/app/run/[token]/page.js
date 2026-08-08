@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { startRun, saveStepResponse, submitRun, checkCrmAnswer } from "@/lib/actions/run";
+import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifyingAnswers } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
@@ -24,6 +24,11 @@ export default function RunPage() {
   const [submitted, setSubmitted] = useState(false);
   const [showIntro, setShowIntro] = useState(false); // écran d'accueil avant la 1re étape
   const [crmNotice, setCrmNotice] = useState(null);  // avertissement CRM (une fois par étape)
+  const [qualifying, setQualifying] = useState(null);      // questions de la pipeline à passer
+  const [qualAnswers, setQualAnswers] = useState({});
+  const [qualSubmitting, setQualSubmitting] = useState(false);
+  const [disqualified, setDisqualified] = useState(false);
+  const [assistantCollapsed, setAssistantCollapsed] = useState(false); // le chat est ouvert par défaut
 
   useEffect(() => { load(); }, [token]);
 
@@ -31,10 +36,21 @@ export default function RunPage() {
     setLoading(true);
     const res = await startRun(token);
     if (!res.success) { setError(res.error); setLoading(false); return; }
-    setRun(res.run);
-    setExperience(res.experience);
+
+    // Le branding est renvoyé même quand l'expérience n'est pas accessible :
+    // les écrans de porte et de refus restent aux couleurs de l'entreprise.
     setJob(res.job);
     setRecruiter(res.recruiter);
+
+    // Candidat déjà recalé : il ne verra jamais l'expérience.
+    if (res.disqualified) { setDisqualified(true); setLoading(false); return; }
+
+    // Questions qualificatives de la pipeline : à passer avant tout le reste.
+    if (res.qualifying) { setQualifying(res.qualifying); setLoading(false); return; }
+
+    setQualifying(null);
+    setRun(res.run);
+    setExperience(res.experience);
     setSteps(res.steps);
     setSubmitted(res.run.status === "submitted" || res.run.status === "scored");
     const stepList = res.steps || [];
@@ -67,6 +83,20 @@ export default function RunPage() {
     }
     setAnswers(a);
     setLoading(false);
+  }
+
+  // Soumet les questions qualificatives. La correction est serveur : on ne
+  // connaît le verdict qu'au retour.
+  async function submitQualifying() {
+    setQualSubmitting(true);
+    setError(null);
+    const res = await submitQualifyingAnswers(token, qualAnswers);
+    setQualSubmitting(false);
+    if (!res.success) { setError(res.error || "Une erreur est survenue."); return; }
+    if (!res.passed) { setQualifying(null); setDisqualified(true); return; }
+    // Qualifié : on relance le chargement, qui crée le run et ouvre l'expérience.
+    setQualifying(null);
+    await load();
   }
 
   const step = steps[idx];
@@ -155,7 +185,82 @@ export default function RunPage() {
   const pageStyle = { "--primary": primary, "--primary-hover": primary };
 
   if (loading) return <Center><Loader2 size={30} style={{ color: primary, animation: "spin 1s linear infinite" }} /></Center>;
-  if (error && !steps.length) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+  if (error && !steps.length && !qualifying && !disqualified) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+
+  // ── Candidat recalé sur les questions qualificatives ──────────────────────
+  // Il est remercié ici et n'accède jamais à l'expérience, même en revenant sur
+  // son lien : startRun le renvoie dans cet état.
+  if (disqualified) {
+    return (
+      <Center style={pageStyle}>
+        <div style={{ ...container, padding: "3rem 2rem", textAlign: "center", maxWidth: 480, width: "100%" }}>
+          {recruiter?.company_logo_url && (
+            <div style={{ marginBottom: "2rem" }}>
+              <img src={recruiter.company_logo_url} alt={recruiter?.company_name || "Logo"} style={{ height: 48, width: "auto", margin: "0 auto", borderRadius: 8, objectFit: "contain" }} />
+            </div>
+          )}
+          <h1 style={{ ...heading, marginBottom: "0.75rem" }}>Merci de votre intérêt</h1>
+          <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)" }}>
+            Vos réponses ne correspondent pas aux prérequis de ce poste, nous ne pouvons donc pas donner suite à votre candidature.
+            {" "}Merci du temps que vous nous avez accordé — n&apos;hésitez pas à postuler à nos autres offres.
+          </p>
+        </div>
+      </Center>
+    );
+  }
+
+  // ── Questions qualificatives (pipeline), avant toute chose ────────────────
+  if (qualifying) {
+    const questions = qualifying.questions || [];
+    const allAnswered = questions.every((q) => qualAnswers[q.id]);
+    return (
+      <Center style={pageStyle}>
+        <style>{focusStyle(primary)}</style>
+        <div style={{ ...container, padding: "2.5rem 2rem", maxWidth: 560, width: "100%" }}>
+          {recruiter?.company_logo_url ? (
+            <img src={recruiter.company_logo_url} alt={recruiter?.company_name || "Logo"} style={{ height: 44, width: "auto", margin: "0 auto 1.5rem", borderRadius: 8, objectFit: "contain", display: "block" }} />
+          ) : (
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: primary, color: getContrastColor(primary), display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, margin: "0 auto 1.5rem" }}>
+              {(recruiter?.company_name || job?.title || "O")[0].toUpperCase()}
+            </div>
+          )}
+          <h1 style={{ ...heading, marginBottom: "0.5rem", textAlign: "center" }}>Avant de commencer</h1>
+          <p style={{ fontSize: "0.95rem", lineHeight: 1.6, color: "var(--muted-foreground)", textAlign: "center", marginBottom: "2rem" }}>
+            Quelques questions pour vérifier les prérequis du poste. Répondez honnêtement : vos réponses conditionnent la suite.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            {questions.map((q, i) => (
+              <div key={q.id}>
+                <p style={{ fontSize: "1rem", lineHeight: 1.5, color: "var(--foreground)", marginBottom: "0.75rem" }}>
+                  <span style={{ color: "var(--muted-foreground)", marginRight: 6 }}>{i + 1}.</span>{q.text}
+                </p>
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  {["yes", "no"].map((v) => (
+                    <button key={v} onClick={() => setQualAnswers((p) => ({ ...p, [q.id]: v }))}
+                      style={{ ...optionBtn(primary, qualAnswers[q.id] === v), flex: 1, justifyContent: "center" }}>
+                      {v === "yes" ? "Oui" : "Non"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {error && <p style={{ color: "#991b1b", fontSize: 13, marginTop: "1rem" }}>{error}</p>}
+
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
+            <button onClick={submitQualifying} disabled={!allAnswered || qualSubmitting}
+              title={!allAnswered ? "Répondez à toutes les questions" : undefined}
+              style={pillBtn(primary, !allAnswered || qualSubmitting)}>
+              {qualSubmitting ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : null}
+              Continuer <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </Center>
+    );
+  }
 
   if (submitted) {
     return (
@@ -213,12 +318,34 @@ export default function RunPage() {
     : step.response_format;
   const isCrm = sandboxFormat === "crm";
   const isSidebarMode = step.ai_assistant_allowed;
+  // Le chat prend 400px pour être un vrai espace de conversation ; replié, il se
+  // réduit à son onglet vertical et rend la place à la tâche.
+  const assistantWidth = assistantCollapsed ? 56 : 400;
   // La fiche CRM est à deux colonnes (sources | fiche) : il lui faut de la place.
-  const containerMaxWidth = isSidebarMode ? (isCrm ? 1200 : 1040) : (isCrm ? 980 : 720);
+  const containerMaxWidth = isSidebarMode ? (isCrm ? 1260 : 1100) : (isCrm ? 980 : 720);
 
   return (
     <div style={{ minHeight: "100vh", background: PAGE_BG, padding: "2rem 1.5rem", ...pageStyle }}>
       <style>{focusStyle(primary)}</style>
+      {/* Sous 900px, une colonne de conversation à côté de la tâche rendrait les
+          deux inutilisables : le chat passe en tiroir ancré en bas, et son onglet
+          replié devient un bouton flottant. */}
+      <style>{`
+        @media (max-width: 900px) {
+          .run-with-assistant { grid-template-columns: 1fr !important; }
+          .assistant-panel {
+            position: fixed !important; top: auto !important; left: 0; right: 0; bottom: 0;
+            height: 72vh !important; border-radius: 16px 16px 0 0 !important;
+            z-index: 60; box-shadow: 0 -8px 30px rgba(0,0,0,.16);
+          }
+          .assistant-tab {
+            position: fixed !important; top: auto !important; right: 16px; bottom: 16px;
+            flex-direction: row !important; border-radius: 999px !important;
+            padding: 10px 16px !important; z-index: 60; box-shadow: 0 4px 16px rgba(0,0,0,.16);
+          }
+          .assistant-tab span { writing-mode: horizontal-tb !important; }
+        }
+      `}</style>
       {/* Header Brandé */}
       <div style={{ maxWidth: containerMaxWidth, margin: "0 auto 2rem", display: "flex", alignItems: "center", gap: "1rem", transition: "max-width 0.3s" }}>
         {recruiter?.company_logo_url ? (
@@ -246,7 +373,12 @@ export default function RunPage() {
           </div>
         </div>
 
-        <div style={{ display: isSidebarMode ? "grid" : "block", gridTemplateColumns: isSidebarMode ? "1fr 340px" : "1fr", gap: "2rem", alignItems: "start" }}>
+        <div className={isSidebarMode ? "run-with-assistant" : undefined}
+          style={{
+            display: isSidebarMode ? "grid" : "block",
+            gridTemplateColumns: isSidebarMode ? `1fr ${assistantWidth}px` : "1fr",
+            gap: "2rem", alignItems: "start", transition: "grid-template-columns .25s ease",
+          }}>
           {/* Main Column — minWidth:0 essentiel : sans ça, un enfant de grid ne
               rétrécit pas sous sa largeur de contenu et un texte long déborde du bloc. */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", minWidth: 0 }}>
@@ -317,10 +449,14 @@ export default function RunPage() {
             </div>
           </div>
 
-          {/* Sidebar Column */}
+          {/* Colonne de conversation — le panneau gère lui-même son ancrage et
+              sa hauteur (il est sticky sur toute la hauteur du viewport). */}
           {isSidebarMode && (
-            <div style={{ position: "sticky", top: "2rem" }}>
-              <AssistantPanel token={token} stepId={step.id} primary={primary} />
+            <div style={{ minWidth: 0 }}>
+              {/* key : une étape = une conversation. Le remontage repart d'un
+                  état neuf, sans réinitialisation manuelle dans un effet. */}
+              <AssistantPanel key={step.id} token={token} stepId={step.id} primary={primary}
+                onCollapsedChange={setAssistantCollapsed} />
             </div>
           )}
         </div>
