@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Briefcase, Send, ArrowLeft, Loader2, FileText, X } from "lucide-react";
+import { Plus, Briefcase, Send, ArrowLeft, Loader2, FileText, X, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createRoleQuick } from "@/lib/actions/job";
 import { useToast } from "@/components/ui/Toast";
@@ -25,9 +25,13 @@ export default function AssessmentsHubPage() {
   const [loading, setLoading] = useState(true);
 
   const [prompt, setPrompt] = useState("");
-  const [mode, setMode] = useState("hub"); // hub | chat
+  // liste (accueil de la section, comme les autres menus) | create (écran de
+  // lancement du chat) | chat. Le chat n'est plus l'écran par défaut : on y
+  // entre par une action explicite du recruteur.
+  const [mode, setMode] = useState("list");
   const [selectedJob, setSelectedJob] = useState(null);
   const [initialPrompt, setInitialPrompt] = useState("");
+  const [search, setSearch] = useState("");
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newRoleOpen, setNewRoleOpen] = useState(false);
@@ -69,19 +73,28 @@ export default function AssessmentsHubPage() {
   }
 
   // ─── Mode chat ───
+  // Plein écran : le conteneur est fixé au viewport pour échapper au padding et
+  // au maxWidth 1200 du layout dashboard. Il démarre après la sidebar (qui reste
+  // accessible) et n'est plus enfermé dans une carte.
   if (mode === "chat" && selectedJob) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 2rem)", padding: "16px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <button onClick={() => { setMode("hub"); setSelectedJob(null); setInitialPrompt(""); setPrompt(""); load(); }}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, left: "var(--sidebar-collapsed-width)",
+        display: "flex", flexDirection: "column", background: "var(--background)", zIndex: 30,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <button onClick={() => { setMode("list"); setSelectedJob(null); setInitialPrompt(""); setPrompt(""); load(); }}
             className="btn btn-ghost btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <ArrowLeft size={16} /> Retour
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--muted-foreground)" }}>
-            <Briefcase size={15} /> <strong style={{ color: "var(--foreground)" }}>{selectedJob.title}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--muted-foreground)", minWidth: 0 }}>
+            <Briefcase size={15} style={{ flexShrink: 0 }} />
+            <strong style={{ color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedJob.title}</strong>
           </div>
         </div>
-        <div className="card" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
+        {/* minHeight:0 : sans ça, l'enfant flex ne rétrécit pas et la zone de
+            messages déborde au lieu de scroller. */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <AssessmentChatCreator
             standalone context="job"
             jobId={selectedJob.id}
@@ -94,9 +107,121 @@ export default function AssessmentsHubPage() {
     );
   }
 
-  // ─── Hub ───
+  // ─── Liste (accueil de la section) ───
+  // Même mise en page que les autres menus de la plateforme (cf. /talents) :
+  // en-tête + action à droite, puis la liste. Le chat n'est plus ici.
+  if (mode === "list") {
+    const filtered = experiences.filter((e) =>
+      !search || (e.jobs?.title || "").toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+      <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+        {/* En-tête */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>Expériences</h1>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>
+              Les expériences candidat générées pour vos postes.
+            </p>
+          </div>
+          <button onClick={() => setMode("create")} className="btn btn-primary btn-sm"
+            style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+            <Plus size={15} /> Créer une expérience candidat
+          </button>
+        </div>
+
+        {/* Recherche */}
+        <div style={{ position: "relative", maxWidth: "320px" }}>
+          <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
+          <input
+            type="text"
+            className="input-field"
+            placeholder="Rechercher un poste..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ paddingLeft: "32px", fontSize: "12px" }}
+          />
+        </div>
+
+        {/* Liste */}
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "200px" }}>
+            <Loader2 size={24} style={{ color: "var(--muted-foreground)", animation: "spin 1s linear infinite" }} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
+            <FileText size={32} style={{ color: "var(--muted-foreground)", opacity: 0.3, margin: "0 auto 16px" }} />
+            <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
+              {experiences.length === 0 ? "Aucune expérience créée" : "Aucun résultat"}
+            </p>
+            <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
+              {experiences.length === 0
+                ? "Créez votre première expérience candidat pour un de vos postes."
+                : "Essayez un autre terme de recherche."}
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
+            {filtered.map((e) => {
+              const s = STATUS_LABEL[e.status] || STATUS_LABEL.draft;
+              return (
+                <div
+                  key={e.id}
+                  onClick={() => router.push(`/jobs/${e.job_id}/experience`)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "14px 20px", background: "var(--card)",
+                    borderBottom: "1px solid var(--border)", cursor: "pointer",
+                    transition: "background 100ms ease",
+                  }}
+                  onMouseEnter={(ev) => { ev.currentTarget.style.background = "#fafafa"; }}
+                  onMouseLeave={(ev) => { ev.currentTarget.style.background = "var(--card)"; }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      width: "32px", height: "32px", borderRadius: "4px",
+                      background: "var(--foreground)", color: "var(--background)",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <FileText size={15} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {e.jobs?.title || "Poste supprimé"}
+                      </p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
+                          <Briefcase size={10} /> Version {e.version}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: s.bg, color: s.color }}>{s.label}</span>
+                    <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                      {new Date(e.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Création : écran de lancement du chat (inchangé, seulement déplacé
+  // derrière le bouton "Créer une expérience candidat"). ───
   return (
     <div style={{ padding: "24px", maxWidth: 900, margin: "0 auto" }}>
+      <button onClick={() => { setMode("list"); setPrompt(""); }} className="btn btn-ghost btn-sm"
+        style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <ArrowLeft size={16} /> Retour
+      </button>
+
       <h1 style={{ fontSize: "1.9rem", fontWeight: 800, textAlign: "center", marginTop: "3rem", marginBottom: "2rem" }}>
         Prêt(e) quand vous voulez{firstName ? `, ${firstName}` : ""}
       </h1>
@@ -141,39 +266,6 @@ export default function AssessmentsHubPage() {
           <div style={{ fontWeight: 700, fontSize: 15 }}>Nouveau poste</div>
           <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>En créer un à la volée</div>
         </button>
-      </div>
-
-      {/* Historique des expériences générées */}
-      <div style={{ marginTop: "3rem" }}>
-        <h2 style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--muted-foreground)", marginBottom: "0.75rem" }}>
-          Expériences déjà créées
-        </h2>
-        {loading ? (
-          <div style={{ padding: "1.5rem", textAlign: "center", color: "var(--muted-foreground)" }}><Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /></div>
-        ) : experiences.length === 0 ? (
-          <div className="card" style={{ padding: "1.5rem", textAlign: "center", color: "var(--muted-foreground)", fontSize: 14 }}>
-            Aucune expérience générée pour l'instant.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {experiences.map((e) => {
-              const s = STATUS_LABEL[e.status] || STATUS_LABEL.draft;
-              return (
-                <button key={e.id} onClick={() => router.push(`/jobs/${e.job_id}/experience`)} className="card"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.9rem 1.1rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--border)", background: "var(--card)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <FileText size={16} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.jobs?.title || "Poste supprimé"}</div>
-                      <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>v{e.version} · {new Date(e.created_at).toLocaleDateString("fr-FR")}</div>
-                    </div>
-                  </div>
-                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: s.bg, color: s.color }}>{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {pickerOpen && (
