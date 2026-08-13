@@ -44,7 +44,6 @@ export async function proxy(request) {
     "/assessment",      // hub hérité + bascule vers /run
     "/run",             // expérience candidat (+ ses server actions)
     "/apply",           // formulaire de candidature public
-    "/results",         // résultats communiqués au candidat
     "/api/run",         // assistant IA du run (token vérifié serveur)
     "/api/transcribe",  // transcription des réponses vidéo (token vérifié serveur)
   ];

@@ -11,7 +11,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import CandidateNotice from "@/components/assessment/CandidateNotice";
 import { getCandidateEntry } from "@/lib/actions/run";
@@ -27,7 +26,7 @@ export default function AssessmentPage() {
 
   async function loadAssessment() {
     try {
-      const { entry } = await getCandidateEntry(token);
+      const { entry, job: entryJob, recruiter: entryRecruiter } = await getCandidateEntry(token);
       if (entry === "experience") {
         router.replace(`/run/${token}`);
         return;
@@ -37,27 +36,12 @@ export default function AssessmentPage() {
         return;
       }
 
-      // Reste "not_ready". On charge tout de même l'offre et le branding pour
-      // que l'écran d'attente porte les couleurs de l'entreprise.
-      const supabase = createClient();
-      const { data: cand } = await supabase
-        .from("candidates")
-        .select("jobs(title, user_id)")
-        .eq("interview_token", token)
-        .single();
-
-      setJob(cand?.jobs || null);
-
-      if (cand?.jobs?.user_id) {
-        try {
-          const { data, error } = await supabase
-            .rpc("get_public_branding", { user_uuid: cand.jobs.user_id });
-          if (!error && data) setRecruiter(data);
-        } catch (e) {
-          console.error("RPC get_public_branding failed:", e);
-        }
-      }
-
+      // Reste "not_ready". L'offre et le branding arrivent avec le verdict :
+      // getCandidateEntry les résout SERVEUR, par token. Cette page lisait
+      // auparavant candidates avec la clé anon, ce qui exigeait une policy RLS
+      // ouverte à tous — voir migration 014.
+      setJob(entryJob || null);
+      setRecruiter(entryRecruiter || null);
       setState("not_ready");
     } catch (err) {
       console.error("loadAssessment error:", err);

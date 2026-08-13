@@ -294,7 +294,13 @@ export async function createCandidateShell(jobId, firstName, lastName, email) {
  * Public action for candidates to apply for a job.
  * Does not require authentication.
  */
-export async function applyForJob(jobId, firstName, lastName, email) {
+// `gdprConsentAt` est posé ICI, dans l'insert, et non plus par un UPDATE lancé
+// depuis le navigateur juste après. Cet update anonyme n'était possible que via
+// une policy RLS `USING (true)` sur candidates — qui autorisait du même coup la
+// modification de n'importe quel candidat par n'importe qui (voir migration 014).
+// Il ne restait par ailleurs aucune raison de faire un aller-retour de plus :
+// la valeur est connue au moment de la candidature.
+export async function applyForJob(jobId, firstName, lastName, email, gdprConsentAt = null) {
   try {
     const supabase = await createClient();
 
@@ -322,7 +328,16 @@ export async function applyForJob(jobId, firstName, lastName, email) {
         .maybeSingle();
 
       if (existing) {
-        // Renvoyer vers l'assessment existant plutôt que créer un doublon
+        // Renvoyer vers l'assessment existant plutôt que créer un doublon.
+        // Le consentement est tout de même (re)posé s'il vient d'être donné :
+        // c'est ce que faisait l'update navigateur, qui ne distinguait pas les
+        // deux cas. En admin, car l'appelant est ici anonyme.
+        if (gdprConsentAt) {
+          await createAdminClient()
+            .from("candidates")
+            .update({ gdpr_consent_at: gdprConsentAt })
+            .eq("id", existing.id);
+        }
         return { success: true, candidate: existing, alreadyApplied: true };
       }
     }
@@ -342,6 +357,7 @@ export async function applyForJob(jobId, firstName, lastName, email) {
         email: email ? email.trim().toLowerCase() : null,
         interview_token: token,
         interview_expires_at: expiresAt,
+        gdpr_consent_at: gdprConsentAt,
         status: 'invited',
         assessment_status: 'pending',
         score_cv: null,

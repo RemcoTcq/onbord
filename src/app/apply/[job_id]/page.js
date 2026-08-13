@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Loader2, Briefcase, ChevronRight, CheckCircle2 } from "lucide-react";
 import { applyForJob, getPublicJobAndBranding } from "@/lib/actions/candidate";
 import { getJobEntry } from "@/lib/actions/run";
@@ -49,15 +48,14 @@ export default function ApplyPage() {
 
   const handleUpdateCandidate = async (updates) => {
     try {
-      const res = await applyForJob(job.id, updates.first_name, updates.last_name, updates.email);
+      // Le consentement RGPD part avec la candidature : applyForJob le pose
+      // dans l'insert. Il faisait auparavant l'objet d'un UPDATE anon depuis le
+      // navigateur, qui exigeait une policy RLS ouverte à tous (migration 014).
+      const res = await applyForJob(
+        job.id, updates.first_name, updates.last_name, updates.email, updates.gdpr_consent_at
+      );
       if (!res.success) throw new Error(res.error);
-      
-      const supabase = createClient();
-      await supabase
-        .from("candidates")
-        .update({ gdpr_consent_at: updates.gdpr_consent_at })
-        .eq("id", res.candidate.id);
-        
+
       router.push(`/assessment/${res.candidate.interview_token}`);
     } catch (err) {
       console.error(err);

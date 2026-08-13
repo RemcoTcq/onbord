@@ -105,6 +105,13 @@ async function resolveCandidateAndRun(admin, token) {
 // de candidature et les écrans recruteur). Ici, seules les deux portes d'entrée.
 
 // Entrée par le lien personnel du candidat (/assessment/[token]).
+//
+// Renvoie aussi de quoi habiller l'écran d'attente (titre de l'offre + branding
+// du recruteur). C'est délibéré : la page lisait ces champs elle-même avec la
+// CLÉ ANON depuis le navigateur, ce qui n'était possible que grâce à une policy
+// RLS `USING (true)` sur candidates — donc toute la table lisible par n'importe
+// qui. La résolution se fait ici, par token et en service_role, comme partout
+// ailleurs dans le parcours candidat (cf. resolveCandidateAndRun).
 export async function getCandidateEntry(token) {
   try {
     if (!token) return { entry: "invalid" };
@@ -112,7 +119,24 @@ export async function getCandidateEntry(token) {
     const { data: candidate } = await admin
       .from("candidates").select("job_id").eq("interview_token", token).maybeSingle();
     if (!candidate) return { entry: "invalid" };
-    return { entry: await resolveJobEntry(admin, candidate.job_id) };
+
+    const entry = await resolveJobEntry(admin, candidate.job_id);
+    // Le parcours part sur /run : inutile de charger l'habillage d'attente.
+    if (entry !== "not_ready") return { entry };
+
+    const { data: job } = await admin
+      .from("jobs").select("title, user_id").eq("id", candidate.job_id).maybeSingle();
+
+    let recruiter = null;
+    if (job?.user_id) {
+      const { data } = await admin
+        .from("users")
+        .select("company_name, company_logo_url, brand_primary_color, brand_secondary_color")
+        .eq("id", job.user_id).maybeSingle();
+      recruiter = data || null;
+    }
+
+    return { entry, job: job ? { title: job.title } : null, recruiter };
   } catch (err) {
     console.error("getCandidateEntry error:", err);
     // En cas d'incident, on ferme plutôt que d'ouvrir : mieux vaut un écran
