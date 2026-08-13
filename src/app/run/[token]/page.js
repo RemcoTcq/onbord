@@ -7,6 +7,7 @@ import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifying
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
+import CandidateNotice from "@/components/assessment/CandidateNotice";
 import { primaryBtn, pillBtn, ghostBtn, optionBtn, container, heading, focusStyle, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "@/components/assessment/candidateUi";
 
 export default function RunPage() {
@@ -28,6 +29,7 @@ export default function RunPage() {
   const [qualAnswers, setQualAnswers] = useState({});
   const [qualSubmitting, setQualSubmitting] = useState(false);
   const [disqualified, setDisqualified] = useState(false);
+  const [expired, setExpired] = useState(false); // lien de plus de 5 jours, parcours jamais commencé
   const [assistantCollapsed, setAssistantCollapsed] = useState(false); // le chat est ouvert par défaut
 
   useEffect(() => { load(); }, [token]);
@@ -44,6 +46,9 @@ export default function RunPage() {
 
     // Candidat déjà recalé : il ne verra jamais l'expérience.
     if (res.disqualified) { setDisqualified(true); setLoading(false); return; }
+
+    // Lien périmé, et parcours jamais commencé (un parcours entamé reste ouvert).
+    if (res.expired) { setExpired(true); setLoading(false); return; }
 
     // Questions qualificatives de la pipeline : à passer avant tout le reste.
     if (res.qualifying) { setQualifying(res.qualifying); setLoading(false); return; }
@@ -185,7 +190,20 @@ export default function RunPage() {
   const pageStyle = { "--primary": primary, "--primary-hover": primary };
 
   if (loading) return <Center><Loader2 size={30} style={{ color: primary, animation: "spin 1s linear infinite" }} /></Center>;
-  if (error && !steps.length && !qualifying && !disqualified) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+  if (error && !steps.length && !qualifying && !disqualified && !expired) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+
+  // ── Lien périmé ───────────────────────────────────────────────────────────
+  // Un lien d'évaluation vit 5 jours. Le candidat n'est pas en faute : on lui
+  // dit quoi faire plutôt que de lui opposer une porte close.
+  if (expired) {
+    return (
+      <CandidateNotice recruiter={recruiter} job={job} title="Ce lien n'est plus valide">
+        {`Les liens d'évaluation expirent au bout de 5 jours. `
+          + `Contactez ${recruiter?.company_name || "l'équipe recrutement"} pour en recevoir un nouveau — `
+          + `votre candidature reste bien enregistrée.`}
+      </CandidateNotice>
+    );
+  }
 
   // ── Candidat recalé sur les questions qualificatives ──────────────────────
   // Il est remercié ici et n'accède jamais à l'expérience, même en revenant sur

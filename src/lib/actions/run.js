@@ -55,9 +55,28 @@ function getQualifyingQuestions(job) {
   return [];
 }
 
+// Un lien d'évaluation vit 5 jours. `interview_expires_at` est posé à la création
+// du candidat et fait foi ; on retombe sur created_at + 5 jours pour les lignes
+// antérieures à cette colonne, comme le faisait l'ancien hub.
+const LINK_LIFETIME_MS = 5 * 24 * 60 * 60 * 1000;
+
+function linkHasExpired(candidate) {
+  const explicit = candidate?.interview_expires_at;
+  if (explicit) {
+    const at = new Date(explicit);
+    if (!Number.isNaN(at.getTime())) return Date.now() > at.getTime();
+  }
+  if (!candidate?.created_at) return false; // sans date, on ne recale personne
+  const created = new Date(candidate.created_at);
+  if (Number.isNaN(created.getTime())) return false;
+  return Date.now() > created.getTime() + LINK_LIFETIME_MS;
+}
+
 async function resolveCandidateAndRun(admin, token) {
   const { data: candidate } = await admin
-    .from("candidates").select("id, job_id, first_name, assessment_status").eq("interview_token", token).single();
+    .from("candidates")
+    .select("id, job_id, first_name, assessment_status, created_at, interview_expires_at")
+    .eq("interview_token", token).single();
   if (!candidate) return { error: "Lien d'évaluation invalide." };
 
   const { data: job, error: jobError } = await admin
@@ -131,6 +150,15 @@ export async function startRun(token) {
     // Un candidat déjà recalé ne revoit jamais l'expérience, même avec son lien.
     if (candidate.assessment_status === "disqualified") {
       return { success: true, disqualified: true, ...branding };
+    }
+
+    // ── Péremption du lien ─────────────────────────────────────────────────
+    // Elle bloque l'ENTRÉE, jamais la sortie : un candidat qui a déjà commencé
+    // termine son parcours même si son lien vient d'expirer. Le recaler à
+    // mi-chemin lui ferait perdre un travail déjà fourni, ce qu'aucune règle
+    // d'invitation ne justifie.
+    if (!run && linkHasExpired(candidate)) {
+      return { success: true, expired: true, ...branding };
     }
 
     // Les questions de la pipeline sont posées AVANT tout : tant qu'elles n'ont
