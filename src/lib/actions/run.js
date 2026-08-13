@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { deductCredits } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
+import { resolveJobEntry } from "@/lib/candidateEntry";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -80,23 +81,35 @@ async function resolveCandidateAndRun(admin, token) {
   return { candidate, job, recruiter, exp, run };
 }
 
-// Le candidat doit-il être routé vers le nouveau run Experience ?
-// Vrai dès qu'une expérience est publiée pour l'offre du candidat (sinon on
-// laisse le parcours hérité — bascule douce, cf. étape 7c).
-export async function hasPublishedExperience(token) {
+// ─── Aiguillage d'entrée du candidat ─────────────────────────────────────────
+// La règle vit dans lib/candidateEntry.js (module pur, partagé avec la création
+// de candidature et les écrans recruteur). Ici, seules les deux portes d'entrée.
+
+// Entrée par le lien personnel du candidat (/assessment/[token]).
+export async function getCandidateEntry(token) {
   try {
-    if (!token) return { hasExperience: false };
+    if (!token) return { entry: "invalid" };
     const admin = createAdminClient();
     const { data: candidate } = await admin
-      .from("candidates").select("job_id").eq("interview_token", token).single();
-    if (!candidate) return { hasExperience: false };
-    const { data: exp } = await admin
-      .from("experiences").select("id")
-      .eq("job_id", candidate.job_id).eq("status", "published").limit(1).maybeSingle();
-    return { hasExperience: !!exp };
+      .from("candidates").select("job_id").eq("interview_token", token).maybeSingle();
+    if (!candidate) return { entry: "invalid" };
+    return { entry: await resolveJobEntry(admin, candidate.job_id) };
   } catch (err) {
-    console.error("hasPublishedExperience error:", err);
-    return { hasExperience: false };
+    console.error("getCandidateEntry error:", err);
+    // En cas d'incident, on ferme plutôt que d'ouvrir : mieux vaut un écran
+    // d'attente qu'une candidature enregistrée sans évaluation derrière.
+    return { entry: "not_ready" };
+  }
+}
+
+// Entrée par le lien public de l'offre (/apply/[job_id]).
+export async function getJobEntry(jobId) {
+  try {
+    if (!jobId) return { entry: "invalid" };
+    return { entry: await resolveJobEntry(createAdminClient(), jobId) };
+  } catch (err) {
+    console.error("getJobEntry error:", err);
+    return { entry: "not_ready" };
   }
 }
 

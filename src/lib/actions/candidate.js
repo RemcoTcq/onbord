@@ -3,6 +3,20 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
+import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
+
+// Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
+// faire passer. Le blocage d'interface ne suffit pas — un lien public déjà
+// copié dans une annonce continue de fonctionner sans ce contrôle.
+// Lecture en admin : l'appelant est tantôt anonyme (candidature publique),
+// tantôt le recruteur, et les deux doivent obtenir le même verdict.
+async function assertJobAcceptsCandidates(jobId) {
+  const entry = await resolveJobEntry(createAdminClient(), jobId);
+  if (entry === "invalid") throw new Error("Offre d'emploi introuvable");
+  if (!entryIsOpen(entry)) {
+    throw new Error("Cette offre n'accepte pas encore de candidatures : aucune expérience n'est publiée.");
+  }
+}
 
 export async function deleteJob(jobId) {
   try {
@@ -243,6 +257,8 @@ export async function createCandidateShell(jobId, firstName, lastName, email) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Non authentifié");
 
+    await assertJobAcceptsCandidates(jobId);
+
     // Generate a unique interview token
     const token = crypto.randomUUID().replace(/-/g, '');
 
@@ -282,14 +298,19 @@ export async function applyForJob(jobId, firstName, lastName, email) {
   try {
     const supabase = await createClient();
 
-    // Verify job exists
+    // Verify job exists — et qu'elle est publiée. Une offre en brouillon
+    // acceptait des candidatures : le lien public fonctionnait avant même que le
+    // recruteur ait terminé de la créer.
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id')
+      .select('id, status')
       .eq('id', jobId)
       .single();
 
     if (jobError || !job) throw new Error("Offre d'emploi introuvable");
+    if (job.status === 'draft') throw new Error("Cette offre n'est pas encore ouverte aux candidatures.");
+
+    await assertJobAcceptsCandidates(jobId);
 
     // ── Anti-doublon : vérifier si un candidat avec ce même email a déjà postulé ──
     if (email) {

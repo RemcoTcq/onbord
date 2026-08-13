@@ -105,7 +105,7 @@ export default function AssessmentModuleConfig({ job, onSave }) {
           title="Scoring CV"
           description="Le candidat upload son CV (PDF). Notre IA l'analyse et génère un score de correspondance."
           duration="~2 min"
-          enabled={modules.cv_scoring?.enabled ?? true}
+          enabled={modules.cv_scoring?.enabled ?? false}
           onToggle={(val) => update("cv_scoring", { enabled: val })}
         />
 

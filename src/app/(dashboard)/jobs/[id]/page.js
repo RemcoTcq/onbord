@@ -18,6 +18,8 @@ import {
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { getExperienceForJob, updateExperienceMessages } from "@/lib/actions/experience";
+import { getJobEntry } from "@/lib/actions/run";
+import { entryIsOpen } from "@/lib/candidateEntry";
 import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
@@ -94,6 +96,7 @@ export default function JobDetailPage() {
   const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
   const [experience, setExperience] = useState(null); // pour les cartes messages (welcome/thank_you)
+  const [entry, setEntry] = useState(null); // l'offre accepte-t-elle des candidats ?
   const [msgModal, setMsgModal] = useState(null); // { kind } | null
 
   // Candidates tab state
@@ -142,13 +145,18 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes, expRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes, expRes, entryRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
       getExperienceForJob(jobId),
+      // Verdict serveur : `experience` ci-dessus est la version la plus récente
+      // NON archivée — après une régénération c'est un brouillon, qui masquerait
+      // la version publiée. On ne déduit donc pas l'ouverture depuis cet objet.
+      getJobEntry(jobId),
     ]);
     if (expRes?.success) setExperience(expRes.experience);
+    setEntry(entryRes?.entry || "not_ready");
     if (jobRes.success) {
       setJob(jobRes.job);
       setContextDescription(jobRes.job.description || "");
@@ -167,6 +175,12 @@ export default function JobDetailPage() {
   // ─── Shared actions ───
 
   function copyApplyLink() {
+    // Digue : tant qu'aucune expérience n'est publiée, le lien mène à un écran
+    // d'attente. Le diffuser reviendrait à envoyer des candidats dans le vide.
+    if (!entryIsOpen(entry)) {
+      toast("Publiez d'abord l'expérience — le lien enverrait les candidats sur un écran d'attente.", "error");
+      return;
+    }
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
     const link = isLocal ? `${origin}/apply/${jobId}` : `https://app.onbord.be/apply/${jobId}`;
@@ -649,8 +663,16 @@ export default function JobDetailPage() {
             (onglet Parcours), plus par un bouton en haut de page. */}
         <button
           onClick={copyApplyLink}
+          disabled={entry !== null && !entryIsOpen(entry)}
+          title={entry !== null && !entryIsOpen(entry)
+            ? "Publiez d'abord l'expérience : sans elle, le lien mène à un écran d'attente."
+            : undefined}
           className="btn btn-primary"
-          style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}
+          style={{
+            display: "flex", alignItems: "center", gap: "8px", flexShrink: 0,
+            opacity: entry !== null && !entryIsOpen(entry) ? 0.5 : 1,
+            cursor: entry !== null && !entryIsOpen(entry) ? "not-allowed" : "pointer",
+          }}
         >
           {copiedId === "apply_link" ? <CheckCircle2 size={16} /> : <Link2 size={16} />}
           {copiedId === "apply_link" ? "Lien copié !" : "Copier le lien public"}

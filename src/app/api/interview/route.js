@@ -1,6 +1,6 @@
 import anthropic from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
-import { aggregateVideoScore, computeGlobalScore } from "@/lib/scoring";
+import { aggregateVideoScore, computeGlobalScore, resolveEnabledModules } from "@/lib/scoring";
 
 // ─── Construction du prompt système côté serveur ──────────────────────────────
 // Portée depuis InterviewModule (client) : le client ne construit plus le prompt,
@@ -208,14 +208,8 @@ Répondez UNIQUEMENT avec un JSON valide :
   // Score global — source unique : computeGlobalScore (formule proportionnelle),
   // alignée sur submitAssessment et la route vidéo (fin de l'ancien calcul 40/60
   // qui ignorait tests et vidéo et divergeait des autres chemins).
-  const assessmentConfig = candidate.jobs?.assessment_config || {};
-  const modules = assessmentConfig.modules || {};
-  const cvEnabled = modules.cv_scoring?.enabled ?? true;
-  const testsEnabled = modules.skills_tests?.enabled ?? false;
-  const interviewEnabled = modules.ai_interview?.enabled
-    ?? candidate.jobs?.ai_interview_config?.enabled
-    ?? false;
-  const videoEnabled = modules.video_interview?.enabled ?? false;
+  const { cv: cvEnabled, tests: testsEnabled, interview: interviewEnabled, video: videoEnabled } =
+    resolveEnabledModules(candidate.jobs);
 
   const { data: videoResps } = await supabase
     .from("video_interview_responses")

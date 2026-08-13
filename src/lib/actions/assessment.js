@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits, chargeCredits, planSetupCharges } from "../utils/limits";
-import { aggregateVideoScore, computeGlobalScore } from "../scoring";
+import { aggregateVideoScore, computeGlobalScore, resolveEnabledModules } from "../scoring";
 import { filterNonTestableSkills } from "../constants/taxonomie";
 
 /**
@@ -881,15 +881,8 @@ export async function submitAssessment(candidateId) {
 
     if (!candidate) throw new Error("Candidat introuvable");
 
-    const assessmentConfig = candidate.jobs?.assessment_config || {};
-    const modules = assessmentConfig.modules || {};
-
-    const cvEnabled       = modules.cv_scoring?.enabled ?? true;
-    const testsEnabled    = modules.skills_tests?.enabled ?? false;
-    const interviewEnabled = modules.ai_interview?.enabled
-      ?? candidate.jobs?.ai_interview_config?.enabled
-      ?? false;
-    const videoEnabled    = modules.video_interview?.enabled ?? false;
+    const { cv: cvEnabled, tests: testsEnabled, interview: interviewEnabled, video: videoEnabled } =
+      resolveEnabledModules(candidate.jobs);
 
     // Compute score_tests: average of all completed test sessions
     let scoreTests = null;

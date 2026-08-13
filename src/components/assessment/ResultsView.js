@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Brain, FileText, MessageSquare, Star, Loader2, CheckCircle2, Video } from "lucide-react";
 import { saveCandidateFeedback } from "@/lib/actions/assessment";
+import { resolveEnabledModules } from "@/lib/scoring";
 
 function getScoreColor(score) {
   if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: "Excellent" };
@@ -16,13 +17,8 @@ export default function ResultsView({ candidate, job, recruiter, testSessions, s
   const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
-  const modules = job?.assessment_config?.modules || {};
-  const aiConfig = job?.ai_interview_config || {};
-
-  const cvEnabled = modules.cv_scoring?.enabled ?? true;
-  const testsEnabled = modules.skills_tests?.enabled ?? false;
-  const interviewEnabled = modules.ai_interview?.enabled ?? aiConfig?.enabled ?? false;
-  const videoEnabled = modules.video_interview?.enabled ?? false;
+  const { cv: cvEnabled, tests: testsEnabled, interview: interviewEnabled, video: videoEnabled } =
+    resolveEnabledModules(job);
 
   const globalScore = candidate.score_global;
   const globalStyle = globalScore != null ? getScoreColor(globalScore) : null;

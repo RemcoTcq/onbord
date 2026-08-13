@@ -10,6 +10,7 @@ import ResultsView from "./ResultsView";
 import FullscreenGuard from "./FullscreenGuard";
 import QualifyingQuestionsModule from "./QualifyingQuestionsModule";
 import { getCandidateTestSessions, submitAssessment, passQualifyingQuestions } from "@/lib/actions/assessment";
+import { resolveEnabledModules } from "@/lib/scoring";
 import { createClient } from "@/lib/supabase/client";
 
 // Statuts qui ne doivent plus être rétrogradés
@@ -23,20 +24,18 @@ function shouldUpgradeStatus(currentStatus, newStatus) {
 
 function getModulesConfig(job, candidate) {
   const assessment = job?.assessment_config?.modules || {};
-  const aiConfig = job?.ai_interview_config || {};
-
-  const cvEnabled = assessment.cv_scoring?.enabled ?? true;
-  const testsEnabled = assessment.skills_tests?.enabled ?? false;
-  const interviewEnabled = assessment.ai_interview?.enabled ?? aiConfig?.enabled ?? false;
-  const videoEnabled = assessment.video_interview?.enabled ?? false;
+  // Défauts centralisés dans lib/scoring.js : ils étaient recopiés dans cinq
+  // fichiers, et le scoring CV y valait `?? true` — d'où un upload de CV isolé
+  // sur toute offre sans configuration.
+  const enabled = resolveEnabledModules(job);
 
   return {
-    qualifying: assessment.qualifying_questions?.enabled ?? false,
+    qualifying: enabled.qualifying,
     qualifyingConfig: assessment.qualifying_questions || {},
-    cv: cvEnabled,
-    tests: testsEnabled,
-    interview: interviewEnabled,
-    video: videoEnabled,
+    cv: enabled.cv,
+    tests: enabled.tests,
+    interview: enabled.interview,
+    video: enabled.video,
     videoConfig: assessment.video_interview || {},
     testsConfig: assessment.skills_tests || {},
   };

@@ -5,7 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Briefcase, ChevronRight, CheckCircle2 } from "lucide-react";
 import { applyForJob, getPublicJobAndBranding } from "@/lib/actions/candidate";
+import { getJobEntry } from "@/lib/actions/run";
+import { entryIsOpen } from "@/lib/candidateEntry";
 import CandidateOnboardingFlow from "@/components/assessment/CandidateOnboardingFlow";
+import CandidateNotice from "@/components/assessment/CandidateNotice";
 
 export default function ApplyPage() {
   const { job_id } = useParams();
@@ -15,17 +18,24 @@ export default function ApplyPage() {
   const [recruiter, setRecruiter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notReady, setNotReady] = useState(false); // aucune évaluation derrière ce lien
 
   useEffect(() => {
     async function fetchJob() {
       try {
         const res = await getPublicJobAndBranding(job_id);
         if (!res.success) throw new Error(res.error);
-        
+
         setJob(res.job);
         if (res.recruiter) {
           setRecruiter(res.recruiter);
         }
+
+        // Tant qu'aucune évaluation n'est prête, on ne collecte rien : ni nom,
+        // ni e-mail, ni consentement. Une candidature enregistrée sans parcours
+        // derrière est une promesse qu'on ne tient pas.
+        const { entry } = await getJobEntry(job_id);
+        if (!entryIsOpen(entry)) setNotReady(true);
       } catch (err) {
         console.error("fetchJob error:", err);
         setError(err.message || "Cette offre d'emploi est introuvable ou a été supprimée.");
@@ -72,6 +82,16 @@ export default function ApplyPage() {
           <p style={{ color: "var(--muted-foreground)" }}>{error}</p>
         </div>
       </div>
+    );
+  }
+
+  // ─── Offre ouverte mais évaluation pas encore publiée ─────────────────────
+  if (notReady) {
+    return (
+      <CandidateNotice recruiter={recruiter} job={job} title="Les candidatures ne sont pas encore ouvertes">
+        {`${recruiter?.company_name || "L'équipe recrutement"} finalise le processus de sélection pour ce poste. `
+          + `Revenez sur cette page dans quelques jours — vous pourrez alors postuler.`}
+      </CandidateNotice>
     );
   }
 

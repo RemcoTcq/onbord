@@ -296,6 +296,17 @@ export default function NouvelleDemandePage() {
           continue;
         }
 
+        // Bloc Expérience : c'est le parcours actuel, il ne passe PAS par
+        // assessment_config (il vit dans la table `experiences` et doit être
+        // publié depuis l'écran Expérience). On le trace quand même dans
+        // flow_order, sinon la configuration enregistrée laisse croire que
+        // l'offre n'a aucune évaluation — c'est ce silence qui produisait un
+        // parcours candidat vide.
+        if (node.type === 'experience') {
+          flowOrder.push('experience');
+          continue;
+        }
+
         if (node.type === 'qualifying_questions') {
           modules.qualifying_questions = { enabled: true, questions: node.config.questions || [] };
           flowOrder.push(node.type);

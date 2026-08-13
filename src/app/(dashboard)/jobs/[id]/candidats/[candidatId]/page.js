@@ -18,6 +18,7 @@ import { submitManualVideoScore } from "@/lib/actions/assessment";
 import EmailModal from "@/components/candidates/EmailModal";
 import FeedbackModal from "@/components/candidates/FeedbackModal";
 import { createClient } from "@/lib/supabase/client";
+import { resolveEnabledModules } from "@/lib/scoring";
 
 function getScoreColor(score) {
   if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: "Excellent" };
@@ -297,7 +298,7 @@ export default function CandidateDetailPage() {
             </div>
 
             <div style={{ display: "flex", gap: "1.5rem" }}>
-              {(candidate.jobs?.assessment_config?.modules?.cv_scoring?.enabled ?? true) && (
+              {resolveEnabledModules(candidate.jobs).cv && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: "1.5rem", fontWeight: "800", color: scoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_cv != null ? candidate.score_cv : "—"}%</div>
                   <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>CV</div>

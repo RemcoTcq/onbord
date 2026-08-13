@@ -13,6 +13,32 @@
 export const GLOBAL_SCORE_WEIGHTS = { cv: 10, tests: 50, interview: 40, video: 40 };
 
 /**
+ * Quels modules du parcours hérité sont actifs pour une offre ?
+ *
+ * Centralisé ici pour la même raison que `computeGlobalScore` : ces défauts
+ * étaient recopiés dans cinq fichiers, et le scoring CV y valait `?? true` —
+ * un module allumé sur toute offre sans configuration. Un candidat pouvait
+ * ainsi se voir réclamer un CV sans que personne l'ait demandé, et ce score
+ * entrait dans la pondération globale. Le défaut est désormais FALSE partout :
+ * un module doit être choisi explicitement.
+ *
+ * Les autres défauts (`?? false`) et le repli entretien sur `ai_interview_config`
+ * sont conservés à l'identique — seul le défaut CV change.
+ *
+ * @param {object} job ligne `jobs` (avec assessment_config et ai_interview_config)
+ */
+export function resolveEnabledModules(job) {
+  const modules = job?.assessment_config?.modules || {};
+  return {
+    cv: modules.cv_scoring?.enabled ?? false,
+    tests: modules.skills_tests?.enabled ?? false,
+    interview: modules.ai_interview?.enabled ?? job?.ai_interview_config?.enabled ?? false,
+    video: modules.video_interview?.enabled ?? false,
+    qualifying: modules.qualifying_questions?.enabled ?? false,
+  };
+}
+
+/**
  * Agrège les réponses d'entretien vidéo en un score /100 + un état de complétude.
  * La vidéo n'est jamais scorée sur du vide : `scoreVideo` reste null tant qu'aucune
  * réponse n'est évaluée, et `is_complete` n'est vrai que si TOUTES le sont.
