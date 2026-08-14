@@ -74,7 +74,8 @@ export async function updateStep(stepId, updates) {
     if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
 
     // Champs éditables uniquement (dont response_format, choisi par step)
-    const allowed = ["title", "prompt", "response_format", "sandbox_kind", "ai_assistant_allowed", "criteria", "config", "order_index"];
+    // `criteria` : colonne historique, contient les sous-dimensions de skill_assessed.
+    const allowed = ["title", "prompt", "response_format", "sandbox_kind", "ai_assistant_allowed", "skill_assessed", "criteria", "config", "order_index"];
     const safe = {};
     for (const k of allowed) if (updates[k] !== undefined) safe[k] = updates[k];
     safe.updated_at = new Date().toISOString();
@@ -184,7 +185,8 @@ export async function addStep(experienceId) {
     const { data: step, error } = await supabase.from("experience_steps").insert({
       experience_id: experienceId, order_index: nextIndex,
       kind: "question", response_format: "text", title: "Nouvelle étape",
-      prompt: "", sandbox_kind: "none", ai_assistant_allowed: false, criteria: [], config: {},
+      prompt: "", sandbox_kind: "none", ai_assistant_allowed: false,
+      skill_assessed: "", criteria: [], config: {},
     }).select().single();
     if (error) throw error;
     return { success: true, step };

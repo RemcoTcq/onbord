@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing } from "@/lib/crmScoring";
+import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, CRM_SKILL_NAME } from "@/lib/crmScoring";
 
 const SCORING_MODEL = "claude-sonnet-4-6";
 
@@ -51,8 +51,14 @@ export async function scoreRun(runId) {
   for (const m of aiMessages || []) { (aiByStep[m.step_id] ||= []).push(m); }
   const aiUsed = (aiMessages || []).some((m) => m.role === "user");
 
-  // Steps notables = ceux qui ont des critères BARS (exclut QCM qui sont scorés directement)
+  // Steps notables = ceux qui ont des sous-dimensions BARS (colonne `criteria`,
+  // nom historique). Exclut les QCM, scorés directement plus bas.
   const scored = (steps || []).filter((s) => (s.criteria || []).length > 0 && s.kind !== "classic_qcm");
+
+  // Compétence de regroupement d'un step. `skill_assessed` est vide sur les
+  // steps générés avant la migration 016 : on retombe alors sur la 1re valeur
+  // de targets_skills, puis sur rien du tout (affichage à plat côté rapport).
+  const skillOf = (s) => s.skill_assessed || (s.config?.targets_skills || [])[0] || "";
 
   // ── QCM : scoring direct (bonne/mauvaise réponse) ──
   const qcmSteps = (steps || []).filter((s) => s.kind === "classic_qcm");
@@ -63,7 +69,10 @@ export async function scoreRun(runId) {
     const isCorrect = selectedIdx != null && correctIdx != null && selectedIdx === correctIdx;
     return {
       step_id: s.id,
-      criterion_name: "QCM — Bonne réponse",
+      // Le QCM est regroupé sous la compétence qu'il teste, pas sous un libellé
+      // générique : le rapport recruteur le range avec le reste de la compétence.
+      skill_name: skillOf(s),
+      sub_dimension_name: "QCM — Bonne réponse",
       bars_level: isCorrect ? 5 : 1,
       score: isCorrect ? 100 : 0,
       justification: isCorrect
@@ -89,7 +98,10 @@ export async function scoreRun(runId) {
     const trapMissed = missed.filter((d) => d.is_trap);
     crmScores.push({
       step_id: s.id,
-      criterion_name: "Extraction d'information (champs factuels)",
+      // Même compétence que la sous-dimension "Croisement des sources" posée à la
+      // génération : les deux signaux de la fiche s'affichent groupés.
+      skill_name: CRM_SKILL_NAME,
+      sub_dimension_name: "Champs factuels",
       bars_level: crmBarsLevel(ev.score),
       score: ev.score,
       justification: missed.length === 0
@@ -107,10 +119,11 @@ export async function scoreRun(runId) {
   const traj = scored.map((s, i) => {
     const resp = respByStep[s.id];
     const answer = candidateAnswerText(s, resp);
-    const crits = (s.criteria || []).map((c) => {
+    const subDims = (s.criteria || []).map((c) => {
       const grid = (c.bars_levels || []).map((b) => `      N${b.level} (${b.label}) : ${b.description}`).join("\n");
       return `    • ${c.name}\n${grid}`;
     }).join("\n");
+    const skill = skillOf(s);
     const ai = (aiByStep[s.id] || []).map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n");
     // Piège du sandbox CRM : l'évaluateur doit connaître la contradiction placée
     // dans le brief pour juger si le candidat a croisé les sources.
@@ -125,14 +138,15 @@ export async function scoreRun(runId) {
   Énoncé : ${s.prompt}
 ${trap ? `${trap}\n` : ""}${revision}  Réponse du candidat :
   """${answer}"""
-  Critères à noter :
-${crits}${ai ? `\n  Échanges avec l'assistant IA :\n${ai}` : ""}`;
+  Compétence évaluée : ${skill || "(non précisée)"}
+  Sous-dimensions à noter :
+${subDims}${ai ? `\n  Échanges avec l'assistant IA :\n${ai}` : ""}`;
   }).join("\n\n");
 
-  const system = `Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une trajectoire d'évaluation, critère par critère, selon des grilles BARS DÉFINIES À L'AVANCE. Tu ne notes QUE sur ces critères, jamais sur des critères inventés.
+  const system = `Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles BARS DÉFINIES À L'AVANCE. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
 
 RÈGLES ABSOLUES :
-- Pour chaque critère, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
+- Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
 - Justifie chaque note et cite un VERBATIM : un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle). Si rien de pertinent, verbatim = "" et note basse.
 - La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
@@ -145,13 +159,13 @@ L'assistant IA a-t-il été utilisé sur ce run : ${aiUsed ? "OUI" : "NON"}.
 
 Réponds avec ce JSON exact :
 {
-  "criterion_scores": [
-    { "step_id": "id exact", "criterion_name": "nom exact", "bars_level": 1-5, "justification": "…", "verbatim": "extrait exact de la réponse" }
+  "sub_dimension_scores": [
+    { "step_id": "id exact", "skill_name": "nom exact de la compétence évaluée à cette étape", "sub_dimension_name": "nom exact de la sous-dimension", "bars_level": 1-5, "justification": "…", "verbatim": "extrait exact de la réponse" }
   ],
   "ai_usage": { "used": ${aiUsed}, "score": 0-100, "justification": "…" },
   "summary": "Synthèse de 2-3 phrases, factuelle."
 }
-Le champ score de chaque critère sera calculé automatiquement à partir du bars_level ; ne le fournis pas. Si used=false, mets ai_usage.score à null.`;
+Une entrée par sous-dimension listée, sans exception. Le champ score sera calculé automatiquement à partir du bars_level ; ne le fournis pas. Si used=false, mets ai_usage.score à null.`;
 
   let critScores = [];
   let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
@@ -172,14 +186,17 @@ Le champ score de chaque critère sera calculé automatiquement à partir du bar
     parsed = JSON.parse(match[0]);
 
     // Post-traitement : score dérivé du niveau BARS + vérification verbatim
-    critScores = (parsed.criterion_scores || []).map((c) => {
+    critScores = (parsed.sub_dimension_scores || []).map((c) => {
       const level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
       const score = (level - 1) * 25;
       const step = scored.find((s) => s.id === c.step_id);
       const src = step ? candidateAnswerText(step, respByStep[step.id]) : "";
       return {
         step_id: c.step_id,
-        criterion_name: c.criterion_name,
+        // La compétence vient du step, pas du modèle : elle sert de clé de
+        // regroupement à l'affichage et ne doit pas dériver d'une reformulation.
+        skill_name: step ? skillOf(step) : (c.skill_name || ""),
+        sub_dimension_name: c.sub_dimension_name || "",
         bars_level: level,
         score,
         justification: c.justification || "",

@@ -277,7 +277,8 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
 
   function set(field, value) { setLocal((p) => ({ ...p, [field]: value })); setDirty(true); }
 
-  function setCriterion(ci, field, value) {
+  // `criteria` : nom de colonne historique, contient les sous-dimensions.
+  function setSubDimension(ci, field, value) {
     setLocal((p) => {
       const criteria = [...(p.criteria || [])];
       criteria[ci] = { ...criteria[ci], [field]: value };
@@ -295,11 +296,11 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
     });
     setDirty(true);
   }
-  function addCriterion() {
+  function addSubDimension() {
     setLocal((p) => ({
       ...p,
       criteria: [...(p.criteria || []), {
-        name: "Nouveau critère",
+        name: "Nouvelle sous-dimension",
         bars_levels: [
           { level: 1, label: "Insuffisant", description: "" },
           { level: 3, label: "Attendu", description: "" },
@@ -309,7 +310,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
     }));
     setDirty(true);
   }
-  function removeCriterion(ci) {
+  function removeSubDimension(ci) {
     setLocal((p) => ({ ...p, criteria: (p.criteria || []).filter((_, i) => i !== ci) }));
     setDirty(true);
   }
@@ -319,7 +320,8 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
     const res = await updateStep(step.id, {
       title: local.title, prompt: local.prompt,
       response_format: local.response_format, sandbox_kind: local.sandbox_kind,
-      ai_assistant_allowed: local.ai_assistant_allowed, criteria: local.criteria,
+      ai_assistant_allowed: local.ai_assistant_allowed,
+      skill_assessed: local.skill_assessed, criteria: local.criteria,
       config: local.config,
     });
     if (res.success) { setDirty(false); toast("Étape enregistrée"); }
@@ -403,30 +405,44 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         )}
       </div>
 
-      {/* Critères BARS (non qualifying, non QCM) */}
+      {/* Compétence évaluée + ses sous-dimensions BARS (ni qualifying, ni QCM).
+          Les sous-dimensions décomposent UNE compétence : elles sont donc
+          présentées à l'intérieur de son cadre, pas en liste plate. */}
       {!isQualifying && !isQcm && (
         <div style={{ marginTop: "1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-            <label style={{ ...labelStyle, margin: 0 }}>Critères d'évaluation (BARS)</label>
-            <button className="btn btn-ghost btn-sm" onClick={addCriterion} style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-              <Plus size={13} /> Critère
-            </button>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {(local.criteria || []).map((c, ci) => (
-              <div key={ci} style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "0.75rem" }}>
-                <div style={{ display: "flex", gap: "8px", marginBottom: "0.5rem" }}>
-                  <input value={c.name || ""} onChange={(e) => setCriterion(ci, "name", e.target.value)} placeholder="Nom du critère" style={{ ...inputStyle, fontWeight: 700, marginBottom: 0 }} />
-                  <button className="btn btn-ghost btn-sm" onClick={() => removeCriterion(ci)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
-                </div>
-                {(c.bars_levels || []).map((b, li) => (
-                  <div key={li} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "70px", flexShrink: 0, paddingTop: "8px" }}>N{b.level} {b.label}</span>
-                    <textarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", resize: "vertical" }} />
+          <label style={labelStyle}>Compétence évaluée</label>
+          <input
+            value={local.skill_assessed || ""}
+            onChange={(e) => set("skill_assessed", e.target.value)}
+            placeholder="Compétence principale ciblée par cette étape"
+            style={{ ...inputStyle, fontWeight: 700 }}
+          />
+
+          <div style={{ borderLeft: "2px solid var(--border)", paddingLeft: "0.85rem", marginTop: "0.35rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+              <label style={{ ...labelStyle, margin: 0 }}>
+                Sous-dimensions (BARS){local.skill_assessed ? ` — ${local.skill_assessed}` : ""}
+              </label>
+              <button className="btn btn-ghost btn-sm" onClick={addSubDimension} style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                <Plus size={13} /> Sous-dimension
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {(local.criteria || []).map((c, ci) => (
+                <div key={ci} style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "0.75rem" }}>
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "0.5rem" }}>
+                    <input value={c.name || ""} onChange={(e) => setSubDimension(ci, "name", e.target.value)} placeholder="Nom de la sous-dimension" style={{ ...inputStyle, fontWeight: 700, marginBottom: 0 }} />
+                    <button className="btn btn-ghost btn-sm" onClick={() => removeSubDimension(ci)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
                   </div>
-                ))}
-              </div>
-            ))}
+                  {(c.bars_levels || []).map((b, li) => (
+                    <div key={li} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "70px", flexShrink: 0, paddingTop: "8px" }}>N{b.level} {b.label}</span>
+                      <textarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", resize: "vertical" }} />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

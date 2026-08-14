@@ -39,7 +39,25 @@ function expAnswerText(step) {
   return r.text_answer || "(pas de réponse)";
 }
 
+// "qualifying" n'est plus généré (le filtre vit en amont du parcours) ; le
+// libellé reste pour les expériences publiées avant ce changement.
 const EXP_KIND_LABELS = { qualifying: "Qualificative", question: "Question ciblée", task: "Tâche", classic_qcm: "QCM" };
+
+// Regroupe les scores d'une étape par compétence, dans l'ordre d'arrivée.
+// AUCUNE agrégation : on n'additionne ni ne moyenne rien, chaque sous-dimension
+// garde sa note. Les scores sans skill_name (runs antérieurs à la migration
+// 016) tombent dans un groupe sans titre et s'affichent à plat, comme avant.
+function groupScoresBySkill(scores) {
+  const groups = [];
+  const bySkill = new Map();
+  for (const s of scores || []) {
+    const skill = s.skill_name || "";
+    let group = bySkill.get(skill);
+    if (!group) { group = { skill, items: [] }; bySkill.set(skill, group); groups.push(group); }
+    group.items.push(s);
+  }
+  return groups;
+}
 
 function getStatusBadge(status) {
   const map = {
@@ -432,13 +450,23 @@ export default function CandidateDetailPage() {
                           <video src={step.response.video_url} controls style={{ width: "100%", maxWidth: 400, marginTop: "10px", borderRadius: 8, border: "1px solid var(--border)", background: "black" }} />
                         )}
 
-                        {/* Critères BARS + justification + verbatim */}
+                        {/* Sous-dimensions notées, regroupées par compétence.
+                            Pas de score agrégé par compétence : chaque sous-dimension
+                            garde sa note et sa justification, le regroupement est
+                            purement visuel. */}
                         {step.criteria.length > 0 && (
-                          <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                            {step.criteria.map((cs, ci) => (
+                          <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                            {groupScoresBySkill(step.criteria).map((group, gi) => (
+                            <div key={gi} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {group.skill && (
+                              <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--muted-foreground)" }}>
+                                {group.skill}
+                              </div>
+                            )}
+                            {group.items.map((cs, ci) => (
                               <div key={ci} style={{ background: "var(--background)", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", gap: 8 }}>
-                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>{cs.criterion_name}</span>
+                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>{cs.sub_dimension_name || cs.criterion_name}</span>
                                   <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(cs.score).color, whiteSpace: "nowrap" }}>N{cs.bars_level} · {cs.score}%</span>
                                 </div>
                                 {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details ? "6px" : 0 }}>🧠 {cs.justification}</p>}
@@ -478,6 +506,8 @@ export default function CandidateDetailPage() {
                                   </div>
                                 )}
                               </div>
+                            ))}
+                            </div>
                             ))}
                           </div>
                         )}

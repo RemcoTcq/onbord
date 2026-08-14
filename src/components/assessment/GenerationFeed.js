@@ -58,7 +58,7 @@ const STEP_KIND_LABEL = {
 };
 
 // Les entrées "enfant" sont indentées sous l'étape à laquelle elles se rattachent.
-const NESTED = new Set(['criterion', 'source', 'field', 'trap']);
+const NESTED = new Set(['skill', 'criterion', 'source', 'field', 'trap']);
 
 // Renvoie l'élément, pas le composant : un composant créé pendant le rendu
 // serait remonté à chaque passe (react-hooks/static-components).
@@ -69,6 +69,7 @@ function feedIcon(kind, size = 13) {
     case 'brief': return <Target size={size} />;
     case 'design_start': return <Sparkles size={size} />;
     case 'step': return <ListChecks size={size} />;
+    case 'skill': return <Target size={size} />;
     case 'crm_start': return <Contact size={size} />;
     case 'trap': return <AlertTriangle size={size} />;
     case 'version':
@@ -80,7 +81,8 @@ function feedIcon(kind, size = 13) {
 function feedText(e) {
   switch (e.kind) {
     case 'step': return `Étape ${e.n} — ${STEP_KIND_LABEL[e.stepKind] || e.stepKind || 'Étape'} : ${e.label}`;
-    case 'criterion': return `Critère BARS : ${e.label}`;
+    case 'skill': return `Compétence évaluée : ${e.label}`;
+    case 'criterion': return `Sous-dimension : ${e.label}`;
     case 'source': return `Source du brief : ${{ email: 'email', call_transcript: "retranscription d'appel", chat: 'message entrant', note: 'note interne' }[e.label] || e.label}`;
     case 'field': return `Champ de la fiche : ${e.label}`;
     case 'trap': return `Incohérence volontaire : ${e.label}`;

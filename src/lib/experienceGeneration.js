@@ -9,6 +9,7 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
+import { CRM_SKILL_NAME } from "@/lib/crmScoring";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -42,36 +43,39 @@ CONTEXTE ENTREPRISE :
 ${companyBlock}
 ${additionalContext ? `\nPRÉCISIONS DU RECRUTEUR (issues de l'échange — À PRENDRE EN COMPTE EN PRIORITÉ) :\n${additionalContext}\n` : ""}
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
-- "qualifying" : filtre binaire éliminatoire (langue, expérience min, diplôme, localisation). Réponse attendue oui/non. PAS de critères BARS.
 - "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
 - "task" : tâche courte et réaliste inspirée du poste (rédiger un email client, répondre à une situation, produire un court document/analyse). C'est le cœur de la preuve.
 - "classic_qcm" : QCM quand une connaissance se teste mieux ainsi et qu'aucune tâche n'est pertinente.
 
+Ne génère jamais d'étape de filtre qualificatif (langue, expérience minimale, diplôme, localisation) — ce filtre existe déjà ailleurs dans le parcours, avant cette expérience. Toutes les étapes que tu génères ici évaluent une compétence, aucune n'élimine sur un critère administratif.
+
 RÈGLES :
-1. 3 à 6 étapes au total, durée cumulée 5–20 min. Mets les "qualifying" en premier.
+1. 3 à 6 étapes au total, durée cumulée 5–20 min.
 2. Inclus AU MOINS DEUX "task" réalistes ancrées dans le métier et le contexte entreprise. C'est le cœur de la preuve.
 3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
 4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
-5. Pour CHAQUE étape non-"qualifying", propose "response_format" par défaut :
+5. Pour CHAQUE étape, propose "response_format" par défaut :
    - "text" pour l'écrit (emails, analyses, réponses techniques),
    - "video" pour l'oral/le relationnel — TOUJOURS sous forme de mise en situation jouée en direct (règle 4),
    - "qcm" pour un QCM,
    - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
    Le recruteur pourra changer ce défaut ; propose le plus pertinent.
-6. Pour CHAQUE étape non-"qualifying", génère 2 à 3 critères BARS : nom court (2–4 mots) + grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent) avec des descriptions COMPORTEMENTALES et OBSERVABLES.
-   IMPORTANT pour les niveaux BARS :
+6. Pour CHAQUE étape de type "question" ou "task", identifie la compétence principale ciblée (reprise des COMPÉTENCES TECHNIQUES ou du SAVOIR-ÊTRE ci-dessus) dans "skill_assessed", et décompose-la en 2 à 3 SOUS-DIMENSIONS observables — pas une liste de critères plats, une vraie décomposition de ce que "bien réussir cette compétence" veut dire concrètement dans ce contexte. Chaque sous-dimension reçoit sa propre grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent), avec des descriptions COMPORTEMENTALES et OBSERVABLES.
+   Exemple de décomposition : la compétence "Travail d'équipe" se décompose en sous-dimensions "Collaboration", "Soutien aux collègues", "Communication" — chacune notée séparément, pas fondue en un seul critère générique "travail d'équipe".
+   IMPORTANT pour les niveaux de chaque sous-dimension :
    - Chaque description DOIT inclure un exemple concret de ce que le candidat fait ou écrit (un mini-verbatim fictif illustratif entre guillemets).
-   - Exemple pour "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
+   - Exemple pour la sous-dimension "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
    - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
+   Une étape de type "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement, pas par grille).
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
 8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
-   - Pour "email" : config.to, config.subject, config.context (ex: { "to": "client@example.com", "subject": "Suivi de votre demande", "context": "Email professionnel à un client mécontent" })
+   - Pour "email" : config.to, config.subject, config.context
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
-   - Pour "document" : config.document_context (description du document à produire)
-   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation (qui est le prospect/client, ce qu'il demande, par quels canaux l'information arrive). Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
-   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers (email, appel, message) et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat. C'est la seule sandbox qui teste l'EXTRACTION et l'ORGANISATION de l'information plutôt que la communication.
-   NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience (c'est le step le plus long à remplir), et son "response_format" doit être "text".
+   - Pour "document" : config.document_context
+   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation. Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
+   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat.
+   NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience, et son "response_format" doit être "text".
 9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
 
 RÈGLES QCM ANTI-BIAIS :
@@ -85,16 +89,17 @@ Réponds UNIQUEMENT avec un JSON valide :
   "estimated_minutes": 12,
   "steps": [
     {
-      "kind": "qualifying|question|task|classic_qcm",
+      "kind": "question|task|classic_qcm",
       "title": "Titre court",
       "prompt": "Énoncé lu tel quel au candidat (vouvoiement)",
       "response_format": "text|video|qcm|choice",
-      "sandbox_kind": "none|email|client_reply|document|code",
+      "sandbox_kind": "none|email|client_reply|document|code|crm",
       "ai_assistant_allowed": true,
       "targets_skills": ["Compétence ciblée"],
       "config": {},
-      "criteria": [
-        { "name": "Nom du critère", "bars_levels": [
+      "skill_assessed": "Nom de la compétence principale ciblée par cette étape",
+      "sub_dimensions": [
+        { "name": "Nom de la sous-dimension", "bars_levels": [
           { "level": 1, "label": "Insuffisant", "description": "..." },
           { "level": 3, "label": "Attendu", "description": "..." },
           { "level": 5, "label": "Excellent", "description": "..." }
@@ -103,8 +108,7 @@ Réponds UNIQUEMENT avec un JSON valide :
     }
   ]
 }
-Pour "qualifying", mets "criteria": [] et "config": { "expected_answer": "yes" }.
-Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — SANS critères BARS (criteria: []).`;
+Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "skill_assessed" et "sub_dimensions" restent vides ([] et "").`;
 }
 
 // ─── Prompt de la 2e passe : scénario complet d'un step "crm" ─────────────────
@@ -171,8 +175,8 @@ Réponds UNIQUEMENT avec un JSON valide :
 Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
 }
 
-// Critère BARS ajouté d'office sur un step CRM : la justesse du champ piégé est
-// corrigée automatiquement, mais VOIR la contradiction est un comportement
+// Sous-dimension ajoutée d'office sur un step CRM : la justesse du champ piégé
+// est corrigée automatiquement, mais VOIR la contradiction est un comportement
 // distinct — un candidat peut avoir juste par chance. Les deux signaux comptent.
 const CRM_CROSS_CHECK_CRITERION = {
   name: "Croisement des sources",
@@ -292,6 +296,7 @@ function makeExperienceScanner(onEvent) {
     [
       { key: "kind", re: `"kind"\\s*:\\s*"([a-z_]+)"` },
       { key: "title", re: `"title"\\s*:\\s*"(${STR})"` },
+      { key: "skill", re: `"skill_assessed"\\s*:\\s*"(${STR})"` },
       { key: "criterion", re: `"name"\\s*:\\s*"(${STR})"` },
     ],
     (key, value) => {
@@ -299,6 +304,11 @@ function makeExperienceScanner(onEvent) {
       if (key === "title") {
         stepNo += 1;
         onEvent({ kind: "step", n: stepNo, stepKind: kind, label: value });
+        return;
+      }
+      // Une compétence vide (cas du QCM) n'a rien à annoncer dans le feed.
+      if (key === "skill") {
+        if (value) onEvent({ kind: "skill", n: stepNo, label: value });
         return;
       }
       onEvent({ kind: "criterion", n: stepNo, label: value });
@@ -381,8 +391,12 @@ export async function generateExperienceContent({ title, description, criteria, 
           if (step_prompt) s.prompt = step_prompt;
           s.config = { ...(s.config || {}), crm: crmConfig };
           delete s.config.crm_brief;
-          const hasCrossCheck = (s.criteria || []).some((c) => /crois|source/i.test(c.name || ""));
-          if (!hasCrossCheck) s.criteria = [...(s.criteria || []), CRM_CROSS_CHECK_CRITERION];
+          // La fiche CRM est structurée sous une compétence fixe : c'est elle qui
+          // regroupe à la fois la correction déterministe des champs factuels et
+          // la sous-dimension "Croisement des sources" ci-dessous (décision D).
+          s.skill_assessed = CRM_SKILL_NAME;
+          const hasCrossCheck = (s.sub_dimensions || []).some((c) => /crois|source/i.test(c.name || ""));
+          if (!hasCrossCheck) s.sub_dimensions = [...(s.sub_dimensions || []), CRM_CROSS_CHECK_CRITERION];
         }
         return { success: true, experience: parsed, usage: mergeUsage([usage, ...extraUsages]) };
       } catch (e) {
@@ -493,12 +507,16 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       experience_id: experience.id,
       order_index: i,
       kind: s.kind,
-      response_format: s.response_format || (s.kind === "qualifying" ? "choice" : "text"),
+      response_format: s.response_format || "text",
       title: s.title || null,
       prompt: s.prompt || null,
       sandbox_kind: s.sandbox_kind || "none",
       ai_assistant_allowed: !!s.ai_assistant_allowed,
-      criteria: s.criteria || [],
+      skill_assessed: s.skill_assessed || null,
+      // Nom de colonne historique : contient désormais les sous-dimensions de
+      // skill_assessed. `|| s.criteria` : tolérance si le modèle retombe sur
+      // l'ancienne clé malgré le schéma demandé.
+      criteria: s.sub_dimensions || s.criteria || [],
       config: { ...(s.config || {}), targets_skills: s.targets_skills || [] },
     }));
     if (rows.length > 0) {
@@ -506,8 +524,8 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       if (stepsErr) throw stepsErr;
     }
 
-    const nbCriteria = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
-    onEvent?.({ kind: "saved", label: `${rows.length} étapes et ${nbCriteria} critères BARS enregistrés` });
+    const nbSubDims = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
+    onEvent?.({ kind: "saved", label: `${rows.length} étapes et ${nbSubDims} sous-dimensions enregistrées` });
     onEvent?.({ kind: "done", label: "Expérience prête pour relecture" });
 
     return { success: true, experienceId: experience.id, usage: gen.usage };

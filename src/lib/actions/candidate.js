@@ -483,7 +483,7 @@ export async function getCandidateDetail(candidateId) {
     if (expRun) {
       const [{ data: rSteps }, { data: rResponses }, { data: rAiMsgs }] = await Promise.all([
         admin.from('experience_steps')
-          .select('id, order_index, kind, title, prompt, response_format, sandbox_kind')
+          .select('id, order_index, kind, title, prompt, response_format, sandbox_kind, skill_assessed')
           .eq('experience_id', expRun.experience_id).order('order_index'),
         admin.from('run_step_responses')
           .select('step_id, response_format, text_answer, transcript, video_url, meta, status')
@@ -512,7 +512,10 @@ export async function getCandidateDetail(candidateId) {
           title: s.title,
           prompt: s.prompt,
           response_format: s.response_format,
+          skill_assessed: s.skill_assessed || null,
           response: respByStep[s.id] || null,
+          // Scores par sous-dimension ; chacun porte son skill_name, qui sert de
+          // clé de regroupement à l'affichage. Vide sur les runs pré-016.
           criteria: critByStep[s.id] || [],
           ai_messages: aiByStep[s.id] || [],
         })),

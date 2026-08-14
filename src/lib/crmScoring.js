@@ -9,6 +9,12 @@
 // Module PUR (aucun accès DB / réseau) : importé côté run candidat (avertissement
 // non spécifique) ET côté scoring (détail complet pour le rapport recruteur).
 
+// Compétence sous laquelle est regroupée toute la fiche CRM : la correction
+// déterministe des champs factuels ET la sous-dimension "Croisement des
+// sources". Partagée par la génération (skill_assessed du step) et le scoring
+// (skill_name du score) pour que le rapport recruteur les affiche ensemble.
+export const CRM_SKILL_NAME = "Extraction d'information";
+
 // Normalisation de comparaison : casse, accents, ponctuation, espaces.
 export function normalizeText(value) {
   return String(value ?? "")
