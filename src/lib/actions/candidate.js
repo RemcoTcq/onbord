@@ -318,9 +318,18 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
 
     await assertJobAcceptsCandidates(jobId);
 
+    // Toutes les opérations sur `candidates` passent par le service_role : le
+    // candidat qui postule est ANONYME, et depuis la migration 014 le rôle anon
+    // n'a plus aucun droit de lecture sur cette table (il ne lui reste qu'un
+    // INSERT). Avec le client anon, l'anti-doublon ci-dessous ne trouverait
+    // plus jamais rien — il créerait des doublons en silence — et le `.select()`
+    // de l'insert échouerait, le RETURNING d'un insert exigeant un droit SELECT.
+    // La digue métier reste au-dessus : assertJobAcceptsCandidates.
+    const admin = createAdminClient();
+
     // ── Anti-doublon : vérifier si un candidat avec ce même email a déjà postulé ──
     if (email) {
-      const { data: existing } = await supabase
+      const { data: existing } = await admin
         .from('candidates')
         .select('id, interview_token, assessment_status')
         .eq('job_id', jobId)
@@ -331,9 +340,9 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
         // Renvoyer vers l'assessment existant plutôt que créer un doublon.
         // Le consentement est tout de même (re)posé s'il vient d'être donné :
         // c'est ce que faisait l'update navigateur, qui ne distinguait pas les
-        // deux cas. En admin, car l'appelant est ici anonyme.
+        // deux cas.
         if (gdprConsentAt) {
-          await createAdminClient()
+          await admin
             .from("candidates")
             .update({ gdpr_consent_at: gdprConsentAt })
             .eq("id", existing.id);
@@ -348,7 +357,7 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
     // 5 days from now
     const expiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: candidate, error } = await supabase
+    const { data: candidate, error } = await admin
       .from('candidates')
       .insert({
         job_id: jobId,
