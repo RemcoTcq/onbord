@@ -1,0 +1,44 @@
+-- ============================================================================
+-- Migration 015 — Fermeture de la dernière porte anonyme sur candidates
+-- ============================================================================
+-- ⚠️  À APPLIQUER **APRÈS** LE DÉPLOIEMENT DU COMMIT 0b5ecd9, jamais avant.
+--     Ce commit fait passer applyForJob en service_role ; tant qu'il n'est pas
+--     en ligne, la candidature publique dépend encore de la policy supprimée ici.
+--
+-- La migration 014 avait conservé « Public can insert candidates »
+-- (INSERT, WITH CHECK true) parce qu'applyForJob s'exécutait alors avec le
+-- client SSR anon. Ce n'est plus le cas : toutes les opérations sur candidates
+-- passent désormais par createAdminClient(), l'appelant étant anonyme et le rôle
+-- anon n'ayant plus aucun droit de lecture sur la table depuis 014.
+--
+-- Cette policy était la dernière porte ouverte : n'importe qui disposant de la
+-- clé anon — publique, présente dans le bundle JS — pouvait insérer des lignes
+-- arbitraires dans candidates (candidatures fantômes, pollution des pipelines).
+-- Aucun code ne s'en sert plus.
+--
+-- Inventaire des inserts sur candidates au moment de l'écriture :
+--   - lib/actions/candidate.js:202 (scoreCandidate, import CV) : contexte
+--     recruteur authentifié -> couvert par « Users can insert own candidates » ;
+--   - lib/actions/candidate.js:269 (createCandidateShell) : aucun appelant,
+--     code mort ;
+--   - lib/actions/candidate.js:361 (applyForJob) : service_role, contourne RLS.
+--
+-- Après cette migration, candidates ne porte plus que les 6 policies
+-- d'ownership recruteur. Aucun accès anonyme, en lecture comme en écriture.
+-- ============================================================================
+
+drop policy if exists "Public can insert candidates" on public.candidates;
+
+-- ── Vérification (à lancer après application) ───────────────────────────────
+-- 1) Doit renvoyer exactement 6 lignes, toutes préfixées « Users can ... » :
+--
+--   select polname, polcmd from pg_policy
+--   where polrelid = 'public.candidates'::regclass order by polcmd, polname;
+--
+-- 2) Un visiteur anonyme ne doit RIEN pouvoir faire — doit lever
+--    « new row violates row-level security policy » :
+--
+--   begin;
+--   set local role anon;
+--   insert into public.candidates (job_id, first_name) values (null, 'test');
+--   rollback;
