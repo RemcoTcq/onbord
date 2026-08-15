@@ -149,6 +149,7 @@ RÈGLES ABSOLUES :
 - Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
 - Justifie chaque note et cite un VERBATIM : un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle). Si rien de pertinent, verbatim = "" et note basse.
 - La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.
+- Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes (cadrage, itération, regard critique), dis pour chacun ce que le candidat a fait ou n'a pas fait, et appuie-toi sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
 
   const user = `TRAJECTOIRE DU CANDIDAT :
@@ -236,16 +237,30 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
     : null;
   const rawAi = parsed.ai_usage?.used ? parsed.ai_usage?.score : null;
   const aiUsageScore = rawAi == null ? null : Math.round(Math.max(0, Math.min(100, Number(rawAi))));
+  // Le modèle produisait déjà cette justification, mais elle n'était pas
+  // conservée : le recruteur voyait un pourcentage nu là où chaque
+  // sous-dimension BARS porte, elle, son explication.
+  const aiUsageJustification = parsed.ai_usage?.used ? (parsed.ai_usage?.justification || null) : null;
 
-  await admin.from("run_scores").upsert({
+  const { error: upsertError } = await admin.from("run_scores").upsert({
     run_id: runId,
     overall,
     ai_usage_used: !!parsed.ai_usage?.used,
     ai_usage_score: aiUsageScore,
+    ai_usage_justification: aiUsageJustification,
     summary: parsed.summary || "",
     criterion_scores: allScores,
     scoring_usage: usage,
   }, { onConflict: "run_id" });
+
+  // Cette écriture n'était pas contrôlée : un échec (schéma en retard sur le
+  // code, contrainte, coupure) passait inaperçu et le run était tout de même
+  // marqué "scored" — donc figé sans score et non rejouable. On échoue net et
+  // on laisse le run en "submitted", comme pour les erreurs de scoring.
+  if (upsertError) {
+    console.error(`scoreRun ${runId} : écriture run_scores refusée — ${upsertError.code} ${upsertError.message}`);
+    return { success: false, error: "Scoring : enregistrement refusé" };
+  }
 
   await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
 

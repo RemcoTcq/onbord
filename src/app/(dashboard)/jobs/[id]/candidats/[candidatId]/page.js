@@ -511,13 +511,43 @@ export default function CandidateDetailPage() {
 
                 {rep.summary && <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.25rem" }}>{rep.summary}</p>}
 
-                {rep.ai_usage_used && (
+                {rep.ai_usage_used ? (
                   <div style={{ marginBottom: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> Usage de l'Assistant IA</span>
+                      <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> Usage de l&apos;Assistant IA</span>
                       {rep.ai_usage_score != null && <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(rep.ai_usage_score).color }}>{rep.ai_usage_score}%</span>}
                     </div>
-                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>Mesure <em>comment</em> le candidat a piloté l'IA (voir les échanges par étape ci-dessous).</p>
+                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>
+                      Mesure <em>comment</em> le candidat a piloté l&apos;IA, pas s&apos;il l&apos;a utilisée
+                      {rep.ai_usage_prompts > 0 && <> — {rep.ai_usage_prompts} sollicitation{rep.ai_usage_prompts > 1 ? "s" : ""} de l&apos;assistant sur ce parcours</>}.
+                    </p>
+
+                    {/* Les trois axes de jugement, énoncés au recruteur : ce sont
+                        ceux imposés à l'évaluateur dans le prompt de scoring. */}
+                    <div style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {["Cadrage du problème", "Itération", "Regard critique sur la sortie"].map((axe) => (
+                        <span key={axe} style={{ background: "var(--secondary)", borderRadius: "99px", padding: "2px 8px", fontWeight: 600 }}>{axe}</span>
+                      ))}
+                    </div>
+
+                    {rep.ai_usage_justification ? (
+                      <p style={{ fontSize: "12px", color: "var(--foreground)", lineHeight: "1.55", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+                        🧠 {rep.ai_usage_justification}
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+                        Justification indisponible : ce run a été évalué avant que cette explication soit conservée. Un nouveau scoring la produira.
+                      </p>
+                    )}
+                  </div>
+                ) : rep.scored && (
+                  // Sans cette ligne, l'absence de note d'usage de l'IA ressemble
+                  // à une donnée manquante alors que c'est un choix assumé.
+                  <div style={{ marginBottom: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> Usage de l&apos;Assistant IA — non noté</span>
+                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>
+                      Le candidat n&apos;a pas sollicité l&apos;assistant. Cette dimension mesure <em>comment</em> il l&apos;aurait piloté : elle n&apos;est pas notée en son absence, et ne pénalise pas le score global.
+                    </p>
                   </div>
                 )}
 

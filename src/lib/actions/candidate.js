@@ -515,6 +515,11 @@ export async function getCandidateDetail(candidateId) {
         summary: rs?.summary || null,
         ai_usage_used: !!rs?.ai_usage_used,
         ai_usage_score: rs?.ai_usage_score ?? null,
+        // NULL sur les runs scorés avant la migration 017 : l'écran masque
+        // alors simplement le bloc d'explication.
+        ai_usage_justification: rs?.ai_usage_justification ?? null,
+        // Nombre de sollicitations réelles de l'assistant, pour situer la note.
+        ai_usage_prompts: (rAiMsgs || []).filter((m) => m.role === 'user').length,
         steps: (rSteps || []).map((s) => ({
           id: s.id,
           order_index: s.order_index,
