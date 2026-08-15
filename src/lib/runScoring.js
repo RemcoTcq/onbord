@@ -171,19 +171,41 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
   let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
   let usage = {};
 
+  // Le budget de sortie se dimensionne sur le nombre de SOUS-DIMENSIONS, pas de
+  // steps : le modèle rend une entrée JSON par sous-dimension (justification +
+  // verbatim), ~250 tokens mesurés. Compter les steps sous-évaluait le besoin
+  // d'un facteur 3 et tronquait la réponse au milieu du JSON.
+  const subDimCount = scored.reduce((n, s) => n + (s.criteria || []).length, 0);
+
   // Appeler Claude seulement s'il y a des steps BARS à évaluer
   if (scored.length > 0) {
     const response = await anthropic.messages.create({
-      model: SCORING_MODEL, max_tokens: Math.min(4000, 600 + scored.length * 500), temperature: 0.1,
+      model: SCORING_MODEL, max_tokens: Math.min(16000, 1000 + subDimCount * 400), temperature: 0.1,
       system, messages: [{ role: "user", content: user }],
     });
     usage = computeAiCost(SCORING_MODEL, response.usage);
+
+    // Sur échec, le run RESTE en "submitted". Le passer à "scored" sans ligne
+    // run_scores le rendrait définitivement irrécupérable : le garde-fou en tête
+    // de fonction sort immédiatement sur status === "scored", donc plus aucune
+    // relance ne pourrait aboutir.
+    if (response.stop_reason === "max_tokens") {
+      console.error(`scoreRun ${runId} : réponse tronquée (max_tokens) sur ${subDimCount} sous-dimensions`);
+      return { success: false, error: "Scoring : réponse tronquée" };
+    }
     const match = response.content[0].text.match(/\{[\s\S]*\}/);
     if (!match) {
-      await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
+      console.error(`scoreRun ${runId} : aucun JSON dans la réponse du modèle`);
       return { success: false, error: "Scoring : JSON invalide" };
     }
-    parsed = JSON.parse(match[0]);
+    // Un JSON tronqué passe la regex (elle s'arrête au dernier `}` présent) :
+    // c'est ici que l'échec se matérialisait, en exception non rattrapée.
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch (err) {
+      console.error(`scoreRun ${runId} : JSON illisible — ${err.message}`);
+      return { success: false, error: "Scoring : JSON illisible" };
+    }
 
     // Post-traitement : score dérivé du niveau BARS + vérification verbatim
     critScores = (parsed.sub_dimension_scores || []).map((c) => {
@@ -226,8 +248,19 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
   }, { onConflict: "run_id" });
 
   await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
-  // Dénormalise pour l'affichage liste candidats
+
+  // Dénormalise le score pour la liste candidats — inconditionnel, il n'écrase
+  // aucune décision du recruteur.
   if (overall != null) await admin.from("candidates").update({ score_global: overall }).eq("id", run.candidate_id);
+
+  // Le statut, lui, ne remonte QUE depuis un état non terminal. Un candidat déjà
+  // trié par le recruteur (shortlisted / rejected) ne doit jamais être ramené à
+  // « Évalué » par un scoring qui se termine après coup. "soumis" est dans la
+  // liste : c'est l'état que submitRun vient de poser juste avant.
+  await admin.from("candidates")
+    .update({ status: "scored" })
+    .eq("id", run.candidate_id)
+    .in("status", ["invited", "in_progress", "soumis"]);
 
   return { success: true, overall };
 }

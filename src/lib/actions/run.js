@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { deductCredits } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
@@ -423,16 +424,32 @@ export async function saveVideoResponse(token, stepId, videoUrl, durationSeconds
 
 // Soumet le run. Le scoring unique (scoreRun) est déclenché ICI, à la soumission
 // finale : le recruteur qui ouvre la fiche candidat voit un résultat déjà prêt,
-// jamais un déclenchement à la volée.
+// jamais un déclenchement à la volée. Il tourne APRÈS la réponse (voir `after`
+// plus bas) : le candidat ne doit pas attendre 30 s derrière son clic.
 export async function submitRun(token) {
   try {
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
 
+    const now = new Date().toISOString();
     await admin.from("candidate_runs")
-      .update({ status: "submitted", submitted_at: new Date().toISOString() })
+      .update({ status: "submitted", submitted_at: now })
       .eq("id", ctx.run.id);
+
+    // Statut candidat — les écrans recruteur (liste et fiche) lisent
+    // `candidates.status`, que le parcours Experience ne renseignait pas : un
+    // candidat qui avait tout terminé restait affiché « Invité ».
+    // `assessment_status` est inconditionnel (c'est l'état du parcours), mais
+    // `status` ne bouge QUE depuis un état non terminal : un candidat déjà
+    // shortlisted / rejected par le recruteur garde sa décision.
+    await admin.from("candidates")
+      .update({ assessment_status: "submitted", assessment_submitted_at: now })
+      .eq("id", ctx.candidate.id);
+    await admin.from("candidates")
+      .update({ status: "soumis" })
+      .eq("id", ctx.candidate.id)
+      .in("status", ["invited", "in_progress"]);
 
     // Facturation "candidat qui complète le parcours" — au propriétaire de
     // l'offre, idempotente (flag credits_charged_tests sur le candidat).
@@ -445,13 +462,20 @@ export async function submitRun(token) {
       console.error("submitRun completion charge failed (non-blocking):", e.message);
     }
 
-    // Scoring unique à la soumission. Non-bloquant : si le scoring échoue, la
-    // soumission reste valide (run "submitted"), le recruteur pourra relancer.
-    try {
-      await scoreRun(ctx.run.id);
-    } catch (e) {
-      console.error("submitRun scoreRun failed (non-blocking):", e.message);
-    }
+    // Scoring unique à la soumission, planifié APRÈS l'envoi de la réponse :
+    // le candidat voit son écran de remerciement tout de suite au lieu
+    // d'attendre l'appel au modèle (~30 s). Toujours non-bloquant : si le
+    // scoring échoue, la soumission reste valide (run "submitted") et le
+    // recruteur pourra relancer.
+    const runId = ctx.run.id;
+    after(async () => {
+      try {
+        const res = await scoreRun(runId);
+        if (!res?.success) console.error(`submitRun scoreRun ${runId} en échec :`, res?.error);
+      } catch (e) {
+        console.error("submitRun scoreRun failed (non-blocking):", e.message);
+      }
+    });
 
     return { success: true };
   } catch (err) {
