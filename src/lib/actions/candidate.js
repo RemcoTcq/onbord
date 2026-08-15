@@ -483,7 +483,12 @@ export async function getCandidateDetail(candidateId) {
     if (expRun) {
       const [{ data: rSteps }, { data: rResponses }, { data: rAiMsgs }] = await Promise.all([
         admin.from('experience_steps')
-          .select('id, order_index, kind, title, prompt, response_format, sandbox_kind, skill_assessed')
+          // `criteria` (grilles BARS) et `config` (corrigé QCM, définition de la
+          // fiche CRM) sont indispensables au rapport : sans eux le recruteur lit
+          // « N2 » sans savoir ce que vaut N2, ni quelle était la bonne réponse.
+          // Vue recruteur, propriétaire de l'offre — rien à masquer ici, à la
+          // différence du parcours candidat (cf. sanitizeStepForCandidate).
+          .select('id, order_index, kind, title, prompt, response_format, sandbox_kind, skill_assessed, criteria, config')
           .eq('experience_id', expRun.experience_id).order('order_index'),
         admin.from('run_step_responses')
           .select('step_id, response_format, text_answer, transcript, video_url, meta, status')
@@ -494,7 +499,12 @@ export async function getCandidateDetail(candidateId) {
       ]);
       const respByStep = Object.fromEntries((rResponses || []).map((r) => [r.step_id, r]));
       const critByStep = {};
-      const rs = expRun.run_scores?.[0];
+      // `run_scores` est en relation UN-À-UN avec le run (contrainte unique sur
+      // run_id), donc PostgREST renvoie un OBJET, pas un tableau : l'ancien
+      // `?.[0]` valait toujours undefined et vidait tout le rapport de sa
+      // substance (ni note, ni justification, ni corrigé — seulement les
+      // réponses brutes). On accepte les deux formes par sécurité.
+      const rs = Array.isArray(expRun.run_scores) ? expRun.run_scores[0] : expRun.run_scores;
       for (const c of rs?.criterion_scores || []) { (critByStep[c.step_id] ||= []).push(c); }
       const aiByStep = {};
       for (const m of rAiMsgs || []) { (aiByStep[m.step_id] ||= []).push(m); }
@@ -512,7 +522,13 @@ export async function getCandidateDetail(candidateId) {
           title: s.title,
           prompt: s.prompt,
           response_format: s.response_format,
+          sandbox_kind: s.sandbox_kind || null,
           skill_assessed: s.skill_assessed || null,
+          // Grille BARS de référence : l'échelle sur laquelle le modèle a placé
+          // le candidat. C'est elle qui rend la note lisible.
+          bars: s.criteria || [],
+          // Corrigé QCM (options + bonne réponse) et définition de la fiche CRM.
+          config: s.config || null,
           response: respByStep[s.id] || null,
           // Scores par sous-dimension ; chacun porte son skill_name, qui sert de
           // clé de regroupement à l'affichage. Vide sur les runs pré-016.

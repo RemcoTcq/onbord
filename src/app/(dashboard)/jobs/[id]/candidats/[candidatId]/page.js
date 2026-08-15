@@ -33,7 +33,11 @@ function expAnswerText(step) {
   if (step.response_format === "video") return r.transcript || "(transcription en attente)";
   if (step.response_format === "qcm") {
     const idx = r.meta?.selected_index;
-    return idx != null ? `Option ${idx + 1} sélectionnée` : "(pas de réponse)";
+    if (idx == null) return "(pas de réponse)";
+    // Le libellé choisi, pas un numéro d'option : le recruteur ne doit pas
+    // avoir à recompter les propositions pour savoir ce qui a été répondu.
+    const opt = (step.config?.options || [])[idx];
+    return opt ? `« ${opt} »` : `Option ${idx + 1} sélectionnée`;
   }
   if (step.response_format === "choice") return r.meta?.choice ? (r.meta.choice === "yes" ? "Oui" : "Non") : "(pas de réponse)";
   return r.text_answer || "(pas de réponse)";
@@ -42,6 +46,95 @@ function expAnswerText(step) {
 // "qualifying" n'est plus généré (le filtre vit en amont du parcours) ; le
 // libellé reste pour les expériences publiées avant ce changement.
 const EXP_KIND_LABELS = { qualifying: "Qualificative", question: "Question ciblée", task: "Tâche", classic_qcm: "QCM" };
+
+// ─── Grille BARS : rendre la note lisible ────────────────────────────────────
+// Une note « N4 » ne veut rien dire seule. On affiche l'échelle telle qu'elle a
+// été définie à la génération, en marquant le niveau attribué. Les grilles sont
+// ancrées sur 3 niveaux (1/3/5) alors que le modèle note de 1 à 5 : un niveau
+// pair est donc un intermédiaire, et on le dit plutôt que de le faire coïncider
+// de force avec une ancre.
+function BarsScale({ levels, attributed }) {
+  const ancres = [...(levels || [])].sort((a, b) => a.level - b.level);
+  if (ancres.length === 0) return null;
+  const exacte = ancres.some((a) => a.level === attributed);
+  const inf = [...ancres].reverse().find((a) => a.level < attributed);
+  const sup = ancres.find((a) => a.level > attributed);
+
+  return (
+    <div style={{ marginTop: "8px" }}>
+      <div style={{ fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--muted-foreground)", marginBottom: "5px" }}>
+        Grille d&apos;évaluation
+      </div>
+      <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+        {ancres.map((a, i) => {
+          const atteinte = a.level === attributed;
+          return (
+            <div key={i} style={{
+              display: "flex", gap: "8px", padding: "6px 10px", fontSize: "11.5px", lineHeight: 1.45,
+              borderTop: i === 0 ? "none" : "1px solid var(--border)",
+              background: atteinte ? "#eff6ff" : "transparent",
+            }}>
+              <span style={{ flexShrink: 0, fontWeight: 800, color: atteinte ? "#1d4ed8" : "var(--muted-foreground)", width: 62 }}>
+                {atteinte ? "▶ " : ""}N{a.level} {a.label ? `· ${a.label}` : ""}
+              </span>
+              <span style={{ flex: 1, color: atteinte ? "var(--foreground)" : "var(--muted-foreground)" }}>{a.description}</span>
+            </div>
+          );
+        })}
+      </div>
+      {!exacte && inf && sup && (
+        <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "4px", fontStyle: "italic" }}>
+          Niveau {attributed} : intermédiaire entre N{inf.level} ({inf.label}) et N{sup.level} ({sup.label}).
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Corrigé QCM : les propositions telles que le candidat les a vues, avec son
+// choix et la bonne réponse. Sans ça, un « 0% » sur un QCM est illisible.
+function QcmCorrection({ step }) {
+  const options = step.config?.options || [];
+  if (options.length === 0) return null;
+  const choisi = step.response?.meta?.selected_index;
+  const correct = step.config?.correct_index;
+
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
+        Propositions et corrigé
+      </div>
+      <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+        {options.map((opt, i) => {
+          const estCorrect = i === correct;
+          const estChoisi = i === choisi;
+          return (
+            <div key={i} style={{
+              display: "flex", alignItems: "flex-start", gap: "8px", padding: "7px 10px", fontSize: "12px", lineHeight: 1.45,
+              borderTop: i === 0 ? "none" : "1px solid var(--border)",
+              background: estCorrect ? "#f0fdf4" : estChoisi ? "#fee2e2" : "transparent",
+            }}>
+              <span style={{ flexShrink: 0, fontWeight: 800, width: 14, color: estCorrect ? "#166534" : estChoisi ? "#991b1b" : "var(--muted-foreground)" }}>
+                {estCorrect ? "✓" : estChoisi ? "✗" : "·"}
+              </span>
+              <span style={{ flex: 1, color: "var(--foreground)" }}>{opt}</span>
+              {estChoisi && (
+                <span style={{ flexShrink: 0, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: estCorrect ? "#166534" : "#991b1b", border: `1px solid ${estCorrect ? "#86efac" : "#fca5a5"}`, borderRadius: "99px", padding: "1px 6px" }}>
+                  choix du candidat
+                </span>
+              )}
+              {estCorrect && !estChoisi && (
+                <span style={{ flexShrink: 0, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: "#166534", border: "1px solid #86efac", borderRadius: "99px", padding: "1px 6px" }}>
+                  bonne réponse
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // Regroupe les scores d'une étape par compétence, dans l'ordre d'arrivée.
 // AUCUNE agrégation : on n'additionne ni ne moyenne rien, chaque sous-dimension
@@ -450,6 +543,9 @@ export default function CandidateDetailPage() {
                           <video src={step.response.video_url} controls style={{ width: "100%", maxWidth: 400, marginTop: "10px", borderRadius: 8, border: "1px solid var(--border)", background: "black" }} />
                         )}
 
+                        {/* QCM : propositions vues par le candidat + corrigé. */}
+                        {step.response_format === "qcm" && <QcmCorrection step={step} />}
+
                         {/* Sous-dimensions notées, regroupées par compétence.
                             Pas de score agrégé par compétence : chaque sous-dimension
                             garde sa note et sa justification, le regroupement est
@@ -470,6 +566,14 @@ export default function CandidateDetailPage() {
                                   <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(cs.score).color, whiteSpace: "nowrap" }}>N{cs.bars_level} · {cs.score}%</span>
                                 </div>
                                 {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+
+                                {/* L'échelle sur laquelle cette note a été posée.
+                                    Absente pour le QCM et les champs factuels CRM,
+                                    qui sont corrigés sans grille (vrai/faux). */}
+                                {(() => {
+                                  const grille = (step.bars || []).find((b) => b.name === (cs.sub_dimension_name || cs.criterion_name));
+                                  return grille ? <BarsScale levels={grille.bars_levels} attributed={cs.bars_level} /> : null;
+                                })()}
 
                                 {/* Sandbox CRM — correction déterministe, champ par champ.
                                     La ligne du piège est mise en évidence : c'est le
