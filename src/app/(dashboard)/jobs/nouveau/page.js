@@ -162,7 +162,10 @@ export default function NouvelleDemandePage() {
     }
   };
 
-  const handleSave = async (continueToModules = false) => {
+  // `statusOverride` sert au passage étape 2 → 3 : on enregistre le travail en
+  // cours mais l'offre doit RESTER un brouillon tant que la pipeline n'est pas
+  // validée, sinon elle disparaîtrait de l'onglet Brouillons.
+  const handleSave = async (continueToModules = false, statusOverride = null) => {
     setIsSaving(true);
     setError(null);
     try {
@@ -179,6 +182,11 @@ export default function NouvelleDemandePage() {
 
       let targetJobId = savedJobId || savedJob?.id;
 
+      // `jobData` transporte la pipeline en cours après un retour depuis
+      // l'étape 3. Elle a sa propre colonne (`saved_flow_nodes`) et n'a rien à
+      // faire dupliquée dans les critères de l'offre.
+      const { saved_flow_nodes: _pipelineEnCours, ...criteria } = jobData;
+
       // 1. Upsert Job
       if (savedJobId) {
         const { error: jobError } = await supabase
@@ -190,8 +198,8 @@ export default function NouvelleDemandePage() {
             work_mode: jobData.work_mode,
             contract_type: jobData.contract_type,
             location: jobData.location,
-            extracted_criteria: { ...jobData },
-            status: continueToModules ? 'active' : 'draft',
+            extracted_criteria: criteria,
+            status: statusOverride || (continueToModules ? 'active' : 'draft'),
           })
           .eq('id', savedJobId);
         if (jobError) throw jobError;
@@ -207,8 +215,8 @@ export default function NouvelleDemandePage() {
             work_mode: jobData.work_mode,
             contract_type: jobData.contract_type,
             location: jobData.location,
-            extracted_criteria: { ...jobData },
-            status: continueToModules ? 'active' : 'draft',
+            extracted_criteria: criteria,
+            status: statusOverride || (continueToModules ? 'active' : 'draft'),
           })
           .select()
           .single();
@@ -621,12 +629,18 @@ export default function NouvelleDemandePage() {
             )}
 
             {currentStep === 2 && (
-              <button 
+              <button
                 className="btn btn-primary"
                 style={{ padding: '12px 24px', fontWeight: '600' }}
-                onClick={() => setCurrentStep(3)}
+                disabled={isSaving}
+                // Enregistre les compétences ajustées avant d'ouvrir la pipeline.
+                // Ce passage ne faisait qu'un setCurrentStep(3) : la sélection du
+                // recruteur n'était persistée qu'à la validation finale, et le
+                // brouillon gardait les compétences brutes extraites par l'IA —
+                // dont dépend justement la pipeline proposée.
+                onClick={() => handleSave(true, 'draft')}
               >
-                Suivant
+                {isSaving ? 'Enregistrement…' : 'Suivant'}
               </button>
             )}
           </div>

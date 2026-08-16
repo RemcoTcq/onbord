@@ -20,6 +20,7 @@ import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from
 import { getExperienceForJob, updateExperienceMessages } from "@/lib/actions/experience";
 import { getJobEntry } from "@/lib/actions/run";
 import { entryIsOpen } from "@/lib/candidateEntry";
+import { buildDefaultPipeline } from "@/lib/pipelineTemplate";
 import { EXPERIENCE_V1_ONLY } from "@/lib/constants/features";
 import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
@@ -405,8 +406,16 @@ export default function JobDetailPage() {
         const onbordNodes = job.saved_flow_nodes.map(n => n.type === 'accueil' ? { ...n, v2: true } : n);
         nodes = [...lockedBefore, ...onbordNodes, ...lockedAfter];
       }
+    } else if (!job?.assessment_config?.modules) {
+      // Aucune pipeline enregistrée ET aucune configuration héritée : on affiche
+      // la MÊME proposition par défaut que l'étape 3 de la création. Sans cette
+      // branche, un brouillon abandonné avant validation retombait sur la
+      // dérivation ci-dessous avec des modules vides, et perdait au passage ses
+      // questions qualificatives et son nœud d'évaluation.
+      nodes = buildDefaultPipeline({ ...job, ...(job?.extracted_criteria || {}) });
     } else {
-      // Fallback: build from assessment_config
+      // Offres antérieures à l'éditeur visuel : leur parcours ne vit que dans
+      // assessment_config. On continue de le dériver pour ne pas les casser.
       const lockedBefore = [{ id: 'locked_sourcing', type: 'sourcing', locked: true, v2: true, config: {} }];
       const lockedAfter = [
         { id: 'locked_entretien_visio', type: 'entretien_visio', locked: true, v2: true, config: {} },
@@ -414,7 +423,7 @@ export default function JobDetailPage() {
         { id: 'locked_debrief_finale', type: 'debrief_finale', locked: true, v2: true, config: {} },
       ];
       const onbordNodes = [{ id: 'accueil', type: 'accueil', v2: true, config: {} }];
-      
+
       const modules = job?.assessment_config?.modules || {};
       if (modules.skills_tests?.enabled && modules.skills_tests?.tests?.length > 0) {
         modules.skills_tests.tests.forEach((t, i) => {

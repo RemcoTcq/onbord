@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
+import { buildDefaultPipeline, withLockedNodes } from "@/lib/pipelineTemplate";
+import { updateJobDetails } from "@/lib/actions/candidate";
 import { Check, Clock, BrainCircuit, FileCheck2, Video, MessageSquare, AlertTriangle, ShieldCheck, User, HandHeart, Plus, Minus, GripVertical, Trash2, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, Phone, MapPin, CheckSquare, Lock, MoreHorizontal } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -19,71 +20,46 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
   const [flowNodes, setFlowNodes] = useState([]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  // Dernier état déjà en base, pour n'écrire que sur changement réel.
+  const lastSavedRef = useRef(null);
 
   useEffect(() => {
     if (jobData && isInitializing) {
-      console.log("JobFormStepRecommendation init. jobData.saved_flow_nodes:", jobData.saved_flow_nodes);
-
-      const lockedBefore = [
-        { id: 'locked_sourcing', type: 'sourcing', locked: true, config: {} },
-      ];
-      const lockedAfter = [
-        { id: 'locked_entretien_visio', type: 'entretien_visio', locked: true, config: {} },
-        { id: 'locked_entretien_site', type: 'entretien_site', locked: true, config: {} },
-        { id: 'locked_debrief_finale', type: 'debrief_finale', locked: true, config: {} },
-      ];
-
       if (jobData.saved_flow_nodes && jobData.saved_flow_nodes.length > 0) {
         const isV2 = jobData.saved_flow_nodes.some(n => n.v2);
-        if (isV2) {
-          setFlowNodes(jobData.saved_flow_nodes);
-        } else {
-          const onbordNodes = jobData.saved_flow_nodes.map(n => n.type === 'accueil' ? { ...n, v2: true } : n);
-          const v2LockedBefore = lockedBefore.map(n => ({ ...n, v2: true }));
-          const v2LockedAfter = lockedAfter.map(n => ({ ...n, v2: true }));
-          setFlowNodes([...v2LockedBefore, ...onbordNodes, ...v2LockedAfter]);
-        }
+        const nodes = isV2
+          ? jobData.saved_flow_nodes
+          : withLockedNodes(jobData.saved_flow_nodes.map(n => n.type === 'accueil' ? { ...n, v2: true } : n));
+        setFlowNodes(nodes);
+        // Repris de la base : rien à réécrire tant que le recruteur ne touche à rien.
+        lastSavedRef.current = JSON.stringify(nodes);
       } else {
-        console.log("Generating from scratch");
-        const rec = generateRecommendation(jobData);
-        const onbordNodes = [];
-        
-        onbordNodes.push({
-          id: 'accueil',
-          type: 'accueil',
-          config: { text: "Bienvenue sur notre espace de recrutement. Nous sommes ravis de découvrir votre profil." }
-        });
-
-        if (rec.steps.some(s => s.type === 'qualifying_questions')) {
-          onbordNodes.push({
-            id: 'qualif_' + Date.now(),
-            type: 'qualifying_questions',
-            config: { questions: generateQualifyingQuestions(jobData) }
-          });
-        }
-        
-        if (rec.steps.some(s => s.type === 'skills_test' || s.type === 'video_interview' || s.type === 'ai_interview')) {
-          onbordNodes.push({
-            id: 'experience_' + Date.now(),
-            type: 'experience',
-            config: { title: "Évaluation IA (Expérience)", configured: false }
-          });
-        }
-
-      onbordNodes.push({
-        id: 'remerciements',
-        type: 'remerciements',
-        config: { text: "Merci pour votre temps. Vos réponses ont bien été enregistrées." }
-      });
-
-      const onbordNodesV2 = onbordNodes.map(n => ({ ...n, v2: true }));
-      const v2LockedBefore = lockedBefore.map(n => ({ ...n, v2: true }));
-      const v2LockedAfter = lockedAfter.map(n => ({ ...n, v2: true }));
-      setFlowNodes([...v2LockedBefore, ...onbordNodesV2, ...v2LockedAfter]);
-    }
-    setIsInitializing(false);
+        // Pipeline par défaut — même fonction que la fiche offre, pour que les
+        // deux écrans proposent exactement la même chose. `lastSavedRef` reste
+        // nul : la proposition sera enregistrée aussitôt (effet ci-dessous),
+        // afin qu'un abandon avant validation ne la perde pas.
+        setFlowNodes(buildDefaultPipeline(jobData));
+      }
+      setIsInitializing(false);
     }
   }, [jobData, isInitializing]);
+
+  // Enregistrement continu du brouillon. La pipeline ne vivait qu'en mémoire
+  // jusqu'à la validation : quitter l'étape 3 effaçait la proposition et tout
+  // le travail d'édition. On la persiste dès qu'elle change, sans toucher au
+  // statut de l'offre — elle reste un brouillon tant qu'elle n'est pas validée.
+  useEffect(() => {
+    if (isInitializing || !savedJobId || flowNodes.length === 0) return;
+    const payload = JSON.stringify(flowNodes);
+    if (payload === lastSavedRef.current) return;
+
+    const timer = setTimeout(async () => {
+      const res = await updateJobDetails(savedJobId, { saved_flow_nodes: flowNodes });
+      if (res?.success) lastSavedRef.current = payload;
+      else console.error("Enregistrement de la pipeline échoué :", res?.error);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [flowNodes, isInitializing, savedJobId]);
 
   if (isInitializing) {
     return (
