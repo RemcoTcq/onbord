@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
+import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
 // - identité par token candidat (jamais candidateId/prompt du client) ;
@@ -83,6 +84,22 @@ export async function POST(request) {
   try {
     const { token, stepId, message } = await request.json();
     if (!message) return Response.json({ error: "message requis" }, { status: 400 });
+
+    // Limite de débit AVANT toute requête base ou modèle : c'est l'appel le plus
+    // coûteux de l'application (Sonnet, 2000 tokens de sortie). Le plafond
+    // ai_max_messages plus bas est un plafond par run, pas par unité de temps.
+    for (const [cle, seuil] of [
+      [`assistant:token:${token}`, SEUILS.assistantParToken],
+      [`assistant:ip:${ipDe(request.headers)}`, SEUILS.assistantParIp],
+    ]) {
+      const verdict = consommer(cle, seuil.max, seuil.fenetre);
+      if (!verdict.autorise) {
+        return Response.json(
+          { error: "Trop de messages d'affilée. Patientez quelques instants." },
+          { status: 429, headers: { "Retry-After": String(verdict.resetDans) } }
+        );
+      }
+    }
 
     const admin = createAdminClient();
     const ctx = await resolveContext(admin, token, stepId);

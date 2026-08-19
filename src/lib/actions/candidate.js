@@ -5,6 +5,8 @@ import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
 import { urlSignee } from "@/lib/storage";
+import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { headers } from "next/headers";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
 // faire passer. Le blocage d'interface ne suffit pas — un lien public déjà
@@ -303,6 +305,19 @@ export async function createCandidateShell(jobId, firstName, lastName, email) {
 // la valeur est connue au moment de la candidature.
 export async function applyForJob(jobId, firstName, lastName, email, gdprConsentAt = null) {
   try {
+    // Point d'entrée entièrement anonyme : sans limite de débit, il permet de
+    // remplir la table `candidates` et de déclencher des envois d'e-mails en
+    // boucle. Postuler reste un acte rare — 5 par heure et par IP ne gêne
+    // personne (cf. SEUILS.candidatureParIp).
+    const verdict = consommer(
+      `apply:ip:${ipDe(await headers())}`,
+      SEUILS.candidatureParIp.max,
+      SEUILS.candidatureParIp.fenetre
+    );
+    if (!verdict.autorise) {
+      return { success: false, error: "Trop de candidatures envoyées depuis cette connexion. Réessayez dans un moment." };
+    }
+
     const supabase = await createClient();
 
     // Verify job exists — et qu'elle est publiée. Une offre en brouillon

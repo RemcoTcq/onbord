@@ -12,6 +12,8 @@ import {
 } from "../utils/limits";
 import { createClient, createAdminClient } from "../supabase/server";
 import { isAdmin } from "../utils/admin";
+import { consommer, ipDe, SEUILS } from "../rateLimit";
+import { headers } from "next/headers";
 
 /** Vérifie que l'appelant est bien admin. Renvoie l'user si oui, sinon null. */
 async function requireAdmin() {
@@ -117,6 +119,18 @@ export async function adminChangePlan(targetUserId, newPlan) {
  */
 export async function claimInvitePlan(tokenId) {
   try {
+    // Le tokenId vient du client : sans limite de débit, cette action se
+    // parcourt en force brute jusqu'à tomber sur une invitation valide — et
+    // certaines portent le plan `admin`.
+    const verdict = consommer(
+      `invite:ip:${ipDe(await headers())}`,
+      SEUILS.invitationParIp.max,
+      SEUILS.invitationParIp.fenetre
+    );
+    if (!verdict.autorise) {
+      return { success: false, error: "Trop de tentatives. Réessayez plus tard." };
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };

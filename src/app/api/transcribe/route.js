@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { transcribeAudio } from "@/lib/transcription";
 import { urlSignee } from "@/lib/storage";
+import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 
 // Transcrit la réponse vidéo d'un step. Le client n'envoie que { token, responseId } :
 // l'URL vidéo est relue depuis la DB (jamais fournie par le client), et la
@@ -10,6 +11,20 @@ export async function POST(request) {
     const { token, responseId } = await request.json();
     if (!token || !responseId) {
       return Response.json({ error: "token et responseId requis" }, { status: 400 });
+    }
+
+    // Chaque appel déclenche une transcription facturée chez AssemblyAI.
+    for (const [cle, seuil] of [
+      [`transcribe:token:${token}`, SEUILS.transcriptionParToken],
+      [`transcribe:ip:${ipDe(request.headers)}`, SEUILS.transcriptionParIp],
+    ]) {
+      const verdict = consommer(cle, seuil.max, seuil.fenetre);
+      if (!verdict.autorise) {
+        return Response.json(
+          { error: "Trop de transcriptions demandées. Patientez un instant." },
+          { status: 429, headers: { "Retry-After": String(verdict.resetDans) } }
+        );
+      }
     }
 
     const admin = createAdminClient();
