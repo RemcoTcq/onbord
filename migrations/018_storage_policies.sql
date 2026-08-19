@@ -26,7 +26,27 @@
 -- storage.foldername(name) renvoie le tableau des segments ; [1] est le premier.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-alter table storage.objects enable row level security;
+-- PAS de `alter table storage.objects enable row level security` ici : la table
+-- appartient à `supabase_storage_admin`, le SQL Editor tourne en `postgres`, et
+-- l'ALTER échoue sur « must be owner of table objects ». La ligne serait de
+-- toute façon sans objet — Supabase active déjà la RLS sur storage.objects dans
+-- tout projet. Créer des policies, en revanche, est autorisé.
+--
+-- ATTENTION — les policies ci-dessous s'AJOUTENT aux existantes, elles ne les
+-- remplacent pas. Or la RLS de storage.objects est PERMISSIVE : une seule
+-- policy qui accorde l'accès suffit à le donner, quelles que soient les autres.
+-- Si le bucket reste énumérable par la clé anon après cette migration, c'est
+-- qu'une policy permissive préexiste (créée jadis dans l'interface Storage >
+-- Policies). Pour les débusquer :
+--
+--     select policyname, cmd, roles::text, qual, with_check
+--     from pg_policies
+--     where schemaname = 'storage' and tablename = 'objects'
+--     order by policyname;
+--
+-- Toute ligne dont `roles` contient anon ou public, et dont `qual` vaut `true`
+-- ou ne teste que `bucket_id`, doit être supprimée :
+--     drop policy "<son nom>" on storage.objects;
 
 -- ── Lecture ──────────────────────────────────────────────────────────────────
 -- Un CV n'est lisible que par le recruteur propriétaire de l'offre à laquelle le
