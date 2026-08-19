@@ -653,33 +653,58 @@ export async function getCvSignedUrl(candidateId) {
   }
 }
 
+// Page publique /apply/<job_id> : l'appelant est un candidat ANONYME.
+//
+// Cette action faisait `.select('*')` avec le client soumis à RLS, donc en rôle
+// anon — ce qui exigeait une policy de lecture ouverte sur `jobs`, et livrait au
+// navigateur user_id, extracted_criteria, ai_interview_config, assessment_config
+// et saved_flow_nodes : la configuration complète du pipeline d'évaluation de
+// chaque recruteur, brouillons compris (audit du 19/08/2026, §3).
+//
+// La lecture passe désormais par le service_role, et la liste des champs rendus
+// publics est ÉCRITE ICI. Une policy RLS ne sait pas restreindre les colonnes ;
+// une liste explicite dans le code, elle, se relit à chaque revue — et une
+// nouvelle colonne sensible ne devient pas publique par défaut.
 export async function getPublicJobAndBranding(jobId) {
   try {
-    const supabase = await createClient();
-    
-    const { data: job, error: jobError } = await supabase
-      .from('jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single();
-    
-    if (jobError) throw jobError;
+    const admin = createAdminClient();
 
-    let recruiter = null;
-    if (job.user_id) {
-      try {
-        const { data: recData, error: recError } = await supabase
-          .rpc("get_public_branding", { user_uuid: job.user_id });
-        
-        if (!recError && recData) {
-          recruiter = recData;
-        }
-      } catch (err) {
-        console.error("Failed to fetch recruiter branding via rpc:", err);
-      }
+    const { data: job, error: jobError } = await admin
+      .from('jobs')
+      .select('id, title, status, user_id, saved_flow_nodes')
+      .eq('id', jobId)
+      .maybeSingle();
+
+    if (jobError) throw jobError;
+    // Une offre en brouillon ne s'affiche pas : même digue que dans applyForJob,
+    // où un lien public déjà diffusé continuait de fonctionner avant publication.
+    if (!job || job.status === 'draft') {
+      return { success: false, error: "Offre introuvable" };
     }
 
-    return { success: true, job, recruiter };
+    let recruiter = null;
+    try {
+      const { data: recData, error: recError } = await admin
+        .rpc("get_public_branding", { user_uuid: job.user_id });
+
+      if (!recError && recData) {
+        recruiter = recData;
+      }
+    } catch (err) {
+      console.error("Failed to fetch recruiter branding via rpc:", err);
+    }
+
+    // `user_id` a servi au branding ci-dessus et ne sort pas ; de
+    // saved_flow_nodes on ne garde que le nœud d'accueil, seul élément que le
+    // parcours candidat affiche — le reste décrit le pipeline d'évaluation.
+    const offrePublique = {
+      id: job.id,
+      title: job.title,
+      status: job.status,
+      saved_flow_nodes: (job.saved_flow_nodes || []).filter((n) => n?.type === 'accueil'),
+    };
+
+    return { success: true, job: offrePublique, recruiter };
   } catch (error) {
     console.error("Get Public Job And Branding Error:", error);
     return { success: false, error: error.message };
