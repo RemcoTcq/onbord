@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isAdmin as checkAdmin } from "@/lib/utils/admin";
+import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { getCostStats } from "@/lib/actions/costs";
 import { Loader2, Shield, Sparkles, ClipboardCheck, Bot } from "lucide-react";
 
@@ -24,7 +24,7 @@ export default function AdminCostsPage() {
     (async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !checkAdmin(user)) { setHasAccess(false); setLoading(false); return; }
+      if (!user || !(await isCurrentUserAdmin())) { setHasAccess(false); setLoading(false); return; }
       setHasAccess(true);
       load(period);
     })();

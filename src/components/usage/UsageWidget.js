@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PLANS } from "@/lib/constants/plans";
-import { isAdmin } from "@/lib/utils/admin";
+import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { Loader2, Zap } from "lucide-react";
 
 export default function UsageWidget({ compact = false }) {
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  // ADMIN_EMAILS est une variable serveur, illisible depuis le navigateur.
+  const [estAdmin, setEstAdmin] = useState(false);
 
   useEffect(() => {
     async function loadUsage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      setEstAdmin(await isCurrentUserAdmin());
 
       if (user) {
         const { data } = await supabase
@@ -32,7 +35,7 @@ export default function UsageWidget({ compact = false }) {
   }, []);
 
   if (loading) return null; // Pas de chargement visible dans la nav bar
-  if (!user || isAdmin(user)) return null; // Les admins n'ont pas de limites affichées
+  if (!user || estAdmin) return null; // Les admins n'ont pas de limites affichées
   if (!usage) return null;
 
   const plan = PLANS[usage.plan] || PLANS.core;

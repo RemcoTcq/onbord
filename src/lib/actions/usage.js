@@ -22,6 +22,21 @@ async function requireAdmin() {
   return isAdmin(user) ? user : null;
 }
 
+/**
+ * L'utilisateur connecté est-il administrateur ?
+ * Seule voie pour les écrans CLIENT : la liste ADMIN_EMAILS est une variable
+ * serveur, un composant navigateur ne peut pas la lire (et ne doit pas).
+ * Usage strictement cosmétique — afficher ou non une entrée de menu. Les
+ * actions sensibles revalident par requireAdmin(), côté serveur.
+ */
+export async function isCurrentUserAdmin() {
+  try {
+    return !!(await requireAdmin());
+  } catch {
+    return false;
+  }
+}
+
 export { checkQuota, incrementUsage }; // rétrocompatibilité
 
 /**

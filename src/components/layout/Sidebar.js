@@ -16,7 +16,7 @@ import {
   BookOpen
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
-import { isAdmin } from "@/lib/utils/admin";
+import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import CreditBadge from "../billing/CreditBadge";
 
 // "/assessments" = hub de génération d'expériences (chat-first). Remplace
@@ -35,6 +35,9 @@ export default function Sidebar() {
   const collapsed = true; // Forcer la sidebar toujours fermée
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  // ADMIN_EMAILS est une variable serveur : le navigateur ne peut pas la lire,
+  // c'est donc le serveur qui répond.
+  const [estAdmin, setEstAdmin] = useState(false);
 
   useEffect(() => {
     async function getUser() {
@@ -47,6 +50,7 @@ export default function Sidebar() {
           company_name: user.user_metadata?.company_name || ""
         });
       }
+      setEstAdmin(await isCurrentUserAdmin());
     }
     getUser();
   }, []);
@@ -111,7 +115,7 @@ export default function Sidebar() {
           );
         })}
 
-        {isAdmin(user) && (
+        {estAdmin && (
           <>
             <div style={{ margin: "8px 0 4px", height: "1px", background: "var(--border)" }} />
             {!collapsed && <span className={styles.navLabel}>Admin</span>}

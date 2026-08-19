@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { adminAddCredits, adminChangePlan } from "@/lib/actions/usage";
 import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { isAdmin as checkAdmin } from "@/lib/utils/admin";
+import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { PLANS, CREDIT_PACKS } from "@/lib/constants/plans";
 
 const PLAN_COLORS = {
@@ -29,7 +29,7 @@ export default function AdminBillingPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user || !checkAdmin(user)) {
+    if (!user || !(await isCurrentUserAdmin())) {
       setHasAccess(false);
       setLoading(false);
       return;

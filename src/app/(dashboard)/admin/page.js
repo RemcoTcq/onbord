@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Copy, Check, Link2, Trash2, Loader2, Shield } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { isAdmin as checkAdmin } from "@/lib/utils/admin";
+import { isCurrentUserAdmin } from "@/lib/actions/usage";
 
 function generateToken() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -30,7 +30,7 @@ export default function AdminPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user || !checkAdmin(user)) {
+    if (!user || !(await isCurrentUserAdmin())) {
       setHasAccess(false);
       setLoading(false);
       return;
