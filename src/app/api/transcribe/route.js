@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { transcribeAudio } from "@/lib/transcription";
+import { urlSignee } from "@/lib/storage";
 
 // Transcrit la réponse vidéo d'un step. Le client n'envoie que { token, responseId } :
 // l'URL vidéo est relue depuis la DB (jamais fournie par le client), et la
@@ -30,10 +31,18 @@ export async function POST(request) {
       return Response.json({ error: "Aucune vidéo à transcrire" }, { status: 400 });
     }
 
+    // `video-responses` est un bucket privé : AssemblyAI télécharge l'URL qu'on
+    // lui donne, il lui faut donc une URL SIGNÉE. Deux heures, le temps que la
+    // file d'attente du prestataire se vide sur une vidéo longue.
+    const urlVideo = await urlSignee(admin, "video-responses", resp.video_url, 7200);
+    if (!urlVideo) {
+      return Response.json({ error: "Vidéo introuvable dans le stockage" }, { status: 404 });
+    }
+
     let transcript = "";
     let status = "submitted";
     try {
-      transcript = await transcribeAudio(resp.video_url);
+      transcript = await transcribeAudio(urlVideo);
       if (!transcript || transcript.trim().length < 10) status = "manual_review";
     } catch (err) {
       console.error("transcribe failed:", err);

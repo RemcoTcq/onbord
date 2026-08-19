@@ -264,11 +264,8 @@ function RecordingScreen({ question, questionIndex, totalQuestions, maxDuration,
       if (uploadError) throw new Error("Upload failed: " + uploadError.message);
       setUploadProgress(60);
 
-      const { data: urlData } = supabase.storage.from("video-responses").getPublicUrl(filePath);
-      const videoUrl = urlData?.publicUrl;
-
-      // Save path + url to DB
-      await updateVideoResponseAfterUpload(responseId, filePath, videoUrl, duration);
+      // Bucket PRIVÉ : le chemin fait foi, l'URL signée est émise côté serveur.
+      await updateVideoResponseAfterUpload(responseId, filePath, filePath, duration);
       setUploadProgress(80);
 
       // Déclenche transcription + évaluation (fire and forget). Le serveur récupère

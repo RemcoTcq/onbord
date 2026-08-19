@@ -4,6 +4,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
+import { urlSignee } from "@/lib/storage";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
 // faire passer. Le blocage d'interface ne suffit pas — un lien public déjà
@@ -543,14 +544,39 @@ export async function getCandidateDetail(candidateId) {
       };
     }
 
+    // `resumes` et `video-responses` sont des buckets PRIVÉS : ce que la base
+    // stocke est un chemin (ou, sur les lignes anciennes, une URL publique
+    // devenue inerte). On signe ici, une fois l'ownership déjà établi — la
+    // lecture RLS de `candidates` plus haut n'a réussi que pour le recruteur
+    // propriétaire. Une URL non signable devient null, et l'écran masque le lien.
+    const cvUrlSignee = await urlSignee(admin, "resumes", candidate.cv_url);
+
+    const videoResponsesSignees = await Promise.all(
+      videoResponses.map(async (r) => ({
+        ...r,
+        video_url: await urlSignee(admin, "video-responses", r.video_url),
+      }))
+    );
+
+    if (experienceReport) {
+      experienceReport.steps = await Promise.all(
+        experienceReport.steps.map(async (s) => (
+          s.response?.video_url
+            ? { ...s, response: { ...s.response, video_url: await urlSignee(admin, "video-responses", s.response.video_url) } }
+            : s
+        ))
+      );
+    }
+
     return {
       success: true,
       candidate: {
         ...candidate,
+        cv_url: cvUrlSignee,
         score_tests: finalScoreTests,
         interview_messages: messages,
         test_sessions: testSessions,
-        video_responses: videoResponses,
+        video_responses: videoResponsesSignees,
         experience_run: expRun || null,
         experience_report: experienceReport,
       }
@@ -575,6 +601,40 @@ export async function getJobDetail(jobId) {
   } catch (error) {
     console.error("Get Job Detail Error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * URL signée du CV d'un candidat, pour les écrans qui chargent le candidat
+ * depuis le navigateur (pool de talents) et n'ont donc pas d'URL exploitable :
+ * `resumes` est un bucket privé.
+ *
+ * L'ownership n'est pas revérifié à la main : la lecture passe par le client
+ * SOUMIS À RLS, donc elle ne renvoie une ligne que si le recruteur connecté
+ * possède ce candidat. La signature, elle, exige le service_role.
+ */
+export async function getCvSignedUrl(candidateId) {
+  try {
+    if (!candidateId) return { success: false, error: "candidateId requis" };
+
+    const supabase = await createClient();
+    const { data: candidate } = await supabase
+      .from('candidates')
+      .select('cv_url, cv_storage_path')
+      .eq('id', candidateId)
+      .maybeSingle();
+
+    if (!candidate) return { success: false, error: "Accès refusé" };
+
+    const url = await urlSignee(
+      createAdminClient(),
+      "resumes",
+      candidate.cv_storage_path || candidate.cv_url
+    );
+    return url ? { success: true, url } : { success: false, error: "CV introuvable" };
+  } catch (error) {
+    console.error("getCvSignedUrl error:", error);
+    return { success: false, error: "Erreur technique" };
   }
 }
 

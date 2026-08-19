@@ -59,8 +59,6 @@ export default function CvUploadModule({ candidate, job, recruiter, onComplete, 
 
       if (uploadError) throw new Error("Erreur lors de l'upload : " + uploadError.message);
 
-      const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
-
       // 2. Parse PDF text
       const formData = new FormData();
       formData.append("file", selectedFile);
@@ -82,12 +80,15 @@ export default function CvUploadModule({ candidate, job, recruiter, onComplete, 
 
       if (!result.success) throw new Error(result.error || "Erreur lors de l'analyse IA");
 
-      // 4. Update cv_storage_path + cv_url on existing candidate
+      // 4. Update cv_storage_path + cv_url on existing candidate.
+      // `resumes` est un bucket PRIVÉ : on stocke le CHEMIN, jamais une URL
+      // publique (qui serait de toute façon inutilisable). Le recruteur obtient
+      // une URL signée à la demande, côté serveur (cf. lib/storage.js).
       await supabase
         .from("candidates")
         .update({
           cv_storage_path: filePath,
-          cv_url: urlData?.publicUrl || null,
+          cv_url: filePath,
           cv_raw_text: cvText,
         })
         .eq("id", candidate.id);

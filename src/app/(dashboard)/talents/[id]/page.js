@@ -7,7 +7,7 @@ import {
   TrendingUp, Trash2, ExternalLink, FileText
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { deleteCandidate } from "@/lib/actions/candidate";
+import { deleteCandidate, getCvSignedUrl } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
 
 
@@ -18,6 +18,9 @@ export default function TalentDetailPage() {
   const { id: talentId } = params;
 
   const [talent, setTalent] = useState(null);
+  // `resumes` est un bucket privé : la colonne cv_url n'est plus une adresse
+  // ouvrable, il faut demander une URL signée au serveur.
+  const [cvUrl, setCvUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(false);
   const { toast } = useToast();
@@ -34,7 +37,13 @@ export default function TalentDetailPage() {
       .eq("is_in_pool", true)
       .single();
 
-    if (data) setTalent(data);
+    if (data) {
+      setTalent(data);
+      if (data.cv_url || data.cv_storage_path) {
+        const res = await getCvSignedUrl(talentId);
+        setCvUrl(res.success ? res.url : null);
+      }
+    }
     setLoading(false);
   }
 
@@ -125,9 +134,9 @@ export default function TalentDetailPage() {
                   Ajouté aux talents le {new Date(talent.pool_added_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                 </p>
               )}
-              {talent.cv_url && (
-                <a 
-                  href={talent.cv_url} 
+              {cvUrl && (
+                <a
+                  href={cvUrl}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="btn btn-ghost btn-sm"

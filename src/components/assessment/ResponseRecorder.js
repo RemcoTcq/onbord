@@ -137,10 +137,9 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       const path = `${token}/${stepId}_${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("video-responses").upload(path, blob, { contentType: blob.type, upsert: true });
       if (upErr) throw new Error(upErr.message);
-      const { data: urlData } = supabase.storage.from("video-responses").getPublicUrl(path);
-      const videoUrl = urlData?.publicUrl;
-
-      const res = await saveVideoResponse(token, stepId, videoUrl, elapsed);
+      // Bucket PRIVÉ : on enregistre le chemin de l'objet. Le serveur signe une
+      // URL temporaire quand il en a besoin (transcription, rapport recruteur).
+      const res = await saveVideoResponse(token, stepId, path, elapsed);
       if (!res.success) throw new Error(res.error);
 
       // Transcription serveur (fire and forget — l'URL est relue en DB côté serveur)

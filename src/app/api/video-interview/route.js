@@ -1,6 +1,7 @@
 import anthropic from "@/lib/anthropic";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { aggregateVideoScore, computeGlobalScore, resolveEnabledModules } from "@/lib/scoring";
+import { urlSignee } from "@/lib/storage";
 
 // ─── Rétrocompatibilité : normalise les critères (string → array) ─────────────
 function normalizeCriteria(question) {
@@ -311,10 +312,16 @@ export async function POST(request) {
       hard_skills: job?.extracted_criteria?.hard_skills?.map((s) => s.name),
       soft_skills: job?.extracted_criteria?.soft_skills?.map((s) => s.name),
     };
-    const videoUrl = respData.video_url;
-
-    if (!videoUrl) {
+    if (!respData.video_url) {
       return Response.json({ error: "Aucune vidéo enregistrée pour cette réponse." }, { status: 400 });
+    }
+
+    // Bucket privé : AssemblyAI télécharge l'URL fournie, il lui faut une URL
+    // signée. La signature exige le service_role — `supabase` est ici le client
+    // soumis à RLS, il ne peut pas signer.
+    const videoUrl = await urlSignee(createAdminClient(), "video-responses", respData.video_url, 7200);
+    if (!videoUrl) {
+      return Response.json({ error: "Vidéo introuvable dans le stockage." }, { status: 404 });
     }
 
     // Update status to transcribing
