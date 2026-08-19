@@ -318,30 +318,36 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
       return { success: false, error: "Trop de candidatures envoyées depuis cette connexion. Réessayez dans un moment." };
     }
 
-    const supabase = await createClient();
+    // Toutes les lectures de cette action passent par le service_role : le
+    // candidat qui postule est ANONYME.
+    //
+    // Sur `candidates`, parce que depuis la migration 014 le rôle anon n'a plus
+    // aucun droit de lecture sur cette table (il ne lui reste qu'un INSERT).
+    // Avec le client anon, l'anti-doublon plus bas ne trouverait plus jamais
+    // rien — il créerait des doublons en silence — et le `.select()` de l'insert
+    // échouerait, le RETURNING d'un insert exigeant un droit SELECT.
+    //
+    // Sur `jobs`, pour la même raison depuis la migration 021, qui ferme la
+    // table au rôle anon. Le contrôle de publication ci-dessous serait sinon
+    // devenu un refus systématique : « Offre d'emploi introuvable » sur toutes
+    // les candidatures.
+    //
+    // La digue métier reste au-dessus : assertJobAcceptsCandidates.
+    const admin = createAdminClient();
 
     // Verify job exists — et qu'elle est publiée. Une offre en brouillon
     // acceptait des candidatures : le lien public fonctionnait avant même que le
     // recruteur ait terminé de la créer.
-    const { data: job, error: jobError } = await supabase
+    const { data: job, error: jobError } = await admin
       .from('jobs')
       .select('id, status')
       .eq('id', jobId)
-      .single();
+      .maybeSingle();
 
     if (jobError || !job) throw new Error("Offre d'emploi introuvable");
     if (job.status === 'draft') throw new Error("Cette offre n'est pas encore ouverte aux candidatures.");
 
     await assertJobAcceptsCandidates(jobId);
-
-    // Toutes les opérations sur `candidates` passent par le service_role : le
-    // candidat qui postule est ANONYME, et depuis la migration 014 le rôle anon
-    // n'a plus aucun droit de lecture sur cette table (il ne lui reste qu'un
-    // INSERT). Avec le client anon, l'anti-doublon ci-dessous ne trouverait
-    // plus jamais rien — il créerait des doublons en silence — et le `.select()`
-    // de l'insert échouerait, le RETURNING d'un insert exigeant un droit SELECT.
-    // La digue métier reste au-dessus : assertJobAcceptsCandidates.
-    const admin = createAdminClient();
 
     // ── Anti-doublon : vérifier si un candidat avec ce même email a déjà postulé ──
     if (email) {
