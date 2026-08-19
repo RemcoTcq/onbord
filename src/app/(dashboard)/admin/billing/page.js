@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { adminAddCredits, adminChangePlan } from "@/lib/actions/usage";
+import { adminAddCredits, adminChangePlan, adminListUserUsage } from "@/lib/actions/usage";
 import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
@@ -36,13 +36,12 @@ export default function AdminBillingPage() {
     }
     setHasAccess(true);
 
-    // Charger user_usage + email depuis auth.users via la vue admin
-    const { data: usages } = await supabase
-      .from("user_usage")
-      .select("*")
-      .order("credits_balance", { ascending: true });
-
-    if (usages) setUsers(usages);
+    // Cette lecture depuis le navigateur ne fonctionnait que grâce au
+    // contournement `is_admin()` posé dans la policy SQL de user_usage — la
+    // fonction qui testait le suffixe @onbord.be. La migration 023 la retire :
+    // la lecture passe par une action serveur, gardée par ADMIN_EMAILS.
+    const res = await adminListUserUsage();
+    if (res.success) setUsers(res.usages);
     setLoading(false);
   }
 

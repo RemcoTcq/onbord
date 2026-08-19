@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { claimInvitePlan } from "@/lib/actions/usage";
+import { claimInvitePlan, validateInviteToken } from "@/lib/actions/usage";
 
 function JoinForm() {
   const searchParams = useSearchParams();
@@ -31,22 +31,20 @@ function JoinForm() {
     }
 
     async function validateToken() {
-      const supabase = createClient();
-      const { data, error: fetchError } = await supabase
-        .from("invite_tokens")
-        .select("*")
-        .eq("token", token)
-        .single();
+      // Cette page interrogeait `invite_tokens` directement, avec la clé anon.
+      // La policy « Public can read tokens » (SELECT true) qui le permettait
+      // rendait AUSSI la table listable en entier : un simple
+      // GET /rest/v1/invite_tokens?select=* renvoyait toutes les invitations en
+      // attente avec leur jeton et leur plan — dont le plan `admin`.
+      //
+      // La validation passe désormais par le serveur, qui ne renvoie que de quoi
+      // afficher l'écran : validité, plan, et l'identifiant que réclame
+      // claimInvitePlan. Jamais la ligne, jamais la liste.
+      const res = await validateInviteToken(token);
 
-      if (fetchError || !data) {
-        setError("Ce lien d'invitation est invalide.");
-      } else if (data.used) {
-        setError("Ce lien d'invitation a déjà été utilisé.");
-      } else if (new Date(data.expires_at) < new Date()) {
-        setError("Ce lien d'invitation a expiré.");
-      } else {
-        setTokenData(data);
-      }
+      if (!res.success) setError(res.error);
+      else setTokenData({ id: res.id, plan: res.plan });
+
       setLoading(false);
     }
 

@@ -177,6 +177,137 @@ export async function claimInvitePlan(tokenId) {
   }
 }
 
+// ─── Invitations : accès serveur ──────────────────────────────────────────────
+// `invite_tokens` portait « Public can read tokens » (SELECT true) et « Public
+// can update tokens » (UPDATE true) : n'importe qui pouvait LISTER toutes les
+// invitations avec leur plan, et en MODIFIER une. Comme le plan `admin` existe,
+// c'était un chemin d'élévation de privilèges à ciel ouvert (audit §8).
+//
+// La table est fermée par la migration 022 ; les quatre usages légitimes passent
+// désormais par ces actions, en service_role, chacune avec son garde.
+
+/**
+ * Valide un jeton d'invitation pour la page publique /join.
+ * Ne renvoie JAMAIS la ligne ni la liste : seulement de quoi afficher l'écran.
+ * L'appelant est un visiteur anonyme — d'où la limite de débit, la même que
+ * claimInvitePlan puisque c'est le même parcours de devinette qu'on ferme.
+ */
+export async function validateInviteToken(token) {
+  try {
+    const verdict = consommer(
+      `invite:ip:${ipDe(await headers())}`,
+      SEUILS.invitationParIp.max,
+      SEUILS.invitationParIp.fenetre
+    );
+    if (!verdict.autorise) {
+      return { success: false, error: "Trop de tentatives. Réessayez plus tard." };
+    }
+
+    if (!token) return { success: false, error: "Lien d'invitation invalide." };
+
+    const admin = createAdminClient();
+    const { data: invitation } = await admin
+      .from("invite_tokens")
+      .select("id, plan, used, expires_at")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (!invitation) return { success: false, error: "Ce lien d'invitation est invalide." };
+    if (invitation.used) return { success: false, error: "Ce lien d'invitation a déjà été utilisé." };
+    if (new Date(invitation.expires_at) < new Date()) {
+      return { success: false, error: "Ce lien d'invitation a expiré." };
+    }
+
+    // `id` sert à claimInvitePlan, `plan` à l'affichage. Rien d'autre ne sort.
+    return { success: true, id: invitation.id, plan: invitation.plan || "core" };
+  } catch (error) {
+    console.error("validateInviteToken error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/** Liste des invitations, pour l'écran /admin. */
+export async function adminListInviteTokens() {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    const { data } = await createAdminClient()
+      .from("invite_tokens")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    return { success: true, tokens: data || [] };
+  } catch (error) {
+    console.error("adminListInviteTokens error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Crée une invitation. Le JETON est tiré CÔTÉ SERVEUR : il était auparavant
+ * généré dans le navigateur, donc avec l'aléa du client, et le plan y était
+ * choisi librement puisque l'insert partait du navigateur.
+ */
+export async function adminCreateInviteToken(plan) {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    const plansValides = ["core", "pro", "custom", "admin"];
+    if (!plansValides.includes(plan)) return { success: false, error: "Plan inconnu" };
+
+    const token = crypto.randomUUID().replace(/-/g, "");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await createAdminClient()
+      .from("invite_tokens")
+      .insert({ token, plan, expires_at: expiresAt })
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, token: data };
+  } catch (error) {
+    console.error("adminCreateInviteToken error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/** Supprime une invitation. */
+export async function adminDeleteInviteToken(tokenId) {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    await createAdminClient().from("invite_tokens").delete().eq("id", tokenId);
+    return { success: true };
+  } catch (error) {
+    console.error("adminDeleteInviteToken error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Consommation de tous les comptes, pour l'écran /admin/billing.
+ * Cet écran lisait `user_usage` depuis le NAVIGATEUR, ce qui n'était possible
+ * que par le contournement `is_admin()` posé dans la policy SQL — la fonction
+ * qui testait le suffixe @onbord.be. La migration 023 la retire ; la lecture
+ * passe ici, où le garde est ADMIN_EMAILS, source unique de vérité.
+ */
+export async function adminListUserUsage() {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    const { data } = await createAdminClient()
+      .from("user_usage")
+      .select("*")
+      .order("credits_balance", { ascending: true });
+
+    return { success: true, usages: data || [] };
+  } catch (error) {
+    console.error("adminListUserUsage error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
 // Rétrocompatibilité
 export async function checkUserQuota(type) {
   return { allowed: true, remaining: 999999 };

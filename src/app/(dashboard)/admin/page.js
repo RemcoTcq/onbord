@@ -4,14 +4,17 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Copy, Check, Link2, Trash2, Loader2, Shield } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { isCurrentUserAdmin } from "@/lib/actions/usage";
+import {
+  isCurrentUserAdmin,
+  adminListInviteTokens,
+  adminCreateInviteToken,
+  adminDeleteInviteToken,
+} from "@/lib/actions/usage";
 
-function generateToken() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let result = "";
-  for (let i = 0; i < 24; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
-}
+// generateToken() vivait ici : 24 caractères tirés avec Math.random(), dont la
+// suite est prédictible. Sur une invitation qui peut porter le plan `admin`,
+// cela suffit à la deviner. Le jeton est désormais tiré côté serveur, avec
+// crypto.randomUUID() (cf. adminCreateInviteToken).
 
 export default function AdminPage() {
   const [plan, setPlan] = useState("core");
@@ -38,32 +41,25 @@ export default function AdminPage() {
 
     setHasAccess(true);
 
-    const { data } = await supabase
-      .from("invite_tokens")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (data) setTokens(data);
+    // `invite_tokens` n'accepte plus d'accès direct (migration 022) : la lecture
+    // passe par une action serveur, gardée par ADMIN_EMAILS.
+    const res = await adminListInviteTokens();
+    if (res.success) setTokens(res.tokens);
     setLoading(false);
   }
 
   async function handleGenerate() {
     setGenerating(true);
-    const supabase = createClient();
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await supabase
-      .from("invite_tokens")
-      .insert({ token, plan, expires_at: expiresAt })
-      .select()
-      .single();
+    // Jeton tiré serveur, plan validé serveur : l'insert partait auparavant du
+    // navigateur, qui choisissait donc librement le plan de l'invitation.
+    const { success, token: data, error } = await adminCreateInviteToken(plan);
 
-    if (error) {
-      toast("Erreur : " + error.message, "error");
+    if (!success) {
+      toast("Erreur : " + error, "error");
     } else {
       setTokens(prev => [data, ...prev]);
-      const link = `${window.location.origin}/join?token=${token}`;
+      const link = `${window.location.origin}/join?token=${data.token}`;
       await navigator.clipboard.writeText(link);
       setCopiedId(data.id);
       toast("Lien généré et copié !");
@@ -73,8 +69,7 @@ export default function AdminPage() {
   }
 
   async function handleDelete(id) {
-    const supabase = createClient();
-    await supabase.from("invite_tokens").delete().eq("id", id);
+    await adminDeleteInviteToken(id);
     setTokens(prev => prev.filter(t => t.id !== id));
     toast("Token supprimé");
   }
