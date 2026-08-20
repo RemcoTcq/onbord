@@ -6,6 +6,7 @@ import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
 import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { DELAI_CORBEILLE_JOURS } from "@/lib/jobPurge";
 import { headers } from "next/headers";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
@@ -21,6 +22,18 @@ async function assertJobAcceptsCandidates(jobId) {
   }
 }
 
+/**
+ * Met une offre à la corbeille. RÉVERSIBLE pendant 7 jours.
+ *
+ * Ne supprime plus rien : pose `deleted_at`, ce qui suffit à faire disparaître
+ * l'offre de tous les écrans recruteur — le filtre est porté par la policy RLS
+ * (migration 024) — et à fermer le parcours candidat, filtré à la main dans
+ * resolveJobEntry() et getPublicJobAndBranding() puisque ceux-là lisent en
+ * service_role.
+ *
+ * L'effacement réel a lieu au-delà du délai, dans lib/jobPurge.js, appelé par
+ * /api/cron/purge.
+ */
 export async function deleteJob(jobId) {
   try {
     const supabase = await createClient();
@@ -28,56 +41,80 @@ export async function deleteJob(jobId) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
 
-    // Propriété vérifiée AVANT toute opération en service_role. La lecture passe
-    // par le client soumis à RLS : elle ne renvoie l'offre que si l'utilisateur
-    // la possède. C'est indispensable — le reste de la fonction contourne la RLS,
-    // et sans ce contrôle, un jobId d'autrui suffirait à tout effacer.
-    const { data: offre } = await supabase
-      .from('jobs').select('id').eq('id', jobId).eq('user_id', user.id).maybeSingle();
-    if (!offre) return { success: false, error: "Suppression impossible ou permission refusée." };
-
-    const admin = createAdminClient();
-
-    // 1. Fichiers du stockage, AVANT de perdre l'identité des candidats : une
-    // fois les lignes supprimées, plus rien ne dit quels dossiers effacer — c'est
-    // ainsi que se sont accumulés les orphelins.
-    const { data: candidates } = await admin
-      .from('candidates')
-      .select('id, interview_token')
-      .eq('job_id', jobId);
-
-    if (candidates?.length) {
-      const { erreurs } = await supprimerFichiersDesCandidats(admin, candidates);
-      // On n'interrompt pas la suppression pour autant : une offre à moitié
-      // supprimée serait pire. Mais on le TRACE, au lieu du silence d'avant.
-      if (erreurs.length) console.error("deleteJob — fichiers non supprimés :", erreurs);
-    }
-
-    // 2. Candidats d'abord. Leur suppression cascade vers candidate_runs, donc
-    // vers run_step_responses / run_ai_messages / run_scores. Cet ordre n'est pas
-    // cosmétique : candidate_runs.experience_id est en ON DELETE RESTRICT
-    // (migration 010), donc tant qu'un run existe, la suppression de l'offre —
-    // qui cascade vers experiences — est REFUSÉE par la base.
-    const { error: errCandidats } = await admin.from('candidates').delete().eq('job_id', jobId);
-    if (errCandidats) throw errCandidats;
-
-    await admin.from('job_skills').delete().eq('job_id', jobId);
-
-    // 3. L'offre. Le filtre sur user_id est redondant avec le contrôle du début,
-    // et gardé comme ceinture et bretelles sur une opération irréversible.
-    const { error, count } = await admin
+    // La policy UPDATE limite déjà au propriétaire ; le filtre sur user_id est
+    // gardé en second rideau, et `count` nous dit si la ligne a bougé.
+    const { error, count } = await supabase
       .from('jobs')
-      .delete({ count: 'exact' })
+      .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', jobId)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .is('deleted_at', null);
 
     if (error) throw error;
     if (count === 0) return { success: false, error: "Suppression impossible ou permission refusée." };
 
-    return { success: true };
+    return { success: true, corbeille: true, delaiJours: DELAI_CORBEILLE_JOURS };
   } catch (error) {
     console.error("Delete Job Error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Offres en corbeille du recruteur connecté, avec le nombre de jours restants.
+ *
+ * Passe par le service_role À DESSEIN : la policy de lecture exclut
+ * `deleted_at is not null`, donc le client soumis à RLS ne verrait jamais rien.
+ * C'est la contrepartie annoncée du filtre porté par la policy — d'où le filtre
+ * explicite sur user_id, qui remplace ici la protection de la RLS.
+ */
+export async function listDeletedJobs() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data } = await createAdminClient()
+      .from('jobs')
+      .select('id, title, deleted_at')
+      .eq('user_id', user.id)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+
+    const maintenant = Date.now();
+    const offres = (data || []).map((j) => {
+      const echeance = new Date(j.deleted_at).getTime() + DELAI_CORBEILLE_JOURS * 86400000;
+      return { ...j, joursRestants: Math.max(0, Math.ceil((echeance - maintenant) / 86400000)) };
+    });
+
+    return { success: true, jobs: offres };
+  } catch (error) {
+    console.error("listDeletedJobs error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/** Sort une offre de la corbeille. Sans effet si elle a déjà été purgée. */
+export async function restoreJob(jobId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { error, count } = await createAdminClient()
+      .from('jobs')
+      .update({ deleted_at: null }, { count: 'exact' })
+      .eq('id', jobId)
+      .eq('user_id', user.id)
+      .not('deleted_at', 'is', null);
+
+    if (error) throw error;
+    if (count === 0) return { success: false, error: "Offre introuvable ou déjà purgée." };
+
+    return { success: true };
+  } catch (error) {
+    console.error("restoreJob error:", error);
+    return { success: false, error: "Erreur technique" };
   }
 }
 
@@ -664,10 +701,14 @@ export async function getPublicJobAndBranding(jobId) {
   try {
     const admin = createAdminClient();
 
+    // `deleted_at` filtré ici aussi : cette lecture est en service_role, la
+    // policy de la migration 024 ne s'y applique donc pas. Une offre en
+    // corbeille doit cesser de s'afficher tout de suite, pas au bout de 7 jours.
     const { data: job, error: jobError } = await admin
       .from('jobs')
       .select('id, title, status, user_id, saved_flow_nodes')
       .eq('id', jobId)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (jobError) throw jobError;

@@ -3,15 +3,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Briefcase, Loader2, Trash2, MapPin, Users, Plus, Search, MessageSquare } from "lucide-react";
+import { Briefcase, Loader2, Trash2, MapPin, Users, Plus, Search, MessageSquare, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { deleteJob } from "@/lib/actions/candidate";
+import { deleteJob, listDeletedJobs, restoreJob } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [deletedJobs, setDeletedJobs] = useState([]);
+  const [restoringId, setRestoringId] = useState(null);
   const [tab, setTab] = useState("active");
   const [search, setSearch] = useState("");
   const { toast } = useToast();
@@ -32,8 +34,29 @@ export default function JobsPage() {
         .order("created_at", { ascending: false });
 
       if (data) setJobs(data);
+
+      // La corbeille ne peut PAS venir de la requête ci-dessus : la policy de
+      // lecture exclut les offres supprimées, quel que soit le filtre demandé.
+      // Elle passe par une action serveur (cf. migration 024).
+      const res = await listDeletedJobs();
+      if (res.success) setDeletedJobs(res.jobs);
     }
     setLoading(false);
+  }
+
+  async function handleRestore(e, jobId) {
+    e.preventDefault();
+    e.stopPropagation();
+    setRestoringId(jobId);
+    const res = await restoreJob(jobId);
+    if (res.success) {
+      setDeletedJobs(prev => prev.filter(j => j.id !== jobId));
+      await loadJobs();
+      toast("Offre restaurée");
+    } else {
+      toast(res.error || "Restauration impossible", "error");
+    }
+    setRestoringId(null);
   }
 
   async function handleDelete(e, jobId) {
@@ -45,7 +68,8 @@ export default function JobsPage() {
       const res = await deleteJob(jobId);
       if (res.success) {
         setJobs(prev => prev.filter(j => j.id !== jobId));
-        toast("Offre supprimée");
+        await loadJobs(); // recharge la corbeille, où l'offre vient d'atterrir
+        toast(`Offre déplacée dans la corbeille — restaurable ${res.delaiJours} jours`);
       } else {
         toast(res.error || "Erreur lors de la suppression", "error");
       }
@@ -108,6 +132,15 @@ export default function JobsPage() {
           >
             Brouillons {draftsCount > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({draftsCount})</span>}
           </button>
+          {deletedJobs.length > 0 && (
+            <button
+              className={`tab ${tab === "trash" ? "active" : ""}`}
+              onClick={() => setTab("trash")}
+              style={{ borderBottom: tab === "trash" ? "2px solid var(--foreground)" : "2px solid transparent" }}
+            >
+              Corbeille <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({deletedJobs.length})</span>
+            </button>
+          )}
         </div>
         <div style={{ position: "relative", width: "220px" }}>
           <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
@@ -124,8 +157,44 @@ export default function JobsPage() {
 
       <div style={{ height: "1px", background: "var(--border)", marginTop: "-16px" }} />
 
-      {/* Job listing */}
-      {filteredJobs.length === 0 ? (
+      {/* Corbeille : offres supprimées, encore restaurables */}
+      {tab === "trash" ? (
+        <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>
+            Ces offres et tous leurs candidats seront définitivement effacés à l&apos;échéance — CV et vidéos compris. La restauration reste possible jusque-là.
+          </div>
+          {deletedJobs.map(job => (
+            <div
+              key={job.id}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: "12px", padding: "12px 14px", borderBottom: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {job.title || "Offre sans titre"}
+                </div>
+                <div style={{ fontSize: "12px", color: job.joursRestants <= 1 ? "var(--destructive)" : "var(--muted-foreground)" }}>
+                  {job.joursRestants === 0
+                    ? "Effacement imminent"
+                    : `Effacement définitif dans ${job.joursRestants} jour${job.joursRestants > 1 ? "s" : ""}`}
+                </div>
+              </div>
+              <button
+                onClick={(e) => handleRestore(e, job.id)}
+                className="btn btn-ghost btn-sm"
+                style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap" }}
+              >
+                {restoringId === job.id
+                  ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                  : <RotateCcw size={14} />}
+                Restaurer
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : filteredJobs.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
           <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
             {tab === "active" ? "Aucune offre active" : "Aucun brouillon"}

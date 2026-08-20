@@ -33,14 +33,21 @@ export function entryIsOpen(entry) {
 export async function resolveJobEntry(db, jobId) {
   if (!jobId) return "invalid";
 
+  // L'OFFRE D'ABORD, et pas seulement en repli comme auparavant.
+  //
+  // `deleted_at` est filtré à la main : l'appelant côté candidat est le client
+  // service_role, qui contourne la RLS — la policy de la migration 024 ne le
+  // protège donc pas. Et ce contrôle doit précéder la recherche d'expérience :
+  // une offre mise à la corbeille MAIS dont l'expérience reste publiée aurait
+  // sinon renvoyé "experience" par le raccourci, et continué d'accueillir des
+  // candidatures pendant les sept jours de sursis.
+  const { data: job } = await db
+    .from("jobs").select("id").eq("id", jobId).is("deleted_at", null).maybeSingle();
+  if (!job) return "invalid";
+
   const { data: exp } = await db
     .from("experiences").select("id")
     .eq("job_id", jobId).eq("status", "published").limit(1).maybeSingle();
-  if (exp) return "experience";
 
-  // L'offre existe-t-elle ? C'est ce qui distingue « pas encore prête » d'un
-  // identifiant erroné, et donc le message affiché au candidat.
-  const { data: job } = await db.from("jobs").select("id").eq("id", jobId).maybeSingle();
-
-  return entryFor({ job, hasPublishedExperience: false });
+  return entryFor({ job, hasPublishedExperience: !!exp });
 }

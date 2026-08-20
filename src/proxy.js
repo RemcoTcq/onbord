@@ -46,6 +46,12 @@ export async function proxy(request) {
     "/apply",           // formulaire de candidature public
     "/api/run",         // assistant IA du run (token vérifié serveur)
     "/api/transcribe",  // transcription des réponses vidéo (token vérifié serveur)
+    // Purge quotidienne appelée par Vercel Cron. L'appelant est une MACHINE :
+    // elle n'a pas de session, et sans cette entrée le proxy la renverrait vers
+    // /login — le cron échouerait en silence, la corbeille ne se viderait
+    // jamais. La route est gardée par CRON_SECRET, comparé à l'en-tête
+    // Authorization, et refuse de s'exécuter si la variable est absente.
+    "/api/cron",
   ];
   const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
 
