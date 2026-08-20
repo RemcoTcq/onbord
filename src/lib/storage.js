@@ -49,6 +49,88 @@ export function cheminObjet(bucket, urlOuChemin) {
 export const DUREE_URL_SIGNEE = 3600;
 
 /**
+ * Liste RÉCURSIVEMENT les objets sous un préfixe.
+ * `list` de Supabase ne descend pas dans les sous-dossiers : il renvoie les
+ * entrées du niveau, celles sans `id` étant des dossiers. Or les vidéos du
+ * parcours hérité vivent sous `<candidate_id>/<job_id>/…`, un cran plus bas.
+ * Sans récursion, elles ne sont jamais vues — donc jamais supprimées.
+ */
+async function listerRecursif(admin, bucket, prefixe, profondeur = 0) {
+  if (profondeur > 3) return []; // garde-fou, l'arborescence réelle a 2 niveaux
+
+  const { data, error } = await admin.storage.from(bucket).list(prefixe, { limit: 1000 });
+  if (error || !data) return [];
+
+  const chemins = [];
+  for (const entree of data) {
+    const complet = prefixe ? `${prefixe}/${entree.name}` : entree.name;
+    if (entree.id) chemins.push(complet);
+    else chemins.push(...(await listerRecursif(admin, bucket, complet, profondeur + 1)));
+  }
+  return chemins;
+}
+
+/**
+ * Supprime TOUS les fichiers appartenant à une liste de candidats.
+ *
+ * Trois défauts corrigés ici, qui laissaient 28 CV sur 28 orphelins dans le
+ * stockage — des données personnelles survivant à la suppression de la
+ * candidature (audit du 19/08/2026, point 11) :
+ *
+ *   1. les suppressions passaient par le client soumis à RLS, or `resumes` et
+ *      `video-responses` n'ont JAMAIS eu de policy DELETE : chaque appel
+ *      échouait, et le résultat n'était pas vérifié. Silence complet.
+ *   2. elles ciblaient `cv_storage_path`, qui ne retient que le DERNIER CV
+ *      déposé. Un candidat ayant téléversé sept fois laissait six fichiers.
+ *   3. elles ignoraient les vidéos du parcours Experience
+ *      (`run_step_responses`), qui n'étaient donc jamais effacées.
+ *
+ * D'où le choix de vider les DOSSIERS plutôt que de suivre les chemins connus :
+ * ce qui doit disparaître, c'est tout ce qui porte l'identité du candidat, pas
+ * seulement ce dont la base a gardé la trace.
+ *
+ * @param {object} admin client service_role — seul à pouvoir supprimer
+ * @param {Array<{id: string, interview_token?: string}>} candidats
+ * @returns {Promise<{supprimes: number, erreurs: string[]}>}
+ */
+export async function supprimerFichiersDesCandidats(admin, candidats) {
+  const erreurs = [];
+  let supprimes = 0;
+
+  // Les dossiers portent tantôt l'id du candidat (CV, parcours hérité), tantôt
+  // son interview_token (parcours run). On ratisse les deux dans les deux
+  // buckets : un préfixe absent ne coûte qu'un listing vide.
+  const prefixes = [];
+  for (const c of candidats) {
+    if (c?.id) prefixes.push(c.id);
+    if (c?.interview_token) prefixes.push(c.interview_token);
+  }
+  if (!prefixes.length) return { supprimes: 0, erreurs };
+
+  for (const bucket of ["resumes", "video-responses"]) {
+    const chemins = [];
+    for (const prefixe of prefixes) {
+      chemins.push(...(await listerRecursif(admin, bucket, prefixe)));
+    }
+    if (!chemins.length) continue;
+
+    // `remove` accepte un lot ; on borne pour ne pas construire une requête
+    // démesurée sur la suppression d'une offre à gros volume.
+    for (let i = 0; i < chemins.length; i += 100) {
+      const lot = chemins.slice(i, i + 100);
+      const { data, error } = await admin.storage.from(bucket).remove(lot);
+      // Le résultat est VÉRIFIÉ, contrairement à l'ancien code : une suppression
+      // de fichiers qui échoue sans le dire est précisément ce qui a produit les
+      // orphelins.
+      if (error) erreurs.push(`${bucket}: ${error.message}`);
+      else supprimes += data?.length ?? lot.length;
+    }
+  }
+
+  return { supprimes, erreurs };
+}
+
+/**
  * URL signée à durée limitée pour un objet d'un bucket privé.
  * `admin` doit être un client service_role : la signature n'est jamais déléguée
  * au navigateur, sans quoi l'appelant pourrait signer n'importe quel chemin.

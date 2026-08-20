@@ -4,7 +4,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
 import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
-import { urlSignee } from "@/lib/storage";
+import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 import { headers } from "next/headers";
 
@@ -24,67 +24,56 @@ async function assertJobAcceptsCandidates(jobId) {
 export async function deleteJob(jobId) {
   try {
     const supabase = await createClient();
-    
-    // Check if user owns the job
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
 
-    // 1. Get all candidates to cleanup their storage files
-    const { data: candidates } = await supabase
+    // Propriété vérifiée AVANT toute opération en service_role. La lecture passe
+    // par le client soumis à RLS : elle ne renvoie l'offre que si l'utilisateur
+    // la possède. C'est indispensable — le reste de la fonction contourne la RLS,
+    // et sans ce contrôle, un jobId d'autrui suffirait à tout effacer.
+    const { data: offre } = await supabase
+      .from('jobs').select('id').eq('id', jobId).eq('user_id', user.id).maybeSingle();
+    if (!offre) return { success: false, error: "Suppression impossible ou permission refusée." };
+
+    const admin = createAdminClient();
+
+    // 1. Fichiers du stockage, AVANT de perdre l'identité des candidats : une
+    // fois les lignes supprimées, plus rien ne dit quels dossiers effacer — c'est
+    // ainsi que se sont accumulés les orphelins.
+    const { data: candidates } = await admin
       .from('candidates')
-      .select('id, cv_storage_path')
+      .select('id, interview_token')
       .eq('job_id', jobId);
 
-    if (candidates && candidates.length > 0) {
-      const candidateIds = candidates.map(c => c.id);
-      
-      const filePaths = candidates
-        .map(c => c.cv_storage_path)
-        .filter(path => !!path);
-      
-      if (filePaths.length > 0) {
-        // Delete from storage
-        await supabase.storage.from('resumes').remove(filePaths);
-      }
-
-      // Cleanup video responses storage
-      const { data: videoResponses } = await supabase
-        .from('video_interview_responses')
-        .select('video_storage_path')
-        .in('candidate_id', candidateIds);
-        
-      if (videoResponses && videoResponses.length > 0) {
-        const videoPaths = videoResponses
-          .map(v => v.video_storage_path)
-          .filter(path => !!path);
-          
-        if (videoPaths.length > 0) {
-          await supabase.storage.from('video-responses').remove(videoPaths);
-        }
-      }
+    if (candidates?.length) {
+      const { erreurs } = await supprimerFichiersDesCandidats(admin, candidates);
+      // On n'interrompt pas la suppression pour autant : une offre à moitié
+      // supprimée serait pire. Mais on le TRACE, au lieu du silence d'avant.
+      if (erreurs.length) console.error("deleteJob — fichiers non supprimés :", erreurs);
     }
 
-    // 2. Delete related data (CASCADE usually handles this but we're being explicit)
-    // mail_logs, interviews, etc. are linked via ON DELETE CASCADE in the DB
-    await supabase.from('candidates').delete().eq('job_id', jobId);
-    await supabase.from('job_skills').delete().eq('job_id', jobId);
-    
-    // 3. Delete the job and verify RLS
-    const { error, count } = await supabase
+    // 2. Candidats d'abord. Leur suppression cascade vers candidate_runs, donc
+    // vers run_step_responses / run_ai_messages / run_scores. Cet ordre n'est pas
+    // cosmétique : candidate_runs.experience_id est en ON DELETE RESTRICT
+    // (migration 010), donc tant qu'un run existe, la suppression de l'offre —
+    // qui cascade vers experiences — est REFUSÉE par la base.
+    const { error: errCandidats } = await admin.from('candidates').delete().eq('job_id', jobId);
+    if (errCandidats) throw errCandidats;
+
+    await admin.from('job_skills').delete().eq('job_id', jobId);
+
+    // 3. L'offre. Le filtre sur user_id est redondant avec le contrôle du début,
+    // et gardé comme ceinture et bretelles sur une opération irréversible.
+    const { error, count } = await admin
       .from('jobs')
       .delete({ count: 'exact' })
       .eq('id', jobId)
       .eq('user_id', user.id);
-      
+
     if (error) throw error;
-    
-    if (count === 0) {
-      return { 
-        success: false, 
-        error: "Suppression impossible ou permission refusée." 
-      };
-    }
-    
+    if (count === 0) return { success: false, error: "Suppression impossible ou permission refusée." };
+
     return { success: true };
   } catch (error) {
     console.error("Delete Job Error:", error);
@@ -739,39 +728,25 @@ export async function deleteCandidate(candidateId) {
   try {
     const supabase = await createClient();
 
-    // 1. Get candidate to find storage path
+    // La lecture par le client soumis à RLS FAIT office de contrôle de propriété :
+    // elle ne renvoie la ligne que si le recruteur possède l'offre du candidat.
+    // Elle doit précéder tout ce qui suit, qui s'exécute en service_role.
     const { data: candidate } = await supabase
       .from('candidates')
-      .select('cv_storage_path')
+      .select('id, interview_token')
       .eq('id', candidateId)
-      .single();
+      .maybeSingle();
 
-    if (candidate?.cv_storage_path) {
-      await supabase.storage.from('resumes').remove([candidate.cv_storage_path]);
-    }
+    if (!candidate) return { success: false, error: "Suppression impossible ou permission refusée." };
 
-    // Cleanup video responses storage
-    const { data: videoResponses } = await supabase
-      .from('video_interview_responses')
-      .select('video_storage_path')
-      .eq('candidate_id', candidateId);
-      
-    if (videoResponses && videoResponses.length > 0) {
-      const videoPaths = videoResponses
-        .map(v => v.video_storage_path)
-        .filter(path => !!path);
-        
-      if (videoPaths.length > 0) {
-        await supabase.storage.from('video-responses').remove(videoPaths);
-      }
-    }
-    
-    // 2. Delete candidate record
-    const { error } = await supabase
-      .from('candidates')
-      .delete()
-      .eq('id', candidateId);
-    
+    const admin = createAdminClient();
+
+    const { erreurs } = await supprimerFichiersDesCandidats(admin, [candidate]);
+    if (erreurs.length) console.error("deleteCandidate — fichiers non supprimés :", erreurs);
+
+    // Cascade vers candidate_runs et tout le run.
+    const { error } = await admin.from('candidates').delete().eq('id', candidateId);
+
     if (error) throw error;
     return { success: true };
   } catch (error) {
@@ -798,30 +773,33 @@ export async function bulkUpdateCandidateStatus(candidateIds, status) {
 
 export async function bulkDeleteCandidates(candidateIds) {
   try {
+    if (!candidateIds?.length) return { success: true };
+
     const supabase = await createClient();
 
-    // 1. Get all storage paths
+    // Lecture RLS : ne remontent que les candidats effectivement possédés. On
+    // supprime EXACTEMENT ceux-là, jamais la liste reçue du client — sans quoi
+    // un identifiant glissé dans le lot ferait supprimer le candidat d'autrui,
+    // la suite s'exécutant en service_role.
     const { data: candidates } = await supabase
       .from('candidates')
-      .select('cv_storage_path')
+      .select('id, interview_token')
       .in('id', candidateIds);
 
-    if (candidates && candidates.length > 0) {
-      const filePaths = candidates
-        .map(c => c.cv_storage_path)
-        .filter(path => !!path);
-      
-      if (filePaths.length > 0) {
-        await supabase.storage.from('resumes').remove(filePaths);
-      }
-    }
-    
-    // 2. Delete database records
-    const { error } = await supabase
+    if (!candidates?.length) return { success: false, error: "Suppression impossible ou permission refusée." };
+
+    const admin = createAdminClient();
+
+    // Le nettoyage des vidéos manquait entièrement ici : cette action ne
+    // s'occupait que des CV.
+    const { erreurs } = await supprimerFichiersDesCandidats(admin, candidates);
+    if (erreurs.length) console.error("bulkDeleteCandidates — fichiers non supprimés :", erreurs);
+
+    const { error } = await admin
       .from('candidates')
       .delete()
-      .in('id', candidateIds);
-    
+      .in('id', candidates.map((c) => c.id));
+
     if (error) throw error;
     return { success: true };
   } catch (error) {
