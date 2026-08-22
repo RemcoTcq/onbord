@@ -13,6 +13,75 @@ import { CRM_SKILL_NAME } from "@/lib/crmScoring";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
+// ─── Règles partagées par les deux prompts ────────────────────────────────────
+// Ces règles décrivent CE QU'EST UNE BONNE ÉTAPE. Elles valent donc à
+// l'identique quand on génère l'expérience entière et quand on en réécrit une
+// seule (regenerate_step) — et c'est bien le problème : recopiées dans deux
+// prompts, elles divergent au premier ajustement, et la retouche d'une étape se
+// met à produire autre chose que sa génération d'origine.
+//
+// La numérotation (3 à 8) est celle du prompt principal, conservée telle quelle
+// pour que le bloc y reste inséré sans réécriture. Elle n'a pas de sens dans le
+// prompt de régénération, qui l'introduit par un titre explicite ; un modèle
+// n'en a que faire, un relecteur humain a besoin de savoir pourquoi ça commence
+// à 3.
+const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
+4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
+5. Pour CHAQUE étape, propose "response_format" par défaut :
+   - "text" pour l'écrit (emails, analyses, réponses techniques),
+   - "video" pour l'oral/le relationnel — TOUJOURS sous forme de mise en situation jouée en direct (règle 4),
+   - "qcm" pour un QCM,
+   - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
+   Le recruteur pourra changer ce défaut ; propose le plus pertinent.
+6. Pour CHAQUE étape de type "question" ou "task", identifie la compétence principale ciblée (reprise des COMPÉTENCES TECHNIQUES ou du SAVOIR-ÊTRE ci-dessus) dans "skill_assessed", et décompose-la en 2 à 3 SOUS-DIMENSIONS observables — pas une liste de critères plats, une vraie décomposition de ce que "bien réussir cette compétence" veut dire concrètement dans ce contexte. Chaque sous-dimension reçoit sa propre grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent), avec des descriptions COMPORTEMENTALES et OBSERVABLES.
+   Exemple de décomposition : la compétence "Travail d'équipe" se décompose en sous-dimensions "Collaboration", "Soutien aux collègues", "Communication" — chacune notée séparément, pas fondue en un seul critère générique "travail d'équipe".
+   IMPORTANT pour les niveaux de chaque sous-dimension :
+   - Chaque description DOIT inclure un exemple concret de ce que le candidat fait ou écrit (un mini-verbatim fictif illustratif entre guillemets).
+   - Exemple pour la sous-dimension "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
+   - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
+   Une étape de type "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement, pas par grille).
+7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
+8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
+   Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
+   - Pour "email" : config.to, config.subject, config.context
+   - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
+   - Pour "document" : config.document_context
+   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation. Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
+   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat.
+   NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience, et son "response_format" doit être "text".`;
+
+const REGLES_QCM = `RÈGLES QCM ANTI-BIAIS :
+- TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
+- Chaque distracteur doit être PLAUSIBLE pour quelqu'un qui connaît partiellement le sujet. Pas de réponses absurdes.
+- Formulation HOMOGÈNE : si la bonne réponse commence par "Le…", les distracteurs aussi.
+- 4 options par QCM (ni plus, ni moins).`;
+
+// Forme JSON d'UNE étape. Partagée pour la même raison : une clé ajoutée ici
+// doit apparaître dans les deux sorties, sinon une étape régénérée perd
+// silencieusement un champ que la génération complète produisait.
+const SCHEMA_STEP = `    {
+      "kind": "question|task|classic_qcm",
+      "title": "Titre court",
+      "prompt": "Énoncé lu tel quel au candidat (vouvoiement)",
+      "response_format": "text|video|qcm|choice",
+      "sandbox_kind": "none|email|client_reply|document|code|crm",
+      "ai_assistant_allowed": true,
+      "targets_skills": ["Compétence ciblée"],
+      "config": {},
+      "skill_assessed": "Nom de la compétence principale ciblée par cette étape",
+      "sub_dimensions": [
+        { "name": "Nom de la sous-dimension", "bars_levels": [
+          { "level": 1, "label": "Insuffisant", "description": "..." },
+          { "level": 3, "label": "Attendu", "description": "..." },
+          { "level": 5, "label": "Excellent", "description": "..." }
+        ] }
+      ]
+    }`;
+
+// Les mêmes champs, sortis de leur objet englobant : le prompt de régénération
+// décrit UNE étape À LA RACINE du JSON, avec deux clés de pilotage en plus.
+const SCHEMA_STEP_CHAMPS = SCHEMA_STEP.split("\n").slice(1, -1).join("\n");
+
 // ─── Prompt de génération (offre + contexte entreprise → expérience) ──────────
 // Interne : dans un module "use server", seuls des exports async sont permis.
 // La démo hors repo garde une copie identique de ce prompt.
@@ -52,60 +121,16 @@ Ne génère jamais d'étape de filtre qualificatif (langue, expérience minimale
 RÈGLES :
 1. 3 à 6 étapes au total, durée cumulée 5–20 min.
 2. Inclus AU MOINS DEUX "task" réalistes ancrées dans le métier et le contexte entreprise. C'est le cœur de la preuve.
-3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
-4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
-5. Pour CHAQUE étape, propose "response_format" par défaut :
-   - "text" pour l'écrit (emails, analyses, réponses techniques),
-   - "video" pour l'oral/le relationnel — TOUJOURS sous forme de mise en situation jouée en direct (règle 4),
-   - "qcm" pour un QCM,
-   - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
-   Le recruteur pourra changer ce défaut ; propose le plus pertinent.
-6. Pour CHAQUE étape de type "question" ou "task", identifie la compétence principale ciblée (reprise des COMPÉTENCES TECHNIQUES ou du SAVOIR-ÊTRE ci-dessus) dans "skill_assessed", et décompose-la en 2 à 3 SOUS-DIMENSIONS observables — pas une liste de critères plats, une vraie décomposition de ce que "bien réussir cette compétence" veut dire concrètement dans ce contexte. Chaque sous-dimension reçoit sa propre grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent), avec des descriptions COMPORTEMENTALES et OBSERVABLES.
-   Exemple de décomposition : la compétence "Travail d'équipe" se décompose en sous-dimensions "Collaboration", "Soutien aux collègues", "Communication" — chacune notée séparément, pas fondue en un seul critère générique "travail d'équipe".
-   IMPORTANT pour les niveaux de chaque sous-dimension :
-   - Chaque description DOIT inclure un exemple concret de ce que le candidat fait ou écrit (un mini-verbatim fictif illustratif entre guillemets).
-   - Exemple pour la sous-dimension "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
-   - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
-   Une étape de type "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement, pas par grille).
-7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
-8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
-   Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
-   - Pour "email" : config.to, config.subject, config.context
-   - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
-   - Pour "document" : config.document_context
-   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation. Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
-   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat.
-   NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience, et son "response_format" doit être "text".
+${REGLES_ETAPE}
 9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
 
-RÈGLES QCM ANTI-BIAIS :
-- TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
-- Chaque distracteur doit être PLAUSIBLE pour quelqu'un qui connaît partiellement le sujet. Pas de réponses absurdes.
-- Formulation HOMOGÈNE : si la bonne réponse commence par "Le…", les distracteurs aussi.
-- 4 options par QCM (ni plus, ni moins).
+${REGLES_QCM}
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
   "estimated_minutes": 12,
   "steps": [
-    {
-      "kind": "question|task|classic_qcm",
-      "title": "Titre court",
-      "prompt": "Énoncé lu tel quel au candidat (vouvoiement)",
-      "response_format": "text|video|qcm|choice",
-      "sandbox_kind": "none|email|client_reply|document|code|crm",
-      "ai_assistant_allowed": true,
-      "targets_skills": ["Compétence ciblée"],
-      "config": {},
-      "skill_assessed": "Nom de la compétence principale ciblée par cette étape",
-      "sub_dimensions": [
-        { "name": "Nom de la sous-dimension", "bars_levels": [
-          { "level": 1, "label": "Insuffisant", "description": "..." },
-          { "level": 3, "label": "Attendu", "description": "..." },
-          { "level": 5, "label": "Excellent", "description": "..." }
-        ] }
-      ]
-    }
+${SCHEMA_STEP}
   ]
 }
 Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "skill_assessed" et "sub_dimensions" restent vides ([] et "").`;
@@ -531,6 +556,319 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     return { success: true, experienceId: experience.id, usage: gen.usage };
   } catch (err) {
     console.error("runExperienceGeneration error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Régénération d'UNE étape ─────────────────────────────────────────────────
+// Le geste que ce module ne savait pas faire : retoucher une étape sans refaire
+// les cinq autres.
+//
+// Ce que ça change concrètement : une passe complète, c'est 8000 tokens de
+// sortie plus une 2e passe par étape CRM ; réécrire une étape en coûte quelques
+// centaines. Corriger le ton d'une tâche ne justifiait pas de payer — ni de
+// risquer — la refonte de tout le parcours.
+//
+// Et « risquer » n'est pas une figure de style : une génération complète crée
+// une NOUVELLE VERSION, donc un parcours entièrement neuf. Les quatre étapes que
+// le recruteur avait déjà relues et ajustées à la main partaient avec l'ancienne
+// version. La régénération d'étape écrit EN PLACE, exactement comme l'édition
+// manuelle de l'écran de relecture — dont elle n'est que la variante assistée.
+function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction }) {
+  const hard = (criteria.hard_skills || []).map((sk) => `- ${sk.name}${sk.priority ? ` (${sk.priority})` : ""}`).join("\n");
+  const soft = (criteria.soft_skills || []).map((sk) => `- ${sk.name}`).join("\n");
+  const ctx = companyContext || {};
+  const companyBlock = [
+    ctx.description && `Description : ${ctx.description}`,
+    ctx.industry && `Secteur : ${ctx.industry}`,
+    ctx.target_market && `Marché cible : ${ctx.target_market}`,
+    ctx.domain && `Modèle : ${ctx.domain}`,
+  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+
+  // L'étape est donnée telle qu'elle est EN BASE. `config.crm` est volontairement
+  // remplacé par un marqueur : le scénario complet pèse 600-900 tokens qu'on
+  // paierait à chaque retouche, alors que la consigne ne le concerne presque
+  // jamais. Le modèle sait qu'il existe, et demande sa refonte s'il le faut.
+  const configAffichee = { ...(step.config || {}) };
+  if (configAffichee.crm) {
+    configAffichee.crm = "<scénario CRM complet déjà généré (sources, champs, incohérence volontaire) — non reproduit ici>";
+  }
+
+  const etapeActuelle = JSON.stringify({
+    kind: step.kind,
+    title: step.title,
+    prompt: step.prompt,
+    response_format: step.response_format,
+    sandbox_kind: step.sandbox_kind,
+    ai_assistant_allowed: step.ai_assistant_allowed,
+    skill_assessed: step.skill_assessed,
+    sub_dimensions: step.criteria || [],
+    config: configAffichee,
+  }, null, 2);
+
+  const voisines = autresEtapes.length
+    ? autresEtapes.map((a) => `- Étape ${a.position} : [${a.kind}] « ${a.title || "sans titre"} »${a.skill_assessed ? ` — évalue : ${a.skill_assessed}` : ""}`).join("\n")
+    : "Aucune autre étape.";
+
+  return `Tu es un concepteur d'évaluations de recrutement par compétences. Tu dois RÉÉCRIRE UNE SEULE ÉTAPE d'une expérience de présélection déjà générée, et déjà relue par le recruteur.
+
+Tu ne produis QUE cette étape. Les autres ne sont là que pour te situer : n'y touche pas, ne les reprends pas, ne les recopie pas.
+
+POSTE : ${title || "Non précisé"}
+DESCRIPTION :
+${(description || "").slice(0, 1200) || "Non fournie"}
+
+COMPÉTENCES TECHNIQUES :
+${hard || "Non précisées"}
+
+SAVOIR-ÊTRE :
+${soft || "Non précisés"}
+
+CONTEXTE ENTREPRISE :
+${companyBlock}
+
+LES AUTRES ÉTAPES DE L'EXPÉRIENCE (contexte — ne les régénère pas, et évite de faire doublon avec elles) :
+${voisines}
+
+ÉTAPE À RÉÉCRIRE — numéro ${position} sur ${total}, dans sa version actuelle :
+${etapeActuelle}
+
+CONSIGNE DU RECRUTEUR — elle prime sur tout le reste :
+${instruction}
+
+COMMENT RÉÉCRIRE :
+- Applique la consigne, et RIEN QUE la consigne. Tout ce qu'elle ne demande pas de changer doit être conservé à l'identique : le recruteur a déjà relu cette étape, chaque modification non demandée est une régression pour lui.
+- Si la consigne ne porte que sur l'énoncé, ne retouche ni la compétence évaluée ni les sous-dimensions. Si elle change la nature de l'exercice, alors la compétence et les sous-dimensions doivent suivre.
+- Tu peux changer "kind", "response_format" et "sandbox_kind" si la consigne l'implique — jamais de ta propre initiative.
+- L'étape garde sa place dans le parcours : tu ne la déplaces pas.
+
+RÈGLES DE CONCEPTION D'UNE ÉTAPE — identiques à celles de la génération complète, dont la numérotation est reprise telle quelle :
+${REGLES_ETAPE}
+
+${REGLES_QCM}
+
+CAS PARTICULIER DU SANDBOX "crm" :
+- Si l'étape est déjà en sandbox "crm", son scénario détaillé (sources, champs, incohérence volontaire) EXISTE DÉJÀ et n'est pas reproduit ci-dessus. Laisse "config" vide : il sera conservé tel quel.
+- Mets "regenerate_crm_scenario": true UNIQUEMENT si la consigne impose de refaire ce scénario (changer la situation mise en scène, les sources, les champs de la fiche). C'est un second appel au modèle : ne le demande pas pour une simple retouche d'énoncé.
+- Si tu fais PASSER l'étape en sandbox "crm" alors qu'elle ne l'était pas, mets "config": { "crm_brief": "…une phrase…" } et "regenerate_crm_scenario": true.
+
+Réponds UNIQUEMENT avec un JSON valide décrivant CETTE SEULE étape, sans texte avant ni après :
+{
+  "summary": "Une phrase, à la 1re personne, disant au recruteur ce que tu as changé.",
+  "regenerate_crm_scenario": false,
+${SCHEMA_STEP_CHAMPS}
+}
+Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "skill_assessed" et "sub_dimensions" restent vides ([] et "").`;
+}
+
+// Cumule un usage dans un compteur existant. mergeUsage() ne convient pas ici :
+// il pose `calls` au nombre d'usages fusionnés, ce qui remettrait le compteur à
+// 2 à chaque retouche au lieu de l'incrémenter. Or c'est précisément ce
+// compteur qui mesure l'économie recherchée.
+function cumulerUsage(precedent, ajout) {
+  if (!ajout) return precedent || null;
+  if (!precedent) return { ...ajout, calls: ajout.calls || 1 };
+  return {
+    model: ajout.model || precedent.model,
+    calls: (precedent.calls || 0) + (ajout.calls || 1),
+    input_tokens: (precedent.input_tokens || 0) + (ajout.input_tokens || 0),
+    output_tokens: (precedent.output_tokens || 0) + (ajout.output_tokens || 0),
+    cost_usd: Number(((precedent.cost_usd || 0) + (ajout.cost_usd || 0)).toFixed(6)),
+  };
+}
+
+/**
+ * Réécrit une étape EN PLACE, à partir d'une consigne en langage libre.
+ *
+ * Volontairement SANS versionnage : c'est une édition, au même titre que celle
+ * de l'écran de relecture. Le recruteur qui corrige une tournure n'attend pas
+ * une v3 de son parcours, et les runs candidat déjà commencés restent sur la
+ * même expérience — avec l'avertissement `locked_at` déjà affiché à l'écran.
+ *
+ * @param {string} stepId
+ * @param {string} instruction consigne du recruteur, telle que le chat l'a comprise
+ * @returns {Promise<{success: boolean, step?: object, position?: number, resume?: string, error?: string}>}
+ */
+export async function runStepRegeneration(stepId, instruction) {
+  try {
+    if (!instruction || !instruction.trim()) {
+      return { success: false, error: "Aucune consigne : impossible de savoir quoi changer." };
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    // Propriété vérifiée par la jointure, comme assertStepOwnership : une étape
+    // n'appartient à personne directement, elle appartient à l'offre qui la porte.
+    const { data: step } = await supabase
+      .from("experience_steps")
+      .select("*, experiences!inner(id, job_id, jobs!inner(id, user_id, title, description, extracted_criteria))")
+      .eq("id", stepId)
+      .single();
+    const job = step?.experiences?.jobs;
+    if (!step || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    // Les voisines situent l'étape et évitent les doublons. La position est
+    // calculée sur la MÊME liste triée que celle affichée au chat : c'est ce qui
+    // garantit que « l'étape 3 » désigne la même chose des deux côtés.
+    const { data: fratrie } = await supabase
+      .from("experience_steps")
+      .select("id, order_index, kind, title, skill_assessed")
+      .eq("experience_id", step.experience_id)
+      .order("order_index");
+    const liste = fratrie || [];
+    const position = liste.findIndex((e) => e.id === step.id) + 1;
+    const autresEtapes = liste
+      .map((e, i) => ({ ...e, position: i + 1 }))
+      .filter((e) => e.id !== step.id);
+
+    const { data: profile } = await supabase
+      .from("users").select("company_ai_context").eq("id", user.id).single();
+    const companyContext = profile?.company_ai_context || {};
+
+    const prompt = buildStepRegenerationPrompt({
+      title: job.title,
+      description: job.description,
+      criteria: job.extracted_criteria || {},
+      companyContext,
+      step,
+      position,
+      total: liste.length,
+      autresEtapes,
+      instruction: instruction.slice(0, 2000),
+    });
+
+    let nouveau = null;
+    let usage = null;
+    let lastErr = "";
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const response = await streamCompletion({
+        system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
+        prompt,
+        // 4000 : une seule étape avec ses grilles BARS détaillées, là où la
+        // génération complète en demande 8000 pour trois à six étapes.
+        maxTokens: 4000,
+        temperature: 0.4,
+      });
+      usage = cumulerUsage(usage, response.usage);
+      if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
+      const match = (response.text || "").match(/\{[\s\S]*\}/);
+      if (!match) { lastErr = "aucun JSON dans la réponse"; continue; }
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (!parsed.title && !parsed.prompt) { lastErr = "étape vide"; continue; }
+        nouveau = parsed;
+        break;
+      } catch (e) { lastErr = e.message; }
+    }
+    if (!nouveau) return { success: false, error: `Régénération invalide (${lastErr}).` };
+
+    // ── config : on FUSIONNE, on ne remplace pas ─────────────────────────────
+    // Le modèle ne renvoie que ce qu'il a l'intention de changer, et il a toutes
+    // les raisons de laisser "config" vide quand la consigne ne parle que de
+    // l'énoncé. Remplacer effacerait alors le destinataire et l'objet d'une
+    // sandbox email, ou le message client d'un client_reply — un contenu que
+    // personne n'a demandé à perdre, et que rien n'aurait signalé.
+    // La fusion ne vaut évidemment que si le type de sandbox n'a pas changé :
+    // le config d'un email n'a rien à faire dans un document.
+    const memeSandbox = (step.sandbox_kind || "none") === (nouveau.sandbox_kind || "none");
+    const config = {
+      ...(memeSandbox ? (step.config || {}) : {}),
+      ...(nouveau.config || {}),
+      targets_skills: nouveau.targets_skills || step.config?.targets_skills || [],
+    };
+
+    // ── Sandbox CRM : la 2e passe n'est repayée que si elle est demandée ──────
+    if (nouveau.sandbox_kind === "crm") {
+      const crmExistant = step.config?.crm || null;
+      const refaire = nouveau.regenerate_crm_scenario === true || !crmExistant;
+
+      if (!refaire) {
+        config.crm = crmExistant;
+      } else {
+        const scenario = await generateCrmScenario({
+          title: job.title,
+          description: job.description,
+          companyContext,
+          step: { ...nouveau, config: nouveau.config || {} },
+        });
+        if (scenario.success) {
+          usage = cumulerUsage(usage, scenario.usage);
+          const { step_prompt, ...crmConfig } = scenario.crm;
+          if (step_prompt) nouveau.prompt = step_prompt;
+          config.crm = crmConfig;
+        } else {
+          // Même repli que la génération complète : pas de scénario, pas de
+          // sandbox — plutôt une tâche texte simple qu'une fiche vide.
+          console.error("generateCrmScenario (régénération) failed:", scenario.error);
+          nouveau.sandbox_kind = "none";
+        }
+      }
+      delete config.crm_brief;
+      // Le repli ci-dessus a pu ramener l'étape à "none" alors que la fusion y
+      // avait déjà reversé l'ancien scénario : un config.crm sans sandbox crm
+      // n'est lu par personne, mais il ferait mentir la relecture.
+      if (nouveau.sandbox_kind !== "crm") delete config.crm;
+
+      if (nouveau.sandbox_kind === "crm") {
+        nouveau.response_format = "text";
+        nouveau.skill_assessed = CRM_SKILL_NAME;
+        const dims = nouveau.sub_dimensions || [];
+        if (!dims.some((c) => /crois|source/i.test(c?.name || ""))) {
+          nouveau.sub_dimensions = [...dims, CRM_CROSS_CHECK_CRITERION];
+        }
+      }
+    }
+
+    // `order_index` absent de la mise à jour : une régénération ne déplace jamais
+    // l'étape. Le déplacement a son propre geste (moveStep).
+    const maj = {
+      kind: nouveau.kind || step.kind,
+      response_format: nouveau.response_format || step.response_format || "text",
+      title: nouveau.title || step.title,
+      prompt: nouveau.prompt ?? step.prompt,
+      sandbox_kind: nouveau.sandbox_kind || "none",
+      ai_assistant_allowed: !!nouveau.ai_assistant_allowed,
+      // Un QCM n'a ni compétence ni grille : c'est la règle 6, et le modèle
+      // renvoie alors "" et [] volontairement — il faut les écrire tels quels.
+      // Partout ailleurs, une valeur absente veut dire « je n'y touche pas » :
+      // on garde l'existante plutôt que d'effacer une grille BARS que le
+      // recruteur a relue parce que la consigne ne portait que sur l'énoncé.
+      skill_assessed: nouveau.kind === "classic_qcm"
+        ? null
+        : (nouveau.skill_assessed || step.skill_assessed || null),
+      // Nom de colonne historique : contient les sous-dimensions (cf. insertion
+      // de la génération complète).
+      criteria: Array.isArray(nouveau.sub_dimensions)
+        ? nouveau.sub_dimensions
+        : (Array.isArray(nouveau.criteria) ? nouveau.criteria : (step.criteria || [])),
+      config,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: stepMaj, error: majErr } = await supabase
+      .from("experience_steps").update(maj).eq("id", step.id).select().single();
+    if (majErr) throw majErr;
+
+    // Coût comptabilisé À PART de generation_usage, qui reste l'instantané de la
+    // génération complète (migration 025).
+    const { data: exp } = await supabase
+      .from("experiences").select("regeneration_usage").eq("id", step.experience_id).single();
+    await supabase
+      .from("experiences")
+      .update({ regeneration_usage: cumulerUsage(exp?.regeneration_usage, usage), updated_at: new Date().toISOString() })
+      .eq("id", step.experience_id);
+
+    return {
+      success: true,
+      step: stepMaj,
+      position,
+      resume: nouveau.summary || `Étape ${position} réécrite.`,
+      usage,
+    };
+  } catch (err) {
+    console.error("runStepRegeneration error:", err);
     return { success: false, error: err.message };
   }
 }

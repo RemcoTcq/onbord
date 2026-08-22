@@ -3,14 +3,39 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, X, PlusCircle, Check, Sparkles } from "lucide-react";
 import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
+import { getExperienceChat, resetExperienceChat } from "@/lib/actions/experienceChat";
+import { regenerateStepByNumber } from "@/lib/actions/experience";
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
 import GenerationFeed, { streamExperienceGeneration } from "./GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 
-export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onUserMessage }) {
+// Message d'ouverture quand une expérience existe déjà mais qu'aucune
+// conversation n'a été enregistrée — le cas de tous les parcours générés avant
+// que le fil ne soit persisté, et celui d'un fil remis à zéro.
+// Il énonce l'état plutôt que de le sous-entendre : c'est ce que le recruteur
+// venait vérifier en rouvrant le panneau.
+// `titrePoste` plutôt que l'objet jobData : une chaîne se compare par valeur,
+// donc l'effet de chargement ne se redéclenche pas à chaque rechargement de
+// l'offre — un refetch y écraserait le fil en cours de frappe.
+function accueilAjustement(etat, titrePoste) {
+  const role = titrePoste || "ce poste";
+  const liste = (etat.titres || []).map((t, i) => `${i + 1}. ${t}`).join("\n");
+  return `L'expérience de présélection pour ${role} est déjà générée : ${etat.nbEtapes} étape${etat.nbEtapes > 1 ? "s" : ""} en version v${etat.version}${etat.statut === "published" ? ", publiée" : ""}.
+
+${liste}
+
+Dites-moi ce que vous voulez ajuster — par exemple « réécris l'étape 2 avec un ton plus direct ». Je reprends l'étape visée, sans toucher aux autres.`;
+}
+
+export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onStepRegenerated, onUserMessage }) {
   const [genActive, setGenActive] = useState(false); // génération en cours
   const [genEvents, setGenEvents] = useState([]);    // flux réel poussé par le serveur
+  const [regenActive, setRegenActive] = useState(null); // n° d'étape en cours de réécriture
+  const [regenFaites, setRegenFaites] = useState([]);   // trace des réécritures du tour
+  const [filCharge, setFilCharge] = useState(!jobId);   // fil persisté chargé ?
+  const [etatExp, setEtatExp] = useState(null);         // état de l'expérience en base
   const notifiedUserMsg = useRef(false);
+  const titrePoste = jobData?.title || jobData?.role || "";
   const [messages, setMessages] = useState(() => {
     if (standalone && initialPrompt) {
       return [];
@@ -40,6 +65,28 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Le fil vit en base, plus dans le seul état React : fermer le panneau ne
+  // l'efface plus. On le recharge au montage, avec l'état de l'expérience —
+  // deux informations dont le composant a besoin au même instant, d'où le seul
+  // aller-retour.
+  useEffect(() => {
+    if (!jobId) return;
+    let annule = false;
+    (async () => {
+      const res = await getExperienceChat(jobId);
+      if (annule) return;
+      if (res?.success) {
+        setEtatExp(res.etat);
+        if (res.messages?.length) setMessages(res.messages);
+        else if (res.etat?.existe) {
+          setMessages([{ role: "assistant", content: [{ type: "text", text: accueilAjustement(res.etat, titrePoste) }] }]);
+        }
+      }
+      setFilCharge(true);
+    })();
+    return () => { annule = true; };
+  }, [jobId, titrePoste]);
 
   const submitMessage = async (msgText, currentMessages, isToolResult = false) => {
     let newMessages;
@@ -78,16 +125,14 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
       const data = await res.json();
       
-      // L'assistant a décidé de générer : data.messages contient déjà son
-      // message (avec l'appel d'outil). On lance la génération côté client.
-      if (data.pendingGenerate) {
-        setMessages(data.messages);
-        await runGeneration(data.pendingGenerate, data.messages);
-      } else if (data.messages && data.messages.length > newMessages.length) {
-        setMessages([...data.messages, { role: "assistant", content: data.message.content }]);
-      } else {
-        setMessages([...newMessages, { role: "assistant", content: data.message.content }]);
-      }
+      // La route renvoie toujours le fil complet, réponse de l'assistant
+      // comprise (c'est ce qu'elle vient d'enregistrer). Plus de reconstruction
+      // côté client : les trois branches d'avant divergeaient du fil persisté.
+      const fil = data.messages || [...newMessages, { role: "assistant", content: data.message.content }];
+      setMessages(fil);
+
+      if (data.pendingGenerate) await runGeneration(data.pendingGenerate, fil);
+      else if (data.pendingRegenerate) await runRegeneration(data.pendingRegenerate, fil);
 
     } catch (err) {
       console.error("Chat Error:", err);
@@ -129,6 +174,39 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     await submitMessage(null, [...baseMessages, toolResultMsg], true);
   };
 
+  // Réécriture d'UNE étape. Même circuit que la génération complète — la route
+  // décide, le client exécute et renvoie le tool_result — mais sans streaming :
+  // un appel unique de quelques secondes n'a pas de déroulé à montrer.
+  const runRegeneration = async (pending, baseMessages) => {
+    setRegenActive(pending.stepNumber);
+
+    const res = await regenerateStepByNumber(jobId, pending.stepNumber, pending.instruction);
+    setRegenActive(null);
+
+    if (res.success) {
+      setRegenFaites((prev) => [...prev, { n: res.position ?? pending.stepNumber, titre: res.step?.title, resume: res.resume }]);
+      // Même rappel que la génération : l'écran de relecture doit montrer
+      // l'étape réécrite, pas celle d'avant. Repli sur onGenerated pour les
+      // appelants qui n'ont qu'un seul rechargement à proposer.
+      (onStepRegenerated || onGenerated)?.();
+    } else {
+      toast(res.error || "Échec de la réécriture", "error");
+    }
+
+    const toolResultMsg = {
+      role: "user",
+      content: [{
+        type: "tool_result",
+        tool_use_id: pending.toolUseId,
+        is_error: !res.success,
+        content: res.success
+          ? `Étape ${res.position} réécrite en place, les autres étapes n'ont pas bougé. Nouveau titre : « ${res.step?.title || ""} ». Ce qui a changé : ${res.resume || "non précisé"}.`
+          : `Échec de la réécriture : ${res.error || "erreur inconnue"}.`,
+      }],
+    };
+    await submitMessage(null, [...baseMessages, toolResultMsg], true);
+  };
+
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!input.trim() || loading) return;
@@ -138,12 +216,33 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     await submitMessage(msg, messages);
   };
 
+  // Le prompt d'entrée (arrivée depuis l'écran Assessments) ne s'auto-envoie
+  // qu'au tout premier échange. Sans l'attente du fil ET sans la vérification
+  // qu'aucun message du recruteur n'existe déjà, chaque réouverture du panneau
+  // le rejouerait — un message envoyé, et payé, à chaque visite.
   useEffect(() => {
-    if (initialPrompt && !hasInitialized.current) {
+    const aDejaParle = messages.some((m) => m.role === "user");
+    if (filCharge && initialPrompt && !hasInitialized.current && !aDejaParle) {
       hasInitialized.current = true;
       submitMessage(initialPrompt, messages);
     }
-  }, [initialPrompt]);
+  }, [initialPrompt, filCharge]);
+
+  // Repart d'une conversation vierge. L'expérience générée n'est PAS touchée :
+  // c'est le fil qui s'est enlisé, pas le parcours.
+  const handleReset = async () => {
+    if (!jobId || loading || genActive) return;
+    if (!confirm("Effacer cette conversation ? Les étapes déjà générées ne sont pas modifiées.")) return;
+    const res = await resetExperienceChat(jobId);
+    if (!res.success) { toast(res.error || "Erreur", "error"); return; }
+    hasInitialized.current = true; // pas de rejeu du prompt d'entrée après un reset
+    notifiedUserMsg.current = false;
+    setGenEvents([]);
+    setRegenFaites([]);
+    setMessages(etatExp?.existe
+      ? [{ role: "assistant", content: [{ type: "text", text: accueilAjustement(etatExp, titrePoste) }] }]
+      : [{ role: "assistant", content: [{ type: "text", text: "On repart de zéro. Décrivez votre intention pour cette expérience de présélection." }] }]);
+  };
 
   const extractText = (content) => {
     if (Array.isArray(content)) {
@@ -364,6 +463,13 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
   };
 
   const renderMessages = () => {
+    if (!filCharge) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+          <Loader2 size={20} className="spin" color="var(--muted-foreground)" />
+        </div>
+      );
+    }
     return messages.map((msg, idx) => {
       if (msg.role !== 'assistant' && msg.role !== 'user') return null;
       if (msg.role === 'user' && msg.content[0]?.type === 'tool_result') return null;
@@ -418,6 +524,23 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           {/* Le feed reste affiché après coup : c'est la trace de ce qui a été fait. */}
           {genEvents.length > 0 && <GenerationFeed events={genEvents} active={genActive} />}
 
+          {(regenFaites.length > 0 || regenActive !== null) && (
+            <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {regenFaites.map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
+                  <Check size={13} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
+                  <span>Étape {r.n} réécrite{r.titre ? ` — « ${r.titre} »` : ''}{r.resume ? ` : ${r.resume}` : ''}</span>
+                </div>
+              ))}
+              {regenActive !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--primary)', fontWeight: 600 }}>
+                  <Loader2 size={13} className="spin" />
+                  Réécriture de l&apos;étape {regenActive}…
+                </div>
+              )}
+            </div>
+          )}
+
           {loading && !genActive && (
             <div style={{ display: 'flex', width: '100%' }}>
                <div style={{ width: '100%', padding: '8px 0' }}>
@@ -463,6 +586,23 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           </button>
           </form>
         </div>
+
+        {jobId && filCharge && messages.some((m) => m.role === 'user') && (
+          <div style={{ textAlign: 'center', paddingBottom: '12px' }}>
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={loading || genActive}
+              style={{
+                background: 'transparent', border: 'none', cursor: (loading || genActive) ? 'not-allowed' : 'pointer',
+                color: 'var(--muted-foreground)', fontSize: '12px', textDecoration: 'underline',
+                opacity: (loading || genActive) ? 0.5 : 1,
+              }}
+            >
+              Effacer la conversation
+            </button>
+          </div>
+        )}
       </div>
     );
   }

@@ -20,7 +20,7 @@ export async function getCostStats(periodDays = null) {
     const admin = createAdminClient();
     const cutoff = periodDays ? new Date(Date.now() - periodDays * 86400000).toISOString() : null;
 
-    let expQ = admin.from("experiences").select("id, job_id, generation_usage, created_at, jobs(title)");
+    let expQ = admin.from("experiences").select("id, job_id, generation_usage, regeneration_usage, created_at, jobs(title)");
     if (cutoff) expQ = expQ.gte("created_at", cutoff);
     let runQ = admin.from("candidate_runs").select("id, experience_id, started_at");
     if (cutoff) runQ = runQ.gte("started_at", cutoff);
@@ -51,7 +51,16 @@ export async function getCostStats(periodDays = null) {
       scoringByRun[s.run_id] = s.scoring_usage?.cost_usd || 0;
     }
 
-    const genTotal = experiences.reduce((sum, e) => sum + (e.generation_usage?.cost_usd || 0), 0);
+    // Génération complète + retouches d'étapes : même poste de coût (concevoir
+    // le parcours), deux gestes distincts. Le total les additionne, les
+    // compteurs les gardent séparés — c'est le rapport entre les deux qui dit si
+    // la régénération ciblée fait son travail.
+    const genTotal = experiences.reduce(
+      (sum, e) => sum + (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0),
+      0,
+    );
+    const regenCalls = experiences.reduce((n, e) => n + (e.regeneration_usage?.calls || 0), 0);
+    const regenTotal = experiences.reduce((sum, e) => sum + (e.regeneration_usage?.cost_usd || 0), 0);
     const scoringTotal = Object.values(scoringByRun).reduce((a, b) => a + b, 0);
     const assistantTotal = Object.values(assistantByRun).reduce((a, b) => a + b, 0);
     const nRuns = runList.length;
@@ -66,7 +75,7 @@ export async function getCostStats(periodDays = null) {
       const jid = e.job_id;
       jobTitle[jid] = e.jobs?.title || "Poste supprimé";
       (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, runs: 0 });
-      perJob[jid].generation += e.generation_usage?.cost_usd || 0;
+      perJob[jid].generation += (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0);
     }
     for (const r of runList) {
       const jid = expById[r.experience_id]?.job_id;
@@ -86,8 +95,12 @@ export async function getCostStats(periodDays = null) {
     return {
       success: true,
       period: periodDays,
-      totals: { generation: genTotal, scoring: scoringTotal, assistant: assistantTotal, all: genTotal + scoringTotal + assistantTotal },
-      counts: { experiences: experiences.length, generated: genCount, runs: nRuns, scoredRuns: nScored, runsWithAssistant: nWithAssistant },
+      totals: { generation: genTotal, regeneration: regenTotal, scoring: scoringTotal, assistant: assistantTotal, all: genTotal + scoringTotal + assistantTotal },
+      counts: {
+        experiences: experiences.length, generated: genCount, runs: nRuns,
+        scoredRuns: nScored, runsWithAssistant: nWithAssistant,
+        stepRegenerations: regenCalls,
+      },
       avg: {
         generationPerExperience: div(genTotal, genCount),
         scoringPerRun: div(scoringTotal, nRuns),

@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { chargeCredits } from "@/lib/utils/limits";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
-import { runExperienceGeneration, generateExperienceContent as runGenerationContent } from "@/lib/experienceGeneration";
+import { runExperienceGeneration, generateExperienceContent as runGenerationContent, runStepRegeneration } from "@/lib/experienceGeneration";
+import { chargerExperienceCourante } from "@/lib/experienceChat";
 
 // ─── Génération ───────────────────────────────────────────────────────────────
 // Le pipeline (prompts, appels Claude, versionnage, insertion) vit dans
@@ -18,6 +19,50 @@ export async function generateExperience(jobId, additionalContext = "") {
 // Génération sans persistance (tests / démo hors repo).
 export async function generateExperienceContent(args) {
   return runGenerationContent(args);
+}
+
+// ─── Régénération ciblée d'une étape ──────────────────────────────────────────
+// Le pendant assisté de updateStep : même écriture EN PLACE, même absence de
+// versionnage. La seule différence est qu'un modèle rédige le contenu à partir
+// d'une consigne, là où updateStep reçoit les champs déjà saisis.
+export async function regenerateStep(stepId, instruction) {
+  return runStepRegeneration(stepId, instruction);
+}
+
+/**
+ * Variante appelée par le chat, qui ne connaît pas les identifiants d'étape :
+ * il désigne « l'étape 3 », telle qu'elle lui a été présentée.
+ *
+ * La résolution du numéro se fait ICI, sur la même lecture triée que celle qui a
+ * produit la liste envoyée au modèle. Lui faire recopier un identifiant aurait
+ * été plus direct — et aurait réécrit l'étape d'une autre offre le jour où il en
+ * invente un.
+ */
+export async function regenerateStepByNumber(jobId, stepNumber, instruction) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: job } = await supabase
+      .from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+    if (!job) return { success: false, error: "Accès refusé" };
+
+    const { experience, steps } = await chargerExperienceCourante(supabase, jobId);
+    if (!experience || !steps.length) {
+      return { success: false, error: "Aucune expérience à modifier : il faut d'abord la générer." };
+    }
+
+    const index = Number(stepNumber) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= steps.length) {
+      return { success: false, error: `L'étape ${stepNumber} n'existe pas : le parcours en compte ${steps.length}.` };
+    }
+
+    return runStepRegeneration(steps[index].id, instruction);
+  } catch (err) {
+    console.error("regenerateStepByNumber error:", err);
+    return { success: false, error: err.message };
+  }
 }
 
 // ─── Lecture d'une expérience + ses steps (recruteur propriétaire) ────────────

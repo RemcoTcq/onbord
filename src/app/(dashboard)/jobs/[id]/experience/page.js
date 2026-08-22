@@ -81,6 +81,14 @@ export default function ExperienceReviewPage() {
     await load();
   }
 
+  // Le chat a réécrit UNE étape, en place. Rechargement identique, message
+  // différent : rien d'autre n'a bougé, et le recruteur doit le savoir — c'est
+  // toute la différence avec une régénération complète.
+  async function handleStepRegenerated() {
+    toast("Étape réécrite — les autres n'ont pas changé");
+    await load();
+  }
+
   // Même flux de génération que le chat : les étapes affichées sont celles que
   // le serveur pousse réellement, au moment où elles se produisent.
   async function handleGenerate() {
@@ -155,7 +163,8 @@ export default function ExperienceReviewPage() {
           </div>
           <div className="card" style={{ height: "min(60vh, 560px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
             <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job}
-              onGenerated={handleChatGenerated} onUserMessage={() => setChatStarted(true)} />
+              onGenerated={handleChatGenerated} onStepRegenerated={handleStepRegenerated}
+              onUserMessage={() => setChatStarted(true)} />
           </div>
           {/* Le raccourci disparaît dès qu'on engage la conversation : un seul
               chemin de génération à la fois. */}
@@ -192,7 +201,7 @@ export default function ExperienceReviewPage() {
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <StatusBadge status={experience.status} />
               <button className="btn btn-outline btn-sm" onClick={() => setChatOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Sparkles size={14} /> {chatOpen ? "Fermer l'assistant" : "Ajuster avec l'assistant"}
+                <Sparkles size={14} /> {chatOpen ? "Fermer l'assistant" : "Ajuster étape par étape"}
               </button>
               {experience.status !== "published" ? (
                 <button className="btn btn-primary btn-sm" onClick={handlePublish} disabled={publishing} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -220,11 +229,13 @@ export default function ExperienceReviewPage() {
           )}
 
           {/* Ajustement par dialogue (coexiste avec l'édition directe ci-dessous).
-              Régénère une nouvelle version ; les retouches fines passent par
-              l'édition directe des étapes. */}
+              L'assistant réécrit UNE étape à la fois, en place : le parcours ne
+              change pas de version et les étapes déjà relues ne bougent pas. La
+              régénération complète reste possible, mais il faut la demander. */}
           {chatOpen && (
             <div className="card" style={{ height: "min(55vh, 520px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0, marginBottom: "1.5rem" }}>
-              <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job} onGenerated={handleChatGenerated} />
+              <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job}
+                onGenerated={handleChatGenerated} onStepRegenerated={handleStepRegenerated} />
             </div>
           )}
 
