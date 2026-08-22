@@ -33,6 +33,21 @@ async function assertJobAcceptsCandidates(jobId) {
  *
  * L'effacement réel a lieu au-delà du délai, dans lib/jobPurge.js, appelé par
  * /api/cron/purge.
+ *
+ * PASSE PAR LE SERVICE_ROLE, comme listDeletedJobs et restoreJob, et pour la
+ * même raison — que la migration 024 avait vue pour la lecture, mais pas pour
+ * l'écriture. PostgREST n'émet jamais un UPDATE nu : il l'enveloppe dans un
+ * `with ... as (update ... returning ...) select`, si bien que la policy SELECT
+ * est évaluée sur la ligne APRÈS modification. Or cette policy exige désormais
+ * `deleted_at is null` : la ligne qu'on vient de mettre à la corbeille est, à
+ * l'instant même, devenue invisible. Postgres refuse le RETURNING — « new row
+ * violates row-level security policy for table "jobs" » — et annule l'UPDATE.
+ * L'offre restait donc en place.
+ *
+ * Élargir la policy SELECT aux lignes en corbeille ferait sauter la digue de
+ * 024 : c'est elle qui garantit qu'aucune des 23 lectures de `jobs` ne peut
+ * ressortir une offre supprimée. Le contrôle de propriété est donc porté à la
+ * main ici, comme dans les deux autres chemins de corbeille.
  */
 export async function deleteJob(jobId) {
   try {
@@ -41,9 +56,10 @@ export async function deleteJob(jobId) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
 
-    // La policy UPDATE limite déjà au propriétaire ; le filtre sur user_id est
-    // gardé en second rideau, et `count` nous dit si la ligne a bougé.
-    const { error, count } = await supabase
+    // `user_id` n'est plus un second rideau mais LA protection : le service_role
+    // contourne la RLS. Ne jamais le retirer. `count` dit si la ligne a bougé —
+    // 0 = offre inconnue, appartenant à un autre, ou déjà en corbeille.
+    const { error, count } = await createAdminClient()
       .from('jobs')
       .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', jobId)
