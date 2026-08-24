@@ -12,7 +12,7 @@ import {
   addStep, deleteStep, moveStep, publishExperience,
 } from "@/lib/actions/experience";
 import { getJobDetail } from "@/lib/actions/candidate";
-import AssessmentChatCreator from "@/components/assessment/AssessmentChatCreator";
+import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
 import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "@/components/assessment/GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
@@ -153,39 +153,53 @@ export default function ExperienceReviewPage() {
     );
   }
 
+  // Conception : aucune expérience et aucune génération en cours. Le chat EST
+  // l’écran — plein écran, sans carte autour, comme le hub Expériences.
+  if (!experience && !generating) {
+    return (
+      <ExperienceChatScreen
+        jobId={jobId}
+        jobData={job}
+        title={job?.title || t("dashboard.experienceEditor.designWithAssistant")}
+        backLabel={t("dashboard.experienceEditor.backToJob")}
+        onBack={() => router.push(`/jobs/${jobId}`)}
+        onGenerated={handleChatGenerated}
+        onStepRegenerated={handleStepRegenerated}
+        onUserMessage={() => setChatStarted(true)}
+        actions={!chatStarted ? (
+          // Le raccourci disparaît dès qu’on engage la conversation : un seul
+          // chemin de génération à la fois.
+          <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
+            {t("dashboard.experienceEditor.generateDirectly")}
+          </button>
+        ) : null}
+      />
+    );
+  }
+
+  // Ajustement par dialogue sur une expérience existante : même écran, même
+  // plein écran. L’assistant réécrit UNE étape à la fois, en place — le parcours
+  // ne change pas de version et les étapes déjà relues ne bougent pas. La
+  // régénération complète reste possible, mais il faut la demander.
+  if (experience && chatOpen) {
+    return (
+      <ExperienceChatScreen
+        jobId={jobId}
+        jobData={job}
+        title={job?.title || t("dashboard.experienceEditor.designWithAssistant")}
+        backLabel={t("dashboard.experienceEditor.closeAssistant")}
+        onBack={() => setChatOpen(false)}
+        onGenerated={handleChatGenerated}
+        onStepRegenerated={handleStepRegenerated}
+      />
+    );
+  }
+
   return (
     <div style={{ maxWidth: "820px", margin: "0 auto", paddingBottom: "4rem" }}>
       <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/jobs/${jobId}`)} style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
         <ArrowLeft size={16} /> {t("dashboard.experienceEditor.backToJob")}
       </button>
-
-      {/* Aucune expérience, pas de génération en cours → chat-first (conception) */}
-      {!experience && !generating && (
-        <div>
-          <div style={{ marginBottom: "1rem" }}>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <Sparkles size={20} style={{ color: "var(--primary)" }} /> {t("dashboard.experienceEditor.designWithAssistant")}
-            </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "14px", maxWidth: "560px" }}>
-              {t("dashboard.experienceEditor.chatIntro")}
-            </p>
-          </div>
-          <div className="card" style={{ height: "min(60vh, 560px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
-            <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job}
-              onGenerated={handleChatGenerated} onStepRegenerated={handleStepRegenerated}
-              onUserMessage={() => setChatStarted(true)} />
-          </div>
-          {/* Le raccourci disparaît dès qu'on engage la conversation : un seul
-              chemin de génération à la fois. */}
-          {!chatStarted && (
-            <div style={{ textAlign: "center", marginTop: "1rem" }}>
-              <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
-                {t("dashboard.experienceEditor.generateDirectly")}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Génération directe (raccourci) → flux réel du pipeline, étape par étape */}
       {!experience && generating && (
@@ -209,8 +223,9 @@ export default function ExperienceReviewPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <StatusBadge status={experience.status} />
-              <button className="btn btn-outline btn-sm" onClick={() => setChatOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Sparkles size={14} /> {chatOpen ? t("dashboard.experienceEditor.closeAssistant") : t("dashboard.experienceEditor.adjustStepByStep")}
+              {/* Le chat s’ouvre en plein écran : plus d’état « ouvert » à refléter ici. */}
+              <button className="btn btn-outline btn-sm" onClick={() => setChatOpen(true)} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={14} /> {t("dashboard.experienceEditor.adjustStepByStep")}
               </button>
               {experience.status !== "published" ? (
                 <button className="btn btn-primary btn-sm" onClick={handlePublish} disabled={publishing} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -236,17 +251,6 @@ export default function ExperienceReviewPage() {
               {tNodes(t("dashboard.experienceEditor.lockedWarning"), {
                 next: <strong>{t("dashboard.experienceEditor.lockedWarningNext")}</strong>,
               })}
-            </div>
-          )}
-
-          {/* Ajustement par dialogue (coexiste avec l'édition directe ci-dessous).
-              L'assistant réécrit UNE étape à la fois, en place : le parcours ne
-              change pas de version et les étapes déjà relues ne bougent pas. La
-              régénération complète reste possible, mais il faut la demander. */}
-          {chatOpen && (
-            <div className="card" style={{ height: "min(55vh, 520px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0, marginBottom: "1.5rem" }}>
-              <AssessmentChatCreator standalone context="job" jobId={jobId} jobData={job}
-                onGenerated={handleChatGenerated} onStepRegenerated={handleStepRegenerated} />
             </div>
           )}
 

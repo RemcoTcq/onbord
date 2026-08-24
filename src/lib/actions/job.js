@@ -1,6 +1,7 @@
 "use server";
 
 import anthropic from "../anthropic";
+import { consigneLangueExtraction } from "@/lib/i18n/prompt";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,6 +17,16 @@ export async function analyzeJobDescription(rawDescription) {
 
   // Fetch active tests from the library to pass to the AI
   const supabase = await createClient();
+
+  // Langue d'interface du recruteur : les champs de texte libre extraits
+  // sont relus par lui dans le formulaire, pas par le candidat.
+  const { data: { user } } = await supabase.auth.getUser();
+  let uiLocale = "fr";
+  if (user) {
+    const { data: profil } = await supabase.from("users").select("ui_locale").eq("id", user.id).single();
+    if (profil?.ui_locale) uiLocale = profil.ui_locale;
+  }
+
   const { data: activeTests } = await supabase
     .from("assessment_tests")
     .select("id, name, description")
@@ -25,7 +36,8 @@ export async function analyzeJobDescription(rawDescription) {
     ? `\n\nVoici notre catalogue de tests métier globaux disponibles :\n<test_catalog>\n${JSON.stringify(activeTests, null, 2)}\n</test_catalog>`
     : "";
 
-  const prompt = `
+  const prompt = `${consigneLangueExtraction(uiLocale)}
+
 Vous êtes un assistant IA expert en recrutement. Votre tâche est d'analyser une offre d'emploi brute et d'en extraire les informations clés dans un format JSON structuré.
 
 Voici la description de l'offre d'emploi :
@@ -44,12 +56,12 @@ Structure JSON attendue :
   "sub_family": "La sous-famille précise du poste (ex: Account Executive B2B, Backend Developer, etc.)",
   "role_type": "Le type de rôle parmi ces 4 choix EXACTS : 'Contributeur individuel (IC) — Pas de responsabilité managériale, expert de son domaine', 'Manager — Gère une équipe, évalue, décide des ressources', 'Senior IC / Lead — Expert senior sans équipe directe mais avec influence', 'Director / Executive — Management de managers, vision stratégique'",
   "talents_needed": "Nombre de personnes recherchées (ex: 1, 2, 3)",
-  "contract_type": "Le type de contrat (CDI, CDD, Freelance, Stage, etc.)",
+  "contract_type": "Le type de contrat, en français : 'CDI', 'CDD', 'Freelance', 'Stage', 'Alternance' ou 'Intérim'. Un 'permanent contract' est un 'CDI'.",
   "work_mode": "onsite, remote, ou hybrid",
   "location": "La ville ou région",
   "experience_level": "junior, intermediate, senior, ou expert",
   "years_of_experience": "Nombre d'années d'expérience requises (ex: 3, 5, 1-3, ou laisser vide)",
-  "education_level": "Niveau d'études requis (ex: Bac+5, Master, Bachelier, Indifférent)",
+  "education_level": "Niveau d'études requis. UNIQUEMENT l'une de ces trois valeurs exactes : 'Master', 'Bachelier', 'Indifférent'. Un Bac+5, un Master's degree ou un diplôme d'ingénieur donnent 'Master'. Si l'offre n'exige rien, 'Indifférent'.",
   "hard_skills": [
     { "name": "Nom de la compétence", "priority": "must_have", "evidence": "Citation exacte de l'offre justifiant cette compétence" }
   ],
@@ -57,7 +69,7 @@ Structure JSON attendue :
     { "name": "Nom du savoir-être", "priority": "ambiguous", "evidence": "Citation exacte de l'offre" }
   ],
   "languages": [
-    { "name": "Nom de la langue", "level": 3 }
+    { "name": "Nom de la langue EN FRANÇAIS — 'Français', 'Anglais', 'Néerlandais', 'Allemand'… jamais 'English' ni 'Dutch'", "level": 3 }
   ],
   "selection_criteria": [
     { "name": "Critère de sélection pour le scoring CV (ex: Maîtrise de React.js)", "weight": 20 }
@@ -81,7 +93,14 @@ En vous basant sur la description de l'offre et le <test_catalog> fourni, choisi
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2500,
+      // 2500 était trop juste et coupait la réponse en plein JSON. Mesuré sur
+      // une offre tech dense de 2,7 ko : 2 400 tokens de sortie, soit 100 de
+      // marge. Le prompt réclame TOUTES les compétences avec une citation pour
+      // chacune, donc la sortie grandit avec la densité de l'offre — une offre
+      // à peine plus fournie dépassait le plafond, le JSON arrivait tronqué, et
+      // JSON.parse levait. Le recruteur voyait un écran d'erreur, sans rien qui
+      // dise pourquoi.
+      max_tokens: 8000,
       temperature: 0.1, // Low temperature for consistent extraction
       system: "Vous êtes un expert en extraction de données structurées. Répondez UNIQUEMENT avec un JSON valide.",
       messages: [
@@ -92,15 +111,29 @@ En vous basant sur la description de l'offre et le <test_catalog> fourni, choisi
       ],
     });
 
-    const textResponse = response.content[0].text;
-    
-    // Parse the JSON safely (in case Claude adds formatting blocks like ```json)
-    const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    } else {
+    // Une réponse coupée au plafond ne produit JAMAIS de JSON valide. On le dit
+    // ici, plutôt que de laisser JSON.parse échouer sur une accolade manquante
+    // avec un message que personne ne peut relier à la cause.
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(
+        "L'offre est trop dense pour être analysée d'un seul tenant. " +
+        "Raccourcissez-la, ou ne collez que la partie qui décrit les missions et le profil."
+      );
+    }
+
+    // Le premier bloc n'est du texte que si rien d'autre ne le précède : on le
+    // cherche plutôt que de l'indexer à l'aveugle.
+    const textResponse = (response.content || []).find((b) => b.type === "text")?.text;
+    if (!textResponse) throw new Error("L'IA n'a renvoyé aucun texte exploitable.");
+
+    // Le modèle encadre volontiers sa réponse d'un bloc de code malgré la
+    // consigne : on isole l'objet au lieu de parser la réponse brute.
+    const debut = textResponse.indexOf("{");
+    const fin = textResponse.lastIndexOf("}");
+    if (debut === -1 || fin <= debut) {
       throw new Error("L'IA n'a pas renvoyé un format JSON valide.");
     }
+    return JSON.parse(textResponse.slice(debut, fin + 1));
   } catch (error) {
     console.error("Error analyzing job description:", error);
     throw new Error(error.message || "Impossible d'analyser l'offre pour le moment. Veuillez réessayer.");

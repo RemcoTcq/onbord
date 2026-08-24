@@ -8,7 +8,7 @@ import { Plus, Briefcase, Send, ArrowLeft, Loader2, FileText, X, Search } from "
 import { createClient } from "@/lib/supabase/client";
 import { createRoleQuick } from "@/lib/actions/job";
 import { useToast } from "@/components/ui/Toast";
-import AssessmentChatCreator from "@/components/assessment/AssessmentChatCreator";
+import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
 
 // Couleurs figées, libellés résolus au rendu : les statuts sont les valeurs
 // stockées dans experiences.status et ne changent pas de langue.
@@ -80,37 +80,18 @@ export default function AssessmentsHubPage() {
   }
 
   // ─── Mode chat ───
-  // Plein écran : le conteneur est fixé au viewport pour échapper au padding et
-  // au maxWidth 1200 du layout dashboard. Il démarre après la sidebar (qui reste
-  // accessible) et n'est plus enfermé dans une carte.
+  // Plein écran, dans le même écran partagé que la conception depuis une offre.
   if (mode === "chat" && selectedJob) {
     return (
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, left: "var(--sidebar-collapsed-width)",
-        display: "flex", flexDirection: "column", background: "var(--background)", zIndex: 30,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <button onClick={() => { setMode("list"); setSelectedJob(null); setInitialPrompt(""); setPrompt(""); load(); }}
-            className="btn btn-ghost btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <ArrowLeft size={16} /> {t("dashboard.jobDetail.back")}
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--muted-foreground)", minWidth: 0 }}>
-            <Briefcase size={15} style={{ flexShrink: 0 }} />
-            <strong style={{ color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedJob.title}</strong>
-          </div>
-        </div>
-        {/* minHeight:0 : sans ça, l'enfant flex ne rétrécit pas et la zone de
-            messages déborde au lieu de scroller. */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <AssessmentChatCreator
-            standalone context="job"
-            jobId={selectedJob.id}
-            jobData={selectedJob}
-            initialPrompt={initialPrompt}
-            onGenerated={handleGenerated}
-          />
-        </div>
-      </div>
+      <ExperienceChatScreen
+        jobId={selectedJob.id}
+        jobData={selectedJob}
+        title={selectedJob.title}
+        backLabel={t("dashboard.jobDetail.back")}
+        onBack={() => { setMode("list"); setSelectedJob(null); setInitialPrompt(""); setPrompt(""); load(); }}
+        initialPrompt={initialPrompt}
+        onGenerated={handleGenerated}
+      />
     );
   }
 

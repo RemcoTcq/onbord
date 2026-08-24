@@ -117,3 +117,41 @@ EXCEPTION — les entrées d'outil restent en FRANÇAIS. Les champs « brief » 
 
 Les intitulés d'étapes que tu cites dans l'état actuel ne sont pas traduits : ils sont écrits dans la langue de l'offre, restitue-les tels quels.`;
 }
+
+/**
+ * Bloc de consigne pour l'EXTRACTION des critères d'une offre.
+ *
+ * Quatrième cas. L'extraction produit deux natures de champ, et elles ne
+ * suivent pas la même règle :
+ *
+ *   • les VALEURS D'ÉNUMÉRATION (role_type, contract_type, education_level,
+ *     priority, noms de langues) sont des données stockées, comparées à des
+ *     `value=` écrits en dur dans le formulaire. Elles restent en français,
+ *     toujours, quelle que soit la langue de l'offre ou du recruteur — sinon
+ *     le <select> ne retrouve pas la valeur et le recruteur perd en silence
+ *     ce que l'IA vient d'extraire ;
+ *   • le TEXTE LIBRE (titre, résumé, noms de compétences) est lu par le
+ *     recruteur : il suit sa langue d'interface, comme le rapport de scoring.
+ *
+ * L'evidence fait exception et reste dans la langue de l'offre : c'est une
+ * citation exacte, et le prompt exige qu'elle soit un extrait réel du texte.
+ * Même règle que le verbatim du scoring, pour la même raison.
+ */
+export function consigneLangueExtraction(uiLocale) {
+  const loc = coerceUiLocale(uiLocale);
+  const nom = LOCALE_NAMES_FR[loc];
+
+  const valeurs = `LES VALEURS D'ÉNUMÉRATION NE SE TRADUISENT JAMAIS. Les champs "role_type", "contract_type", "education_level", "priority" et le "name" des langues doivent être repris MOT POUR MOT dans la liste française imposée plus bas, même si l'offre est rédigée dans une autre langue. Une offre anglaise qui exige l'anglais donne "Anglais", pas "English" ; un Master donne "Master", jamais "Bac+5" ni "Master's degree".`;
+
+  if (loc === "fr") return `LANGUE DE SORTIE : français.\n\n${valeurs}`;
+
+  return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nom}.
+
+Le texte libre que tu produis est rédigé en ${nom} : "title", "clean_description", "sub_family", "category", le "name" des compétences et le "name" des critères de sélection. Ce sont des champs lus par le recruteur, dont l'interface est en ${nom}.
+
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et rends le résultat en ${nom}.
+
+EXCEPTION — le champ "evidence" n'est JAMAIS traduit. C'est une citation exacte de l'offre, copiée mot pour mot : elle reste dans la langue dans laquelle l'offre a été écrite. Une evidence traduite n'est plus vérifiable.
+
+${valeurs}`;
+}

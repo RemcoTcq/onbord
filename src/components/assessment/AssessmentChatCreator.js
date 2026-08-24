@@ -509,7 +509,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 padding: isBot ? '8px 0' : '12px 16px', 
                 borderRadius: isBot ? '0' : '16px',
                 fontSize: '15px', lineHeight: '1.6',
-                maxWidth: '60%', whiteSpace: 'pre-wrap'
+                maxWidth: isBot ? '100%' : '75%', whiteSpace: 'pre-wrap'
               }}>
                 {text}
               </div>
@@ -529,43 +529,48 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         flex: 1, display: 'flex', flexDirection: 'column', 
         background: 'transparent', width: '100%', height: '100%'
       }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column' }}>
-          {renderMessages()}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+          {/* Colonne de lecture centrée, de la même largeur que le champ de
+              saisie : en plein écran, une zone pleine largeur collerait les
+              réponses au bord gauche. */}
+          <div style={{ width: '100%', maxWidth: '720px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+            {renderMessages()}
 
-          {/* Le feed reste affiché après coup : c'est la trace de ce qui a été fait. */}
-          {genEvents.length > 0 && <GenerationFeed events={genEvents} active={genActive} />}
+            {/* Le feed reste affiché après coup : c'est la trace de ce qui a été fait. */}
+            {genEvents.length > 0 && <GenerationFeed events={genEvents} active={genActive} />}
 
-          {(regenFaites.length > 0 || regenActive !== null) && (
-            <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {regenFaites.map((r, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
-                  <Check size={13} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
-                  <span>Étape {r.n} réécrite{r.titre ? ` — « ${r.titre} »` : ''}{r.resume ? ` : ${r.resume}` : ''}</span>
-                </div>
-              ))}
-              {regenActive !== null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--primary)', fontWeight: 600 }}>
-                  <Loader2 size={13} className="spin" />
-                  Réécriture de l&apos;étape {regenActive}…
-                </div>
-              )}
-            </div>
-          )}
+            {(regenFaites.length > 0 || regenActive !== null) && (
+              <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {regenFaites.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
+                    <Check size={13} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
+                    <span>Étape {r.n} réécrite{r.titre ? ` — « ${r.titre} »` : ''}{r.resume ? ` : ${r.resume}` : ''}</span>
+                  </div>
+                ))}
+                {regenActive !== null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--primary)', fontWeight: 600 }}>
+                    <Loader2 size={13} className="spin" />
+                    Réécriture de l&apos;étape {regenActive}…
+                  </div>
+                )}
+              </div>
+            )}
 
-          {loading && !genActive && (
-            <div style={{ display: 'flex', width: '100%' }}>
-               <div style={{ width: '100%', padding: '8px 0' }}>
-                  <Loader2 size={20} className="spin" color="var(--muted-foreground)" />
-               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            {loading && !genActive && (
+              <div style={{ display: 'flex', width: '100%' }}>
+                 <div style={{ width: '100%', padding: '8px 0' }}>
+                    <Loader2 size={20} className="spin" color="var(--muted-foreground)" />
+                 </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'linear-gradient(to top, var(--background) 80%, transparent)' }}>
           <form onSubmit={handleSubmit} style={{
             display: 'flex', gap: '12px', alignItems: 'center',
-            width: '100%', maxWidth: '700px',
+            width: '100%', maxWidth: '720px',
             background: 'white', border: '1px solid var(--border)', 
             borderRadius: '24px', padding: '8px 12px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
