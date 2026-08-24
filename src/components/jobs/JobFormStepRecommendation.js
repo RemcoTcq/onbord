@@ -17,7 +17,7 @@ import CvScoringCriteria from "./CvScoringCriteria";
 import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 import PipelineVisualEditor from "./PipelineVisualEditor";
 
-export default function JobFormStepRecommendation({ jobData, savedJobId, onSave, isSaving, onBack }) {
+export default function JobFormStepRecommendation({ jobData, savedJobId, onSave, isSaving, onBack, experienceLocale = "fr" }) {
   const t = useT();
   const [flowNodes, setFlowNodes] = useState([]);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -40,11 +40,11 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
         // deux écrans proposent exactement la même chose. `lastSavedRef` reste
         // nul : la proposition sera enregistrée aussitôt (effet ci-dessous),
         // afin qu'un abandon avant validation ne la perde pas.
-        setFlowNodes(buildDefaultPipeline(jobData));
+        setFlowNodes(buildDefaultPipeline(jobData, experienceLocale));
       }
       setIsInitializing(false);
     }
-  }, [jobData, isInitializing]);
+  }, [jobData, isInitializing, experienceLocale]);
 
   // Enregistrement continu du brouillon. La pipeline ne vivait qu'en mémoire
   // jusqu'à la validation : quitter l'étape 3 effaçait la proposition et tout

@@ -435,7 +435,7 @@ export default function JobDetailPage() {
       // branche, un brouillon abandonné avant validation retombait sur la
       // dérivation ci-dessous avec des modules vides, et perdait au passage ses
       // questions qualificatives et son nœud d'évaluation.
-      nodes = buildDefaultPipeline({ ...job, ...(job?.extracted_criteria || {}) });
+      nodes = buildDefaultPipeline({ ...job, ...(job?.extracted_criteria || {}) }, job?.experience_locale);
     } else {
       // Offres antérieures à l'éditeur visuel : leur parcours ne vit que dans
       // assessment_config. On continue de le dériver pour ne pas les casser.

@@ -379,6 +379,10 @@ const dashboard = {
   // l'offre et ne doit jamais être traduit à l'affichage. Seuls les libellés
   // d'interface, les aides et les valeurs par défaut sont ci-dessous.
   experienceEditor: {
+    reviewTitle: "Relecture de l'expérience",
+    stepCount_one: "{count} étape",
+    stepCount_other: "{count} étapes",
+    estimatedMinutes: " · ~{minutes} min",
     loadError: "Erreur de chargement",
     error: "Erreur",
 
@@ -722,6 +726,7 @@ const dashboard = {
 
 // ── Formulaire d'offre — étape 2 (critères) ───────────────────────────────
   jobForm: {
+    subFamily: "Sous-famille",
     section: 'Détails du poste',
     sectionHelp: 'Pré-rempli depuis votre offre. Ajuster si besoin.',
     jobTitle: 'Titre du poste *',
@@ -1116,6 +1121,7 @@ const dashboard = {
       note: 'note interne',
     },
     kinds: {
+      classic_qcm: "QCM",
       qualifying: 'Question qualifiante',
       question: 'Question ciblée',
       task: 'Mise en situation',

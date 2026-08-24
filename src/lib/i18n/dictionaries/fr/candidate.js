@@ -188,6 +188,9 @@ const candidate = {
 
   // ── Sandbox e-mail ────────────────────────────────────────────────────────
   emailComposer: {
+    toPlaceholder: "destinataire@exemple.com",
+    ccPlaceholder: "copie@exemple.com",
+    send: "Envoyer",
     newMessage: "Nouveau message",
     subject: "Objet",
     subjectPlaceholder: "Objet de votre message",

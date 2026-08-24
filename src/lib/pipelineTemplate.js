@@ -1,4 +1,24 @@
 import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
+import { coerceExperienceLocale } from "@/lib/i18n/config";
+
+// Messages d'accueil et de clôture de la pipeline par défaut. Ils s'affichent
+// au CANDIDAT : ils suivent jobs.experience_locale, pas la langue du recruteur.
+// Le recruteur peut les réécrire ensuite dans l'éditeur de pipeline — ce ne sont
+// que des textes de départ.
+const MESSAGES = {
+  fr: {
+    accueil: "Bienvenue sur notre espace de recrutement. Nous sommes ravis de découvrir votre profil.",
+    merci: "Merci pour votre temps. Vos réponses ont bien été enregistrées.",
+  },
+  en: {
+    accueil: "Welcome to our hiring space. We're glad to get to know you.",
+    merci: "Thank you for your time. Your answers have been recorded.",
+  },
+  nl: {
+    accueil: "Welkom bij onze sollicitatieruimte. Leuk om je te leren kennen.",
+    merci: "Bedankt voor je tijd. Je antwoorden zijn opgeslagen.",
+  },
+};
 
 // Pipeline par défaut d'une offre — SOURCE UNIQUE.
 //
@@ -39,14 +59,16 @@ export function withLockedNodes(onbordNodes) {
  * @param {object} jobData - critères de l'offre (forme `extracted_criteria`).
  * @returns {Array} nœuds complets, verrouillés inclus.
  */
-export function buildDefaultPipeline(jobData) {
+export function buildDefaultPipeline(jobData, locale = "fr") {
+  const loc = coerceExperienceLocale(locale);
+  const M = MESSAGES[loc] || MESSAGES.fr;
   const rec = generateRecommendation(jobData || {});
   const nodes = [];
 
   nodes.push({
     id: "accueil",
     type: "accueil",
-    config: { text: "Bienvenue sur notre espace de recrutement. Nous sommes ravis de découvrir votre profil." },
+    config: { text: M.accueil },
   });
 
   if (rec.steps.some((s) => s.type === "qualifying_questions")) {
@@ -56,7 +78,7 @@ export function buildDefaultPipeline(jobData) {
       // Identifiants de questions indexés, et non horodatés : deux appels
       // successifs doivent produire exactement la même pipeline.
       config: {
-        questions: generateQualifyingQuestions(jobData || {}).map((q, i) => ({ ...q, id: `q_${i}` })),
+        questions: generateQualifyingQuestions(jobData || {}, loc).map((q, i) => ({ ...q, id: `q_${i}` })),
       },
     });
   }
@@ -72,7 +94,7 @@ export function buildDefaultPipeline(jobData) {
   nodes.push({
     id: "remerciements",
     type: "remerciements",
-    config: { text: "Merci pour votre temps. Vos réponses ont bien été enregistrées." },
+    config: { text: M.merci },
   });
 
   return withLockedNodes(nodes);

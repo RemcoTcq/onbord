@@ -22,7 +22,7 @@ import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
 import { useToast } from "@/components/ui/Toast";
 import { updateJobAiConfig, generateInterviewQuestions } from "@/lib/actions/job";
 import { saveAssessmentConfig, saveVideoInterviewConfig, generateVideoQuestions } from "@/lib/actions/assessment";
-import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
+import { generateRecommendation } from "@/lib/recommendationEngine";
 
 export default function NouvelleDemandePage() {
   const { t, locale: uiLocale } = useI18n();
@@ -617,6 +617,7 @@ export default function NouvelleDemandePage() {
             {/* On retire le padding global de la carte pour l'étape 3 afin que le Flow prenne toute la place */}
             <JobFormStepRecommendation 
               jobData={jobData} 
+              experienceLocale={experienceLocale}
               savedJobId={savedJobId || savedJob?.id}
               onSave={handleSaveFlow}
               isSaving={isSaving}

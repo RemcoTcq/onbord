@@ -72,6 +72,7 @@ const STEP_KIND_KEY = {
   qualifying: 'dashboard.generationFeed.kinds.qualifying',
   question: 'dashboard.generationFeed.kinds.question',
   task: 'dashboard.generationFeed.kinds.task',
+  classic_qcm: 'dashboard.generationFeed.kinds.classic_qcm',
 };
 
 // Les entrées "enfant" sont indentées sous l'étape à laquelle elles se rattachent.

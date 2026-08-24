@@ -170,6 +170,9 @@ const candidate = {
   },
 
   emailComposer: {
+    toPlaceholder: "ontvanger@voorbeeld.com",
+    ccPlaceholder: "cc@voorbeeld.com",
+    send: "Versturen",
     newMessage: "Nieuw bericht",
     subject: "Onderwerp",
     subjectPlaceholder: "Onderwerp van je bericht",

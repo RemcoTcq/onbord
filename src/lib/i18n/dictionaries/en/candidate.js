@@ -162,6 +162,9 @@ const candidate = {
   },
 
   emailComposer: {
+    toPlaceholder: "recipient@example.com",
+    ccPlaceholder: "cc@example.com",
+    send: "Send",
     newMessage: "New message",
     subject: "Subject",
     subjectPlaceholder: "Subject of your message",

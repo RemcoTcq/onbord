@@ -63,7 +63,7 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
       <div style={headerRow}>
         <span style={headerLabel}>À</span>
         <input value={to} onChange={(e) => { setTo(e.target.value); push({ to: e.target.value }); }}
-          placeholder="destinataire@exemple.com" style={headerInput} />
+          placeholder={t("candidate.emailComposer.toPlaceholder")} style={headerInput} />
         {!showCc && (
           <button onClick={() => setShowCc(true)} style={{ border: "none", background: "transparent", color: "var(--muted-foreground)", fontSize: 12, cursor: "pointer", flexShrink: 0 }}>Cc</button>
         )}
@@ -74,7 +74,7 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
         <div style={headerRow}>
           <span style={headerLabel}>Cc</span>
           <input value={cc} onChange={(e) => { setCc(e.target.value); push({ cc: e.target.value }); }}
-            placeholder="copie@exemple.com" style={headerInput} />
+            placeholder={t("candidate.emailComposer.ccPlaceholder")} style={headerInput} />
         </div>
       )}
 
@@ -101,7 +101,7 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
         <button title={t("candidate.emailComposer.italic")} onMouseDown={(e) => { e.preventDefault(); fmt("italic"); }} style={toolBtn}><Italic size={14} /></button>
         <button title={t("candidate.emailComposer.bulletList")} onMouseDown={(e) => { e.preventDefault(); fmt("insertUnorderedList"); }} style={toolBtn}><List size={14} /></button>
         <button disabled style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, opacity: 0.5, cursor: "not-allowed", background: primary, color: getContrastColor(primary), border: "none", borderRadius: 8, padding: "0.5rem 1rem", fontSize: 13, fontWeight: 600 }}>
-          <Send size={14} /> Envoyer
+          <Send size={14} /> {t("candidate.emailComposer.send")}
         </button>
       </div>
     </div>

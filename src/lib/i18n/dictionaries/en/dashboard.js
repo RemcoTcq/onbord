@@ -333,6 +333,10 @@ const dashboard = {
   },
 
   experienceEditor: {
+    reviewTitle: "Experience review",
+    stepCount_one: "{count} step",
+    stepCount_other: "{count} steps",
+    estimatedMinutes: " · ~{minutes} min",
     loadError: "Couldn't load",
     error: "Error",
 
@@ -651,6 +655,7 @@ const dashboard = {
   },
 
   jobForm: {
+    subFamily: "Specification",
     section: "Job details",
     sectionHelp: "Pre-filled from your posting. Adjust as needed.",
     jobTitle: "Job title *",
@@ -1022,6 +1027,7 @@ const dashboard = {
       note: "internal note",
     },
     kinds: {
+      classic_qcm: "Classic MCQ",
       qualifying: "Screening question",
       question: "Targeted question",
       task: "Practical exercise",

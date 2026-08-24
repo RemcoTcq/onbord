@@ -214,11 +214,11 @@ export default function ExperienceReviewPage() {
           <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <div>
               <h1 style={{ fontSize: "1.15rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "8px" }}>
-                <ClipboardList size={18} style={{ color: "var(--primary)" }} /> Relecture de l'expérience
+                <ClipboardList size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.experienceEditor.reviewTitle")}
               </h1>
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-                {steps.length} étape{steps.length > 1 ? "s" : ""}
-                {experience.estimated_minutes ? ` · ~${experience.estimated_minutes} min` : ""}
+                {t("dashboard.experienceEditor.stepCount", { count: steps.length })}
+                {experience.estimated_minutes ? t("dashboard.experienceEditor.estimatedMinutes", { minutes: experience.estimated_minutes }) : ""}
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

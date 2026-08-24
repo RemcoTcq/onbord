@@ -1,3 +1,6 @@
+import { coerceExperienceLocale } from "@/lib/i18n/config";
+import { nomLangue, nomDiplome } from "@/lib/i18n/languages";
+
 // Temps estimés par défaut (en minutes)
 const ESTIMATED_TIMES = {
   qualifying_questions: 2,
@@ -106,45 +109,62 @@ export function generateRecommendation(jobData) {
   };
 }
 
+// Gabarits des questions qualifiantes, par langue.
+//
+// Elles sont lues par le CANDIDAT, pas par le recruteur : elles suivent donc
+// jobs.experience_locale. Les valeurs interpolées (nom de langue, niveau de
+// diplôme) sont stockées en français et traduites à l'affichage — même règle
+// que partout ailleurs, voir lib/i18n/languages.js.
+const QUESTIONS = {
+  fr: {
+    // Élision : « l'anglais », mais « le français ». Le gabarit d'origine
+    // écrivait « le Anglais » quelle que soit la langue.
+    langue: (l) => `Maîtrisez-vous ${/^[aeiouéèêh]/i.test(l) ? "l'" : "le "}${l} à un niveau professionnel ?`,
+    experience: (n) => `Disposez-vous d'au moins ${n} ans d'expérience dans un poste similaire ?`,
+    diplome: (d) => `Possédez-vous un diplôme de niveau ${d} ou équivalent ?`,
+    localisation: (v) => `Êtes-vous disponible pour travailler à ${v} ?`,
+  },
+  en: {
+    langue: (l) => `Do you speak ${l} at a professional level?`,
+    experience: (n) => `Do you have at least ${n} years of experience in a similar role?`,
+    diplome: (d) => `Do you hold a ${d} degree or equivalent?`,
+    localisation: (v) => `Are you available to work in ${v}?`,
+  },
+  nl: {
+    langue: (l) => `Beheers je ${l} op professioneel niveau?`,
+    experience: (n) => `Heb je minstens ${n} jaar ervaring in een vergelijkbare functie?`,
+    diplome: (d) => `Heb je een ${d}-diploma of gelijkwaardig?`,
+    localisation: (v) => `Ben je beschikbaar om in ${v} te werken?`,
+  },
+};
+
 /**
- * Génère automatiquement les questions qualificatives en fonction des critères de l'offre.
- * (Phase 2.2)
+ * Génère automatiquement les questions qualificatives en fonction des critères
+ * de l'offre, dans la langue du parcours candidat.
+ *
+ * @param {object} jobData critères extraits de l'offre
+ * @param {string} locale  jobs.experience_locale — fr | en | nl
  */
-export function generateQualifyingQuestions(jobData) {
+export function generateQualifyingQuestions(jobData, locale = "fr") {
+  const loc = coerceExperienceLocale(locale);
+  const T = QUESTIONS[loc] || QUESTIONS.fr;
   const questions = [];
+  const ajoute = (text) => questions.push({
+    id: Date.now().toString() + Math.random().toString(36).substring(7),
+    text,
+    expectedAnswer: "yes",
+  });
 
-  if (jobData.languages && jobData.languages.length > 0) {
-    jobData.languages.forEach(lang => {
-      questions.push({
-        id: Date.now().toString() + Math.random().toString(36).substring(7),
-        text: `Maîtrisez-vous le ${lang.name} à un niveau professionnel ?`,
-        expectedAnswer: "yes"
-      });
-    });
-  }
+  for (const lang of jobData.languages || []) ajoute(T.langue(nomLangue(lang.name, loc)));
 
-  if (jobData.years_of_experience) {
-    questions.push({
-      id: Date.now().toString() + Math.random().toString(36).substring(7),
-      text: `Disposez-vous d'au moins ${jobData.years_of_experience} ans d'expérience dans un poste similaire ?`,
-      expectedAnswer: "yes"
-    });
-  }
+  if (jobData.years_of_experience) ajoute(T.experience(jobData.years_of_experience));
 
   if (jobData.education_level && jobData.education_level !== "Indifférent") {
-    questions.push({
-      id: Date.now().toString() + Math.random().toString(36).substring(7),
-      text: `Possédez-vous un diplôme de niveau ${jobData.education_level} ou équivalent ?`,
-      expectedAnswer: "yes"
-    });
+    ajoute(T.diplome(nomDiplome(jobData.education_level, loc)));
   }
 
   if (jobData.location && jobData.location.toLowerCase() !== "remote") {
-    questions.push({
-      id: Date.now().toString() + Math.random().toString(36).substring(7),
-      text: `Êtes-vous disponible pour travailler à ${jobData.location} ?`,
-      expectedAnswer: "yes"
-    });
+    ajoute(T.localisation(jobData.location));
   }
 
   return questions;

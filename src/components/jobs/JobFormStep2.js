@@ -205,7 +205,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
             />
           </div>
           <div>
-            <label className="form-label">Sous-famille</label>
+            <label className="form-label">{t("dashboard.jobForm.subFamily")}</label>
             <input 
               className="input-field" 
               placeholder="ex: Account Executive (B2B)..." 
