@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 
 export default function CustomSelect({ value, onChange, options, placeholder }) {
-  const { t, locale } = useI18n();
+  const t = useT();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
 

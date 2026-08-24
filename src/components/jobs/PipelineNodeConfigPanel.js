@@ -12,7 +12,7 @@ import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 
 // Extracted from JobFormStepRecommendation
 export function MessageBrandingTabs({ type, text, onChangeText }) {
-  const { t, locale } = useI18n();
+  const t = useT();
   const [tab, setTab] = useState("message");
   
   return (

@@ -1,9 +1,12 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 import { Palette } from "lucide-react";
 
 export default function BrandingPage() {
+  const t = useT();
+
   return (
     <div>
       <div style={{ marginBottom: "2rem" }}>

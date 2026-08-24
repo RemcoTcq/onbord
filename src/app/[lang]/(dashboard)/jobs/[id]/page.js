@@ -449,8 +449,10 @@ export default function JobDetailPage() {
 
       const modules = job?.assessment_config?.modules || {};
       if (modules.skills_tests?.enabled && modules.skills_tests?.tests?.length > 0) {
-        modules.skills_tests.tests.forEach((t, i) => {
-          const testInfo = testsLibrary.find(lib => lib.id === t.test_id);
+        // Le paramètre s’appelle `test` et non `t` : `t` est la fonction de
+        // traduction du composant, et la masquer ici cassait les deux.
+        modules.skills_tests.tests.forEach((test, i) => {
+          const testInfo = testsLibrary.find(lib => lib.id === test.test_id);
           onbordNodes.push({
             id: `skill_${i}`, type: "assessment", v2: true,
             config: { tests: [{ ...test, test_name: testInfo?.name || t("dashboard.jobDetail.test") }] },
