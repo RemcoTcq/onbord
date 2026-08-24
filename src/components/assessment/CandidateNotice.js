@@ -7,8 +7,10 @@
 // chose quel que soit le lien sur lequel il a cliqué.
 
 import { container, heading, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "./candidateUi";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export default function CandidateNotice({ recruiter, job, title, children }) {
+  const t = useT();
   const primary = recruiter?.brand_primary_color || DEFAULT_PRIMARY;
   const label = recruiter?.company_name || job?.title || "O";
 
@@ -22,7 +24,7 @@ export default function CandidateNotice({ recruiter, job, title, children }) {
         {recruiter?.company_logo_url ? (
           <img
             src={recruiter.company_logo_url}
-            alt={recruiter?.company_name || "Logo"}
+            alt={recruiter?.company_name || t("candidate.notice.logoAlt")}
             style={{ height: 48, width: "auto", margin: "0 auto 2rem", borderRadius: 8, objectFit: "contain", display: "block" }}
           />
         ) : (

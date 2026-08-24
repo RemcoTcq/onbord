@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 
 export default function CustomSelect({ value, onChange, options, placeholder }) {
+  const { t, locale } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
 
@@ -71,7 +73,7 @@ export default function CustomSelect({ value, onChange, options, placeholder }) 
       }}>
         {options.length === 0 && (
           <div style={{ padding: '8px 12px', color: 'var(--muted-foreground)', fontSize: '13px', textAlign: 'center', fontStyle: 'italic' }}>
-            Aucune option disponible
+            {t("common.actions.noOption")}
           </div>
         )}
         {options.map((opt) => (

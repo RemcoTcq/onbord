@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ArrowRight, Loader2, Check, Send } from "lucide-react";
+import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 
 export function getContrastColor(hexColor) {
   if (!hexColor) return '#ffffff';
@@ -14,9 +15,10 @@ export function getContrastColor(hexColor) {
 }
 
 export default function CandidateOnboardingFlow({ candidate, job, recruiter, onComplete, onUpdateCandidate }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0); // 0: Accueil, 1: Prénom, 2: Nom, 3: Email, 4: Consentement
   
-  const [firstName, setFirstName] = useState((candidate?.first_name && candidate?.first_name !== 'Candidat') ? candidate.first_name : "");
+  const [firstName, setFirstName] = useState((candidate?.first_name && candidate?.first_name !== t("candidate.onboarding.fallbackName")) ? candidate.first_name : "");
   const [lastName, setLastName] = useState(candidate?.last_name || "");
   const [email, setEmail] = useState(candidate?.email || "");
   const [consentRGPD, setConsentRGPD] = useState(false);
@@ -26,13 +28,16 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
   // Branding
   const primaryColor = recruiter?.brand_primary_color || "#0f172a";
   const primaryText = getContrastColor(primaryColor);
+  // Extrait du JSX : les phrases de consentement sont désormais assemblées par
+  // tNodes(), où répéter le style en ligne à chaque lien nuirait à la lecture.
+  const linkStyle = { color: primaryColor, textDecoration: "underline", fontWeight: "500" };
   const logoUrl = recruiter?.company_logo_url || null;
-  const companyName = recruiter?.company_name || job?.company || "l'entreprise";
+  const companyName = recruiter?.company_name || job?.company || t("candidate.onboarding.fallbackCompany");
 
   // Flow nodes
   const welcomeNode = job?.saved_flow_nodes?.find(n => n.type === 'accueil');
-  const welcomeTextRaw = welcomeNode?.config?.text || "Nous sommes ravis de vous accueillir pour cette évaluation.";
-  const welcomeText = welcomeTextRaw.replace(/{first_name}/g, firstName || "candidat");
+  const welcomeTextRaw = welcomeNode?.config?.text || t("candidate.onboarding.welcome");
+  const welcomeText = welcomeTextRaw.replace(/{first_name}/g, firstName || t("candidate.onboarding.fallbackName").toLowerCase());
 
   const companyDescription = recruiter?.company_description || "";
 
@@ -221,7 +226,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
               fontSize: "15px"
             }}
           >
-            Démarrer l'évaluation
+            {t("candidate.onboarding.start")}
           </button>
         </div>
       )}
@@ -232,7 +237,9 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
           <Logo />
           <div style={contentStyle} className="slide-up">
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "2rem" }}>
-              Quel est votre <span style={{ color: primaryColor }}>prénom</span> ?
+              {tNodes(t("candidate.onboarding.askFirstName"), {
+                highlight: <span style={{ color: primaryColor }}>{t("candidate.onboarding.firstNameHighlight")}</span>,
+              })}
             </h2>
             <div style={inlineInputContainerStyle}>
               <input 
@@ -241,7 +248,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                 style={inputStyle}
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
-                placeholder="Ex: Camille"
+                placeholder={t("candidate.onboarding.firstNamePlaceholder")}
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter' && firstName.trim()) handleNext(); }}
               />
@@ -259,7 +266,9 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
           <Logo />
           <div style={contentStyle} className="slide-up">
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "2rem" }}>
-              Quel est votre <span style={{ color: primaryColor }}>nom</span> ?
+              {tNodes(t("candidate.onboarding.askLastName"), {
+                highlight: <span style={{ color: primaryColor }}>{t("candidate.onboarding.lastNameHighlight")}</span>,
+              })}
             </h2>
             <div style={{ ...inlineInputContainerStyle, marginBottom: "1rem" }}>
               <input 
@@ -268,7 +277,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                 style={inputStyle}
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
-                placeholder="Ex: Dupont"
+                placeholder={t("candidate.onboarding.lastNamePlaceholder")}
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter' && lastName.trim()) handleNext(); }}
               />
@@ -277,7 +286,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
               </button>
             </div>
             <button onClick={handleBack} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: "0.95rem", cursor: "pointer", textDecoration: "underline", padding: "0.5rem" }}>
-              Retour
+              {t("candidate.onboarding.back")}
             </button>
           </div>
         </>
@@ -289,7 +298,9 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
           <Logo />
           <div style={contentStyle} className="slide-up">
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "2rem" }}>
-              Quel est votre <span style={{ color: primaryColor }}>email</span> ?
+              {tNodes(t("candidate.onboarding.askEmail"), {
+                highlight: <span style={{ color: primaryColor }}>{t("candidate.onboarding.emailHighlight")}</span>,
+              })}
             </h2>
             <div style={{ ...inlineInputContainerStyle, marginBottom: "1rem" }}>
               <input 
@@ -298,7 +309,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                 style={inputStyle}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="camille.dupont@email.com"
+                placeholder={t("candidate.onboarding.emailPlaceholder")}
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter' && isEmailValid(email)) handleNext(); }}
               />
@@ -307,7 +318,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
               </button>
             </div>
             <button onClick={handleBack} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: "0.95rem", cursor: "pointer", textDecoration: "underline", padding: "0.5rem" }}>
-              Retour
+              {t("candidate.onboarding.back")}
             </button>
           </div>
         </>
@@ -319,7 +330,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
           <Logo />
           <div style={{...contentStyle, maxWidth: "550px"}} className="slide-up">
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "2rem", textAlign: "center" }}>
-              Une dernière étape
+              {t("candidate.onboarding.lastStep")}
             </h2>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%", maxWidth: "450px", marginBottom: "2.5rem", textAlign: "left", margin: "0 auto 2.5rem auto" }}>
@@ -332,7 +343,10 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                   style={{ marginTop: "3px" }}
                 />
                 <span style={{ fontSize: "0.95rem", lineHeight: "1.4", color: "var(--foreground)" }}>
-                  J'ai lu et j'accepte les <a href="#" style={{ color: primaryColor, textDecoration: "underline", fontWeight: "500" }}>conditions d'utilisation</a> et la <a href="#" style={{ color: primaryColor, textDecoration: "underline", fontWeight: "500" }}>politique de confidentialité</a>
+                  {tNodes(t("candidate.onboarding.consentTerms"), {
+                    terms: <a href="#" style={linkStyle}>{t("candidate.onboarding.termsLink")}</a>,
+                    privacy: <a href="#" style={linkStyle}>{t("candidate.onboarding.privacyPolicy")}</a>,
+                  })}
                 </span>
               </label>
 
@@ -345,7 +359,9 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                   style={{ marginTop: "3px" }}
                 />
                 <span style={{ fontSize: "0.95rem", lineHeight: "1.4", color: "var(--foreground)" }}>
-                  Je comprends qu'une <a href="#" style={{ color: primaryColor, textDecoration: "underline", fontWeight: "500" }}>IA analysera mes réponses</a>, sous la supervision finale d'un recruteur humain.
+                  {tNodes(t("candidate.onboarding.consentAi"), {
+                    aiLink: <a href="#" style={linkStyle}>{t("candidate.onboarding.aiAnalysis")}</a>,
+                  })}
                 </span>
               </label>
             </div>
@@ -358,11 +374,11 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                   className="btn-hover-effect"
                   style={isSubmitting ? disabledButtonStyle : { ...buttonStyle, padding: "0.875rem 2.5rem", borderRadius: "100px" }}
                 >
-                  {isSubmitting ? <><Loader2 size={18} className="spin" /> Validation...</> : "Continuer"}
+                  {isSubmitting ? <><Loader2 size={18} className="spin" /> {t("candidate.onboarding.submitting")}</> : t("candidate.onboarding.continue")}
                 </button>
               ) : (
                 <button onClick={handleBack} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: "0.95rem", cursor: "pointer", textDecoration: "underline", padding: "0.5rem", marginTop: "0.5rem" }}>
-                  Retour
+                  {t("candidate.onboarding.back")}
                 </button>
               )}
             </div>

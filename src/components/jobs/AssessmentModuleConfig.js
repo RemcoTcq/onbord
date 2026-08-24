@@ -5,6 +5,7 @@ import { FileText, Brain, MessageSquare, Video, Save, Loader2 } from "lucide-rea
 import SkillsTestConfig from "./SkillsTestConfig";
 import AiInterviewConfig from "./AiInterviewConfig";
 import VideoInterviewConfig from "./VideoInterviewConfig";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { saveAssessmentConfig, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 
@@ -18,6 +19,7 @@ const DEFAULT_CONFIG = {
 };
 
 export default function AssessmentModuleConfig({ job, onSave }) {
+  const t = useT();
   const [config, setConfig] = useState(() => {
     const saved = job?.assessment_config;
     if (saved && Object.keys(saved).length > 0) return saved;
@@ -76,11 +78,11 @@ export default function AssessmentModuleConfig({ job, onSave }) {
       const res = await saveAssessmentConfig(job.id, updatedConfig);
       if (res.success) {
         setConfig(updatedConfig);
-        toast("Configuration sauvegardée !");
+        toast(t("dashboard.assessmentModules.saved"));
         setHasChanges(false);
         if (onSave) onSave(updatedConfig);
       } else {
-        toast("Erreur lors de la sauvegarde", "error");
+        toast(t("dashboard.assessmentModules.saveError"), "error");
       }
     } catch (err) {
       toast("Erreur : " + err.message, "error");
@@ -91,9 +93,9 @@ export default function AssessmentModuleConfig({ job, onSave }) {
   return (
     <div style={{ paddingBottom: "100px" }}>
       <div style={{ marginBottom: "2rem" }}>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "4px" }}>Modules d'évaluation</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "4px" }}>{t("dashboard.assessmentModules.title")}</h2>
         <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
-          Configurez les modules actifs pour cette offre. Le candidat verra uniquement les modules que vous activez.
+          {t("dashboard.assessmentModules.subtitle")}
         </p>
       </div>
 
@@ -102,8 +104,8 @@ export default function AssessmentModuleConfig({ job, onSave }) {
         {/* CV Scoring */}
         <ModuleCard
           icon={<FileText size={20} />}
-          title="Scoring CV"
-          description="Le candidat upload son CV (PDF). Notre IA l'analyse et génère un score de correspondance."
+          title={t("dashboard.assessmentModules.cvScoring")}
+          description={t("dashboard.assessmentModules.cvScoringHelp")}
           duration="~2 min"
           enabled={modules.cv_scoring?.enabled ?? false}
           onToggle={(val) => update("cv_scoring", { enabled: val })}
@@ -112,8 +114,8 @@ export default function AssessmentModuleConfig({ job, onSave }) {
         {/* Skills Tests */}
         <ModuleCard
           icon={<Brain size={20} />}
-          title="Tests de compétences"
-          description="Sélectionnez des tests de votre bibliothèque. Les questions sont tirées aléatoirement mais identiques pour tous les candidats."
+          title={t("dashboard.assessmentModules.skillsTests")}
+          description={t("dashboard.assessmentModules.skillsTestsHelp")}
           duration="5–20 min"
           enabled={modules.skills_tests?.enabled ?? false}
           onToggle={(val) => update("skills_tests", { enabled: val })}
@@ -137,10 +139,10 @@ export default function AssessmentModuleConfig({ job, onSave }) {
         {/* Video Interview — Format recommandé */}
         <ModuleCard
           icon={<Video size={20} />}
-          title="Entretien Vidéo (One-Way)"
-          description="Le candidat répond à des questions en s'enregistrant à la webcam. L'IA transcrit et évalue chaque réponse."
+          title={t("dashboard.assessmentModules.videoInterview")}
+          description={t("dashboard.assessmentModules.videoInterviewHelp")}
           duration="~5-20 min"
-          badge="RECOMMANDÉ"
+          badge={t("dashboard.assessmentModules.recommended")}
           enabled={modules.video_interview?.enabled ?? false}
           onToggle={(val) => {
             update("video_interview", { enabled: val });
@@ -170,10 +172,10 @@ export default function AssessmentModuleConfig({ job, onSave }) {
         {/* AI Interview — Non recommandé */}
         <ModuleCard
           icon={<MessageSquare size={20} />}
-          title="Entretien IA par Texte"
-          description="Leo, notre IA, mène un entretien textuel avec le candidat. Moins fiable : réponses potentiellement générées par IA, et processus plus lent pour le candidat."
+          title={t("dashboard.assessmentModules.textInterview")}
+          description={t("dashboard.assessmentModules.textInterviewHelp")}
           duration="~10-15 min"
-          badge="⚠️ NON RECOMMANDÉ"
+          badge={t("dashboard.assessmentModules.notRecommended")}
           badgeColor="#fef3c7"
           badgeTextColor="#92400e"
           enabled={modules.ai_interview?.enabled ?? (job?.ai_interview_config?.enabled ?? false)}
@@ -208,12 +210,14 @@ export default function AssessmentModuleConfig({ job, onSave }) {
         return (
           <div style={{ marginTop: "1.5rem", padding: "1rem", borderRadius: "var(--radius)", background: "var(--secondary)", border: "1px solid var(--border)" }}>
             <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "4px" }}>
-              Durée estimée totale pour le candidat
+              {t("dashboard.assessmentModules.totalDuration")}
             </p>
             <p style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--foreground)" }}>
               ~{totalMin} minutes
               <span style={{ fontSize: "13px", fontWeight: "400", color: "var(--muted-foreground)", marginLeft: "8px" }}>
-                {totalMin <= 30 ? "✅ Optimal" : "⚠️ Dépasse 30 min recommandées"}
+                {totalMin <= 30
+                  ? t("dashboard.assessmentModules.durationOptimal")
+                  : t("dashboard.assessmentModules.over30min")}
               </span>
             </p>
           </div>
@@ -229,15 +233,15 @@ export default function AssessmentModuleConfig({ job, onSave }) {
           boxShadow: "0 -4px 12px rgba(0,0,0,0.05)", zIndex: 40,
         }}>
           <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-            Les questions sont tirées aléatoirement et fixées à la sauvegarde pour que tous les candidats répondent aux mêmes questions.
+            {t("dashboard.assessmentModules.questionsFixedOnSave")}
           </p>
           <div style={{ display: "flex", gap: "1rem" }}>
             <button className="btn btn-outline" onClick={() => { setConfig(job?.assessment_config || DEFAULT_CONFIG); setHasChanges(false); }}>
-              Annuler
+              {t("common.actions.cancel")}
             </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={16} />}
-              <span style={{ marginLeft: "8px" }}>Sauvegarder</span>
+              <span style={{ marginLeft: "8px" }}>{t("common.actions.save")}</span>
             </button>
           </div>
         </div>

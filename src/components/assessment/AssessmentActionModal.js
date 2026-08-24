@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useEffect, useRef } from "react";
 import { Plus, BookOpen, X } from "lucide-react";
 
 export default function AssessmentActionModal({ isOpen, onClose, onAddAI, onSelectLibrary }) {
+  const t = useT();
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -52,10 +54,10 @@ export default function AssessmentActionModal({ isOpen, onClose, onAddAI, onSele
         </button>
 
         <h2 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "8px", color: "var(--foreground)" }}>
-          Test de compétences
+          {t("dashboard.assessmentAction.skillsTest")}
         </h2>
         <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginBottom: "32px" }}>
-          Que souhaitez-vous faire ?
+          {t("dashboard.assessmentAction.whatToDo")}
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -83,8 +85,8 @@ export default function AssessmentActionModal({ isOpen, onClose, onAddAI, onSele
               <Plus size={20} color="#16a34a" />
             </div>
             <div>
-              <div style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)" }}>Ajouter un nouveau test</div>
-              <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "2px" }}>Créer un test sur-mesure avec l'IA</div>
+              <div style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)" }}>{t("dashboard.assessmentAction.addNewTest")}</div>
+              <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "2px" }}>{t("dashboard.assessmentAction.createWithAi")}</div>
             </div>
           </button>
 
@@ -112,8 +114,8 @@ export default function AssessmentActionModal({ isOpen, onClose, onAddAI, onSele
               <BookOpen size={20} color="#64748b" />
             </div>
             <div>
-              <div style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)" }}>Sélectionner depuis la bibliothèque</div>
-              <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "2px" }}>Utiliser un test déjà existant</div>
+              <div style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)" }}>{t("dashboard.assessmentAction.selectFromLibrary")}</div>
+              <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "2px" }}>{t("dashboard.assessmentAction.useExisting")}</div>
             </div>
           </button>
         </div>

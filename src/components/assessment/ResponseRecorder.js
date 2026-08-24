@@ -5,6 +5,7 @@ import { Video, Square, RotateCcw, Loader2, Check, Mic } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { saveVideoResponse } from "@/lib/actions/run";
 import { primaryBtn, ghostBtn, DEFAULT_PRIMARY } from "./candidateUi";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // Bouton neutre bordé (esprit champ onboarding) pour les actions secondaires.
 const outlineBtn = { display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "#fafafa", color: "var(--foreground)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.875rem 1.5rem", fontSize: "1rem", fontWeight: 600, cursor: "pointer" };
@@ -13,6 +14,7 @@ const outlineBtn = { display: "inline-flex", alignItems: "center", gap: "0.5rem"
 // titre qu'une zone de texte. Flux : test caméra/micro (aperçu + niveau sonore,
 // confirmation explicite) -> enregistrement -> relecture -> upload -> transcription.
 export default function ResponseRecorder({ token, stepId, maxDuration = 120, existingVideoUrl, onSaved, primary = DEFAULT_PRIMARY }) {
+  const t = useT();
   const [phase, setPhase] = useState(existingVideoUrl ? "done" : "idle"); // idle | testing | recording | review | uploading | done
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
@@ -77,7 +79,7 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       startMeter(stream);
       setPhase("testing");
     } catch {
-      setError("Impossible d'accéder à la caméra/au micro. Vérifiez les autorisations du navigateur.");
+      setError(t("candidate.recorder.deviceError"));
     }
   }
 
@@ -151,7 +153,7 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       setPhase("done");
       onSaved?.();
     } catch (e) {
-      setError("Échec de l'envoi : " + e.message);
+      setError(t("candidate.recorder.uploadFailed") + " " + e.message);
       setPhase("review");
     }
   }
@@ -161,8 +163,8 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
   if (phase === "done") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#166534", fontSize: "14px", fontWeight: 600 }}>
-        <Check size={18} /> Réponse vidéo enregistrée
-        <button onClick={reset} style={{ ...ghostBtn, marginLeft: "auto" }}>Refaire</button>
+        <Check size={18} /> {t("candidate.recorder.saved")}
+        <button onClick={reset} style={{ ...ghostBtn, marginLeft: "auto" }}>{t("candidate.recorder.retake")}</button>
       </div>
     );
   }
@@ -178,7 +180,7 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
         )}
         {phase === "testing" && (
           <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(15,23,42,0.75)", color: "white", padding: "3px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 700 }}>
-            Test — aperçu en direct
+            {t("candidate.recorder.testBadge")}
           </div>
         )}
       </div>
@@ -187,13 +189,13 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       {phase === "testing" && (
         <div style={{ marginBottom: "0.75rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13, color: "var(--muted-foreground)" }}>
-            <Mic size={15} /> Niveau du micro — parlez pour vérifier que la barre bouge
+            <Mic size={15} /> {t("candidate.recorder.micLevel")}
           </div>
           <div style={{ height: 10, background: "#e2e8f0", borderRadius: 99, overflow: "hidden" }}>
             <div style={{ width: `${level}%`, height: "100%", background: level > 8 ? "#16a34a" : "#94a3b8", transition: "width .1s linear" }} />
           </div>
           <p style={{ fontSize: 13, color: "var(--foreground)", marginTop: 10 }}>
-            Vous voyez votre image et la barre de son réagit ? Démarrez l'enregistrement quand vous êtes prêt·e.
+            {t("candidate.recorder.testConfirm")}
           </p>
         </div>
       )}
@@ -203,25 +205,25 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         {phase === "idle" && (
           <button onClick={startTest} style={primaryBtn(primary)}>
-            <Video size={16} /> Tester caméra &amp; micro
+            <Video size={16} /> {t("candidate.recorder.testDevices")}
           </button>
         )}
         {phase === "testing" && (
           <>
             <button onClick={beginRecording} style={primaryBtn(primary)}>
-              <Video size={16} /> Ça fonctionne — démarrer l'enregistrement
+              <Video size={16} /> {t("candidate.recorder.itWorks")}
             </button>
-            <button onClick={cancelTest} style={ghostBtn}>Annuler</button>
+            <button onClick={cancelTest} style={ghostBtn}>{t("common.actions.cancel")}</button>
           </>
         )}
-        {phase === "recording" && <button onClick={stopRecording} style={outlineBtn}><Square size={16} /> Arrêter</button>}
+        {phase === "recording" && <button onClick={stopRecording} style={outlineBtn}><Square size={16} /> {t("candidate.recorder.stop")}</button>}
         {phase === "review" && (
           <>
-            <button onClick={validate} style={primaryBtn(primary)}><Check size={16} /> Valider</button>
-            <button onClick={reset} style={ghostBtn}><RotateCcw size={16} /> Refaire</button>
+            <button onClick={validate} style={primaryBtn(primary)}><Check size={16} /> {t("candidate.recorder.validate")}</button>
+            <button onClick={reset} style={ghostBtn}><RotateCcw size={16} /> {t("candidate.recorder.retake")}</button>
           </>
         )}
-        {phase === "uploading" && <button disabled style={primaryBtn(primary, true)}><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Envoi…</button>}
+        {phase === "uploading" && <button disabled style={primaryBtn(primary, true)}><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> {t("candidate.recorder.uploading")}</button>}
       </div>
     </div>
   );

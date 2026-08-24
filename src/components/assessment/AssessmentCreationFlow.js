@@ -1,11 +1,13 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect, useRef } from "react";
 import { Send, Plus, Paperclip, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import AssessmentChatCreator from "./AssessmentChatCreator";
 
 export default function AssessmentCreationFlow({ jobData, onTestCreated, onCancel }) {
+  const t = useT();
   const [userName, setUserName] = useState("Loic");
   const [prompt, setPrompt] = useState("");
   const [isChatMode, setIsChatMode] = useState(false);
@@ -109,7 +111,7 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Quel type d'évaluation souhaitez-vous créer ?"
+            placeholder={t("dashboard.assessmentCreation.whichType")}
             style={{
               flex: 1, border: "none", outline: "none", background: "transparent",
               fontSize: "15px", color: "var(--foreground)",
@@ -148,12 +150,12 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
                   }}
                 >
                   <div style={{ padding: "8px", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", color: "var(--muted-foreground)", letterSpacing: "0.05em" }}>
-                    Ajouter du contexte
+                    {t("dashboard.assessmentCreation.addContext")}
                   </div>
                   {[
-                    { icon: Paperclip, label: "Poste en PDF", action: () => alert("Bientôt disponible") },
-                    { icon: Paperclip, label: "Connecter repo Github", action: () => alert("Bientôt disponible") },
-                    { icon: Paperclip, label: "Upload un doc ZIP", action: () => alert("Bientôt disponible") },
+                    { icon: Paperclip, label: t("dashboard.assessmentCreation.jobAsPdf"), action: () => alert(t("dashboard.assessmentCreation.comingSoon")) },
+                    { icon: Paperclip, label: t("dashboard.assessmentCreation.connectGithub"), action: () => alert(t("dashboard.assessmentCreation.comingSoon")) },
+                    { icon: Paperclip, label: t("dashboard.assessmentCreation.uploadZip"), action: () => alert(t("dashboard.assessmentCreation.comingSoon")) },
                   ].map((opt, i) => (
                     <button
                       key={i}

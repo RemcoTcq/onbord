@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter, LocaleLink as Link } from "@/lib/i18n/navigation";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/lib/supabase/client";
 import { claimInvitePlan, validateInviteToken } from "@/lib/actions/usage";
 
 function JoinForm() {
+  const t = useT();
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
@@ -25,7 +28,7 @@ function JoinForm() {
 
   useEffect(() => {
     if (!token) {
-      setError("Lien d'invitation invalide. Aucun token fourni.");
+      setError(t("common.auth.joinInvalidToken"));
       setLoading(false);
       return;
     }
@@ -49,7 +52,7 @@ function JoinForm() {
     }
 
     validateToken();
-  }, [token]);
+  }, [token, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,7 +82,7 @@ function JoinForm() {
         // Just call the secure action which handles token validation, user_usage creation, and users.plan update
         const res = await claimInvitePlan(tokenData.id);
         if (!res.success) {
-          throw new Error(res.error || "Erreur lors de l'attribution du plan.");
+          throw new Error(res.error || t("common.auth.joinPlanError"));
         }
       }
 
@@ -112,9 +115,11 @@ function JoinForm() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "20px" }}>
         <div className="card" style={{ maxWidth: "480px", width: "100%", padding: "48px", textAlign: "center" }}>
           <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", color: "#991b1b", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "28px" }}>!</div>
-          <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>Lien invalide</h1>
+          <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>{t("common.auth.joinInvalidTitle")}</h1>
           <p style={{ color: "var(--muted-foreground)", marginBottom: "32px" }}>{error}</p>
-          <a href="/login" style={{ color: "var(--primary)", fontWeight: "600", fontSize: "14px" }}>Déjà un compte ? Se connecter</a>
+          <Link href="/login" style={{ color: "var(--primary)", fontWeight: "600", fontSize: "14px" }}>
+            {t("common.auth.alreadyHaveAccount")} {t("common.auth.signIn")}
+          </Link>
         </div>
       </div>
     );
@@ -126,9 +131,9 @@ function JoinForm() {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "20px" }}>
       <div className="card" style={{ maxWidth: "480px", width: "100%", padding: "48px" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>Rejoindre Onbord</h1>
+          <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>{t("common.auth.joinTitle")}</h1>
           <p style={{ color: "var(--muted-foreground)", marginBottom: "16px" }}>
-            Créez votre compte pour accéder à la plateforme.
+            {t("common.auth.joinSubtitle")}
           </p>
           <span style={{
             display: "inline-block", padding: "4px 16px", borderRadius: "20px",
@@ -148,28 +153,28 @@ function JoinForm() {
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>Prénom</label>
-              <input className="input-field" required value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Prénom" />
+              <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.firstName")}</label>
+              <input className="input-field" required value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder={t("common.auth.fields.firstName")} />
             </div>
             <div>
-              <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>Nom</label>
-              <input className="input-field" required value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Nom" />
+              <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.lastName")}</label>
+              <input className="input-field" required value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder={t("common.auth.fields.lastName")} />
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>Entreprise</label>
-            <input className="input-field" required value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} placeholder="Nom de l'entreprise" />
+            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.company")}</label>
+            <input className="input-field" required value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} placeholder={t("common.auth.fields.companyPlaceholder")} />
           </div>
 
           <div>
-            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>Email</label>
+            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.email")}</label>
             <input className="input-field" type="email" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="votre@email.com" />
           </div>
 
           <div>
-            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>Mot de passe</label>
-            <input className="input-field" type="password" required minLength={6} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Minimum 6 caractères" />
+            <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.password")}</label>
+            <input className="input-field" type="password" required minLength={6} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder={t("common.auth.fields.passwordHint")} />
           </div>
 
           <button
@@ -178,12 +183,12 @@ function JoinForm() {
             style={{ width: "100%", padding: "14px", marginTop: "8px" }}
             disabled={submitting}
           >
-            {submitting ? "Création du compte..." : "Créer mon compte"}
+            {submitting ? t("common.auth.registerPending") : t("common.auth.registerSubmit")}
           </button>
         </form>
 
         <p style={{ textAlign: "center", marginTop: "24px", fontSize: "13px", color: "var(--muted-foreground)" }}>
-          Déjà un compte ? <a href="/login" style={{ color: "var(--primary)", fontWeight: "600" }}>Se connecter</a>
+          {t("common.auth.alreadyHaveAccount")} <Link href="/login" style={{ color: "var(--primary)", fontWeight: "600" }}>{t("common.auth.signIn")}</Link>
         </p>
       </div>
     </div>

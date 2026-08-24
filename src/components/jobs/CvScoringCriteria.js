@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState } from "react";
 import { Plus, Trash2, Sliders, Info, AlertTriangle } from "lucide-react";
 
 export default function CvScoringCriteria({ criteria, onChange }) {
+  const t = useT();
   const [localCriteria, setLocalCriteria] = useState(criteria || []);
 
   const totalWeight = localCriteria.reduce((sum, c) => sum + (c.weight || 0), 0);
@@ -55,7 +57,7 @@ export default function CvScoringCriteria({ criteria, onChange }) {
                 type="text"
                 value={criterion.name}
                 onChange={(e) => handleChange(index, "name", e.target.value)}
-                placeholder="Ex: Expérience en management d'équipe"
+                placeholder={t("dashboard.cvCriteria.placeholder")}
                 style={{
                   width: "100%", border: "none", background: "transparent",
                   fontSize: "14px", fontWeight: "600", outline: "none",
@@ -107,7 +109,7 @@ export default function CvScoringCriteria({ criteria, onChange }) {
           onClick={distributeEqually}
           style={{ fontSize: "12px", color: "var(--primary)", background: "none", border: "none", cursor: "pointer", fontWeight: "600" }}
         >
-          Répartir équitablement
+          {t("dashboard.cvCriteria.distributeEvenly")}
         </button>
       </div>
 

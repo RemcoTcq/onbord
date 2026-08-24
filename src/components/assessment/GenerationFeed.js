@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database } from "lucide-react";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // ─── Consommation du flux de génération ──────────────────────────────────────
 // Partagé par les deux points d'entrée (chat de conception et génération
 // directe) : un seul endroit qui sait lire le NDJSON de
 // /api/experience/generate, donc un seul comportement à maintenir.
+// Les échecs de cette fonction remontent dans un toast. Comme elle n'est pas un
+// composant, elle renvoie des CLÉS de traduction plutôt que des phrases : c'est
+// l'appelant, qui a t() en portée, qui les résout via translateFeedError().
+const KEY_COULD_NOT_START = "dashboard.generationFeed.couldNotStart";
+const KEY_INTERRUPTED = "dashboard.generationFeed.interrupted";
+const KEY_UNEXPECTED = "dashboard.generationFeed.unexpectedError";
+
+/** Traduit une erreur remontée par le flux, ou la relaie si elle vient du serveur. */
+export function translateFeedError(t, error) {
+  if (!error) return null;
+  return error.startsWith("dashboard.generationFeed.") ? t(error) : error;
+}
+
 export async function streamExperienceGeneration(jobId, additionalContext, onEvent) {
   try {
     const resp = await fetch("/api/experience/generate", {
@@ -16,13 +30,15 @@ export async function streamExperienceGeneration(jobId, additionalContext, onEve
     });
     if (!resp.ok || !resp.body) {
       const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || "La génération n'a pas pu démarrer.");
+      // Une clé, pas un texte : cette fonction n'est pas un composant et n'a
+      // pas accès à t(). C'est l'appelant qui traduit — voir plus bas.
+      throw new Error(err.error || KEY_COULD_NOT_START);
     }
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let result = { success: false, error: "La génération s'est interrompue." };
+    let result = { success: false, error: KEY_INTERRUPTED };
 
     // Une ligne = un événement. Le dernier fragment d'un chunk peut être
     // incomplet : on le garde pour la lecture suivante.
@@ -42,7 +58,7 @@ export async function streamExperienceGeneration(jobId, additionalContext, onEve
     }
     return result;
   } catch (e) {
-    return { success: false, error: e?.message || "Erreur inattendue" };
+    return { success: false, error: e?.message || KEY_UNEXPECTED };
   }
 }
 
@@ -50,11 +66,12 @@ export async function streamExperienceGeneration(jobId, additionalContext, onEve
 // Chaque entrée correspond à un événement RÉEL du pipeline serveur, reçu en
 // streaming. Rien n'est préparé à l'avance : les étapes et les critères BARS
 // apparaissent au fur et à mesure que le modèle les écrit.
-const STEP_KIND_LABEL = {
-  qualifying: 'Question qualifiante',
-  question: 'Question ciblée',
-  task: 'Mise en situation',
-  classic_qcm: 'QCM',
+// Clés de traduction, pas libellés : ces constantes sont évaluées au
+// chargement du module, avant que le provider i18n existe.
+const STEP_KIND_KEY = {
+  qualifying: 'dashboard.generationFeed.kinds.qualifying',
+  question: 'dashboard.generationFeed.kinds.question',
+  task: 'dashboard.generationFeed.kinds.task',
 };
 
 // Les entrées "enfant" sont indentées sous l'étape à laquelle elles se rattachent.
@@ -78,24 +95,41 @@ function feedIcon(kind, size = 13) {
   }
 }
 
-function feedText(e) {
+// `t` en paramètre : cette fonction est appelée depuis FeedLine, qui l'a en
+// portée. La sortir du composant garde le rendu lisible.
+//
+// Les `e.label` NE SONT PAS traduits : ce sont les titres d'étapes, noms de
+// compétences et libellés de champs que le modèle vient d'écrire, dans la
+// langue de l'offre. Seul le cadre autour se traduit.
+function feedText(t, e) {
   switch (e.kind) {
-    case 'step': return `Étape ${e.n} — ${STEP_KIND_LABEL[e.stepKind] || e.stepKind || 'Étape'} : ${e.label}`;
-    case 'skill': return `Compétence évaluée : ${e.label}`;
-    case 'criterion': return `Sous-dimension : ${e.label}`;
-    case 'source': return `Source du brief : ${{ email: 'email', call_transcript: "retranscription d'appel", chat: 'message entrant', note: 'note interne' }[e.label] || e.label}`;
-    case 'field': return `Champ de la fiche : ${e.label}`;
-    case 'trap': return `Incohérence volontaire : ${e.label}`;
+    case 'step': {
+      const kindKey = STEP_KIND_KEY[e.stepKind];
+      const kind = kindKey ? t(kindKey) : (e.stepKind || t('dashboard.generationFeed.step'));
+      return t('dashboard.generationFeed.stepLine', { n: e.n, kind, label: e.label });
+    }
+    case 'skill': return t('dashboard.generationFeed.skillLine', { label: e.label });
+    case 'criterion': return t('dashboard.generationFeed.criterionLine', { label: e.label });
+    case 'source': {
+      const connu = ['email', 'call_transcript', 'chat', 'note'].includes(e.label);
+      const label = connu ? t(`dashboard.generationFeed.sourceKinds.${e.label}`) : e.label;
+      return t('dashboard.generationFeed.sourceLine', { label });
+    }
+    case 'field': return t('dashboard.generationFeed.fieldLine', { label: e.label });
+    case 'trap': return t('dashboard.generationFeed.trapLine', { label: e.label });
     default: return e.label;
   }
 }
 
 export default function GenerationFeed({ events, active }) {
+  const t = useT();
   return (
     <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', marginBottom: 2 }}>
         {active ? <Loader2 size={15} className="spin" /> : <Check size={15} />}
-        {active ? "Génération de l'expérience…" : "Expérience générée"}
+        {active
+          ? t("dashboard.generationFeed.generating")
+          : t("dashboard.generationFeed.generated")}
       </div>
       {events.map((e, i) => (
         <FeedLine
@@ -110,7 +144,8 @@ export default function GenerationFeed({ events, active }) {
 }
 
 function FeedLine({ event, isLast, active }) {
-  const text = feedText(event);
+  const t = useT();
+  const text = feedText(t, event);
   const nested = NESTED.has(event.kind);
   const running = active && isLast;
 

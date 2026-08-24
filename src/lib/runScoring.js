@@ -2,8 +2,46 @@ import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, CRM_SKILL_NAME } from "@/lib/crmScoring";
+import { consigneLangueRapport } from "@/lib/i18n/prompt";
+import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 
 const SCORING_MODEL = "claude-sonnet-4-6";
+
+// Libellés et justifications calculés en dur, pas par le modèle : QCM corrigé
+// par comparaison d'index, champs factuels du CRM corrigés par comparaison de
+// chaînes. Ils atterrissent dans le même rapport que les justifications
+// rédigées par l'IA, et doivent donc suivre la MÊME langue — celle du
+// recruteur, pas celle du candidat.
+const JUSTIFICATIONS_AUTO = {
+  fr: {
+    qcmDimension: "QCM — Bonne réponse",
+    qcmCorrect: (n) => `Bonne réponse sélectionnée (option ${n})`,
+    qcmWrong: (n, correct) => `Mauvaise réponse (option ${n} choisie, option ${correct} attendue)`,
+    qcmNoAnswer: "Aucune réponse sélectionnée",
+    crmDimension: "Champs factuels",
+    crmAllCorrect: (total) => `Les ${total} champs vérifiables sont exacts.`,
+    crmPartial: (correct, total, erreurs) =>
+      `${correct}/${total} champs vérifiables exacts. Erreurs : ${erreurs}.`,
+    crmFieldError: (label, given, expected) =>
+      `${label} (saisi « ${given ?? "vide"} », attendu « ${expected} »)`,
+    crmTrapMissed: (champs) => ` Dont l'information contradictoire du brief : ${champs}.`,
+    empty: "vide",
+  },
+  en: {
+    qcmDimension: "Multiple choice — correct answer",
+    qcmCorrect: (n) => `Correct answer selected (option ${n})`,
+    qcmWrong: (n, correct) => `Incorrect answer (option ${n} chosen, option ${correct} expected)`,
+    qcmNoAnswer: "No answer selected",
+    crmDimension: "Factual fields",
+    crmAllCorrect: (total) => `All ${total} verifiable fields are correct.`,
+    crmPartial: (correct, total, erreurs) =>
+      `${correct}/${total} verifiable fields correct. Errors: ${erreurs}.`,
+    crmFieldError: (label, given, expected) =>
+      `${label} (entered "${given ?? "empty"}", expected "${expected}")`,
+    crmTrapMissed: (champs) => ` Including the contradictory detail from the brief: ${champs}.`,
+    empty: "empty",
+  },
+};
 
 // Vérifie qu'un verbatim est une sous-chaîne réelle de la réponse du candidat
 // (jamais inventé). Normalise casse/espaces/ponctuation.
@@ -40,6 +78,40 @@ export async function scoreRun(runId) {
   if (!run) return { success: false, error: "Run introuvable" };
   if (run.status === "scored") return { success: true, alreadyScored: true };
 
+  // ── Les DEUX langues du scoring ──────────────────────────────────────────
+  // Le rapport n'est pas rédigé dans la langue du candidat mais dans celle du
+  // RECRUTEUR : c'est un outil de décision interne, lu dans le dashboard. Un
+  // recruteur anglophone doit pouvoir lire le rapport d'un candidat
+  // néerlandophone sans le traduire lui-même.
+  //
+  // La langue du candidat reste nécessaire, pour une seule chose : protéger les
+  // verbatims. Le prompt exige que chaque citation soit une sous-chaîne réelle
+  // de la réponse, et verifyVerbatim() le contrôle après coup — un verbatim
+  // traduit échouerait cette vérification et serait rejeté à tort.
+  // Deux requêtes plutôt qu'une jointure imbriquée experiences→jobs→users : la
+  // clé étrangère jobs.user_id n'est pas déclarée vers public.users, et un
+  // select imbriqué échouerait silencieusement — le scoring tomberait alors en
+  // français pour tout le monde, sans erreur visible.
+  const { data: exp } = await admin
+    .from("experiences")
+    .select("jobs!inner(experience_locale, user_id)")
+    .eq("id", run.experience_id)
+    .single();
+
+  const contentLocale = coerceExperienceLocale(exp?.jobs?.experience_locale);
+
+  let reportLocale = DEFAULT_UI_LOCALE;
+  if (exp?.jobs?.user_id) {
+    const { data: recruteur } = await admin
+      .from("users").select("ui_locale").eq("id", exp.jobs.user_id).single();
+    reportLocale = coerceUiLocale(recruteur?.ui_locale);
+  }
+
+  // Justifications produites SANS le modèle (QCM et champs factuels du CRM) :
+  // elles s'affichent à côté de celles rédigées par l'IA, dans le même rapport.
+  // Les laisser en français ferait un rapport bilingue.
+  const L = JUSTIFICATIONS_AUTO[reportLocale];
+
   const [{ data: steps }, { data: responses }, { data: aiMessages }] = await Promise.all([
     admin.from("experience_steps").select("*").eq("experience_id", run.experience_id).order("order_index"),
     admin.from("run_step_responses").select("*").eq("run_id", runId),
@@ -72,14 +144,14 @@ export async function scoreRun(runId) {
       // Le QCM est regroupé sous la compétence qu'il teste, pas sous un libellé
       // générique : le rapport recruteur le range avec le reste de la compétence.
       skill_name: skillOf(s),
-      sub_dimension_name: "QCM — Bonne réponse",
+      sub_dimension_name: L.qcmDimension,
       bars_level: isCorrect ? 5 : 1,
       score: isCorrect ? 100 : 0,
       justification: isCorrect
-        ? `Bonne réponse sélectionnée (option ${selectedIdx + 1})`
+        ? L.qcmCorrect(selectedIdx + 1)
         : selectedIdx != null
-          ? `Mauvaise réponse (option ${selectedIdx + 1}, attendue : ${correctIdx + 1})`
-          : "Pas de réponse",
+          ? L.qcmWrong(selectedIdx + 1, correctIdx + 1)
+          : L.qcmNoAnswer,
       verbatim: "",
       verbatim_verified: false,
     };
@@ -101,13 +173,17 @@ export async function scoreRun(runId) {
       // Même compétence que la sous-dimension "Croisement des sources" posée à la
       // génération : les deux signaux de la fiche s'affichent groupés.
       skill_name: CRM_SKILL_NAME,
-      sub_dimension_name: "Champs factuels",
+      sub_dimension_name: L.crmDimension,
       bars_level: crmBarsLevel(ev.score),
       score: ev.score,
       justification: missed.length === 0
-        ? `Les ${ev.factualCount} champs vérifiables sont exacts.`
-        : `${ev.correctCount}/${ev.factualCount} champs vérifiables exacts. Erreurs : ${missed.map((d) => `${d.label} (saisi « ${d.given ?? "vide"} », attendu « ${d.expected} »)`).join(" ; ")}.`
-          + (trapMissed.length ? ` Dont l'information contradictoire du brief : ${trapMissed.map((d) => d.label).join(", ")}.` : ""),
+        ? L.crmAllCorrect(ev.factualCount)
+        : L.crmPartial(
+            ev.correctCount,
+            ev.factualCount,
+            missed.map((d) => L.crmFieldError(d.label, d.given, d.expected)).join(" ; ")
+          )
+          + (trapMissed.length ? L.crmTrapMissed(trapMissed.map((d) => d.label).join(", ")) : ""),
       verbatim: "",
       verbatim_verified: false,
       // Détail champ par champ pour le rapport recruteur.
@@ -143,7 +219,9 @@ ${trap ? `${trap}\n` : ""}${revision}  Réponse du candidat :
 ${subDims}${ai ? `\n  Échanges avec l'assistant IA :\n${ai}` : ""}`;
   }).join("\n\n");
 
-  const system = `Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles BARS DÉFINIES À L'AVANCE. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
+  const system = `${consigneLangueRapport(reportLocale, contentLocale)}
+
+Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles BARS DÉFINIES À L'AVANCE. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
 
 RÈGLES ABSOLUES :
 - Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.

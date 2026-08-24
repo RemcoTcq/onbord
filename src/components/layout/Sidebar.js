@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useRouter, useLocaleHref, stripLocale } from "@/lib/i18n/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -18,18 +19,25 @@ import {
 import styles from "./Sidebar.module.css";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import CreditBadge from "../billing/CreditBadge";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // "/assessments" = hub de génération d'expériences (chat-first). Remplace
 // l'ancienne bibliothèque de tests QCM.
+// `labelKey` et non `label` : le libellé se résout au rendu, dans la langue du
+// recruteur. Une constante de module figerait le français au chargement du
+// bundle, avant même que le provider existe.
 const navItems = [
-  { label: "Accueil", href: "/accueil", icon: Home },
-  { label: "Offres d'emploi", href: "/jobs", icon: Briefcase },
-  { label: "Talents", href: "/talents", icon: Users },
-  { label: "Expériences", href: "/assessments", icon: BookOpen },
+  { labelKey: "dashboard.nav.home", href: "/accueil", icon: Home },
+  { labelKey: "dashboard.nav.jobs", href: "/jobs", icon: Briefcase },
+  { labelKey: "dashboard.nav.talents", href: "/talents", icon: Users },
+  { labelKey: "dashboard.nav.experiences", href: "/assessments", icon: BookOpen },
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const t = useT();
+  const href = useLocaleHref();
+  // Dépouillé du préfixe : les href de navItems sont sans langue.
+  const pathname = stripLocale(usePathname());
   const router = useRouter();
   const supabase = createClient();
   const collapsed = true; // Forcer la sidebar toujours fermée
@@ -62,7 +70,7 @@ export default function Sidebar() {
 
   const displayName = profile
     ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
-    : user?.email || "Mon compte";
+    : user?.email || t("dashboard.nav.account");
 
   const initials = profile
     ? `${(profile.first_name || "")[0] || ""}${(profile.last_name || "")[0] || ""}`.toUpperCase()
@@ -89,12 +97,12 @@ export default function Sidebar() {
 
       {/* New Job CTA */}
       <a
-        href="/jobs/nouveau"
+        href={href("/jobs/nouveau")}
         className={`${styles.newDemandBtn} ${collapsed ? styles.collapsed : ""}`}
-        title={collapsed ? "Nouvelle offre" : undefined}
+        title={collapsed ? t("dashboard.nav.newJob") : undefined}
       >
         <Plus size={18} />
-        {!collapsed && <span>Nouvelle offre</span>}
+        {!collapsed && <span>{t("dashboard.nav.newJob")}</span>}
       </a>
 
       {/* Navigation */}
@@ -107,10 +115,10 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={`${styles.navItem} ${isActive ? styles.navItemActive : ""} ${collapsed ? styles.collapsed : ""}`}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(item.labelKey) : undefined}
             >
               <Icon size={20} />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{t(item.labelKey)}</span>}
             </a>
           );
         })}
@@ -118,14 +126,14 @@ export default function Sidebar() {
         {estAdmin && (
           <>
             <div style={{ margin: "8px 0 4px", height: "1px", background: "var(--border)" }} />
-            {!collapsed && <span className={styles.navLabel}>Admin</span>}
+            {!collapsed && <span className={styles.navLabel}>{t("dashboard.nav.admin")}</span>}
             <a
-              href="/admin"
+              href={href("/admin")}
               className={`${styles.navItem} ${pathname.startsWith("/admin") ? styles.navItemActive : ""} ${collapsed ? styles.collapsed : ""}`}
-              title={collapsed ? "Administration" : undefined}
+              title={collapsed ? t("dashboard.nav.administration") : undefined}
             >
               <ShieldCheck size={20} />
-              {!collapsed && <span>Administration</span>}
+              {!collapsed && <span>{t("dashboard.nav.administration")}</span>}
             </a>
           </>
         )}
@@ -142,7 +150,7 @@ export default function Sidebar() {
       <div 
         className={`${styles.userSection} ${collapsed ? styles.collapsed : ""}`} 
         onClick={() => router.push("/compte")}
-        title="Gérer mon compte"
+        title={t("dashboard.nav.manageAccount")}
       >
         <div className={styles.userAvatar}>{initials}</div>
         {!collapsed && (
@@ -158,7 +166,7 @@ export default function Sidebar() {
               e.stopPropagation();
               handleLogout();
             }} 
-            title="Déconnexion"
+            title={t("dashboard.nav.signOut")}
           >
             <LogOut size={14} />
           </button>

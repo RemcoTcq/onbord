@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState } from "react";
 import { Plus, Trash2, HelpCircle } from "lucide-react";
 
 export default function QualifyingQuestionsConfig({ config, onChange }) {
+  const t = useT();
   const [questions, setQuestions] = useState(config?.questions || []);
 
   const addQuestion = () => {
@@ -36,9 +38,9 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
           borderRadius: 'var(--radius)', border: '1px dashed var(--border)'
         }}>
           <HelpCircle size={32} style={{ color: 'var(--muted-foreground)', marginBottom: '0.5rem', opacity: 0.5 }} />
-          <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '0.25rem' }}>Aucune question qualificative</h3>
+          <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '0.25rem' }}>{t("dashboard.qualifyingConfig.none")}</h3>
           <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '1rem' }}>
-            Ajoutez des questions pour filtrer automatiquement les candidats avant qu'ils ne passent l'assessment.
+            {t("dashboard.qualifyingConfig.noneHelp")}
           </p>
           <button className="btn btn-outline btn-sm" onClick={addQuestion}>
             <Plus size={16} /> Ajouter une question
@@ -65,22 +67,22 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
               </div>
               <div style={{ width: '120px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-                  Réponse attendue
+                  {t("dashboard.qualifyingConfig.expectedAnswer")}
                 </label>
                 <select 
                   className="input-field" 
                   value={q.expectedAnswer}
                   onChange={(e) => updateQuestion(i, "expectedAnswer", e.target.value)}
                 >
-                  <option value="yes">Oui</option>
-                  <option value="no">Non</option>
+                  <option value="yes">{t("dashboard.qualifyingConfig.yes")}</option>
+                  <option value="no">{t("dashboard.qualifyingConfig.no")}</option>
                 </select>
               </div>
               <button 
                 className="btn btn-ghost btn-icon" 
                 style={{ marginTop: '22px', color: 'var(--destructive)' }}
                 onClick={() => removeQuestion(i)}
-                title="Supprimer la question"
+                title={t("dashboard.qualifyingConfig.deleteQuestion")}
               >
                 <Trash2 size={18} />
               </button>

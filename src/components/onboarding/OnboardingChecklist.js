@@ -1,10 +1,12 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { CheckCircle2, Circle, Loader2, PartyPopper, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function OnboardingChecklist({ user }) {
+  const t = useT();
   const [status, setStatus] = useState({
     jobCreated: false,
     candidateImported: false,
@@ -69,10 +71,10 @@ export default function OnboardingChecklist({ user }) {
   if (completed || loading) return null;
 
   const steps = [
-    { id: "account", label: "Compte créé", done: true },
-    { id: "job", label: "Première demande créée", done: status.jobCreated },
-    { id: "candidate", label: "Premier candidat importé", done: status.candidateImported },
-    { id: "scoring", label: "Premier scoring lancé", done: status.scoringLaunched },
+    { id: "account", label: t("dashboard.onboarding.steps.account"), done: true },
+    { id: "job", label: t("dashboard.onboarding.steps.firstJob"), done: status.jobCreated },
+    { id: "candidate", label: t("dashboard.onboarding.steps.firstCandidate"), done: status.candidateImported },
+    { id: "scoring", label: t("dashboard.onboarding.steps.firstScoring"), done: status.scoringLaunched },
   ];
 
   const doneCount = steps.filter(s => s.done).length;
@@ -104,8 +106,8 @@ export default function OnboardingChecklist({ user }) {
     }}>
       <div style={{ padding: "20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <h4 style={{ fontSize: "15px", fontWeight: "700" }}>Guide d'activation</h4>
-          <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>Prêt à recruter ?</p>
+          <h4 style={{ fontSize: "15px", fontWeight: "700" }}>{t("dashboard.onboarding.title")}</h4>
+          <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{t("dashboard.onboarding.ready")}</p>
         </div>
         <button onClick={() => setMinimized(true)} style={{ background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer" }}>
           <X size={18} />
@@ -142,7 +144,7 @@ export default function OnboardingChecklist({ user }) {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <PartyPopper size={20} style={{ color: "#22c55e" }} />
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>Bravo ! Vous êtes opérationnel.</p>
+            <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>{t("dashboard.onboarding.done")}</p>
           </div>
           <button 
             onClick={async () => {
@@ -158,7 +160,7 @@ export default function OnboardingChecklist({ user }) {
               alignSelf: "flex-start", padding: 0 
             }}
           >
-            Faire disparaître ce guide
+            {t("dashboard.onboarding.dismiss")}
           </button>
         </div>
       )}

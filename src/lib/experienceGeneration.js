@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { CRM_SKILL_NAME } from "@/lib/crmScoring";
+import { consigneLangueContenu } from "@/lib/i18n/prompt";
+import { coerceExperienceLocale, LOCALE_LABELS } from "@/lib/i18n/config";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
 
@@ -85,7 +87,7 @@ const SCHEMA_STEP_CHAMPS = SCHEMA_STEP.split("\n").slice(1, -1).join("\n");
 // ─── Prompt de génération (offre + contexte entreprise → expérience) ──────────
 // Interne : dans un module "use server", seuls des exports async sont permis.
 // La démo hors repo garde une copie identique de ce prompt.
-function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext }) {
+function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext, locale }) {
   const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}${s.priority ? ` (${s.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
   const ctx = companyContext || {};
@@ -96,7 +98,12 @@ function buildExperienceGenerationPrompt({ title, description, criteria, company
     ctx.domain && `Modèle : ${ctx.domain}`,
   ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
 
-  return `Tu es un concepteur d'évaluations de recrutement par compétences. À partir d'une offre et du contexte de l'entreprise, tu génères une EXPÉRIENCE DE PRÉSÉLECTION courte (5 à 20 minutes) qui fait la PREUVE des compétences du candidat — pas un questionnaire théorique.
+  // La consigne de langue est en TÊTE, avant tout le reste : placée en fin de
+  // prompt, elle se fait recouvrir par les dizaines de lignes de règles et
+  // d'exemples en français qui la précèdent, et le modèle rend du français.
+  return `${consigneLangueContenu(locale)}
+
+Tu es un concepteur d'évaluations de recrutement par compétences. À partir d'une offre et du contexte de l'entreprise, tu génères une EXPÉRIENCE DE PRÉSÉLECTION courte (5 à 20 minutes) qui fait la PREUVE des compétences du candidat — pas un questionnaire théorique.
 
 POSTE : ${title || "Non précisé"}
 DESCRIPTION :
@@ -140,7 +147,7 @@ Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct
 // Passe séparée à dessein : un config.crm complet (deux sources rédigées) pèse
 // 600-900 tokens et refait dérailler la passe principale, qui a déjà été
 // tronquée par le passé (d'où max_tokens 8000). On isole le risque.
-function buildCrmScenarioPrompt({ title, description, companyContext, step }) {
+function buildCrmScenarioPrompt({ title, description, companyContext, step, locale }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -148,7 +155,12 @@ function buildCrmScenarioPrompt({ title, description, companyContext, step }) {
     ctx.target_market && `Marché cible : ${ctx.target_market}`,
   ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
 
-  return `Tu conçois une MISE EN SITUATION "fiche CRM" pour une évaluation de recrutement.
+  // Les sources CRM sont le cœur de l'exercice : de faux emails et
+  // retranscriptions d'appels. Ils doivent sonner comme des vrais documents
+  // dans la langue du candidat — d'où la consigne en tête, ici aussi.
+  return `${consigneLangueContenu(locale)}
+
+Tu conçois une MISE EN SITUATION "fiche CRM" pour une évaluation de recrutement.
 
 Le candidat reçoit un brief réaliste et EN DÉSORDRE (comme dans la vraie vie), puis doit structurer cette information dans une fiche type CRM. On mesure sa capacité à EXTRAIRE et ORGANISER l'information — pas sa communication.
 
@@ -203,18 +215,41 @@ Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
 // Sous-dimension ajoutée d'office sur un step CRM : la justesse du champ piégé
 // est corrigée automatiquement, mais VOIR la contradiction est un comportement
 // distinct — un candidat peut avoir juste par chance. Les deux signaux comptent.
+//
+// Ce critère est ajouté EN DUR aux steps CRM, il ne sort pas du modèle : il
+// doit donc être traduit ici, sans quoi une expérience néerlandaise se
+// retrouverait avec une grille BARS française au milieu — visible par le
+// recruteur dans l'éditeur, et injectée telle quelle dans le prompt de scoring.
 const CRM_CROSS_CHECK_CRITERION = {
-  name: "Croisement des sources",
-  bars_levels: [
-    { level: 1, label: "Insuffisant", description: "Recopie une valeur d'une seule source sans voir qu'une autre la contredit, et ne mentionne aucun écart, ex. : notes vides ou « RAS, fiche complétée »." },
-    { level: 3, label: "Attendu", description: "Retient la bonne valeur (celle qui fait foi) : il a lu les deux sources et tranché, même sans l'expliciter, ex. : le budget saisi correspond à l'information la plus récente." },
-    { level: 5, label: "Excellent", description: "Retient la bonne valeur ET signale l'écart en indiquant laquelle fait foi, ex. : « Attention : 45 k€ annoncés par mail le 12, ramenés à 30 k€ lors de l'appel du 14 — je retiens 30 k€ »." },
-  ],
+  fr: {
+    name: "Croisement des sources",
+    bars_levels: [
+      { level: 1, label: "Insuffisant", description: "Recopie une valeur d'une seule source sans voir qu'une autre la contredit, et ne mentionne aucun écart, ex. : notes vides ou « RAS, fiche complétée »." },
+      { level: 3, label: "Attendu", description: "Retient la bonne valeur (celle qui fait foi) : il a lu les deux sources et tranché, même sans l'expliciter, ex. : le budget saisi correspond à l'information la plus récente." },
+      { level: 5, label: "Excellent", description: "Retient la bonne valeur ET signale l'écart en indiquant laquelle fait foi, ex. : « Attention : 45 k€ annoncés par mail le 12, ramenés à 30 k€ lors de l'appel du 14 — je retiens 30 k€ »." },
+    ],
+  },
+  en: {
+    name: "Cross-checking sources",
+    bars_levels: [
+      { level: 1, label: "Below expectations", description: "Copies a value from a single source without noticing that another contradicts it, and flags no discrepancy — e.g. empty notes, or \"nothing to report, record completed\"." },
+      { level: 3, label: "Meets expectations", description: "Records the correct value (the one that stands): they read both sources and made a call, even without saying so — e.g. the budget entered matches the more recent information." },
+      { level: 5, label: "Excellent", description: "Records the correct value AND flags the discrepancy, stating which one stands — e.g. \"Note: €45k quoted by email on the 12th, revised down to €30k on the call of the 14th — going with €30k\"." },
+    ],
+  },
+  nl: {
+    name: "Bronnen kruislings controleren",
+    bars_levels: [
+      { level: 1, label: "Onvoldoende", description: "Neemt een waarde uit één bron over zonder te zien dat een andere bron die tegenspreekt, en meldt geen enkel verschil — bijv. lege notities of \"niets te melden, fiche ingevuld\"." },
+      { level: 3, label: "Zoals verwacht", description: "Noteert de juiste waarde (die welke geldt): heeft beide bronnen gelezen en een keuze gemaakt, ook al wordt dat niet expliciet gezegd — bijv. het ingevulde budget komt overeen met de meest recente informatie." },
+      { level: 5, label: "Uitstekend", description: "Noteert de juiste waarde ÉN signaleert het verschil met vermelding van wat geldt — bijv. \"Let op: €45k aangekondigd per mail op de 12e, bijgesteld naar €30k tijdens het gesprek van de 14e — ik hou €30k aan\"." },
+    ],
+  },
 };
 
 // Génère le scénario complet d'un step "crm" (2e passe).
-async function generateCrmScenario({ title, description, companyContext, step, onEvent }) {
-  const prompt = buildCrmScenarioPrompt({ title, description, companyContext, step });
+async function generateCrmScenario({ title, description, companyContext, step, locale, onEvent }) {
+  const prompt = buildCrmScenarioPrompt({ title, description, companyContext, step, locale });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const scan = onEvent ? makeCrmScanner(onEvent) : null;
@@ -359,8 +394,8 @@ function makeCrmScanner(onEvent) {
 }
 
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
-export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, onEvent }) {
-  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext });
+export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, onEvent }) {
+  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext, locale });
 
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -399,7 +434,7 @@ export async function generateExperienceContent({ title, description, criteria, 
         for (const s of parsed.steps || []) {
           if (s.sandbox_kind !== "crm") continue;
           onEvent?.({ kind: "crm_start", label: `Mise en situation CRM : rédaction du brief pour « ${s.title || "l'étape"} »` });
-          const scenario = await generateCrmScenario({ title, description, companyContext, step: s, onEvent });
+          const scenario = await generateCrmScenario({ title, description, companyContext, step: s, locale, onEvent });
           if (!scenario.success) {
             // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
             // simple plutôt que d'exposer une fiche vide au candidat.
@@ -420,8 +455,16 @@ export async function generateExperienceContent({ title, description, criteria, 
           // regroupe à la fois la correction déterministe des champs factuels et
           // la sous-dimension "Croisement des sources" ci-dessous (décision D).
           s.skill_assessed = CRM_SKILL_NAME;
-          const hasCrossCheck = (s.sub_dimensions || []).some((c) => /crois|source/i.test(c.name || ""));
-          if (!hasCrossCheck) s.sub_dimensions = [...(s.sub_dimensions || []), CRM_CROSS_CHECK_CRITERION];
+          // La détection se fait sur les trois langues : en néerlandais le
+          // modèle écrit "bronnen", pas "sources", et le critère serait ajouté
+          // en double.
+          const hasCrossCheck = (s.sub_dimensions || []).some((c) =>
+            /crois|source|cross.?check|bronn/i.test(c.name || "")
+          );
+          if (!hasCrossCheck) {
+            const critere = CRM_CROSS_CHECK_CRITERION[coerceExperienceLocale(locale)];
+            s.sub_dimensions = [...(s.sub_dimensions || []), critere];
+          }
         }
         return { success: true, experience: parsed, usage: mergeUsage([usage, ...extraUsages]) };
       } catch (e) {
@@ -445,7 +488,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, user_id, title, description, extracted_criteria")
+      .select("id, user_id, title, description, extracted_criteria, experience_locale")
       .eq("id", jobId)
       .eq("user_id", user.id)
       .single();
@@ -474,6 +517,11 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     if (additionalContext) {
       onEvent?.({ kind: "brief", label: "Précisions du recruteur prises en compte en priorité" });
     }
+    // Langue du parcours : elle appartient à l'offre, jamais au recruteur qui
+    // lance la génération. Un recruteur en interface anglaise qui génère une
+    // offre néerlandaise doit obtenir une expérience en néerlandais.
+    const locale = coerceExperienceLocale(job.experience_locale);
+    onEvent?.({ kind: "locale", label: `Langue du parcours candidat : ${LOCALE_LABELS[locale]}` });
     onEvent?.({ kind: "design_start", label: "Conception des mises en situation…" });
 
     const gen = await generateExperienceContent({
@@ -482,6 +530,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       criteria: crit,
       companyContext: ctx,
       additionalContext: (additionalContext || "").slice(0, 4000),
+      locale,
       onEvent,
     });
     if (!gen.success) return gen;
@@ -574,7 +623,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 // le recruteur avait déjà relues et ajustées à la main partaient avec l'ancienne
 // version. La régénération d'étape écrit EN PLACE, exactement comme l'édition
 // manuelle de l'écran de relecture — dont elle n'est que la variante assistée.
-function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction }) {
+function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale }) {
   const hard = (criteria.hard_skills || []).map((sk) => `- ${sk.name}${sk.priority ? ` (${sk.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((sk) => `- ${sk.name}`).join("\n");
   const ctx = companyContext || {};
@@ -610,7 +659,13 @@ function buildStepRegenerationPrompt({ title, description, criteria, companyCont
     ? autresEtapes.map((a) => `- Étape ${a.position} : [${a.kind}] « ${a.title || "sans titre"} »${a.skill_assessed ? ` — évalue : ${a.skill_assessed}` : ""}`).join("\n")
     : "Aucune autre étape.";
 
-  return `Tu es un concepteur d'évaluations de recrutement par compétences. Tu dois RÉÉCRIRE UNE SEULE ÉTAPE d'une expérience de présélection déjà générée, et déjà relue par le recruteur.
+  // Même consigne de langue qu'à la génération complète, et pour la même
+  // raison : une étape régénérée sans elle reviendrait en français au milieu
+  // d'une expérience néerlandaise, alors que le recruteur ne demandait qu'une
+  // retouche de fond.
+  return `${consigneLangueContenu(locale)}
+
+Tu es un concepteur d'évaluations de recrutement par compétences. Tu dois RÉÉCRIRE UNE SEULE ÉTAPE d'une expérience de présélection déjà générée, et déjà relue par le recruteur.
 
 Tu ne produis QUE cette étape. Les autres ne sont là que pour te situer : n'y touche pas, ne les reprends pas, ne les recopie pas.
 
@@ -703,7 +758,7 @@ export async function runStepRegeneration(stepId, instruction) {
     // n'appartient à personne directement, elle appartient à l'offre qui la porte.
     const { data: step } = await supabase
       .from("experience_steps")
-      .select("*, experiences!inner(id, job_id, jobs!inner(id, user_id, title, description, extracted_criteria))")
+      .select("*, experiences!inner(id, job_id, jobs!inner(id, user_id, title, description, extracted_criteria, experience_locale))")
       .eq("id", stepId)
       .single();
     const job = step?.experiences?.jobs;
@@ -737,6 +792,7 @@ export async function runStepRegeneration(stepId, instruction) {
       total: liste.length,
       autresEtapes,
       instruction: instruction.slice(0, 2000),
+      locale: coerceExperienceLocale(job.experience_locale),
     });
 
     let nouveau = null;

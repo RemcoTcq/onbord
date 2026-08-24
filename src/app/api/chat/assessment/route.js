@@ -4,6 +4,7 @@ import {
   chargerFil, enregistrerFil, bornerFil, MAX_MESSAGES_MODELE,
   chargerExperienceCourante, construireEtatExperience,
 } from '@/lib/experienceChat';
+import { consigneLangueConversation } from '@/lib/i18n/prompt';
 
 // Chat-first de conception d'expérience : le chat prend l'offre + le contexte
 // entreprise en entrée, pose les questions nécessaires pour affiner, puis
@@ -57,7 +58,7 @@ const REGENERATE_STEP_TOOL = {
   },
 };
 
-function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experienceExiste }) {
+function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experienceExiste, uiLocale }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -84,7 +85,11 @@ function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experie
 3. Ne génère PAS à l'aveugle. Après au moins un échange utile qui atteint le plancher minimum, APPELLE l'outil \`generate_experience\` avec une synthèse (brief) des précisions. Tu peux proposer de générer et attendre un accord.
 4. Après génération, l'écran de relecture s'ouvre automatiquement. Dis au recruteur qu'il peut relire/éditer chaque étape, ou continuer à te demander des ajustements — tu pourras alors reprendre les étapes une par une, sans tout regénérer.`;
 
-  return `Tu es le concepteur d'expériences de présélection de Onbord. Tu aides le recruteur à concevoir une expérience courte (5–20 min) de MISES EN SITUATION qui prouvent les compétences — pas un questionnaire théorique, pas un test pioché dans une bibliothèque.
+  // La consigne de langue passe EN TÊTE : placée après les huit points du
+  // déroulé, elle se fait recouvrir par les exemples français qui la précèdent.
+  return `${consigneLangueConversation(uiLocale)}
+
+Tu es le concepteur d'expériences de présélection de Onbord. Tu aides le recruteur à concevoir une expérience courte (5–20 min) de MISES EN SITUATION qui prouvent les compétences — pas un questionnaire théorique, pas un test pioché dans une bibliothèque.
 
 OFFRE : ${title || "Non précisée"}
 COMPÉTENCES EXTRAITES : ${skillsStr}
@@ -119,7 +124,7 @@ export async function POST(req) {
     if (!fil.length) return Response.json({ error: "Aucun message à traiter." }, { status: 400 });
 
     const { data: profile } = await supabase
-      .from("users").select("company_ai_context").eq("id", user.id).single();
+      .from("users").select("company_ai_context, ui_locale").eq("id", user.id).single();
 
     const criteria = job.extracted_criteria || {};
     const allSkills = [];
@@ -139,6 +144,10 @@ export async function POST(req) {
       companyContext: profile?.company_ai_context,
       blocEtat: etat.bloc,
       experienceExiste: etat.existe,
+      // Le chat de conception s'adresse au RECRUTEUR : il suit sa langue
+      // d'interface, pas celle de l'offre. Un recruteur anglophone conçoit en
+      // anglais une expérience qui sortira en néerlandais.
+      uiLocale: profile?.ui_locale,
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });

@@ -5,6 +5,7 @@ import { Bot, ArrowUp, Loader2, PanelRightClose, PanelRightOpen } from "lucide-r
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getContrastColor, DEFAULT_PRIMARY } from "./candidateUi";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // Claude complet, ouvert à côté de la tâche — pas un widget replié dans un coin.
 // La conversation est chargée depuis le serveur (run_ai_messages) : elle survit
@@ -12,12 +13,16 @@ import { getContrastColor, DEFAULT_PRIMARY } from "./candidateUi";
 // Réponses en streaming, plafond d'échanges appliqué serveur, tout est loggé :
 // on mesure COMMENT le candidat s'en sert.
 
-// Cadrage posé comme un vrai premier message de la conversation : le candidat
-// doit savoir que l'échange est lu, c'est la règle du jeu.
-const WELCOME =
-  "Bonjour ! Je suis Claude. Vous avez accès à moi comme vous l'auriez au travail : posez vos questions, demandez un brouillon, un angle, une vérification, un regard critique.\n\nUne seule chose à savoir : **tout notre échange est enregistré et fait partie de l'évaluation**. Ce n'est pas le fait de m'utiliser qui compte, c'est votre façon de le faire.";
-
 export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMARY, onCollapsedChange }) {
+  const t = useT();
+
+  // Cadrage posé comme un vrai premier message de la conversation : le candidat
+  // doit savoir que l'échange est lu, c'est la règle du jeu.
+  //
+  // Lu dans le rendu et non dans une constante de module : la langue du
+  // parcours vient de l'offre, elle n'est connue qu'une fois le run chargé.
+  const WELCOME = t("candidate.assistant.greeting");
+
   const [open, setOpen] = useState(true); // ouvert par défaut : l'usage de l'IA fait partie de l'exercice
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -105,9 +110,9 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
         if (data.limitReached) {
           setLimitReached(true);
           setRemaining(0);
-          setMessages((m) => [...m, { role: "assistant", content: "Vous avez atteint le nombre maximum d'échanges pour cette évaluation." }]);
+          setMessages((m) => [...m, { role: "assistant", content: t("candidate.assistant.limitReached") }]);
         } else {
-          setMessages((m) => [...m, { role: "assistant", content: "Désolé, une erreur est survenue." }]);
+          setMessages((m) => [...m, { role: "assistant", content: t("candidate.assistant.error") }]);
         }
         return;
       }
@@ -132,12 +137,12 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
               if (msg.remaining <= 0) setLimitReached(true);
             }
           } else if (msg.type === "error") {
-            acc += acc ? "\n\n_(réponse interrompue)_" : "Désolé, une erreur est survenue.";
+            acc += acc ? t("candidate.assistant.interrupted") : t("candidate.assistant.error");
           }
         }
       }
     } catch {
-      if (!acc) acc = "Désolé, une erreur est survenue.";
+      if (!acc) acc = t("candidate.assistant.error");
     } finally {
       // Le texte streamé devient un message normal de la conversation.
       if (acc) setMessages((m) => [...m, { role: "assistant", content: acc }]);
@@ -151,7 +156,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
     return (
       <button
         onClick={() => setOpen(true)}
-        title="Ouvrir Claude"
+        title={t("candidate.assistant.open")}
         className="assistant-tab"
         style={{
           position: "sticky", top: "2rem", display: "flex", flexDirection: "column",
@@ -204,10 +209,13 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
         <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {remaining != null && (
             <span style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>
-              {remaining} échange{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}
+              {/* Accord géré par le dictionnaire (clés _one / _other) : le
+                  néerlandais ne met pas la marque du pluriel au même endroit
+                  que le français, et l'anglais n'accorde pas l'adjectif. */}
+              {t("candidate.assistant.remainingMessages", { count: remaining })}
             </span>
           )}
-          <button onClick={() => setOpen(false)} title="Réduire"
+          <button onClick={() => setOpen(false)} title={t("candidate.assistant.collapse")}
             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "flex", padding: 2 }}>
             <PanelRightClose size={16} />
           </button>
@@ -238,7 +246,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
       <div style={{ borderTop: "1px solid var(--border)", padding: "10px 12px", flexShrink: 0, background: "#ffffff" }}>
         {limitReached ? (
           <p style={{ fontSize: 12.5, color: "var(--muted-foreground)", textAlign: "center", margin: "6px 0" }}>
-            Nombre maximum d&apos;échanges atteint pour cette évaluation.
+            {t("candidate.assistant.limitReached")}
           </p>
         ) : (
           <div style={{
@@ -254,7 +262,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
               }}
               rows={1}
-              placeholder="Écrivez à Claude…"
+              placeholder={t("candidate.assistant.placeholder")}
               disabled={sending}
               style={{
                 flex: 1, border: "none", outline: "none", background: "transparent", resize: "none",
@@ -262,7 +270,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
                 maxHeight: 160, padding: "4px 0",
               }}
             />
-            <button onClick={send} disabled={sending || !input.trim()} title="Envoyer"
+            <button onClick={send} disabled={sending || !input.trim()} title={t("candidate.assistant.send")}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                 width: 32, height: 32, borderRadius: "50%", border: "none",

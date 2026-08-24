@@ -1,17 +1,14 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { Brain, CheckCircle2, Clock, Plus, Trash2, AlertCircle, Loader2, Bot } from "lucide-react";
 import { getTestsLibrary } from "@/lib/actions/assessment";
 import AssessmentChatCreator from "../assessment/AssessmentChatCreator";
 
-const CATEGORY_LABELS = {
-  cognitif: "Cognitif",
-  langue: "Langues",
-  metier: "Métier",
-  personnalite: "Personnalité",
-  ia: "IA",
-};
+// La catégorie est stockée en base sous sa clé courte : seul le libellé suit
+// la langue du recruteur. Une catégorie inconnue retombe sur sa valeur brute.
+const CATEGORIES = ["cognitif", "langue", "metier", "personnalite", "ia"];
 
 const CATEGORY_COLORS = {
   cognitif:     { bg: "#ede9fe", color: "#6d28d9" },
@@ -24,6 +21,7 @@ const CATEGORY_COLORS = {
 const MAX_TOTAL_DURATION = 30; // minutes
 
 export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
+  const t = useT();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(
@@ -93,7 +91,7 @@ export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "1rem", color: "var(--muted-foreground)" }}>
         <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
-        <span style={{ fontSize: "14px" }}>Chargement de la bibliothèque…</span>
+        <span style={{ fontSize: "14px" }}>{t("dashboard.skillsTestConfig.loadingLibrary")}</span>
       </div>
     );
   }
@@ -110,7 +108,7 @@ export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <Clock size={14} style={{ color: totalDuration > MAX_TOTAL_DURATION ? "#991b1b" : "var(--muted-foreground)" }} />
           <span style={{ fontSize: "13px", fontWeight: "600", color: totalDuration > MAX_TOTAL_DURATION ? "#991b1b" : "var(--foreground)" }}>
-            Durée totale estimée pour le candidat
+            {t("dashboard.skillsTestConfig.totalDuration")}
           </span>
         </div>
         <span style={{ fontSize: "14px", fontWeight: "800", color: totalDuration > MAX_TOTAL_DURATION ? "#991b1b" : "#166534" }}>
@@ -121,7 +119,7 @@ export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
       {/* Selection info */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
         <span style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-          Sélectionnez 1 test
+          {t("dashboard.skillsTestConfig.selectOneTest")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button 
@@ -183,11 +181,11 @@ export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)" }}>{test.name}</span>
                   <span style={{ fontSize: "11px", fontWeight: "700", padding: "1px 7px", borderRadius: "99px", background: catColor.bg, color: catColor.color }}>
-                    {CATEGORY_LABELS[test.category] || test.category}
+                    {CATEGORIES.includes(test.category) ? t(`dashboard.skillsTestConfig.categories.${test.category}`) : test.category}
                   </span>
                   {test.status === "coming_soon" && (
                     <span style={{ fontSize: "11px", fontWeight: "700", padding: "1px 7px", borderRadius: "99px", background: "#f1f5f9", color: "#64748b" }}>
-                      Bientôt
+                      {t("dashboard.skillsTestConfig.comingSoon")}
                     </span>
                   )}
                 </div>

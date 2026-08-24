@@ -1,0 +1,31 @@
+#!/bin/sh
+# Contrôle i18n avant chaque commit.
+#
+# Il attrape quatre choses que ni `next build` ni ESLint ne voient, parce
+# qu'elles ne cassent qu'à l'exécution — ou pas du tout :
+#   • une clé présente en fr/ et absente en en/ ou nl/ ;
+#   • un marqueur {company} perdu à la traduction ;
+#   • un composant qui appelle t() sans l'avoir déclaré (ReferenceError au
+#     premier rendu, en général sur un écran candidat) ;
+#   • une clé appelée qui n'existe dans aucun dictionnaire — la clé brute
+#     s'affiche alors à l'écran, sans la moindre alerte.
+#
+# Les trois derniers cas se sont réellement produits pendant la traduction.
+#
+# Pour passer outre ponctuellement : git commit --no-verify
+
+# Sortie capturée puis filtrée, plutôt qu'un pipe : `$?` après un pipe renvoie
+# le code de `grep`, pas celui de node, et le hook laisserait passer les
+# erreurs. PIPESTATUS existe en bash mais pas dans le /bin/sh de tous les
+# postes.
+sortie=$(node scripts/check-i18n.mjs 2>&1)
+code=$?
+
+echo "$sortie" | grep -v "MODULE_TYPELESS_PACKAGE_JSON\|Reparsing as ES module\|To eliminate this warning\|trace-warnings"
+
+if [ "$code" -ne 0 ]; then
+  echo ""
+  echo "Commit interrompu par le contrôle i18n. Corrigez, ou --no-verify si c'est délibéré."
+fi
+
+exit "$code"

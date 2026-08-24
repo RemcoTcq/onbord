@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PLANS } from "@/lib/constants/plans";
@@ -7,6 +8,7 @@ import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { Loader2, Zap } from "lucide-react";
 
 export default function UsageWidget({ compact = false }) {
+  const t = useT();
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -53,7 +55,7 @@ export default function UsageWidget({ compact = false }) {
         
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "white", marginBottom: "4px" }}>
-            <span>Crédits</span>
+            <span>{t("dashboard.usage.credits")}</span>
             <span>{usage.credits_balance || 0}/{creditsTotal}</span>
           </div>
           <div style={{ height: "4px", background: "rgba(255,255,255,0.1)", borderRadius: "2px" }}>
@@ -72,13 +74,13 @@ export default function UsageWidget({ compact = false }) {
         </div>
         <div>
           <h3 style={{ fontSize: "14px", fontWeight: "bold" }}>Usage du Plan {plan.label}</h3>
-          <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>Réinitialisation le 1er du mois</p>
+          <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{t("dashboard.usage.resetsMonthly")}</p>
         </div>
       </div>
 
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-          <span style={{ color: "var(--muted-foreground)" }}>Crédits utilisés</span>
+          <span style={{ color: "var(--muted-foreground)" }}>{t("dashboard.usage.creditsUsed")}</span>
           <span style={{ fontWeight: "bold" }}>{creditsUsed} / {creditsTotal}</span>
         </div>
         <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden" }}>
@@ -87,7 +89,7 @@ export default function UsageWidget({ compact = false }) {
       </div>
       
       <button className="btn btn-outline" style={{ width: "100%", marginTop: "1.5rem", fontSize: "13px" }}>
-        Changer de plan
+        {t("dashboard.usage.changePlan")}
       </button>
     </div>
   );

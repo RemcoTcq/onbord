@@ -722,7 +722,7 @@ export async function getPublicJobAndBranding(jobId) {
     // corbeille doit cesser de s'afficher tout de suite, pas au bout de 7 jours.
     const { data: job, error: jobError } = await admin
       .from('jobs')
-      .select('id, title, status, user_id, saved_flow_nodes')
+      .select('id, title, status, user_id, saved_flow_nodes, experience_locale')
       .eq('id', jobId)
       .is('deleted_at', null)
       .maybeSingle();

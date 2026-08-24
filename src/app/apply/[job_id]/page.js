@@ -8,11 +8,13 @@ import { getJobEntry } from "@/lib/actions/run";
 import { entryIsOpen } from "@/lib/candidateEntry";
 import CandidateOnboardingFlow from "@/components/assessment/CandidateOnboardingFlow";
 import CandidateNotice from "@/components/assessment/CandidateNotice";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ApplyPage() {
   const { job_id } = useParams();
   const router = useRouter();
-  
+  const { t, setLocale } = useI18n();
+
   const [job, setJob] = useState(null);
   const [recruiter, setRecruiter] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,11 @@ export default function ApplyPage() {
           setRecruiter(res.recruiter);
         }
 
+        // Langue de l'offre : le candidat postule dans la langue du poste, pas
+        // dans celle de son navigateur. Awaité avant les écrans d'erreur plus
+        // bas, qui doivent déjà s'afficher traduits.
+        await setLocale(res.job?.experience_locale, ["common", "candidate"]);
+
         // Tant qu'aucune évaluation n'est prête, on ne collecte rien : ni nom,
         // ni e-mail, ni consentement. Une candidature enregistrée sans parcours
         // derrière est une promesse qu'on ne tient pas.
@@ -37,13 +44,18 @@ export default function ApplyPage() {
         if (!entryIsOpen(entry)) setNotReady(true);
       } catch (err) {
         console.error("fetchJob error:", err);
-        setError(err.message || "Cette offre d'emploi est introuvable ou a été supprimée.");
+        setError(err.message || t("candidate.notice.jobNotFound"));
       } finally {
         setLoading(false);
       }
     }
     
     if (job_id) fetchJob();
+    // setLocale est appelé À L'INTÉRIEUR de cet effet : l'ajouter aux
+    // dépendances relancerait l'effet à chaque changement de langue, donc en
+    // boucle. Et `t` n'est lu que dans le catch, pour un message affiché une
+    // seule fois — la langue de l'offre est déjà fixée à ce moment-là.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job_id]);
 
   const handleUpdateCandidate = async (updates) => {
@@ -76,7 +88,7 @@ export default function ApplyPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "20px" }}>
         <div className="card" style={{ maxWidth: "480px", width: "100%", padding: "48px", textAlign: "center" }}>
           <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", color: "#991b1b", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "28px" }}>!</div>
-          <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>Offre indisponible</h1>
+          <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>{t("candidate.notice.jobUnavailableTitle")}</h1>
           <p style={{ color: "var(--muted-foreground)" }}>{error}</p>
         </div>
       </div>
@@ -86,9 +98,10 @@ export default function ApplyPage() {
   // ─── Offre ouverte mais évaluation pas encore publiée ─────────────────────
   if (notReady) {
     return (
-      <CandidateNotice recruiter={recruiter} job={job} title="Les candidatures ne sont pas encore ouvertes">
-        {`${recruiter?.company_name || "L'équipe recrutement"} finalise le processus de sélection pour ce poste. `
-          + `Revenez sur cette page dans quelques jours — vous pourrez alors postuler.`}
+      <CandidateNotice recruiter={recruiter} job={job} title={t("candidate.notice.applicationsClosedTitle")}>
+        {t("candidate.notice.applicationsClosedBody", {
+          company: recruiter?.company_name || t("candidate.intro.fallbackTeam"),
+        })}
       </CandidateNotice>
     );
   }

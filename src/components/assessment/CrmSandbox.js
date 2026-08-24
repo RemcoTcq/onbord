@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, Phone, MessageSquare, FileText, Contact, ChevronDown } from "lucide-react";
 import { field, DEFAULT_PRIMARY } from "./candidateUi";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // Sandbox "crm" — un vrai outil de travail, pas un formulaire de test.
 // À gauche les SOURCES du brief (email, retranscription d'appel, message) que le
@@ -22,20 +23,27 @@ const SOURCE_ICONS = {
   note: FileText,
 };
 
-const SOURCE_LABELS = {
-  email: "Email",
-  call_transcript: "Appel",
-  chat: "Message",
-  message: "Message",
-  note: "Note",
+// Les libellés ne peuvent plus être une constante de module : ils dépendent de
+// la langue de l'offre, connue seulement au rendu. On garde la table de
+// correspondance (plusieurs kinds pointent vers le même libellé) et on résout
+// le texte à l'appel.
+const SOURCE_LABEL_KEYS = {
+  email: "email",
+  call_transcript: "call",
+  chat: "message",
+  message: "message",
+  note: "note",
 };
 
-function SourceBody({ source }) {
+const sourceLabel = (t, kind) =>
+  t(`candidate.crm.sourceKinds.${SOURCE_LABEL_KEYS[kind] || "note"}`);
+
+function SourceBody({ source, t }) {
   return (
     <div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--foreground)" }}>
       {(source.from || source.subject || source.received_at) && (
         <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 10, marginBottom: 12, display: "flex", flexDirection: "column", gap: 3 }}>
-          {source.from && <div style={{ fontSize: 12.5 }}><span style={{ color: "var(--muted-foreground)" }}>De : </span>{source.from}</div>}
+          {source.from && <div style={{ fontSize: 12.5 }}><span style={{ color: "var(--muted-foreground)" }}>{t("candidate.crm.from")} </span>{source.from}</div>}
           {source.subject && <div style={{ fontSize: 12.5, fontWeight: 600 }}>{source.subject}</div>}
           {source.received_at && <div style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>{source.received_at}</div>}
         </div>
@@ -80,6 +88,7 @@ function FieldInput({ f, value, onChange, primary }) {
 }
 
 export default function CrmSandbox({ crm, value, onChange, primary = DEFAULT_PRIMARY, compact = false }) {
+  const t = useT();
   const sources = crm?.sources || [];
   const fields = crm?.fields || [];
   const [tab, setTab] = useState(0);
@@ -104,14 +113,14 @@ export default function CrmSandbox({ crm, value, onChange, primary = DEFAULT_PRI
                   color: on ? primary : "var(--muted-foreground)", background: "transparent",
                   border: "none", borderBottom: `2px solid ${on ? primary : "transparent"}`, marginBottom: -1,
                 }}>
-                <Icon size={14} /> {s.title || SOURCE_LABELS[s.type] || `Source ${i + 1}`}
+                <Icon size={14} /> {s.title || sourceLabel(t, s.type)}
               </button>
             );
           })}
         </div>
       )}
       <div style={{ padding: "14px 16px", overflowY: "auto", flex: 1, maxHeight: compact ? 260 : 520 }}>
-        {active ? <SourceBody source={active} /> : <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Aucune source fournie.</p>}
+        {active ? <SourceBody source={active} t={t} /> : <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{t("candidate.crm.noSources")}</p>}
       </div>
     </div>
   );
@@ -132,14 +141,14 @@ export default function CrmSandbox({ crm, value, onChange, primary = DEFAULT_PRI
         {crm?.notes_field !== false && (
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
             <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, letterSpacing: "0.02em", color: "var(--muted-foreground)", marginBottom: 5 }}>
-              Notes internes
+              {t("candidate.crm.internalNotes")}
             </label>
             <textarea
               className="nodal-input"
               value={answer.notes}
               onChange={(e) => onChange({ ...answer, notes: e.target.value })}
               rows={3}
-              placeholder="Tout ce qui vous semble utile à l'équipe…"
+              placeholder={t("candidate.crm.notesPlaceholder")}
               style={{ ...field, padding: "0.6rem 0.85rem", fontSize: 14, minHeight: 74, maxHeight: 200, resize: "vertical" }}
             />
           </div>
@@ -162,7 +171,7 @@ export default function CrmSandbox({ crm, value, onChange, primary = DEFAULT_PRI
 
       <div style={{ background: "#fafafa", padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
         <Contact size={16} style={{ color: primary }} />
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{crm?.record_title || "Fiche prospect — nouvelle opportunité"}</span>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{crm?.record_title || t("candidate.crm.cardTitle")}</span>
       </div>
 
       {compact ? (

@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { X, Sparkles, Loader2, Copy, CheckCircle2, Save } from "lucide-react";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { generateConstructiveFeedback, saveConstructiveFeedback } from "@/lib/actions/candidate";
 
 export default function FeedbackModal({ isOpen, onClose, candidateId, candidateName }) {
+  const t = useT();
   const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,7 +31,7 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
     if (res.success) {
       setFeedback(res.feedback || "");
     } else {
-      setError(res.error || "Une erreur est survenue lors de la génération du feedback.");
+      setError(res.error || t("dashboard.feedback.generationError"));
     }
     setLoading(false);
   }
@@ -39,7 +41,7 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
     setError(null);
     const res = await saveConstructiveFeedback(candidateId, feedback);
     if (!res.success) {
-      setError("Erreur lors de la sauvegarde.");
+      setError(t("dashboard.feedback.saveError"));
     } else {
       // Show short visual feedback? 
     }
@@ -85,7 +87,7 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem 0", gap: "1rem", color: "var(--muted-foreground)" }}>
               <Loader2 size={32} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
-              <p style={{ fontSize: "14px" }}>Génération du feedback par l'IA...</p>
+              <p style={{ fontSize: "14px" }}>{t("dashboard.feedback.generating")}</p>
             </div>
           ) : error ? (
             <div style={{ padding: "1rem", background: "#fee2e2", color: "#991b1b", borderRadius: "8px", fontSize: "14px" }}>
@@ -94,8 +96,8 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: "1.5" }}>
-                Ce brouillon a été généré en se basant sur les points forts, les axes d'amélioration et le statut actuel du candidat. 
-                Vous pouvez l'éditer librement avant de le copier. N'oubliez pas de sauvegarder si vous souhaitez conserver vos modifications !
+                {t("dashboard.feedback.explanation")} 
+                {t("dashboard.feedback.editable")}
               </p>
               <textarea
                 value={feedback}
@@ -106,7 +108,7 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
                   fontSize: "14px", lineHeight: "1.6", fontFamily: "inherit",
                   resize: "vertical", backgroundColor: "var(--background)", color: "var(--foreground)"
                 }}
-                placeholder="Rédigez ou modifiez le feedback ici..."
+                placeholder={t("dashboard.feedback.placeholder")}
               />
             </div>
           )}
@@ -127,13 +129,13 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
                 {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={14} />}
-                {saving ? "Sauvegarde..." : "Sauvegarder"}
+                {saving ? t("common.states.saving") : t("dashboard.feedback.save")}
               </button>
             )}
           </div>
           <div style={{ display: "flex", gap: "0.75rem" }}>
             <button className="btn btn-ghost btn-sm" onClick={onClose}>
-              Fermer
+              {t("dashboard.feedback.close")}
             </button>
             {!loading && !error && (
               <button 
@@ -143,7 +145,7 @@ export default function FeedbackModal({ isOpen, onClose, candidateId, candidateN
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
                 {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
-                {copied ? "Copié !" : "Copier"}
+                {copied ? t("dashboard.feedback.copied") : t("dashboard.feedback.copy")}
               </button>
             )}
           </div>

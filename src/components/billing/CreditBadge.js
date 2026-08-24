@@ -1,5 +1,8 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
+import { useLocaleHref } from "@/lib/i18n/navigation";
+
 import { useState, useEffect } from "react";
 import { getUserCreditInfo } from "@/lib/actions/usage";
 import { Zap } from "lucide-react";
@@ -9,6 +12,8 @@ import { Zap } from "lucide-react";
  * Se recharge automatiquement au montage.
  */
 export default function CreditBadge() {
+  const t = useT();
+  const href = useLocaleHref();
   const [info, setInfo] = useState(null);
 
   useEffect(() => {
@@ -69,10 +74,10 @@ export default function CreditBadge() {
         </span>
         {info.credits_balance !== 999999 && pct <= 20 && (
           <a
-            href="/compte/billing"
+            href={href("/compte/billing")}
             style={{ fontSize: "10px", fontWeight: "700", color, textDecoration: "underline" }}
           >
-            Recharger
+            {t("dashboard.usage.topUp")}
           </a>
         )}
       </div>

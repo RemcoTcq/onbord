@@ -9,21 +9,31 @@ import {
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useT } from "@/lib/i18n/I18nProvider";
 
+// `labelKey` plutôt que `label` : ces constantes sont évaluées au chargement du
+// module, avant que le provider i18n existe. Les libellés se résolvent au rendu,
+// via nodeLabel() / nodeTooltip() plus bas.
 export const NODE_TYPES = {
-  welcome_message: { icon: User, label: "Message de bienvenue", color: "#3b82f6", time: 0 },
-  qualifying_questions: { icon: ShieldCheck, label: "Questions qualificatives", color: "#8b5cf6", time: 2 },
+  welcome_message: { icon: User, labelKey: "dashboard.pipeline.nodes.welcome", color: "#3b82f6", time: 0 },
+  qualifying_questions: { icon: ShieldCheck, labelKey: "dashboard.pipeline.nodes.qualifying", color: "#8b5cf6", time: 2 },
   // Bascule Experience : le scoring CV, les tests QCM humains et l'interview
   // vidéo one-way sont obsolètes → l'évaluation est portée par le bloc Expérience.
-  experience: { icon: BrainCircuit, label: "Expérience candidat", color: "#f59e0b", time: 10 },
-  thank_you_message: { icon: HandHeart, label: "Message de remerciement", color: "#14b8a6", time: 0 },
+  experience: { icon: BrainCircuit, labelKey: "dashboard.pipeline.nodes.experience", color: "#f59e0b", time: 10 },
+  thank_you_message: { icon: HandHeart, labelKey: "dashboard.pipeline.nodes.thanks", color: "#14b8a6", time: 0 },
 };
 
 export const LOCKED_NODE_TYPES = {
-  sourcing:       { icon: Search,      label: "Sourcing & Publication",   tooltip: "Géré via votre ATS ou vos canaux de sourcing." },
-  entretien_visio: { icon: Phone,      label: "Entretien visio",           tooltip: "Entretien téléphonique ou en visio, géré directement par votre équipe." },
-  entretien_site: { icon: MapPin,      label: "Entretien sur site",        tooltip: "Entretien en présentiel, géré directement par votre équipe." },
-  debrief_finale: { icon: CheckSquare, label: "Débrief finale",           tooltip: "Décision finale et éventuelle offre d'embauche." },
+  sourcing:        { icon: Search,      labelKey: "dashboard.pipelineNodes.sourcing",        tooltipKey: "dashboard.pipeline.nodes.sourcingHelp" },
+  entretien_visio: { icon: Phone,       labelKey: "dashboard.pipeline.nodes.videoCall",      tooltipKey: "dashboard.pipeline.nodes.videoCallHelp" },
+  entretien_site:  { icon: MapPin,      labelKey: "dashboard.pipeline.nodes.onSite",         tooltipKey: "dashboard.pipeline.nodes.onSiteHelp" },
+  debrief_finale:  { icon: CheckSquare, labelKey: "dashboard.pipeline.nodes.debrief",        tooltipKey: "dashboard.pipeline.nodes.debriefHelp" },
+};
+
+/** Libellé traduit d'un type d'étape, verrouillé ou non. */
+export const nodeLabel = (t, type) => {
+  const def = NODE_TYPES[type] || LOCKED_NODE_TYPES[type];
+  return def ? t(def.labelKey) : type;
 };
 
 function SortableNodeCard({ 
@@ -31,6 +41,7 @@ function SortableNodeCard({
   isEditable, isDeletable,
   onSelect, onHover, onHoverEnd, onDelete 
 }) {
+  const t = useT();
   const isLocked = node.locked;
   
   // dnd-kit setup
@@ -63,26 +74,26 @@ function SortableNodeCard({
   if (isLocked) {
     const lockedMeta = LOCKED_NODE_TYPES[node.type];
     if (!lockedMeta) return null;
-    label = lockedMeta.label;
-    subtitle = 'Étape personnalisée';
+    label = t(lockedMeta.labelKey);
+    subtitle = t("dashboard.pipeline.customStep");
   } else {
     const meta = NODE_TYPES[node.type];
     if (!meta) return null;
 
     if (node.type === 'experience') {
-      label = "Expérience candidat";
-      subtitle = "Cliquez pour configurer la mise en situation";
+      label = t("dashboard.pipeline.nodes.experience");
+      subtitle = t("dashboard.pipeline.clickToConfigure");
     } else if (node.type === 'qualifying_questions') {
-      label = 'Questions qualificatives';
+      label = t("dashboard.pipeline.nodes.qualifying");
       subtitle = `${node.config?.questions?.length || 0} questions`;
     } else if (node.type === 'welcome_message') {
-      label = 'Message de bienvenue';
-      subtitle = 'Cliquez pour éditer le texte';
+      label = t("dashboard.pipeline.nodes.welcome");
+      subtitle = t("dashboard.pipeline.clickToEdit");
     } else if (node.type === 'thank_you_message') {
-      label = 'Message de remerciement';
-      subtitle = 'Cliquez pour éditer le texte';
+      label = t("dashboard.pipeline.nodes.thanks");
+      subtitle = t("dashboard.pipeline.clickToEdit");
     } else {
-      label = meta.label;
+      label = t(meta.labelKey);
     }
   }
 
@@ -117,7 +128,7 @@ function SortableNodeCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm('Supprimer cette étape ?')) {
+              if (confirm(t("dashboard.pipeline.deleteStepConfirm"))) {
                 onDelete(e, node.id);
               }
             }}
@@ -141,7 +152,7 @@ function SortableNodeCard({
               e.currentTarget.style.color = 'var(--muted-foreground)';
               e.currentTarget.style.borderColor = 'var(--border)';
             }}
-            title="Supprimer"
+            title={t("dashboard.pipeline.deleteStep")}
           >
             <X size={12} />
           </button>
@@ -173,6 +184,7 @@ export default function PipelineVisualEditor({
   onNodesChange,
   headerActions
 }) {
+  const t = useT();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
@@ -224,7 +236,7 @@ export default function PipelineVisualEditor({
       {/* Pipeline header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)', margin: 0 }}>Pipeline de recrutement</h3>
+          <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)', margin: 0 }}>{t("dashboard.pipeline.title")}</h3>
           {headerActions}
         </div>
         {isEditable && (
@@ -234,7 +246,7 @@ export default function PipelineVisualEditor({
               className="btn btn-outline"
               style={{ fontSize: '12px', padding: '6px 12px' }}
             >
-              <Plus size={14} /> Ajouter une étape
+              <Plus size={14} /> {t("dashboard.pipeline.addStep")}
             </button>
             {showAddMenu && (
               <div className="fade-in" style={{
@@ -243,7 +255,7 @@ export default function PipelineVisualEditor({
                 boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '240px', overflow: 'hidden', zIndex: 20
               }}>
                 <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase', background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  Ajouter une étape
+                  {t("dashboard.pipeline.addStep")}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {Object.entries(NODE_TYPES).filter(([k]) => !['welcome_message', 'thank_you_message'].includes(k)).map(([type, meta]) => {
@@ -262,7 +274,7 @@ export default function PipelineVisualEditor({
                         style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: exists ? 'not-allowed' : 'pointer', opacity: exists ? 0.4 : 1, textAlign: 'left', width: '100%' }}
                       >
                         <Icon size={16} color={meta.color} />
-                        <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--foreground)' }}>{meta.label}</span>
+                        <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--foreground)' }}>{t(meta.labelKey)}</span>
                         {exists && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
                       </button>
                     );

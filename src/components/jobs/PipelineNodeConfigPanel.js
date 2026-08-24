@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import QualifyingQuestionsConfig from "./QualifyingQuestionsConfig";
@@ -11,6 +12,7 @@ import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 
 // Extracted from JobFormStepRecommendation
 export function MessageBrandingTabs({ type, text, onChangeText }) {
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState("message");
   
   return (
@@ -27,7 +29,7 @@ export function MessageBrandingTabs({ type, text, onChangeText }) {
             transition: "all 0.2s"
           }}
         >
-          Message
+          {t("dashboard.nodeConfig.tabMessage")}
         </button>
         <button 
           onClick={() => setTab("branding")}
@@ -39,7 +41,7 @@ export function MessageBrandingTabs({ type, text, onChangeText }) {
             transition: "all 0.2s"
           }}
         >
-          Marque Employeur
+          {t("dashboard.nodeConfig.tabBranding")}
         </button>
       </div>
       
@@ -47,14 +49,14 @@ export function MessageBrandingTabs({ type, text, onChangeText }) {
         {tab === "message" && (
           <div>
             <label style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-              {type === 'accueil' ? "Message d'accueil candidat" : "Message de fin de parcours"}
+              {type === 'accueil' ? t("dashboard.nodeConfig.welcomeLabel") : t("dashboard.nodeConfig.thanksLabel")}
             </label>
             <textarea 
               className="input-field" 
               rows={6}
               value={text || ""}
               onChange={(e) => onChangeText(e.target.value)}
-              placeholder="Saisissez votre message ici..."
+              placeholder={t("dashboard.nodeConfig.messagePlaceholder")}
             />
           </div>
         )}
@@ -67,6 +69,7 @@ export function MessageBrandingTabs({ type, text, onChangeText }) {
 }
 
 export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jobData, onClose, onUpdateConfig, onLinkAssessmentClick, onAIAssessmentClick }) {
+  const t = useT();
   if (!selectedNode || !nodeTypeInfo) return null;
 
   return (
@@ -147,24 +150,24 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
                   </div>
                   <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
-                    {selectedNode.config?.title || "Évaluation IA (Expérience)"}
+                    {selectedNode.config?.title || t("dashboard.nodeConfig.aiExperience")}
                   </h4>
                   {selectedNode.config?.configured ? (
                     <div style={{ marginTop: '16px' }}>
                       <p style={{ color: 'var(--success, #16a34a)', fontSize: '14px', fontWeight: '500', marginBottom: '16px' }}>
-                        ✅ Expérience IA configurée avec succès.
+                        {t("dashboard.nodeConfig.configured")}
                       </p>
                       <button 
                         className="btn btn-outline"
                         onClick={() => onAIAssessmentClick && onAIAssessmentClick(selectedNode.id)}
                       >
-                        Modifier avec l'IA
+                        {t("dashboard.nodeConfig.editWithAi")}
                       </button>
                     </div>
                   ) : (
                     <div>
                       <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', maxWidth: '300px', margin: '0 auto 16px' }}>
-                        Générez une expérience de mise en situation complète et ultra-réaliste grâce au Tchat IA.
+                        {t("dashboard.nodeConfig.generateHelp")}
                       </p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
                         <button 
@@ -172,7 +175,7 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
                           onClick={() => onAIAssessmentClick && onAIAssessmentClick(selectedNode.id)}
                           style={{ width: '250px' }}
                         >
-                          Créer l'expérience avec l'IA
+                          {t("dashboard.nodeConfig.createExperienceWithAi")}
                         </button>
                       </div>
                     </div>

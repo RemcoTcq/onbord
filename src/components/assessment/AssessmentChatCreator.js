@@ -1,12 +1,13 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, X, PlusCircle, Check, Sparkles } from "lucide-react";
 import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { getExperienceChat, resetExperienceChat } from "@/lib/actions/experienceChat";
 import { regenerateStepByNumber } from "@/lib/actions/experience";
 import { createCustomRequestAndNotify } from "@/lib/actions/custom-requests";
-import GenerationFeed, { streamExperienceGeneration } from "./GenerationFeed";
+import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "./GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 
 // Message d'ouverture quand une expérience existe déjà mais qu'aucune
@@ -17,17 +18,23 @@ import { useToast } from "@/components/ui/Toast";
 // `titrePoste` plutôt que l'objet jobData : une chaîne se compare par valeur,
 // donc l'effet de chargement ne se redéclenche pas à chaque rechargement de
 // l'offre — un refetch y écraserait le fil en cours de frappe.
-function accueilAjustement(etat, titrePoste) {
-  const role = titrePoste || "ce poste";
-  const liste = (etat.titres || []).map((t, i) => `${i + 1}. ${t}`).join("\n");
-  return `L'expérience de présélection pour ${role} est déjà générée : ${etat.nbEtapes} étape${etat.nbEtapes > 1 ? "s" : ""} en version v${etat.version}${etat.statut === "published" ? ", publiée" : ""}.
-
-${liste}
-
-Dites-moi ce que vous voulez ajuster — par exemple « réécris l'étape 2 avec un ton plus direct ». Je reprends l'étape visée, sans toucher aux autres.`;
+// `t` en paramètre : cette fonction est appelée depuis un effet du composant,
+// qui l'a en portée. La liste des titres, elle, n'est PAS traduite — ce sont
+// les intitulés d'étapes écrits par le modèle dans la langue de l'offre.
+function accueilAjustement(t, etat, titrePoste) {
+  const role = titrePoste || t("dashboard.chatCreator.thisRole");
+  const liste = (etat.titres || []).map((titre, i) => `${i + 1}. ${titre}`).join("\n");
+  const entete = t("dashboard.chatCreator.alreadyGenerated", {
+    count: etat.nbEtapes,
+    role,
+    version: etat.version,
+    published: etat.statut === "published" ? t("dashboard.chatCreator.publishedSuffix") : "",
+  });
+  return `${entete}\n\n${liste}\n\n${t("dashboard.chatCreator.adjustHint")}`;
 }
 
 export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onStepRegenerated, onUserMessage }) {
+  const t = useT();
   const [genActive, setGenActive] = useState(false); // génération en cours
   const [genEvents, setGenEvents] = useState([]);    // flux réel poussé par le serveur
   const [regenActive, setRegenActive] = useState(null); // n° d'étape en cours de réécriture
@@ -42,14 +49,14 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     }
 
     if (context === "job" && jobData) {
-      const role = jobData.title || jobData.role || "ce poste";
+      const role = jobData.title || jobData.role || t("dashboard.chatCreator.thisRole");
       return [
-        { role: "assistant", content: [{ type: "text", text: `On conçoit ensemble l'expérience de présélection pour ${role}. Dites-moi votre intention en quelques mots — par ex. le type de mise en situation qui compte le plus, le ton attendu, ou le profil de client typique. Je vous poserai quelques questions puis je génère.` }] }
+        { role: "assistant", content: [{ type: "text", text: t("dashboard.chatCreator.greetingForJob", { role }) }] }
       ];
     }
 
     return [
-      { role: "assistant", content: [{ type: "text", text: "Bonjour ! On conçoit ensemble l'expérience de présélection. Décrivez votre besoin en langage libre." }] }
+      { role: "assistant", content: [{ type: "text", text: t("dashboard.chatCreator.greeting") }] }
     ];
   });
   const [input, setInput] = useState("");
@@ -80,12 +87,16 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         setEtatExp(res.etat);
         if (res.messages?.length) setMessages(res.messages);
         else if (res.etat?.existe) {
-          setMessages([{ role: "assistant", content: [{ type: "text", text: accueilAjustement(res.etat, titrePoste) }] }]);
+          setMessages([{ role: "assistant", content: [{ type: "text", text: accueilAjustement(t, res.etat, titrePoste) }] }]);
         }
       }
       setFilCharge(true);
     })();
     return () => { annule = true; };
+    // Pas de `t` en dépendance : cet effet écrit dans le fil. Le relancer à
+    // un changement de langue écraserait un message en cours de frappe, ce que
+    // le passage par `titrePoste` (une chaîne) cherchait déjà à éviter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, titrePoste]);
 
   const submitMessage = async (msgText, currentMessages, isToolResult = false) => {
@@ -120,7 +131,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Erreur de communication avec l'assistant.");
+        throw new Error(errData.error || t("dashboard.chatCreator.connectionError"));
       }
 
       const data = await res.json();
@@ -136,7 +147,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
     } catch (err) {
       console.error("Chat Error:", err);
-      toast(err.message || "Erreur lors de l'envoi du message", "error");
+      toast(err.message || t("dashboard.chatCreator.sendError"), "error");
     } finally {
       setLoading(false);
     }
@@ -157,7 +168,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     setGenActive(false);
 
     if (res.success && onGenerated) onGenerated();
-    else if (!res.success) toast(res.error || "Échec de la génération", "error");
+    else if (!res.success) toast(translateFeedError(t, res.error) || t("dashboard.chatCreator.generationFailed"), "error");
 
     // Renvoie le résultat de l'outil pour la réponse de clôture de l'assistant.
     const toolResultMsg = {
@@ -190,7 +201,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       // appelants qui n'ont qu'un seul rechargement à proposer.
       (onStepRegenerated || onGenerated)?.();
     } else {
-      toast(res.error || "Échec de la réécriture", "error");
+      toast(res.error || t("dashboard.chatCreator.rewriteFailed"), "error");
     }
 
     const toolResultMsg = {
@@ -232,16 +243,16 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
   // c'est le fil qui s'est enlisé, pas le parcours.
   const handleReset = async () => {
     if (!jobId || loading || genActive) return;
-    if (!confirm("Effacer cette conversation ? Les étapes déjà générées ne sont pas modifiées.")) return;
+    if (!confirm(t("dashboard.chatCreator.clearConfirm"))) return;
     const res = await resetExperienceChat(jobId);
-    if (!res.success) { toast(res.error || "Erreur", "error"); return; }
+    if (!res.success) { toast(res.error || t("dashboard.chatCreator.error"), "error"); return; }
     hasInitialized.current = true; // pas de rejeu du prompt d'entrée après un reset
     notifiedUserMsg.current = false;
     setGenEvents([]);
     setRegenFaites([]);
     setMessages(etatExp?.existe
       ? [{ role: "assistant", content: [{ type: "text", text: accueilAjustement(etatExp, titrePoste) }] }]
-      : [{ role: "assistant", content: [{ type: "text", text: "On repart de zéro. Décrivez votre intention pour cette expérience de présélection." }] }]);
+      : [{ role: "assistant", content: [{ type: "text", text: t("dashboard.chatCreator.cleared") }] }]);
   };
 
   const extractText = (content) => {
@@ -256,7 +267,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       setLoading(true);
       const res = await createCustomRequestAndNotify(role, skills, summary);
       if (res.success) {
-        toast("Demande enregistrée avec succès !");
+        toast(t("dashboard.chatCreator.requestSaved"));
         if (onTestCreated) onTestCreated({ custom: true, role, skills });
         
         const currentMessages = [...messages];
@@ -264,11 +275,11 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         const toolResults = [];
         
         if (lastMsg?.role === 'assistant' && Array.isArray(lastMsg.content)) {
-          lastMsg.content.filter(c => c.type === 'tool_use').forEach(t => {
+          lastMsg.content.filter(c => c.type === 'tool_use').forEach(tu => {
             toolResults.push({
               type: "tool_result",
-              tool_use_id: t.id,
-              content: t.id === toolUseId ? "L'utilisateur a cliqué sur 'Je confirme'. L'action a été exécutée avec succès en base de données et l'équipe a été notifiée." : "Action ignorée."
+              tool_use_id: tu.id,
+              content: tu.id === toolUseId ? "L'utilisateur a cliqué sur 'Je confirme'. L'action a été exécutée avec succès en base de données et l'équipe a été notifiée." : "Action ignorée."
             });
           });
         } else {
@@ -282,10 +293,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         
         await submitMessage(null, currentMessages, true);
       } else {
-        toast(res.error || "Erreur lors de la demande", "error");
+        toast(res.error || t("dashboard.chatCreator.requestError"), "error");
       }
     } catch (err) {
-      toast("Erreur inattendue", "error");
+      toast(t("dashboard.chatCreator.unexpectedError"), "error");
     } finally {
       setLoading(false);
     }
@@ -296,15 +307,15 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       setLoading(true);
       const res = await addTestToMyAssessments(testId);
       if (res.success) {
-        toast("Test ajouté à Mes Assessments !");
+        toast(t("dashboard.chatCreator.testAdded"));
 
         // Auto-lier le test au job quand on est en contexte job
         if (context === "job" && jobId) {
           const syncRes = await selectQuestionsForJob(jobId, testId);
           if (syncRes.success) {
-            toast("Test attaché à l'offre avec succès !");
+            toast(t("dashboard.chatCreator.testAttached"));
           } else {
-            toast("Test ajouté mais erreur lors de la liaison à l'offre", "error");
+            toast(t("dashboard.chatCreator.testAttachError"), "error");
           }
         }
 
@@ -315,11 +326,11 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         const toolResults = [];
         
         if (lastMsg?.role === 'assistant' && Array.isArray(lastMsg.content)) {
-          lastMsg.content.filter(c => c.type === 'tool_use').forEach(t => {
+          lastMsg.content.filter(c => c.type === 'tool_use').forEach(tu => {
             toolResults.push({
               type: "tool_result",
-              tool_use_id: t.id,
-              content: t.id === toolUseId ? "Le test a été ajouté avec succès aux assessments de l'utilisateur et lié à l'offre." : "Action ignorée."
+              tool_use_id: tu.id,
+              content: tu.id === toolUseId ? "Le test a été ajouté avec succès aux assessments de l'utilisateur et lié à l'offre." : "Action ignorée."
             });
           });
         } else {
@@ -332,10 +343,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         });
         await submitMessage(null, currentMessages, true);
       } else {
-        toast(res.error || "Erreur lors de l'ajout", "error");
+        toast(res.error || t("dashboard.chatCreator.addError"), "error");
       }
     } catch (err) {
-      toast("Erreur inattendue", "error");
+      toast(t("dashboard.chatCreator.unexpectedError"), "error");
     } finally {
       setLoading(false);
     }
@@ -385,10 +396,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           maxWidth: '500px',
           alignSelf: 'flex-start'
         }}>
-          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: 'var(--primary)' }}>Création sur-mesure requise</h4>
-          <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Poste :</strong> {role}</p>
-          <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Compétences :</strong> {skills?.join(', ')}</p>
-          <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}><strong>Résumé :</strong> {summary}</p>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: 'var(--primary)' }}>{t("dashboard.chatCreator.customNeeded")}</h4>
+          <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>{t("dashboard.chatCreator.role")}</strong> {role}</p>
+          <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>{t("dashboard.chatCreator.skills")}</strong> {skills?.join(', ')}</p>
+          <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}><strong>{t("dashboard.chatCreator.summary")}</strong> {summary}</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
               onClick={() => handleCustomConfirm(toolUse.id, role, skills, summary)}
@@ -399,7 +410,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 fontWeight: '500'
               }}
             >
-              Confirmer la demande
+              {t("dashboard.chatCreator.confirmRequest")}
             </button>
             <button 
               onClick={() => handleCancelTool(toolUse.id)}
@@ -410,7 +421,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 fontWeight: '500'
               }}
             >
-              Annuler
+              {t("common.actions.cancel")}
             </button>
           </div>
         </div>
@@ -430,8 +441,8 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           maxWidth: '500px',
           alignSelf: 'flex-start'
         }}>
-          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: 'var(--primary)' }}>Test trouvé !</h4>
-          <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}><strong>Test sélectionné :</strong> {testName}</p>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: 'var(--primary)' }}>{t("dashboard.chatCreator.testFound")}</h4>
+          <p style={{ margin: '0 0 16px 0', fontSize: '14px' }}><strong>{t("dashboard.chatCreator.testSelected")}</strong> {testName}</p>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
               onClick={() => handleAddConfirm(toolUse.id, testId)}
@@ -442,7 +453,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 fontWeight: '500'
               }}
             >
-              Ajouter à mes assessments
+              {t("dashboard.chatCreator.addToAssessments")}
             </button>
             <button 
               onClick={() => handleCancelTool(toolUse.id)}
@@ -453,7 +464,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 fontWeight: '500'
               }}
             >
-              Non merci
+              {t("dashboard.chatCreator.noThanks")}
             </button>
           </div>
         </div>
@@ -566,7 +577,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={pendingToolUse ? "Veuillez confirmer ou annuler l'action ci-dessus..." : "Tapez votre message..."}
+              placeholder={pendingToolUse ? t("dashboard.chatCreator.confirmFirst") : t("dashboard.chatCreator.placeholder")}
               style={{
                 flex: 1, padding: '8px 4px', border: 'none', background: 'transparent',
                 outline: 'none', fontSize: '15px', color: 'var(--foreground)',
@@ -599,7 +610,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 opacity: (loading || genActive) ? 0.5 : 1,
               }}
             >
-              Effacer la conversation
+              {t("dashboard.chatCreator.clearConversation")}
             </button>
           </div>
         )}
@@ -624,7 +635,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Bot size={20} color="var(--primary)" />
-            <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Expert Assessment</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>{t("dashboard.chatCreator.title")}</h3>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}>
             <X size={20} />
@@ -649,7 +660,9 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={pendingToolUse ? "Veuillez confirmer l'action..." : "RǸpondre..."}
+            placeholder={pendingToolUse
+              ? t("dashboard.chatCreator.confirmFirstShort")
+              : t("dashboard.chatCreator.placeholderShort")}
             style={{
               flex: 1, padding: '10px 16px', borderRadius: '8px',
               border: '1px solid var(--border)', outline: 'none', fontSize: '14px',

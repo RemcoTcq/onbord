@@ -81,7 +81,7 @@ async function resolveCandidateAndRun(admin, token) {
   if (!candidate) return { error: "Lien d'évaluation invalide." };
 
   const { data: job, error: jobError } = await admin
-    .from("jobs").select("id, user_id, title, saved_flow_nodes, assessment_config").eq("id", candidate.job_id).single();
+    .from("jobs").select("id, user_id, title, saved_flow_nodes, assessment_config, experience_locale").eq("id", candidate.job_id).single();
   if (jobError) console.error("resolveCandidateAndRun job error:", jobError);
   if (!job) return { error: "Offre introuvable." };
 
@@ -126,7 +126,7 @@ export async function getCandidateEntry(token) {
     if (entry !== "not_ready") return { entry };
 
     const { data: job } = await admin
-      .from("jobs").select("title, user_id").eq("id", candidate.job_id).maybeSingle();
+      .from("jobs").select("title, user_id, experience_locale").eq("id", candidate.job_id).maybeSingle();
 
     let recruiter = null;
     if (job?.user_id) {
@@ -137,7 +137,7 @@ export async function getCandidateEntry(token) {
       recruiter = data || null;
     }
 
-    return { entry, job: job ? { title: job.title } : null, recruiter };
+    return { entry, job: job ? { title: job.title, experience_locale: job.experience_locale } : null, recruiter };
   } catch (err) {
     console.error("getCandidateEntry error:", err);
     // En cas d'incident, on ferme plutôt que d'ouvrir : mieux vaut un écran
@@ -167,7 +167,7 @@ export async function startRun(token) {
     let run = ctx.run;
 
     const branding = {
-      job: { id: job.id, title: job.title },
+      job: { id: job.id, title: job.title, experience_locale: job.experience_locale },
       recruiter: recruiter || {},
     };
 
@@ -225,7 +225,7 @@ export async function startRun(token) {
       success: true,
       run: { id: run.id, status: run.status },
       candidate: { id: candidate.id, first_name: candidate.first_name },
-      job: { id: job.id, company: job.company, title: job.title },
+      job: { id: job.id, company: job.company, title: job.title, experience_locale: job.experience_locale },
       recruiter: recruiter || {},
       experience: {
         id: exp.id,

@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Mail, Send, Bold, Italic, List } from "lucide-react";
 import { getContrastColor, DEFAULT_PRIMARY } from "./candidateUi";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // Composeur d'email réaliste (type Gmail) : champs À / Cc / Objet + corps avec
 // mise en forme basique (gras, italique, liste). La valeur est sérialisée en une
@@ -20,6 +21,7 @@ function serialize({ to, cc, subject, body }) {
 }
 
 export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMARY }) {
+  const t = useT();
   const init = useRef(parse(value));
   const [to, setTo] = useState(init.current.to);
   const [cc, setCc] = useState(init.current.cc);
@@ -54,7 +56,7 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
       {/* Barre de titre façon fenêtre de composition */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f2f4f7", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
         <Mail size={15} style={{ color: "var(--muted-foreground)" }} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>Nouveau message</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>{t("candidate.emailComposer.newMessage")}</span>
       </div>
 
       {/* À + bascule Cc */}
@@ -78,9 +80,9 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
 
       {/* Objet */}
       <div style={headerRow}>
-        <span style={headerLabel}>Objet</span>
+        <span style={headerLabel}>{t("candidate.emailComposer.subject")}</span>
         <input value={subject} onChange={(e) => { setSubject(e.target.value); push({ subject: e.target.value }); }}
-          placeholder="Objet de votre message" style={headerInput} />
+          placeholder={t("candidate.emailComposer.subjectPlaceholder")} style={headerInput} />
       </div>
 
       {/* Corps éditable */}
@@ -89,15 +91,15 @@ export default function EmailComposer({ value, onChange, primary = DEFAULT_PRIMA
         contentEditable
         suppressContentEditableWarning
         onInput={() => push()}
-        data-placeholder="Rédigez votre email…"
+        data-placeholder={t("candidate.emailComposer.bodyPlaceholder")}
         style={{ minHeight: 200, maxHeight: 420, overflowY: "auto", padding: "16px", fontSize: 14, lineHeight: 1.6, outline: "none", overflowWrap: "break-word", whiteSpace: "pre-wrap" }}
       />
 
       {/* Barre d'outils + envoyer (cosmétique) */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--border)", background: "#f8fafc" }}>
-        <button title="Gras" onMouseDown={(e) => { e.preventDefault(); fmt("bold"); }} style={toolBtn}><Bold size={14} /></button>
-        <button title="Italique" onMouseDown={(e) => { e.preventDefault(); fmt("italic"); }} style={toolBtn}><Italic size={14} /></button>
-        <button title="Liste à puces" onMouseDown={(e) => { e.preventDefault(); fmt("insertUnorderedList"); }} style={toolBtn}><List size={14} /></button>
+        <button title={t("candidate.emailComposer.bold")} onMouseDown={(e) => { e.preventDefault(); fmt("bold"); }} style={toolBtn}><Bold size={14} /></button>
+        <button title={t("candidate.emailComposer.italic")} onMouseDown={(e) => { e.preventDefault(); fmt("italic"); }} style={toolBtn}><Italic size={14} /></button>
+        <button title={t("candidate.emailComposer.bulletList")} onMouseDown={(e) => { e.preventDefault(); fmt("insertUnorderedList"); }} style={toolBtn}><List size={14} /></button>
         <button disabled style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, opacity: 0.5, cursor: "not-allowed", background: primary, color: getContrastColor(primary), border: "none", borderRadius: 8, padding: "0.5rem 1rem", fontSize: 13, fontWeight: 600 }}>
           <Send size={14} /> Envoyer
         </button>

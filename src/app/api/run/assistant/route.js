@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
 // - identité par token candidat (jamais candidateId/prompt du client) ;
@@ -45,7 +46,15 @@ async function resolveContext(admin, token, stepId) {
   const perStep = Number(step.config?.ai_max_messages);
   const maxMessages = perStep > 0 ? perStep : 50;
 
-  return { candidate, step, run, maxMessages };
+  // Langue du parcours : elle donne à l'assistant sa langue par défaut, celle
+  // dans laquelle il ouvre la conversation et celle vers laquelle il retombe si
+  // le message du candidat ne permet pas de trancher (« ok », « merci »).
+  const { data: exp } = await admin
+    .from("experiences").select("jobs!inner(experience_locale)")
+    .eq("id", step.experience_id).single();
+  const locale = coerceExperienceLocale(exp?.jobs?.experience_locale);
+
+  return { candidate, step, run, maxMessages, locale };
 }
 
 // ─── Historique de la conversation ───────────────────────────────────────────
@@ -105,7 +114,7 @@ export async function POST(request) {
     const ctx = await resolveContext(admin, token, stepId);
     if (ctx.error) return Response.json({ error: ctx.error }, { status: ctx.status });
 
-    const { step, run, maxMessages } = ctx;
+    const { step, run, maxMessages, locale } = ctx;
     if (run.status !== "in_progress") {
       return Response.json({ error: "Run non actif" }, { status: 403 });
     }
@@ -130,7 +139,9 @@ export async function POST(request) {
 """
 ${step.prompt || ""}
 """
-Réponds naturellement, comme dans une conversation normale, dans la langue de l'utilisateur.`;
+Réponds naturellement, comme dans une conversation normale.
+
+LANGUE : cette évaluation se déroule en ${LOCALE_NAMES_FR[locale]}. C'est ta langue par défaut. Si le candidat t'écrit dans une autre langue, suis-le — mais quand son message ne permet pas de trancher (« ok », « merci », un simple bout de code), reviens au ${LOCALE_NAMES_FR[locale]}.`;
 
     const messages = [
       ...(history || []).map((m) => ({ role: m.role, content: m.content })),

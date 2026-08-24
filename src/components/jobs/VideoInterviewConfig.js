@@ -6,6 +6,11 @@ import { Video, Plus, Trash2, Wand2, Loader2, Library, ChevronDown, ChevronUp, G
 const MAX_CRITERIA = 5;
 import { getVideoQuestionLibrary, generateVideoQuestions } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
+import { useT } from "@/lib/i18n/I18nProvider";
+
+// Mêmes règles que pour les tests : la catégorie stockée reste en français
+// (elle sert de clé de filtre et de style), seul son affichage est traduit.
+const CLES_CATEGORIES = { Motivation: "motivation", Experience: "experience", "Soft Skills": "softSkills", Technique: "technical", "Culture Fit": "cultureFit", Custom: "custom" };
 
 const CATEGORY_COLORS = {
   Motivation:   { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
@@ -17,6 +22,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function VideoInterviewConfig({ jobId, config, onChange }) {
+  const t = useT();
   const [questions, setQuestions] = useState(config?.questions || []);
   const [maxDuration, setMaxDuration] = useState(config?.max_duration_seconds || 120);
   const [maxRetakes, setMaxRetakes] = useState(config?.max_retakes ?? 1);
@@ -47,12 +53,12 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
     setLoadingLibrary(true);
     const res = await getVideoQuestionLibrary();
     if (res.success) setLibraryQuestions(res.questions);
-    else toast("Erreur lors du chargement de la bibliothèque", "error");
+    else toast(t("dashboard.videoInterview.loadLibraryError"), "error");
     setLoadingLibrary(false);
   }
 
   async function handleGenerateAi() {
-    if (!jobId) { toast("Sauvegardez d'abord votre offre", "error"); return; }
+    if (!jobId) { toast(t("dashboard.videoInterview.saveJobFirst"), "error"); return; }
     
     setGeneratingAi(true);
     const res = await generateVideoQuestions(jobId);
@@ -70,42 +76,42 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           weight: 1,
           source: "ai",
           bars_levels: c.bars_levels || [
-            { level: 1, label: "Insuffisant", description: c.description || "" },
-            { level: 3, label: "Attendu", description: "" },
-            { level: 5, label: "Excellent", description: "" },
+            { level: 1, label: t("dashboard.videoInterview.barsLevels.insufficient"), description: c.description || "" },
+            { level: 3, label: t("dashboard.videoInterview.barsLevels.expected"), description: "" },
+            { level: 5, label: t("dashboard.videoInterview.barsLevels.excellent"), description: "" },
           ],
         })),
       }));
       setAiSuggestions(newQs);
       setShowAiSuggestions(true);
       setShowLibrary(false);
-      toast(`${newQs.length} suggestions générées par l'IA !`);
+      toast(t("dashboard.videoInterview.aiSuggestionsGenerated", { count: newQs.length }));
     } else {
-      toast(res.error || "Erreur lors de la génération", "error");
+      toast(res.error || t("dashboard.videoInterview.generationError"), "error");
     }
     setGeneratingAi(false);
   }
 
   function addFromAiSuggestions(aiQ) {
     if (questions.length >= 3) {
-      toast("Maximum 3 questions par module vidéo", "error");
+      toast(t("dashboard.videoInterview.maxQuestions"), "error");
       return;
     }
     if (questions.find(q => q.id === aiQ.id)) {
-      toast("Cette question est déjà ajoutée", "error");
+      toast(t("dashboard.videoInterview.alreadyAdded"), "error");
       return;
     }
     setQuestions(prev => [...prev, aiQ]);
-    toast("Question IA ajoutée");
+    toast(t("dashboard.videoInterview.aiQuestionAdded"));
   }
 
   function addFromLibrary(libQ) {
     if (questions.length >= 3) {
-      toast("Maximum 3 questions par module vidéo", "error");
+      toast(t("dashboard.videoInterview.maxQuestions"), "error");
       return;
     }
     if (questions.find(q => q.library_id === libQ.id)) {
-      toast("Cette question est déjà ajoutée", "error");
+      toast(t("dashboard.videoInterview.alreadyAdded"), "error");
       return;
     }
     const newQ = {
@@ -119,12 +125,12 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       criteria: [],
     };
     setQuestions(prev => [...prev, newQ]);
-    toast("Question ajoutée");
+    toast(t("dashboard.videoInterview.questionAdded"));
   }
 
   function addCustomQuestion() {
     if (questions.length >= 3) {
-      toast("Maximum 3 questions par module vidéo", "error");
+      toast(t("dashboard.videoInterview.maxQuestions"), "error");
       return;
     }
     const newQ = {
@@ -148,9 +154,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       weight: 1,
       source: "manual",
       bars_levels: [
-        { level: 1, label: "Insuffisant", description: "" },
-        { level: 3, label: "Attendu", description: "" },
-        { level: 5, label: "Excellent", description: "" },
+        { level: 1, label: t("dashboard.videoInterview.barsLevels.insufficient"), description: "" },
+        { level: 3, label: t("dashboard.videoInterview.barsLevels.expected"), description: "" },
+        { level: 5, label: t("dashboard.videoInterview.barsLevels.excellent"), description: "" },
       ],
     }];
     setQuestions(updated);
@@ -204,7 +210,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: "180px" }}>
           <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "6px" }}>
-            Durée max par réponse
+            {t("dashboard.videoInterview.maxDuration")}
           </label>
           <select
             className="input-field"
@@ -213,14 +219,14 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           >
             <option value={60}>1 minute</option>
             <option value={90}>1 min 30</option>
-            <option value={120}>2 minutes (recommandé)</option>
+            <option value={120}>{t("dashboard.videoInterview.twoMinutesRecommended")}</option>
             <option value={180}>3 minutes</option>
             <option value={300}>5 minutes</option>
           </select>
         </div>
         <div style={{ flex: 1, minWidth: "180px" }}>
           <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "6px" }}>
-            Re-enregistrements autorisés
+            {t("dashboard.videoInterview.retakesAllowed")}
           </label>
           <select
             className="input-field"
@@ -228,9 +234,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
             onChange={e => setMaxRetakes(Number(e.target.value))}
           >
             <option value={0}>Aucun (one-shot)</option>
-            <option value={1}>1 essai supplémentaire</option>
-            <option value={2}>2 essais supplémentaires</option>
-            <option value={99}>Illimité</option>
+            <option value={1}>{t("dashboard.videoInterview.retakes.one")}</option>
+            <option value={2}>{t("dashboard.videoInterview.retakes.two")}</option>
+            <option value={99}>{t("dashboard.videoInterview.retakes.unlimited")}</option>
           </select>
         </div>
         <div style={{ flex: 1, minWidth: "220px", display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)", height: "fit-content", marginTop: "auto" }}>
@@ -243,11 +249,11 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           />
           <div style={{ display: "flex", flexDirection: "column" }}>
             <label htmlFor="manualEval" style={{ fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>
-              Évaluer moi-même les vidéos
+              {t("dashboard.videoInterview.scoreMyself")}
             </label>
             {evaluationMode === "manual" && (
               <span style={{ fontSize: "11px", color: "var(--muted-foreground)", lineHeight: "1.3", marginTop: "2px" }}>
-                Vous noterez chaque vidéo après l'avoir visionnée.
+                {t("dashboard.videoInterview.scoreMyselfHelp")}
               </span>
             )}
           </div>
@@ -261,11 +267,11 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           onClick={handleGenerateAi}
           disabled={generatingAi || isFull}
           style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
-          title={isFull ? "Limite atteinte : 3 questions max" : ""}
+          title={isFull ? t("dashboard.videoInterview.limitReached") : ""}
         >
           {generatingAi
-            ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Génération IA...</>
-            : <><Wand2 size={16} /> Générer avec l'IA</>}
+            ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> {t("dashboard.videoInterview.generating")}</>
+            : <><Wand2 size={16} /> {t("dashboard.videoInterview.generateWithAi")}</>}
         </button>
         <button
           className="btn btn-outline"
@@ -276,12 +282,12 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           }}
           disabled={loadingLibrary || isFull}
           style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
-          title={isFull ? "Limite atteinte : 3 questions max" : ""}
+          title={isFull ? t("dashboard.videoInterview.limitReached") : ""}
         >
           {loadingLibrary
             ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
             : <Library size={16} />}
-          {showLibrary ? "Fermer la bibliothèque" : "Bibliothèque de questions"}
+          {showLibrary ? t("dashboard.videoInterview.closeLibrary") : t("dashboard.videoInterview.openLibrary")}
           {showLibrary ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         <button
@@ -289,11 +295,11 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           onClick={addCustomQuestion}
           disabled={isFull}
           style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
-          title={isFull ? "Limite atteinte : 3 questions max" : ""}
+          title={isFull ? t("dashboard.videoInterview.limitReached") : ""}
         >
           <Plus size={16} /> Question personnalisée
         </button>
-        {isFull && <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>Limite de 3 questions atteinte pour ce module.</span>}
+        {isFull && <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>{t("dashboard.videoInterview.libraryLimitReached")}</span>}
       </div>
 
       {/* AI Suggestions panel */}
@@ -305,7 +311,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", background: "#f0f9ff" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Sparkles size={16} style={{ color: "#0ea5e9" }} />
-              <span style={{ fontSize: "13px", fontWeight: "700", color: "#0284c7" }}>Suggestions IA</span>
+              <span style={{ fontSize: "13px", fontWeight: "700", color: "#0284c7" }}>{t("dashboard.videoInterview.aiSuggestions")}</span>
             </div>
             <button onClick={() => setShowAiSuggestions(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)" }}>
               <ChevronUp size={16} />
@@ -326,7 +332,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                       <span style={{
                         fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
                         background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`
-                      }}>{q.category}</span>
+                      }}>{CLES_CATEGORIES[q.category] ? t(`dashboard.videoInterview.categories.${CLES_CATEGORIES[q.category]}`) : q.category}</span>
                       <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--muted-foreground)" }}>
                         {q.criteria.length} critère(s) BARS généré(s)
                       </span>
@@ -340,7 +346,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                     disabled={alreadyAdded || (!alreadyAdded && isFull)}
                     style={{ flexShrink: 0, fontSize: "12px", padding: "6px 12px", borderColor: "#0ea5e9", color: "#0ea5e9", opacity: (!alreadyAdded && isFull) ? 0.5 : 1, cursor: (!alreadyAdded && isFull) ? 'not-allowed' : 'pointer' }}
                   >
-                    {alreadyAdded ? "Ajoutée" : <><Plus size={14} /> Ajouter</>}
+                    {alreadyAdded ? t("dashboard.videoInterview.added") : <><Plus size={14} /> {t("dashboard.videoInterview.add")}</>}
                   </button>
                 </div>
               );
@@ -356,7 +362,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           background: "var(--secondary)", overflow: "hidden"
         }}>
           <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "13px", fontWeight: "700" }}>Bibliothèque Onbord</span>
+            <span style={{ fontSize: "13px", fontWeight: "700" }}>{t("dashboard.videoInterview.onbordLibrary")}</span>
             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
               {categories.map(cat => (
                 <button
@@ -370,7 +376,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                     borderColor: libraryFilter === cat ? "var(--foreground)" : "var(--border)",
                   }}
                 >
-                  {cat === "all" ? "Toutes" : cat}
+                  {cat === "all" ? t("dashboard.videoInterview.allCategories") : t(`dashboard.videoInterview.categories.${cat}`)}
                 </button>
               ))}
             </div>
@@ -390,7 +396,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                       <span style={{
                         fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
                         background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`
-                      }}>{q.category}</span>
+                      }}>{CLES_CATEGORIES[q.category] ? t(`dashboard.videoInterview.categories.${CLES_CATEGORIES[q.category]}`) : q.category}</span>
                     </div>
                     <p style={{ fontSize: "13px", color: "var(--foreground)", marginBottom: "2px" }}>{q.text}</p>
                     {q.hint && <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic" }}>💡 {q.hint}</p>}
@@ -401,7 +407,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                     disabled={alreadyAdded || (!alreadyAdded && isFull)}
                     style={{ flexShrink: 0, fontSize: "12px", padding: "4px 12px", opacity: (!alreadyAdded && isFull) ? 0.5 : 1, cursor: (!alreadyAdded && isFull) ? 'not-allowed' : 'pointer' }}
                   >
-                    {alreadyAdded ? "Ajoutée" : <><Plus size={14} /> Ajouter</>}
+                    {alreadyAdded ? t("dashboard.videoInterview.added") : <><Plus size={14} /> {t("dashboard.videoInterview.add")}</>}
                   </button>
                 </div>
               );
@@ -417,9 +423,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           border: "2px dashed var(--border)", background: "var(--secondary)"
         }}>
           <Video size={32} style={{ color: "var(--muted-foreground)", margin: "0 auto 0.75rem", opacity: 0.5 }} />
-          <p style={{ fontSize: "14px", fontWeight: "600", marginBottom: "4px" }}>Aucune question configurée</p>
+          <p style={{ fontSize: "14px", fontWeight: "600", marginBottom: "4px" }}>{t("dashboard.videoInterview.noQuestions")}</p>
           <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-            Générez des questions avec l&apos;IA ou choisissez-en dans notre bibliothèque.
+            {t("dashboard.videoInterview.noQuestionsHelp")}
           </p>
         </div>
       ) : (
@@ -441,23 +447,23 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                       <span style={{
                         fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px",
                         background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`
-                      }}>{q.category}</span>
+                      }}>{CLES_CATEGORIES[q.category] ? t(`dashboard.videoInterview.categories.${CLES_CATEGORIES[q.category]}`) : q.category}</span>
                       {q.source === "ai" && <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>✦ IA</span>}
-                      {q.source === "library" && <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>📚 Bibliothèque</span>}
+                      {q.source === "library" && <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{t("dashboard.videoInterview.libraryShort")}</span>}
                     </div>
                     <textarea
                       className="input-field"
                       rows={2}
                       value={q.text}
                       onChange={e => updateQuestion(idx, "text", e.target.value)}
-                      placeholder="Texte de la question..."
+                      placeholder={t("dashboard.videoInterview.questionPlaceholder")}
                       style={{ resize: "vertical", fontSize: "14px" }}
                     />
                   </div>
                   <button
                     onClick={() => removeQuestion(idx)}
                     style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", flexShrink: 0, marginTop: "22px" }}
-                    title="Supprimer"
+                    title={t("dashboard.videoInterview.deleteQuestion")}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -475,7 +481,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
 
                   {(q.criteria || []).length === 0 && (
                     <p style={{ fontSize: "12px", color: "#c2410c", marginBottom: "8px", fontWeight: "500" }}>
-                      ⚠ Minimum 1 critère BARS requis pour le scoring.
+                      {t("dashboard.videoInterview.minOneCriterion")}
                     </p>
                   )}
 
@@ -483,9 +489,9 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                     {(q.criteria || []).map((crit, cIdx) => {
                       const barsLevels = crit.bars_levels || [];
                       const BARS_COLORS = {
-                        1: { bg: "#fef2f2", border: "#fecaca", dot: "#ef4444", label: "Insuffisant" },
-                        3: { bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b", label: "Attendu" },
-                        5: { bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e", label: "Excellent" },
+                        1: { bg: "#fef2f2", border: "#fecaca", dot: "#ef4444", label: t("dashboard.videoInterview.barsLevels.insufficient") },
+                        3: { bg: "#fffbeb", border: "#fde68a", dot: "#f59e0b", label: t("dashboard.videoInterview.barsLevels.expected") },
+                        5: { bg: "#f0fdf4", border: "#bbf7d0", dot: "#22c55e", label: t("dashboard.videoInterview.barsLevels.excellent") },
                       };
                       return (
                         <div key={crit.id} style={{
@@ -502,13 +508,13 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                               className="input-field"
                               value={crit.name}
                               onChange={e => updateCriterion(idx, cIdx, "name", e.target.value)}
-                              placeholder="Nom du critère (ex: Storytelling commercial)"
+                              placeholder={t("dashboard.videoInterview.criterionPlaceholder")}
                               style={{ fontSize: "12px", fontWeight: "700", padding: "4px 8px", flex: 1 }}
                             />
                             <button
                               onClick={() => removeCriterion(idx, cIdx)}
                               style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted-foreground)", padding: "4px", flexShrink: 0 }}
-                              title="Supprimer ce critère"
+                              title={t("dashboard.videoInterview.deleteCriterion")}
                             >
                               <Trash2 size={13} />
                             </button>
@@ -541,7 +547,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                               );
                             }) : (
                               <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic" }}>
-                                Ancien format (sans grille BARS). Régénérez les questions pour bénéficier du scoring structuré.
+                                {t("dashboard.videoInterview.legacyFormat")}
                               </p>
                             )}
                           </div>
@@ -574,7 +580,19 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
 
       {questions.length > 0 && (
         <div style={{ padding: "0.875rem 1rem", background: "#f0f9ff", borderRadius: "var(--radius)", border: "1px solid #bae6fd", fontSize: "13px", color: "#0369a1" }}>
-          <strong>{questions.length} question{questions.length > 1 ? "s" : ""}</strong> ·  Durée max {Math.floor(maxDuration / 60)}min{maxDuration % 60 ? ` ${maxDuration % 60}s` : ""} par réponse · {maxRetakes === 0 ? "Aucun re-enregistrement" : `${maxRetakes} re-enregistrement${maxRetakes > 1 ? "s" : ""} autorisé${maxRetakes > 1 ? "s" : ""}`}
+          {/* Récapitulatif reconstruit par morceaux traduits plutôt que par
+              concaténation de fragments français : les accords (pluriels de
+              « question », de « ré-enregistrement ») ne tombent pas au même
+              endroit d'une langue à l'autre. */}
+          <strong>{t("dashboard.videoInterview.summaryQuestions", { count: questions.length })}</strong>
+          {" · "}
+          {t("dashboard.videoInterview.summaryDuration", {
+            duration: `${Math.floor(maxDuration / 60)}min${maxDuration % 60 ? ` ${maxDuration % 60}s` : ""}`,
+          })}
+          {" · "}
+          {maxRetakes === 0
+            ? t("dashboard.videoInterview.summaryNoRetake")
+            : t("dashboard.videoInterview.summaryRetakes", { count: maxRetakes })}
         </div>
       )}
     </div>

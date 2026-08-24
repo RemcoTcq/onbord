@@ -14,11 +14,13 @@ import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import CandidateNotice from "@/components/assessment/CandidateNotice";
 import { getCandidateEntry } from "@/lib/actions/run";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token;
+  const { t, setLocale } = useI18n();
 
   const [state, setState] = useState("loading"); // loading | not_ready | invalid
   const [job, setJob] = useState(null);
@@ -42,6 +44,9 @@ export default function AssessmentPage() {
       // ouverte à tous — voir migration 014.
       setJob(entryJob || null);
       setRecruiter(entryRecruiter || null);
+      // L'écran d'attente parle au candidat : il suit la langue de l'offre,
+      // comme le reste du parcours.
+      await setLocale(entryJob?.experience_locale, ["common", "candidate"]);
       setState("not_ready");
     } catch (err) {
       console.error("loadAssessment error:", err);
@@ -68,8 +73,8 @@ export default function AssessmentPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "2rem" }}>
         <div className="card" style={{ textAlign: "center", maxWidth: "420px", padding: "3rem" }}>
           <div style={{ fontSize: "48px", marginBottom: "1rem" }}>⛔</div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Accès impossible</h2>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>Lien d&apos;évaluation invalide ou expiré.</p>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>{t("candidate.notice.invalidLinkTitle")}</h2>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>{t("candidate.notice.invalidLinkBody")}</p>
         </div>
       </div>
     );
@@ -78,9 +83,10 @@ export default function AssessmentPage() {
   // Le candidat n'entre pas, et surtout : rien n'est soumis. Il n'a pas à savoir
   // que le recruteur n'a pas fini de préparer son parcours.
   return (
-    <CandidateNotice recruiter={recruiter} job={job} title="Cette évaluation n'est pas encore prête">
-      {`${recruiter?.company_name || "L'équipe recrutement"} finalise le parcours pour ce poste. `
-        + `Conservez ce lien : il fonctionnera dès que l'évaluation sera ouverte, et vous serez prévenu par e-mail.`}
+    <CandidateNotice recruiter={recruiter} job={job} title={t("candidate.notice.notReadyTitle")}>
+      {t("candidate.notice.notReadyBody", {
+        company: recruiter?.company_name || t("candidate.intro.fallbackTeam"),
+      })}
     </CandidateNotice>
   );
 }

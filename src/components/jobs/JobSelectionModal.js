@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react";
 import { X, Search, Loader2, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/I18nProvider";
+import { formatDateNumeric } from "@/lib/i18n/format";
 import { useToast } from "@/components/ui/Toast";
 
 export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
+  const { t, locale } = useI18n();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,7 +26,7 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast("Non authentifié", "error");
+        toast(t("dashboard.jobSelection.notAuthenticated"), "error");
         setLoading(false);
         return;
       }
@@ -38,7 +41,7 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
       setJobs(data || []);
     } catch (err) {
       console.error(err);
-      toast("Erreur lors du chargement des offres", "error");
+      toast(t("dashboard.jobSelection.loadError"), "error");
     }
     setLoading(false);
   }
@@ -73,9 +76,9 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem", borderBottom: "1px solid var(--border)", background: "#fafafa" }}>
           <div>
-            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>Sélectionner une offre</h3>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>{t("dashboard.jobSelection.title")}</h3>
             <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-              Choisissez l'offre pour laquelle vous souhaitez créer cette évaluation.
+              {t("dashboard.jobSelection.subtitle")}
             </p>
           </div>
           <button onClick={onClose} className="btn-ghost" style={{ padding: "8px", borderRadius: "50%" }}>
@@ -90,7 +93,7 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
             <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
             <input
               type="text"
-              placeholder="Rechercher une offre..."
+              placeholder={t("dashboard.jobSelection.search")}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="input-field"
@@ -107,9 +110,9 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
             ) : filteredJobs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem" }}>
                 <Briefcase size={48} style={{ color: "var(--muted-foreground)", opacity: 0.3, margin: "0 auto 1rem" }} />
-                <h4 style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Aucune offre trouvée</h4>
+                <h4 style={{ fontWeight: "600", marginBottom: "0.5rem" }}>{t("dashboard.jobSelection.noResults")}</h4>
                 <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
-                  {searchQuery ? "Modifiez votre recherche." : "Vous n'avez pas encore créé d'offres."}
+                  {searchQuery ? t("dashboard.jobSelection.changeSearch") : t("dashboard.jobSelection.noJobsYet")}
                 </p>
               </div>
             ) : (
@@ -126,13 +129,13 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
                       <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--foreground)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
                         {job.title}
                         {job.status === 'brouillon' && (
-                          <span style={{ fontSize: "10px", padding: "2px 6px", background: "var(--secondary)", borderRadius: "4px", fontWeight: "500" }}>Brouillon</span>
+                          <span style={{ fontSize: "10px", padding: "2px 6px", background: "var(--secondary)", borderRadius: "4px", fontWeight: "500" }}>{t("dashboard.jobSelection.draft")}</span>
                         )}
                       </div>
                       <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <span>{job.location || "Localisation non définie"}</span>
+                        <span>{job.location || t("dashboard.jobSelection.noLocation")}</span>
                         <span>•</span>
-                        <span>Créée le {new Date(job.created_at).toLocaleDateString()}</span>
+                        <span>{t("dashboard.jobSelection.createdOn", { date: formatDateNumeric(job.created_at, locale) })}</span>
                       </div>
                     </div>
                     <button 
@@ -140,7 +143,7 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
                       onClick={() => onSelect(job)}
                       style={{ fontSize: "13px", padding: "8px 16px" }}
                     >
-                      Sélectionner
+                      {t("dashboard.jobSelection.select")}
                     </button>
                   </div>
                 ))}

@@ -1,11 +1,13 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { X, Search, Loader2, BrainCircuit } from "lucide-react";
 import { getMyAssessments } from "@/lib/actions/assessment";
 import { useToast } from "@/components/ui/Toast";
 
 export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) {
+  const t = useT();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,7 +25,7 @@ export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) 
     if (res.success) {
       setTests(res.tests);
     } else {
-      toast("Erreur lors du chargement des tests", "error");
+      toast(t("dashboard.testSelection.loadError"), "error");
     }
     setLoading(false);
   }
@@ -58,9 +60,9 @@ export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem", borderBottom: "1px solid var(--border)", background: "#fafafa" }}>
           <div>
-            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>Associer un test</h3>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>{t("dashboard.testSelection.title")}</h3>
             <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-              Choisissez un test de votre bibliothèque pour l'associer à cette étape.
+              {t("dashboard.testSelection.subtitle")}
             </p>
           </div>
           <button onClick={onClose} className="btn-ghost" style={{ padding: "8px", borderRadius: "50%" }}>
@@ -75,7 +77,7 @@ export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) 
             <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
             <input
               type="text"
-              placeholder="Rechercher dans Mes Assessments..."
+              placeholder={t("dashboard.testSelection.search")}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="input-field"
@@ -92,9 +94,9 @@ export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) 
             ) : filteredTests.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem" }}>
                 <BrainCircuit size={48} style={{ color: "var(--muted-foreground)", opacity: 0.3, margin: "0 auto 1rem" }} />
-                <h4 style={{ fontWeight: "600", marginBottom: "0.5rem" }}>Aucun test trouvé</h4>
+                <h4 style={{ fontWeight: "600", marginBottom: "0.5rem" }}>{t("dashboard.testSelection.noResults")}</h4>
                 <p style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
-                  {searchQuery ? "Modifiez votre recherche." : "Vous n'avez pas encore de tests dans votre bibliothèque."}
+                  {searchQuery ? t("dashboard.testSelection.changeSearch") : t("dashboard.testSelection.noTestsYet")}
                 </p>
               </div>
             ) : (
@@ -122,7 +124,7 @@ export default function AssessmentSelectionModal({ isOpen, onClose, onSelect }) 
                       onClick={() => onSelect(test)}
                       style={{ fontSize: "13px", padding: "8px 16px" }}
                     >
-                      Associer
+                      {t("dashboard.testSelection.attach")}
                     </button>
                   </div>
                 ))}

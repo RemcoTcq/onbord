@@ -1,0 +1,706 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "@/lib/i18n/navigation";
+import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search, Link as LinkIcon, Copy, CheckCircle2, AlignLeft, Globe, Info } from "lucide-react";
+import { analyzeJobDescription } from "@/lib/actions/job";
+import { parseFile } from "@/lib/actions/parse-file";
+import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
+import { scoreCandidate } from "@/lib/actions/candidate";
+import { createClient } from "@/lib/supabase/client";
+import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
+import JobFormStep2 from "@/components/jobs/JobFormStep2";
+import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
+import JobLocaleSelector from "@/components/jobs/JobLocaleSelector";
+import { useI18n } from "@/lib/i18n/I18nProvider";
+import { coerceExperienceLocale } from "@/lib/i18n/config";
+import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
+
+import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
+import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
+import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
+import { useToast } from "@/components/ui/Toast";
+import { updateJobAiConfig, generateInterviewQuestions } from "@/lib/actions/job";
+import { saveAssessmentConfig, saveVideoInterviewConfig, generateVideoQuestions } from "@/lib/actions/assessment";
+import { generateRecommendation, generateQualifyingQuestions } from "@/lib/recommendationEngine";
+
+export default function NouvelleDemandePage() {
+  const { t, locale: uiLocale } = useI18n();
+  // Défaut : la langue de l'interface du recruteur. C'est le pari le plus
+  // souvent juste (un recruteur francophone publie surtout en français), et il
+  // reste modifiable d'un clic tant que l'expérience n'est pas générée.
+  const [experienceLocale, setExperienceLocale] = useState(() => coerceExperienceLocale(uiLocale));
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [rawDescription, setRawDescription] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [jobData, setJobData] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const [savedJobId, setSavedJobId] = useState(null);
+  const [savedJob, setSavedJob] = useState(null);
+  // Input mode: 'text' | 'file' | 'url'
+  const [inputMode, setInputMode] = useState('text');
+  const [jobUrl, setJobUrl] = useState("");
+
+  
+  const fileInputRef = useRef(null);
+  const cvInputRef = useRef(null);
+  const textRef = useRef(null);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Load draft if specified in URL
+    if (typeof window !== 'undefined') {
+      const draftId = new URLSearchParams(window.location.search).get('draftId');
+      if (draftId) {
+        const loadDraft = async () => {
+          const supabase = createClient();
+          const { data: job } = await supabase.from('jobs').select('*').eq('id', draftId).single();
+          if (job) {
+            setSavedJobId(job.id);
+            setSavedJob(job);
+            setJobData(job.extracted_criteria || {});
+            setRawDescription(job.description || "");
+            // Un brouillon repris garde SA langue, pas celle de l'interface :
+            // sans ça, un recruteur qui a basculé son dashboard en anglais
+            // verrait son brouillon néerlandais repasser en anglais au premier
+            // enregistrement.
+            setExperienceLocale(coerceExperienceLocale(job.experience_locale));
+            setCurrentStep(2); // Resume at step 2
+          }
+        };
+        loadDraft();
+      }
+    }
+  }, []);
+
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsParsingFile(true);
+    setError(null);
+    setFileName(file.name);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const parseResult = await parseFile(formData);
+      
+      if (!parseResult.success) {
+        throw new Error(parseResult.error || t("dashboard.jobCreate.parseError"));
+      }
+
+      const text = parseResult.text;
+      // Immédiatement analyser après le parsing pour un flow fluide
+      await handleAnalyze(text);
+      setIsParsingFile(false);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || t("dashboard.jobCreate.readError"));
+      setFileName("");
+      setIsParsingFile(false);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFetchUrl = async () => {
+    if (!jobUrl.trim()) return;
+    setIsFetchingUrl(true);
+    setError(null);
+    try {
+      const result = await fetchJobFromUrl(jobUrl.trim());
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      // Chain directly into analysis
+      await handleAnalyze(result.text);
+    } catch (err) {
+      setError(err.message || t("dashboard.jobCreate.urlError"));
+    } finally {
+      setIsFetchingUrl(false);
+    }
+  };
+
+  const handleAnalyze = async (content = rawDescription) => {
+    const targetContent = typeof content === 'string' ? content : rawDescription;
+    if (!targetContent || targetContent.trim().length < 50) {
+      setError(t("dashboard.jobCreate.tooShort"));
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setError(null);
+    
+    try {
+      const data = await analyzeJobDescription(targetContent);
+      setJobData(data);
+      setRawDescription(targetContent); // Keep the analyzed content in state
+
+      // Create draft job immediately
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: job } = await supabase.from('jobs').insert({
+          user_id: user.id,
+          title: data.title || t("dashboard.jobCreate.untitledJob"),
+          category: data.category,
+          description: targetContent,
+          experience_level: data.experience_level,
+          work_mode: data.work_mode,
+          contract_type: data.contract_type,
+          location: data.location,
+          extracted_criteria: { ...data },
+          status: 'draft',
+          experience_locale: experienceLocale
+        }).select().single();
+        if (job) {
+          setSavedJobId(job.id);
+          setSavedJob(job);
+        }
+      }
+
+      setCurrentStep(2);
+    } catch (err) {
+      setError(err.message || t("dashboard.jobCreate.analysisError"));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // `statusOverride` sert au passage étape 2 → 3 : on enregistre le travail en
+  // cours mais l'offre doit RESTER un brouillon tant que la pipeline n'est pas
+  // validée, sinon elle disparaîtrait de l'onglet Brouillons.
+  const handleSave = async (continueToModules = false, statusOverride = null) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error(t("dashboard.jobCreate.mustBeLoggedIn"));
+
+      // Vérification du quota
+      const quota = await checkUserQuota('job');
+      if (!quota.allowed) {
+        throw new Error(quota.error);
+      }
+
+      let targetJobId = savedJobId || savedJob?.id;
+
+      // `jobData` transporte la pipeline en cours après un retour depuis
+      // l'étape 3. Elle a sa propre colonne (`saved_flow_nodes`) et n'a rien à
+      // faire dupliquée dans les critères de l'offre.
+      const { saved_flow_nodes: _pipelineEnCours, ...criteria } = jobData;
+
+      // 1. Upsert Job
+      if (savedJobId) {
+        const { error: jobError } = await supabase
+          .from('jobs')
+          .update({
+            title: jobData.title || t("dashboard.jobCreate.untitledJob"),
+            category: jobData.category,
+            experience_level: jobData.experience_level,
+            work_mode: jobData.work_mode,
+            contract_type: jobData.contract_type,
+            location: jobData.location,
+            extracted_criteria: criteria,
+            status: statusOverride || (continueToModules ? 'active' : 'draft'),
+          })
+          .eq('id', savedJobId);
+        if (jobError) throw jobError;
+      } else {
+        const { data: job, error: jobError } = await supabase
+          .from('jobs')
+          .insert({
+            user_id: user.id,
+            title: jobData.title || t("dashboard.jobCreate.untitledJob"),
+            category: jobData.category,
+            description: rawDescription,
+            experience_level: jobData.experience_level,
+            work_mode: jobData.work_mode,
+            contract_type: jobData.contract_type,
+            location: jobData.location,
+            extracted_criteria: criteria,
+            status: statusOverride || (continueToModules ? 'active' : 'draft'),
+          })
+          .select()
+          .single();
+
+        if (jobError) throw jobError;
+        setSavedJobId(job.id);
+        setSavedJob(job);
+        targetJobId = job.id;
+      }
+
+      // NOUVEAU : Logger la famille et sous-famille
+      if ((jobData.category || jobData.sub_family) && targetJobId) {
+        await supabase.from('job_family_logs').insert({
+          job_id: targetJobId,
+          user_id: user.id,
+          family: jobData.category,
+          sub_family: jobData.sub_family,
+          role_type: jobData.role_type
+        });
+      }
+
+      // 2. Insert Skills (Replace old ones)
+      if (savedJobId) {
+        await supabase.from('job_skills').delete().eq('job_id', savedJobId);
+      }
+      const skillsToInsert = [];
+      if (jobData.hard_skills) {
+        jobData.hard_skills.forEach(s => skillsToInsert.push({ job_id: targetJobId, name: s.name, type: 'hard_skill', priority: s.priority }));
+      }
+      if (jobData.soft_skills) {
+        jobData.soft_skills.forEach(s => skillsToInsert.push({ job_id: targetJobId, name: s.name, type: 'soft_skill', priority: s.priority }));
+      }
+
+      if (skillsToInsert.length > 0 && targetJobId) {
+        const { error: skillsError } = await supabase.from('job_skills').insert(skillsToInsert);
+        if (skillsError) throw skillsError;
+      }
+
+      if (!savedJobId) {
+        await incrementUserUsage('job');
+      }
+
+      if (continueToModules) {
+        setCurrentStep(3); // Go to module selection
+      } else {
+        router.push('/jobs');
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || t("dashboard.jobCreate.saveError"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
+
+  const handleSaveFlow = async (flowNodes, updatedJobData) => {
+    setIsSaving(true);
+    try {
+      const supabase = createClient();
+
+      if (savedJobId) {
+        await supabase.from('jobs').update({ status: 'active' }).eq('id', savedJobId);
+      } else {
+        await handleSave(true);
+      }
+
+      const currentJobId = savedJobId || savedJob?.id;
+
+      const modules = {
+        qualifying_questions: { enabled: false },
+        cv_scoring: { enabled: false },
+        ai_interview: { enabled: false },
+        skills_tests: { enabled: false, tests: [] },
+        video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" },
+      };
+
+      const flowOrder = [];
+
+      for (const node of flowNodes) {
+        if (node.type === 'accueil' || node.type === 'remerciements') {
+          flowOrder.push(node.type);
+          // On pourrait sauvegarder les messages customisés ici plus tard si nécessaire
+          continue;
+        }
+
+        // Bloc Expérience : c'est le parcours actuel, il ne passe PAS par
+        // assessment_config (il vit dans la table `experiences` et doit être
+        // publié depuis l'écran Expérience). On le trace quand même dans
+        // flow_order, sinon la configuration enregistrée laisse croire que
+        // l'offre n'a aucune évaluation — c'est ce silence qui produisait un
+        // parcours candidat vide.
+        if (node.type === 'experience') {
+          flowOrder.push('experience');
+          continue;
+        }
+
+        if (node.type === 'qualifying_questions') {
+          modules.qualifying_questions = { enabled: true, questions: node.config.questions || [] };
+          flowOrder.push(node.type);
+        }
+        else if (node.type === 'cv_scoring') {
+          modules.cv_scoring = { enabled: true };
+          flowOrder.push(node.type);
+          if (updatedJobData?.selection_criteria) {
+             await supabase.from('jobs').update({ extracted_criteria: { ...jobData, selection_criteria: updatedJobData.selection_criteria } }).eq('id', currentJobId);
+             setJobData(prev => ({ ...prev, selection_criteria: updatedJobData.selection_criteria }));
+          }
+        }
+        else if (node.type === 'assessment') {
+          modules.skills_tests.enabled = true;
+          if (!flowOrder.includes('skills_tests')) {
+              flowOrder.push('skills_tests');
+          }
+        }
+        else if (node.type === 'ai_interview') {
+          modules.ai_interview = { enabled: true };
+          flowOrder.push(node.type);
+          if (node.config) {
+            await updateJobAiConfig(currentJobId, { ...node.config, enabled: true });
+          }
+        }
+        else if (node.type === 'single_video_question') {
+          modules.video_interview.enabled = true;
+          if (node.config.questions && node.config.questions.length > 0) {
+              modules.video_interview.questions.push(node.config.questions[0]);
+              // On garde la durée max, le max retakes et le mode d'évaluation du dernier nœud configuré
+              modules.video_interview.max_duration_seconds = node.config.max_duration_seconds || modules.video_interview.max_duration_seconds;
+              modules.video_interview.max_retakes = node.config.max_retakes !== undefined ? node.config.max_retakes : modules.video_interview.max_retakes;
+              modules.video_interview.evaluation_mode = node.config.evaluation_mode || modules.video_interview.evaluation_mode;
+          }
+          if (!flowOrder.includes('video_interview')) {
+              flowOrder.push('video_interview');
+          }
+        }
+      }
+
+      if (modules.video_interview.enabled && modules.video_interview.questions.length > 0) {
+        await saveVideoInterviewConfig(currentJobId, modules.video_interview);
+      }
+
+      await saveAssessmentConfig(currentJobId, {
+        modules,
+        flow_order: flowOrder
+      });
+
+      await supabase.from('jobs').update({ saved_flow_nodes: flowNodes }).eq('id', currentJobId);
+
+      router.push(`/jobs/${currentJobId}`);
+    } catch (err) {
+      console.error(err);
+      toast(t("dashboard.jobCreate.pipelineSaveError"), "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleFieldChange = (field, value) => {
+    setJobData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div style={currentStep === 3 ? { 
+      position: 'fixed', 
+      top: 0, bottom: 0, right: 0, left: 'var(--sidebar-collapsed-width)', 
+      zIndex: 40,
+      background: '#f8fafc',
+      display: 'flex', flexDirection: 'column'
+    } : { maxWidth: '900px', margin: '0 auto' }}>
+      
+      <div style={{ padding: currentStep === 3 ? '1rem 1.5rem 0' : '0 0 1rem 0' }}>
+        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {currentStep === 1 ? t("dashboard.jobCreate.steps.job")
+            : currentStep === 2 ? t("dashboard.jobCreate.steps.details")
+            : t("dashboard.jobCreate.steps.journey")}
+        </span>
+      </div>
+
+      {/* Step Content */}
+      <div className={currentStep === 3 ? "" : "card"} style={{ display: 'flex', flexDirection: 'column', minHeight: '350px', height: currentStep === 3 ? '100%' : 'auto' }}>
+        {currentStep === 1 && (
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>{t("dashboard.jobCreate.heading")}</h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
+              {t("dashboard.jobCreate.intro")}
+            </p>
+
+            {/* Mode selector */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '1.25rem', background: 'var(--secondary)', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
+              {[
+                { key: 'text', icon: AlignLeft, label: t('dashboard.jobCreate.modePaste') },
+                { key: 'file', icon: Paperclip, label: t('dashboard.jobCreate.modeFile') },
+                { key: 'url', icon: Globe, label: t('dashboard.jobCreate.modeUrl') },
+              ].map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setInputMode(key); setError(null); }}
+                  disabled={isAnalyzing || isParsingFile || isFetchingUrl}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 14px', borderRadius: '6px', border: 'none',
+                    fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    background: inputMode === key ? 'white' : 'transparent',
+                    color: inputMode === key ? 'var(--foreground)' : 'var(--muted-foreground)',
+                    boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  }}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {error && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
+                <AlertCircle size={18} />
+                <span style={{ fontSize: '14px' }}>{error}</span>
+              </div>
+            )}
+
+            {/* MODE FILE */}
+            {inputMode === 'file' && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isParsingFile || isAnalyzing}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: '0.75rem', width: '100%', minHeight: '200px',
+                    border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
+                    background: 'var(--secondary)', cursor: isParsingFile ? 'default' : 'pointer',
+                    marginBottom: '1.5rem', transition: 'border-color 0.2s'
+                  }}
+                >
+                  {isParsingFile ? (
+                    <><Loader2 size={24} className="spin" style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>{t("dashboard.jobCreate.readingFile")}</span></>
+                  ) : fileName ? (
+                    <><FileText size={24} style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{fileName}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>{t("dashboard.jobCreate.changeFile")}</span></>
+                  ) : (
+                    <><UploadCloud size={24} style={{ color: 'var(--muted-foreground)' }} />
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--foreground)' }}>{t("dashboard.jobCreate.importFile")}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>PDF, DOCX ou TXT — max 2 Mo</span></>
+                  )}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".pdf,.docx,.txt"
+                  style={{ display: 'none' }}
+                />
+              </div>
+            )}
+
+            {/* MODE URL */}
+            {inputMode === 'url' && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                {/* Conseil */}
+                <div style={{
+                  display: 'flex', gap: '10px', alignItems: 'flex-start',
+                  background: '#eff6ff', border: '1px solid #bfdbfe',
+                  borderRadius: '8px', padding: '12px 14px', marginBottom: '1rem'
+                }}>
+                  <Info size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <p style={{ fontSize: '12.5px', color: '#1e40af', margin: 0, lineHeight: '1.6' }}>
+                    <strong>Conseil :</strong> Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable.
+                    {' '}Elle peut ne pas fonctionner avec <strong>LinkedIn, Indeed ou Glassdoor</strong> qui protègent leurs pages.
+                    {' '}Dans ce cas, copiez-collez le texte de l&apos;offre directement.
+                  </p>
+                </div>
+
+                <div style={{
+                  display: 'flex', gap: '8px',
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                  background: 'white', padding: '4px 4px 4px 14px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                  <Globe size={16} style={{ color: 'var(--muted-foreground)', alignSelf: 'center', flexShrink: 0 }} />
+                  <input
+                    type="url"
+                    value={jobUrl}
+                    onChange={(e) => { setJobUrl(e.target.value); if (error) setError(null); }}
+                    placeholder="https://careers.acme.com/job/account-manager"
+                    disabled={isFetchingUrl || isAnalyzing}
+                    style={{
+                      flex: 1, border: 'none', outline: 'none',
+                      fontSize: '14px', color: 'var(--foreground)', background: 'transparent',
+                      padding: '10px 0'
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchUrl}
+                    disabled={isFetchingUrl || isAnalyzing || !jobUrl.trim()}
+                    style={{
+                      background: '#0f172a', border: 'none', color: 'white',
+                      cursor: jobUrl.trim() ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '8px 16px', borderRadius: '6px',
+                      fontSize: '13px', fontWeight: '600',
+                      opacity: jobUrl.trim() ? 1 : 0.4, transition: 'opacity 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isFetchingUrl
+                      ? <><Loader2 size={14} className="spin" /> {t("dashboard.jobCreate.loading")}</>
+                      : <><Sparkles size={14} /> {t("dashboard.jobCreate.analyze")}</>}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MODE TEXT (default) */}
+            {inputMode === 'text' && (
+              <div style={{
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                backgroundColor: 'white',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                marginBottom: '1.5rem',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <textarea
+                  style={{
+                    width: '100%',
+                    minHeight: '300px',
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '15px',
+                    color: 'var(--foreground)',
+                    background: 'transparent',
+                    padding: '1.25rem',
+                    resize: 'vertical'
+                  }}
+                  placeholder={t("dashboard.jobCreate.descriptionPlaceholder")}
+                  value={rawDescription}
+                  onChange={(e) => {
+                    setRawDescription(e.target.value);
+                    if (error) setError(null);
+                  }}
+                />
+                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleAnalyze()}
+                    disabled={isAnalyzing || rawDescription.trim().length === 0}
+                    style={{ background: '#0f172a', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}
+                  >
+                    {isAnalyzing ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Langue de l'offre — posée AVANT l'analyse, pas après.
+                Elle conditionne tout l'aval : extraction des compétences,
+                génération de l'expérience, e-mails au candidat. Et elle se
+                verrouille dès la première génération (migration 026), donc
+                mieux vaut la choisir sciemment maintenant. */}
+            <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
+              <JobLocaleSelector value={experienceLocale} onChange={setExperienceLocale} />
+            </div>
+          </div>
+        )}
+
+        {currentStep === 2 && jobData && (
+          <div style={{ flex: 1 }}>
+            <JobFormStep2 jobData={jobData} setJobData={setJobData} />
+          </div>
+        )}
+
+        {currentStep === 3 && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
+            {/* On retire le padding global de la carte pour l'étape 3 afin que le Flow prenne toute la place */}
+            <JobFormStepRecommendation 
+              jobData={jobData} 
+              savedJobId={savedJobId || savedJob?.id}
+              onSave={handleSaveFlow}
+              isSaving={isSaving}
+              onBack={(currentFlow) => {
+                setJobData(prev => ({ ...prev, saved_flow_nodes: currentFlow }));
+                setCurrentStep(2);
+              }}
+            />
+          </div>
+        )}
+        {/* Navigation - Seulement pour l'étape 1 et 2 */}
+        {currentStep < 3 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
+            {currentStep > 1 ? (
+              <button 
+                className="btn btn-ghost" 
+                style={{ fontWeight: '600' }}
+                onClick={() => setCurrentStep(prev => prev - 1)}
+              >
+                {t("dashboard.jobCreate.back")}
+              </button>
+            ) : (
+              <div></div>
+            )}
+            
+            {currentStep === 1 && inputMode !== 'url' && (
+              <button
+                className="btn btn-primary"
+                style={{ padding: '12px 24px', fontWeight: '600' }}
+                onClick={() => inputMode === 'file' ? fileInputRef.current?.click() : handleAnalyze()}
+                disabled={isAnalyzing || isParsingFile || (inputMode === 'text' && rawDescription.trim().length === 0)}
+              >
+                {(isAnalyzing || isParsingFile) ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
+                {t("dashboard.jobCreate.next")}
+              </button>
+            )}
+
+            {currentStep === 2 && (
+              <button
+                className="btn btn-primary"
+                style={{ padding: '12px 24px', fontWeight: '600' }}
+                disabled={isSaving}
+                // Enregistre les compétences ajustées avant d'ouvrir la pipeline.
+                // Ce passage ne faisait qu'un setCurrentStep(3) : la sélection du
+                // recruteur n'était persistée qu'à la validation finale, et le
+                // brouillon gardait les compétences brutes extraites par l'IA —
+                // dont dépend justement la pipeline proposée.
+                onClick={() => handleSave(true, 'draft')}
+              >
+                {isSaving ? t("common.states.saving") : t("dashboard.jobCreate.next")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Overlay d'analyse de l'offre */}
+      {(isAnalyzing || isParsingFile || isFetchingUrl) && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 999,
+          background: 'rgba(255, 255, 255, 0.97)',
+          backdropFilter: 'blur(12px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '2rem', textAlign: 'center'
+        }}>
+          <div style={{ maxWidth: '480px', width: '100%' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.75rem', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
+              {isFetchingUrl ? t("dashboard.jobCreate.fetchingTitle") : t("dashboard.jobCreate.analyzingTitle")}
+            </h2>
+            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.7', fontSize: '15px' }}>
+              {isFetchingUrl
+                ? t("dashboard.jobCreate.fetchingHelp")
+                : t("dashboard.jobCreate.analyzingHelp")}
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
+              <Loader2 className="spin" size={18} style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--foreground)' }}>
+                {isFetchingUrl ? t("dashboard.jobCreate.fetchingStatus") : t("dashboard.jobCreate.analyzingStatus")}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

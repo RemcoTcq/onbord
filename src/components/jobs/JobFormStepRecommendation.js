@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import React, { useEffect, useState, useRef } from "react";
 import { buildDefaultPipeline, withLockedNodes } from "@/lib/pipelineTemplate";
 import { updateJobDetails } from "@/lib/actions/candidate";
@@ -17,6 +18,7 @@ import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 import PipelineVisualEditor from "./PipelineVisualEditor";
 
 export default function JobFormStepRecommendation({ jobData, savedJobId, onSave, isSaving, onBack }) {
+  const t = useT();
   const [flowNodes, setFlowNodes] = useState([]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -56,7 +58,7 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
     const timer = setTimeout(async () => {
       const res = await updateJobDetails(savedJobId, { saved_flow_nodes: flowNodes });
       if (res?.success) lastSavedRef.current = payload;
-      else console.error("Enregistrement de la pipeline échoué :", res?.error);
+      else console.error("Échec de l'enregistrement du brouillon de pipeline :", res?.error);
     }, 800);
     return () => clearTimeout(timer);
   }, [flowNodes, isInitializing, savedJobId]);
@@ -98,7 +100,7 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
       id: type + '_' + Date.now(),
       type: type,
       config: type === 'single_video_question' ? { questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" } 
-            : type === 'assessment' ? { title: "Test de compétences" }
+            : type === 'assessment' ? { title: t("dashboard.jobDetail.skillsTest") }
             : type === 'qualifying_questions' ? { questions: [] }
             : {}
     };
@@ -136,19 +138,19 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
                 border: '1px solid var(--border)', background: 'transparent',
                 cursor: 'pointer', color: 'var(--foreground)'
               }}
-              title="Retour à la sélection des compétences"
+              title={t("dashboard.recommendation.backToSkills")}
             >
               <ChevronLeft size={16} />
             </button>
           )}
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, marginBottom: '2px' }}>
-              {jobData?.title || 'Account Manager'}
+              {jobData?.title || t("dashboard.recommendation.fallbackTitle")}
             </h2>
             <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--muted-foreground)' }}>
               <span>{jobData?.category || 'Vente'}</span>
               <span>•</span>
-              <span>{jobData?.sub_family || jobData?.role_type?.split(' — ')[0] || 'Contributeur Individuel'}</span>
+              <span>{jobData?.sub_family || jobData?.role_type?.split(' — ')[0] || t("dashboard.recommendation.fallbackRoleType")}</span>
             </div>
           </div>
         </div>
@@ -163,9 +165,9 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
             style={{ padding: '8px 24px', fontWeight: '600', background: 'var(--foreground)', borderColor: 'var(--foreground)', color: 'var(--background)', borderRadius: '6px', opacity: (!isFlowValid || isSaving) ? 0.5 : 1, cursor: (!isFlowValid || isSaving) ? 'not-allowed' : 'pointer' }}
         onClick={handleSaveFlow}
             disabled={!isFlowValid || isSaving}
-            title={!isFlowValid ? "Veuillez configurer tous les modules ajoutés (questions, vidéo, test) avant de valider." : ""}
+            title={!isFlowValid ? t("dashboard.recommendation.configureAllModules") : ""}
           >
-            {isSaving ? <Loader2 size={16} className="spin" /> : 'Valider'}
+            {isSaving ? <Loader2 size={16} className="spin" /> : t("dashboard.recommendation.validate")}
           </button>
         </div>
       </div>
