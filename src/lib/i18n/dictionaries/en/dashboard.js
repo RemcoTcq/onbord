@@ -37,6 +37,9 @@ const dashboard = {
   },
 
   jobs: {
+    tabActive: "Active",
+    tabDrafts: "Drafts",
+    tabTrash: "Trash",
     title: "Jobs",
     subtitle: "Manage your job postings and track your candidates.",
     untitled: "Untitled job",
@@ -95,7 +98,7 @@ const dashboard = {
     jobLabel: "Job",
 
     tabs: {
-      pipelines: "Journey (pipeline)",
+      pipelines: "Pipeline",
       evaluations: "Assessments",
       candidats: "Candidates",
       context: "Context",
@@ -127,9 +130,9 @@ const dashboard = {
     lockPipeline: "Lock the pipeline",
     unlockPipeline: "Unlock the pipeline",
     noAssessment: "No assessment configured",
-    addTestsHint: "Add tests from the « Journey » step of your job.",
+    addTestsHint: "Add tests from the « Pipeline » step of your job.",
     welcomePlaceholder: "Welcome! Here's a short practical exercise…",
-    journey: "Journey",
+    journey: "Pipeline",
     detailsLink: "Details",
     linkTest: "Link a test",
     testBeingCreated: "Test being built by the Onbord team",
@@ -213,6 +216,7 @@ const dashboard = {
   },
 
   candidateDetail: {
+    levelBetween: "Level {level}: between N{low} ({lowLabel}) and N{high} ({highLabel}).",
     notFound: "Candidate not found",
     back: "Back",
     deleteConfirm: "Are you sure you want to delete this candidate?",
@@ -259,8 +263,8 @@ const dashboard = {
     aiUsage: "AI assistant usage",
     aiUsageHelp: "Measures {em} the candidate steered the AI, not whether they used it",
     aiUsageHelpEm: "how",
-    aiPrompts_one: " — {count} prompt to the assistant during this journey",
-    aiPrompts_other: " — {count} prompts to the assistant during this journey",
+    aiPrompts_one: " — {count} prompt to the assistant on this pipeline",
+    aiPrompts_other: " — {count} prompts to the assistant on this pipeline",
     aiUsageNotScoredHelp:
       "The candidate did not call on the assistant. This dimension measures {em} they would have steered it: it is not scored in its absence, and does not penalise the overall score.",
     expected: "expected:",
@@ -344,7 +348,7 @@ const dashboard = {
     stepSaved: "Step saved",
 
     chatIntro:
-      "Describe what you're after. The assistant asks a few questions to refine it, then generates the journey (practical exercises). You review and approve each step before publishing.",
+      "Describe what you're after. The assistant asks a few questions to refine it, then generates the pipeline (practical exercises). You review and approve each step before publishing.",
     generateDirectly: "Or generate straight away, without the conversation",
     closeAssistant: "Close the assistant",
     adjustStepByStep: "Adjust step by step",
@@ -440,7 +444,7 @@ const dashboard = {
   },
 
   jobLocale: {
-    label: "Language of the job posting and candidate journey",
+    label: "Language of the job posting and candidate pipeline",
     help: "The entire assessment will be written in this language: questions, practical exercises, AI assistant and candidate emails.",
     lockedTitle: "Language locked",
     lockedHelp:
@@ -865,7 +869,7 @@ const dashboard = {
     targetMarketPlaceholder: "e.g. European SMEs, enterprise accounts, consumers…",
     habitsPlaceholder:
       "Describe how you usually hire: your process, how many stages, tools, cultural criteria that matter…",
-    habitsHelp: "The AI uses this to tailor the assessment journeys it designs.",
+    habitsHelp: "The AI uses this to tailor the assessment pipelines it designs.",
     habitsExample:
       "e.g. we usually hire in 3 stages — a 30-minute HR screening call, a 1-hour technical interview with the manager, and a final practical exercise. We put a lot of weight on intellectual curiosity and the ability to work independently. Our process takes about 3 weeks…",
     afterFirstHire: "Available after your first hire on Onbord",
@@ -897,7 +901,7 @@ const dashboard = {
 
     perCandidate: "Per candidate",
     cvScoringPerCandidate: "CV scoring per candidate",
-    fullJourney: "Full journey (candidate)",
+    fullJourney: "Full pipeline (candidate)",
 
     extraCredits: "Extra credits",
     extraCreditsHelp: "Need more credits this month? Top up at any time.",
@@ -937,10 +941,10 @@ const dashboard = {
   },
 
   jobCreate: {
-    steps: { job: "1. Job posting", details: "2. Details", journey: "3. Journey" },
+    steps: { job: "1. Job posting", details: "2. Details", journey: "3. Pipeline" },
     heading: "Let's start with your job posting",
     intro:
-      "Onbord reads your posting and pulls out the skills to assess. You approve them, and we build the screening journey.",
+      "Onbord reads your posting and pulls out the skills to assess. You approve them, and we build the screening pipeline.",
 
     modePaste: "Paste the text",
     modeFile: "Import a file",
@@ -964,7 +968,7 @@ const dashboard = {
     analysisError: "Something went wrong during the analysis.",
     mustBeLoggedIn: "You must be signed in to save.",
     saveError: "Something went wrong while saving.",
-    pipelineSaveError: "Something went wrong while saving the journey",
+    pipelineSaveError: "Something went wrong while saving the pipeline",
 
     fetchingTitle: "Loading the posting…",
     analyzingTitle: "Analysing the posting…",
@@ -1006,12 +1010,12 @@ const dashboard = {
 
     costsTitle: "API costs",
     costsSubtitle:
-      "Average cost of a candidate journey, based on tracked usage (generation, scoring, AI assistant).",
+      "Average cost of a candidate pipeline, based on tracked usage (generation, scoring, AI assistant).",
     periodAll: "All",
     periodDays: "{count} days",
-    avgMarginalCost: "Average cost / journey (marginal)",
+    avgMarginalCost: "Average cost / pipeline (marginal)",
     avgMarginalCostHelp: "scoring + assistant, per candidate (excluding generation)",
-    fullCost: "Full cost / journey",
+    fullCost: "Full cost / pipeline",
     fullCostHelp: "including amortised generation",
     totalPeriod: "Total for the period",
     breakdown: "Cost breakdown (period)",
@@ -1077,7 +1081,7 @@ const dashboard = {
     tabMessage: "Message",
     tabBranding: "Employer brand",
     welcomeLabel: "Candidate welcome message",
-    thanksLabel: "End-of-journey message",
+    thanksLabel: "End-of-pipeline message",
     messagePlaceholder: "Write your message here…",
     aiExperience: "AI assessment (Experience)",
     configured: "✅ AI experience configured.",
@@ -1137,6 +1141,7 @@ const dashboard = {
   },
 
   qualifyingConfig: {
+    questionNumber: "Question {n}",
     none: "No screening questions",
     noneHelp:
       "Add questions to filter candidates automatically before they reach the assessment.",
@@ -1147,6 +1152,7 @@ const dashboard = {
   },
 
   assessmentCreation: {
+    hello: "Hello {name}",
     whichType: "What kind of assessment do you want to build?",
     addContext: "Add context",
     jobAsPdf: "Job posting as PDF",
@@ -1178,6 +1184,7 @@ const dashboard = {
   },
 
   usage: {
+    planNamed: "{plan} plan",
     credits: "Credits",
     resetsMonthly: "Resets on the 1st of the month",
     creditsUsed: "Credits used",

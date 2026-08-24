@@ -103,7 +103,7 @@ function BarsScale({ levels, attributed }) {
       </div>
       {!exacte && inf && sup && (
         <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "4px", fontStyle: "italic" }}>
-          Niveau {attributed} : intermédiaire entre N{inf.level} ({inf.label}) et N{sup.level} ({sup.label}).
+          {t("dashboard.candidateDetail.levelBetween", { level: attributed, low: inf.level, lowLabel: inf.label, high: sup.level, highLabel: sup.label })}
         </p>
       )}
     </div>

@@ -87,7 +87,7 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
 
       <div className="zoom-in" style={{ textAlign: "center", marginBottom: "40px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700", color: "var(--foreground)", marginBottom: "24px", letterSpacing: "-0.02em" }}>
-          Bonjour {userName}
+          {t("dashboard.assessmentCreation.hello", { name: userName })}
         </h1>
 
         <form 

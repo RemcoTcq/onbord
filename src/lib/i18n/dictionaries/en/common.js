@@ -44,6 +44,7 @@ const common = {
   },
 
   auth: {
+    planNamed: "{plan} plan",
     brand: "Onbord",
 
     loginTitle: "Sign in",
@@ -86,7 +87,7 @@ const common = {
     en: "English",
     nl: "Nederlands",
     uiLabel: "Interface language",
-    experienceLabel: "Language of the job posting and candidate journey",
+    experienceLabel: "Language of the job posting and candidate pipeline",
   },
 };
 

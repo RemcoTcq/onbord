@@ -126,14 +126,14 @@ export default function JobsPage() {
             onClick={() => setTab("active")}
             style={{ borderBottom: tab === "active" ? "2px solid var(--foreground)" : "2px solid transparent" }}
           >
-            Actifs {activeJobs.length > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({activeJobs.length})</span>}
+            {t("dashboard.jobs.tabActive")} {activeJobs.length > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({activeJobs.length})</span>}
           </button>
           <button
             className={`tab ${tab === "drafts" ? "active" : ""}`}
             onClick={() => setTab("drafts")}
             style={{ borderBottom: tab === "drafts" ? "2px solid var(--foreground)" : "2px solid transparent" }}
           >
-            Brouillons {draftsCount > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({draftsCount})</span>}
+            {t("dashboard.jobs.tabDrafts")} {draftsCount > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({draftsCount})</span>}
           </button>
           {deletedJobs.length > 0 && (
             <button
@@ -141,7 +141,7 @@ export default function JobsPage() {
               onClick={() => setTab("trash")}
               style={{ borderBottom: tab === "trash" ? "2px solid var(--foreground)" : "2px solid transparent" }}
             >
-              Corbeille <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({deletedJobs.length})</span>
+              {t("dashboard.jobs.tabTrash")} <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({deletedJobs.length})</span>
             </button>
           )}
         </div>

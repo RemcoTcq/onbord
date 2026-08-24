@@ -53,6 +53,7 @@ const common = {
 
   // ── Authentification (hors dashboard, d'où sa place ici) ──────────────────
   auth: {
+    planNamed: "Formule {plan}",
     brand: "Onbord",
 
     loginTitle: "Connexion",

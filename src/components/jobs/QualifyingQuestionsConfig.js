@@ -55,7 +55,7 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
             }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>
-                  Question {i + 1}
+                  {t("dashboard.qualifyingConfig.questionNumber", { n: i + 1 })}
                 </label>
                 <input
                   type="text"

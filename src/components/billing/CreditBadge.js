@@ -70,7 +70,7 @@ export default function CreditBadge() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "6px" }}>
         <span style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: "600" }}>
-          Plan {info.planLabel}
+          {t("dashboard.usage.planNamed", { plan: info.planLabel })}
         </span>
         {info.credits_balance !== 999999 && pct <= 20 && (
           <a

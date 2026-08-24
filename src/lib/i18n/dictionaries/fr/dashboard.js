@@ -44,6 +44,9 @@ const dashboard = {
 
   // ── Liste des offres ──────────────────────────────────────────────────────
   jobs: {
+    tabActive: "Actifs",
+    tabDrafts: "Brouillons",
+    tabTrash: "Corbeille",
     title: "Offres d'emploi",
     subtitle: "Gérez vos offres d'emploi et suivez vos candidats.",
     untitled: "Offre sans titre",
@@ -245,6 +248,7 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    levelBetween: "Niveau {level} : intermédiaire entre N{low} ({lowLabel}) et N{high} ({highLabel}).",
     notFound: "Candidat introuvable",
     back: "Retour",
     deleteConfirm: "Êtes-vous sûr de vouloir supprimer ce candidat ?",
@@ -1241,6 +1245,7 @@ const dashboard = {
 
   // ── Questions qualificatives ──────────────────────────────────────────────
   qualifyingConfig: {
+    questionNumber: "Question {n}",
     none: 'Aucune question qualificative',
     noneHelp:
       "Ajoutez des questions pour filtrer automatiquement les candidats avant qu'ils ne passent l'assessment.",
@@ -1252,6 +1257,7 @@ const dashboard = {
 
   // ── Création d'une évaluation ─────────────────────────────────────────────
   assessmentCreation: {
+    hello: "Bonjour {name}",
     whichType: "Quel type d'évaluation souhaitez-vous créer ?",
     addContext: 'Ajouter du contexte',
     jobAsPdf: 'Poste en PDF',
@@ -1286,6 +1292,7 @@ const dashboard = {
 
   // ── Widget de crédits ─────────────────────────────────────────────────────
   usage: {
+    planNamed: "Formule {plan}",
     credits: 'Crédits',
     resetsMonthly: 'Réinitialisation le 1er du mois',
     creditsUsed: 'Crédits utilisés',

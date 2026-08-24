@@ -49,6 +49,7 @@ const common = {
   },
 
   auth: {
+    planNamed: "{plan}-abonnement",
     brand: "Onbord",
 
     loginTitle: "Inloggen",

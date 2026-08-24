@@ -47,6 +47,25 @@ export function extract(file) {
         && /[A-Za-zÀ-ÿ]{2}/.test(seul)) {
       add(seul, n, "jsx-seul");
     }
+
+    // Texte JSX SUIVI d'une expression sur la MÊME ligne :
+    //     Actifs {activeJobs.length > 0 && <span>({activeJobs.length})</span>}
+    //     Corbeille <span …>({deletedJobs.length})</span>
+    // La règle « seul sur sa ligne » ci-dessus rejette ces lignes parce
+    // qu'elles contiennent { ou <. C'est l'angle mort qui a laissé les onglets
+    // de /jobs en français : « Actifs » n'a pas d'accent, donc aucune
+    // recherche de texte français ne le rattrapait non plus.
+    const coupe = seul.search(/[{<]/);
+    if (coupe > 0) {
+      const avant = seul.slice(0, coupe).trim();
+      // Le préfixe doit être de la PROSE, pas du code : ni ponctuation de
+      // syntaxe, ni opérateur. Deux lettres minimum, comme partout ailleurs.
+      if (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9'’s.,!?…&:-]*$/.test(avant)
+          && /[A-Za-zÀ-ÿ]{2}/.test(avant)
+          && !/^(return|const|let|var|if|else|import|export|from|case|default|await|async|function|new|typeof)/.test(avant)) {
+        add(avant, n, "jsx-avant-expr");
+      }
+    }
   });
   return out;
 }

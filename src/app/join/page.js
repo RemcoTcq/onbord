@@ -140,7 +140,7 @@ function JoinForm() {
             fontSize: "13px", fontWeight: "700",
             background: planInfo.color + "18", color: planInfo.color,
           }}>
-            Plan {planInfo.label}
+            {t("common.auth.planNamed", { plan: planInfo.label })}
           </span>
         </div>
 
