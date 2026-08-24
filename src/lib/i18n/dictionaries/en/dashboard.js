@@ -509,6 +509,7 @@ const dashboard = {
   },
 
   aiInterview: {
+    hiddenFromCandidate: "Not visible to the candidate",
     heading: "Assessment (AI interview)",
     intro:
       "The AI will run an interview with candidates to assess their skills and motivation.",
@@ -521,8 +522,6 @@ const dashboard = {
 
     saved: "Configuration saved successfully",
     saveError: "Something went wrong while saving",
-    contextGenerated: "Context generated! You can edit it freely.",
-    generationError: "Generation failed",
 
     requiredQuestions: "Required questions",
     requiredQuestionsHelp: "Specific questions the AI must ask.",
@@ -544,7 +543,6 @@ const dashboard = {
 
     contextSection: "Context for the AI",
     contextSectionHelp: "Information invisible to the candidate, used to steer the AI.",
-    prefillFromJob: "Pre-fill from the job posting",
     contextHelp:
       "These act as a brief for the AI so it can tailor its questions. You can edit the generated text by hand.",
     aboutCompany: "About the company",

@@ -574,6 +574,7 @@ const dashboard = {
   // candidat, vivent dans lib/interview/defaults.js et suivent la langue de
   // l'offre.
   aiInterview: {
+    hiddenFromCandidate: "Non visible par le candidat",
     heading: "Assessment (entretien IA)",
     intro:
       "L'IA mènera un entretien avec les candidats pour évaluer leurs compétences et leur motivation.",
@@ -586,8 +587,6 @@ const dashboard = {
 
     saved: "Configuration sauvegardée avec succès",
     saveError: "Erreur lors de la sauvegarde",
-    contextGenerated: "Contexte généré avec succès ! Vous pouvez le modifier librement.",
-    generationError: "Erreur de génération",
 
     requiredQuestions: "Questions imposées",
     requiredQuestionsHelp: "Questions spécifiques que l'IA doit absolument poser.",
@@ -610,7 +609,6 @@ const dashboard = {
 
     contextSection: "Contexte pour l'IA",
     contextSectionHelp: "Informations invisibles pour le candidat pour orienter l'IA.",
-    prefillFromJob: "Pré-remplir depuis l'offre d'emploi",
     contextHelp:
       "Ces éléments servent de brief à l'IA pour personnaliser ses questions. Vous pouvez modifier manuellement les textes générés.",
     aboutCompany: "À propos de l'entreprise",

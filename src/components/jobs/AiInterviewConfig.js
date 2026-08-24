@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { introTemplates, outroTemplates, TONALITIES } from "@/lib/interview/defaults";
-import { updateJobAiConfig, generateAiInterviewText } from "@/lib/actions/job";
+import { updateJobAiConfig } from "@/lib/actions/job";
 
 const PRESETS = {
   Technique: { hard_skills: 60, soft_skills: 15, motivation: 10, culture: 10, potential: 5 },
@@ -52,7 +52,6 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
   const [openAccordions, setOpenAccordions] = useState([1, 2, 3, 4]);
   const [activePreset, setActivePreset] = useState("Technique");
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState({ intro: false, outro: false, context: false });
   const [newQuestion, setNewQuestion] = useState("");
   const [newCriterion, setNewCriterion] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
@@ -123,34 +122,6 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
       toast(t("dashboard.aiInterview.saveError"), "error");
     }
     setIsSaving(false);
-  };
-
-  const handleGenerate = async (fieldGroup) => {
-    setIsGenerating(prev => ({ ...prev, [fieldGroup]: true }));
-    try {
-      if (fieldGroup === 'intro') {
-        const res = await generateAiInterviewText('intro', job, config.tonality);
-        if (res.success) updateConfig({ intro_text: res.text });
-      } else if (fieldGroup === 'outro') {
-        const res = await generateAiInterviewText('outro', job, config.tonality);
-        if (res.success) updateConfig({ outro_text: res.text });
-      } else if (fieldGroup === 'context') {
-        const [res1, res2, res3] = await Promise.all([
-          generateAiInterviewText('context_about', job),
-          generateAiInterviewText('context_why', job),
-          generateAiInterviewText('context_what_matters', job)
-        ]);
-        updateConfig({
-          context_about: res1.success ? res1.text : config.context_about,
-          context_why: res2.success ? res2.text : config.context_why,
-          context_what_matters: res3.success ? res3.text : config.context_what_matters,
-        });
-        toast(t("dashboard.aiInterview.contextGenerated"));
-      }
-    } catch (err) {
-      toast(t("dashboard.aiInterview.generationError"), "error");
-    }
-    setIsGenerating(prev => ({ ...prev, [fieldGroup]: false }));
   };
 
   const updateWeight = (key, value) => {
@@ -389,19 +360,8 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
             />
             {openAccordions.includes(3) && (
               <div style={{ padding: '1.5rem', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ background: 'var(--secondary)', color: 'var(--muted-foreground)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🔒</span> Non visible par le candidat
-                  </div>
-                  <button 
-                    className="btn btn-sm btn-outline" 
-                    onClick={() => handleGenerate('context')}
-                    disabled={isGenerating.context}
-                    style={{ gap: '6px' }}
-                  >
-                    {isGenerating.context ? <Loader2 size={14} className="spin" /> : <Wand2 size={14} />}
-                    {t("dashboard.aiInterview.prefillFromJob")}
-                  </button>
+                <div style={{ background: 'var(--secondary)', color: 'var(--muted-foreground)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
+                  <span>🔒</span> {t("dashboard.aiInterview.hiddenFromCandidate")}
                 </div>
 
                 <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>{t("dashboard.aiInterview.contextHelp")}</p>

@@ -941,11 +941,6 @@ export async function submitAssessment(candidateId) {
 
     if (error) throw error;
 
-    // Generate CV feedback if CV was submitted
-    if (candidate.cv_raw_text && !candidate.cv_feedback) {
-      generateCvFeedback(candidateId, candidate).catch(console.error);
-    }
-
     // ★ Déduire les crédits "parcours complet" : 2 crédits par candidat qui soumet
     // son évaluation, quel que soit le détail des modules. Idempotent par candidat
     // (flag credits_charged_tests dans deductCredits).
@@ -996,29 +991,6 @@ export async function submitManualVideoScore(candidateId, responseId, scoreOutOf
   } catch (err) {
     console.error("submitManualVideoScore error:", err);
     return { success: false, error: err.message };
-  }
-}
-
-/**
- * Generate a brief candidate-facing CV feedback (async, non-blocking)
- */
-async function generateCvFeedback(candidateId, candidate) {
-  try {
-    const supabase = await createClient();
-    const jobCriteria = candidate.jobs?.extracted_criteria || {};
-
-    const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 300,
-      temperature: 0.3,
-      system: `Tu es un recruteur bienveillant. Rédige un court feedback (2-3 phrases max) pour un candidat après l'analyse de son CV pour le poste de ${jobCriteria.title || candidate.jobs?.title || "ce poste"}. Sois encourageant et constructif. Ne mentionne pas de score. Écris directement le feedback sans phrase d'introduction.`,
-      messages: [{ role: "user", content: `CV analysé :\n${candidate.cv_raw_text?.substring(0, 500)}` }],
-    });
-
-    const feedback = response.content[0].text.trim();
-    await supabase.from("candidates").update({ cv_feedback: feedback }).eq("id", candidateId);
-  } catch (err) {
-    console.error("generateCvFeedback error:", err);
   }
 }
 
