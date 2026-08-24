@@ -251,7 +251,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
     setGenEvents([]);
     setRegenFaites([]);
     setMessages(etatExp?.existe
-      ? [{ role: "assistant", content: [{ type: "text", text: accueilAjustement(etatExp, titrePoste) }] }]
+      ? [{ role: "assistant", content: [{ type: "text", text: accueilAjustement(t, etatExp, titrePoste) }] }]
       : [{ role: "assistant", content: [{ type: "text", text: t("dashboard.chatCreator.cleared") }] }]);
   };
 
