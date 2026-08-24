@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { UI_LOCALES, DEFAULT_UI_LOCALE, LOCALE_COOKIE, LOCALE_HEADER } from "@/lib/i18n/config";
+import { localiserChemin, canoniserChemin } from "@/lib/i18n/routes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Deux responsabilités, dans cet ordre : la LANGUE, puis la SESSION.
@@ -69,8 +70,12 @@ export async function proxy(request) {
     // 307 et non 308 : la locale d'un même chemin peut changer (le recruteur
     // bascule sa langue), une redirection permanente serait mise en cache par
     // le navigateur et le figerait.
+    // Le chemin est traduit AVANT la redirection : viser /en/accueil pour
+    // rebondir ensuite sur /en/home ferait deux sauts, et le premier laisserait
+    // un segment français dans l'historique du navigateur.
     const url = request.nextUrl.clone();
-    url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
+    const cible = pathname === "/" ? "" : localiserChemin(pathname, locale);
+    url.pathname = `/${locale}${cible}`;
     return NextResponse.redirect(url, 307);
   }
 
@@ -81,7 +86,26 @@ export async function proxy(request) {
   const requestHeaders = new Headers(request.headers);
   if (prefixe) requestHeaders.set(LOCALE_HEADER, prefixe);
 
-  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
+  // ── Segments traduits ─────────────────────────────────────────────────────
+  // /en/home doit s'afficher tel quel dans la barre d'adresse, mais Next ne
+  // sait faire correspondre qu'un chemin du système de fichiers, lequel est en
+  // français. D'où un REWRITE, pas une redirection : le navigateur garde
+  // /en/home, Next reçoit /en/accueil.
+  const cheminSansPrefixe = prefixe ? pathname.slice(prefixe.length + 1) || "/" : pathname;
+  const chemin = prefixe ? canoniserChemin(cheminSansPrefixe, prefixe) : pathname;
+  const doitReecrire = prefixe && chemin !== cheminSansPrefixe;
+
+  // Une seule fabrique de réponse : le client Supabase la reconstruit quand il
+  // pose un cookie de session, et les deux versions doivent réécrire pareil —
+  // sinon un simple rafraîchissement de session renverrait une 404.
+  const reponseDeBase = () => {
+    if (!doitReecrire) return NextResponse.next({ request: { headers: requestHeaders } });
+    const url = request.nextUrl.clone();
+    url.pathname = `/${prefixe}${chemin === "/" ? "" : chemin}`;
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  };
+
+  let supabaseResponse = reponseDeBase();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -95,7 +119,7 @@ export async function proxy(request) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
+          supabaseResponse = reponseDeBase();
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -112,7 +136,8 @@ export async function proxy(request) {
   // Le chemin est comparé SANS son préfixe de langue : /fr/login et /en/login
   // sont la même page publique, et une comparaison sur le chemin brut les
   // aurait toutes deux prises pour des routes protégées.
-  const chemin = prefixe ? pathname.slice(prefixe.length + 1) || "/" : pathname;
+  // `chemin` est calculé plus haut, en CANONIQUE : les routes publiques
+  // ci-dessous sont donc écrites une seule fois, en français.
 
   // Routes publiques : tout le parcours candidat. Un candidat n'a PAS de compte —
   // son identité est son interview_token, vérifié côté serveur à chaque appel
@@ -141,14 +166,16 @@ export async function proxy(request) {
   // Redirect unauthenticated users to login
   if (!user && !isPublic && chemin !== "/") {
     const url = request.nextUrl.clone();
-    url.pathname = `/${prefixe || DEFAULT_UI_LOCALE}/login`;
+    const cible = prefixe || DEFAULT_UI_LOCALE;
+    url.pathname = `/${cible}${localiserChemin("/login", cible)}`;
     return NextResponse.redirect(url);
   }
 
   // Redirect authenticated users away from auth pages
   if (user && (chemin === "/login" || chemin === "/register" || chemin === "/")) {
     const url = request.nextUrl.clone();
-    url.pathname = `/${prefixe || DEFAULT_UI_LOCALE}/accueil`;
+    const cible = prefixe || DEFAULT_UI_LOCALE;
+    url.pathname = `/${cible}${localiserChemin("/accueil", cible)}`;
     return NextResponse.redirect(url);
   }
 

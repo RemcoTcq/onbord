@@ -18,6 +18,7 @@ import { useRouter as useNextRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { useI18n } from "./I18nProvider";
 import { UI_LOCALES } from "./config";
+import { localiserChemin, canoniserChemin } from "./routes";
 
 const SANS_PREFIXE = ["/apply", "/assessment", "/interview", "/run", "/join", "/api", "/auth"];
 
@@ -30,17 +31,41 @@ function resteTelQuel(href) {
   return UI_LOCALES.includes(premier);                  // déjà préfixé
 }
 
-/** "/jobs" + "en" → "/en/jobs". Idempotent. */
+/**
+ * "/jobs" + "en" → "/en/jobs", "/accueil" + "en" → "/en/home". Idempotent.
+ *
+ * Les href sont écrits UNE fois, en français, partout dans le code — c'est la
+ * forme canonique, celle du système de fichiers. La traduction du chemin se
+ * fait ici, au dernier moment : un composant n'a jamais à connaître la langue
+ * courante pour produire un lien juste.
+ */
 export function withLocale(href, locale) {
   if (resteTelQuel(href)) return href;
-  return href === "/" ? `/${locale}` : `/${locale}${href}`;
+  const [chemin, suffixe = ""] = separerSuffixe(href);
+  const traduit = localiserChemin(chemin, locale);
+  return (traduit === "/" ? `/${locale}` : `/${locale}${traduit}`) + suffixe;
 }
 
-/** Retire le préfixe : "/en/jobs" → "/jobs". Sert au changement de langue. */
+/** Isole la query et l'ancre : seul le CHEMIN se traduit. */
+function separerSuffixe(href) {
+  const i = href.search(/[?#]/);
+  return i === -1 ? [href, ""] : [href.slice(0, i), href.slice(i)];
+}
+
+/**
+ * Retire le préfixe ET repasse le chemin en canonique :
+ * "/en/home" → "/accueil". Sert au changement de langue et à la détection du
+ * lien actif.
+ *
+ * Le retour en français n'est pas cosmétique : la barre latérale et les
+ * onglets du compte comparent le chemin courant à des href écrits en dur, en
+ * français. Sans canonisation, aucun lien ne serait jamais actif en anglais.
+ */
 export function stripLocale(pathname) {
   const premier = (pathname || "").split("/")[1];
   if (!UI_LOCALES.includes(premier)) return pathname || "/";
-  return pathname.slice(premier.length + 1) || "/";
+  const sansPrefixe = pathname.slice(premier.length + 1) || "/";
+  return canoniserChemin(sansPrefixe, premier);
 }
 
 /** Remplace la locale d'un chemin : ("/en/jobs/12", "fr") → "/fr/jobs/12". */
