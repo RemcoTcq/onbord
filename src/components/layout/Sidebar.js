@@ -29,7 +29,6 @@ import { useT } from "@/lib/i18n/I18nProvider";
 const navItems = [
   { labelKey: "dashboard.nav.home", href: "/accueil", icon: Home },
   { labelKey: "dashboard.nav.jobs", href: "/jobs", icon: Briefcase },
-  { labelKey: "dashboard.nav.talents", href: "/talents", icon: Users },
   { labelKey: "dashboard.nav.experiences", href: "/assessments", icon: BookOpen },
 ];
 

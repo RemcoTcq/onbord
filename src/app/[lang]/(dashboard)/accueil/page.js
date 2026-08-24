@@ -29,7 +29,6 @@ const SHORTCUT_LABELS = {
   new_job: "dashboard.nav.newJob",
   jobs: "dashboard.nav.jobs",
   assessments: "dashboard.nav.assessments",
-  talents: "dashboard.home.talentsShortcut",
   settings: "dashboard.nav.settings",
 };
 
@@ -98,7 +97,6 @@ function AddShortcutModal({ onClose, onAdd, activeJobs }) {
     { id: 'new_job', iconName: 'Plus', href: "/jobs/nouveau" },
     { id: 'jobs', iconName: 'Briefcase', href: "/jobs" },
     { id: 'assessments', iconName: 'FileText', href: "/assessments" },
-    { id: 'talents', iconName: 'Users', href: "/candidats" },
     { id: 'settings', iconName: 'Settings2', href: "/compte/profil" },
   ];
 
@@ -215,7 +213,13 @@ export default function Accueil() {
     loadData();
     const savedShortcuts = localStorage.getItem("onbord_custom_shortcuts");
     if (savedShortcuts) {
-      try { setCustomShortcuts(JSON.parse(savedShortcuts)); } catch (e) {}
+      try {
+        // Le raccourci « Talents » a été retiré avec la fonctionnalité. Il vit
+        // dans le localStorage du navigateur, pas en base : sans ce filtre, un
+        // recruteur qui l'avait ajouté garderait un bouton sans libellé
+        // pointant vers une route qui n'existe plus.
+        setCustomShortcuts(JSON.parse(savedShortcuts).filter((s) => s.id !== "talents"));
+      } catch (e) {}
     }
   }, []);
 

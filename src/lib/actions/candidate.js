@@ -667,40 +667,6 @@ export async function getJobDetail(jobId) {
   }
 }
 
-/**
- * URL signée du CV d'un candidat, pour les écrans qui chargent le candidat
- * depuis le navigateur (pool de talents) et n'ont donc pas d'URL exploitable :
- * `resumes` est un bucket privé.
- *
- * L'ownership n'est pas revérifié à la main : la lecture passe par le client
- * SOUMIS À RLS, donc elle ne renvoie une ligne que si le recruteur connecté
- * possède ce candidat. La signature, elle, exige le service_role.
- */
-export async function getCvSignedUrl(candidateId) {
-  try {
-    if (!candidateId) return { success: false, error: "candidateId requis" };
-
-    const supabase = await createClient();
-    const { data: candidate } = await supabase
-      .from('candidates')
-      .select('cv_url, cv_storage_path')
-      .eq('id', candidateId)
-      .maybeSingle();
-
-    if (!candidate) return { success: false, error: "Accès refusé" };
-
-    const url = await urlSignee(
-      createAdminClient(),
-      "resumes",
-      candidate.cv_storage_path || candidate.cv_url
-    );
-    return url ? { success: true, url } : { success: false, error: "CV introuvable" };
-  } catch (error) {
-    console.error("getCvSignedUrl error:", error);
-    return { success: false, error: "Erreur technique" };
-  }
-}
-
 // Page publique /apply/<job_id> : l'appelant est un candidat ANONYME.
 //
 // Cette action faisait `.select('*')` avec le client soumis à RLS, donc en rôle

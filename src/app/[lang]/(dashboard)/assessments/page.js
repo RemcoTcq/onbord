@@ -115,8 +115,8 @@ export default function AssessmentsHubPage() {
   }
 
   // ─── Liste (accueil de la section) ───
-  // Même mise en page que les autres menus de la plateforme (cf. /talents) :
-  // en-tête + action à droite, puis la liste. Le chat n'est plus ici.
+  // Même mise en page que les autres menus de la plateforme : en-tête +
+  // action à droite, puis la liste. Le chat n'est plus ici.
   if (mode === "list") {
     const filtered = experiences.filter((e) =>
       !search || (e.jobs?.title || "").toLowerCase().includes(search.toLowerCase())

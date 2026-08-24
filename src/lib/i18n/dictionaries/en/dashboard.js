@@ -5,7 +5,6 @@ const dashboard = {
     brand: "Onbord",
     home: "Home",
     jobs: "Jobs",
-    talents: "Talent pool",
     experiences: "Experiences",
     assessments: "Assessments",
     account: "My account",
@@ -32,7 +31,6 @@ const dashboard = {
     noLocation: "No location specified",
     noActiveJobs: "No active jobs",
     open: "Open",
-    talentsShortcut: "Candidates / Talent pool",
     greeting: "Hello, {name}",
   },
 
@@ -453,35 +451,6 @@ const dashboard = {
       "Changing the language now only affects future jobs: text already generated will stay in {locale}.",
   },
 
-  talents: {
-    title: "Talent pool",
-    subtitle: "Your saved talent pool for future hires.",
-    search: "Search the talent pool…",
-    noneSaved: "No talent saved yet",
-    noResults: "No results",
-    noneSavedHelp: "Save candidates from your jobs to find them here.",
-    noResultsHelp: "Try a different search term.",
-
-    cvScore: "CV score",
-    testsScore: "Tests score",
-    interviewScore: "Interview score",
-
-    removeFromPool: "Remove from pool",
-    removeConfirm: "Remove this person from the pool?",
-    removed: "Removed from the talent pool",
-    removeError: "Something went wrong while removing",
-
-    notFound: "Talent not found",
-    backToTalents: "Back to the talent pool",
-    linkedJob: "Linked job",
-    addedOn: "Added to the pool on {date}",
-
-    deleteForever: "Delete",
-    deleteForeverConfirm:
-      "Careful: this cannot be undone and will delete ALL data linked to this person (CV, scores, interviews, logs). Continue?",
-    deletedForever: "Talent permanently deleted",
-    error: "Error",
-  },
 
   account: {
     title: "My account",

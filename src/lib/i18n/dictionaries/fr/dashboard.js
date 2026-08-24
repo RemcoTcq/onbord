@@ -10,7 +10,6 @@ const dashboard = {
     brand: "Onbord",
     home: "Accueil",
     jobs: "Offres d'emploi",
-    talents: "Talents",
     experiences: "Expériences",
     assessments: "Évaluations",
     account: "Mon compte",
@@ -38,7 +37,6 @@ const dashboard = {
     noLocation: "Localisation non précisée",
     noActiveJobs: "Aucune offre d'emploi active",
     open: "Ouverte",
-    talentsShortcut: "Candidats / Talents",
     greeting: "Bonjour, {name}",
   },
 
@@ -507,36 +505,6 @@ const dashboard = {
       "Changer la langue maintenant n'affecte que les offres à venir : les textes déjà générés resteront en {locale}.",
   },
 
-  // ── Vivier de talents ─────────────────────────────────────────────────────
-  talents: {
-    title: "Talents",
-    subtitle: "Votre base de talents sauvegardés pour de futurs recrutements.",
-    search: "Rechercher un talent…",
-    noneSaved: "Aucun talent sauvegardé",
-    noResults: "Aucun résultat",
-    noneSavedHelp: "Sauvegardez des candidats depuis vos jobs pour les retrouver ici.",
-    noResultsHelp: "Essayez un autre terme de recherche.",
-
-    cvScore: "Score CV",
-    testsScore: "Score Tests",
-    interviewScore: "Score Interview",
-
-    removeFromPool: "Retirer du pool",
-    removeConfirm: "Retirer ce talent du pool ?",
-    removed: "Talent retiré du pool",
-    removeError: "Erreur lors de la suppression",
-
-    notFound: "Talent introuvable",
-    backToTalents: "Retour aux talents",
-    linkedJob: "Job associé",
-    addedOn: "Ajouté aux talents le {date}",
-
-    deleteForever: "Supprimer",
-    deleteForeverConfirm:
-      "Attention : cette action est irréversible et supprimera TOUTES les données liées à ce talent (CV, scores, entretiens, journaux). Continuer ?",
-    deletedForever: "Talent supprimé définitivement",
-    error: "Erreur",
-  },
 
   // ── Mon compte ────────────────────────────────────────────────────────────
   account: {
