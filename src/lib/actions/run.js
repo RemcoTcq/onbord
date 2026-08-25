@@ -6,6 +6,7 @@ import { deductCredits } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
+import { executeBatch } from "@/lib/judge0";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -27,6 +28,18 @@ function sanitizeStepForCandidate(step) {
       fields: (config.crm.fields || []).map(({ expected, nature, ...rest }) => rest),
     };
     delete config.crm.traps;
+  }
+  // Sandbox code : les cas de test CACHÉS ne doivent pas exister dans le HTML du
+  // candidat — sinon il code pour la sortie attendue au lieu de résoudre le
+  // problème, et les cas cachés ne servent plus à rien. Seul leur NOMBRE part.
+  if (config.code) {
+    const tests = config.code.tests || [];
+    config.code = {
+      language: config.code.language,
+      starter_code: config.code.starter_code,
+      tests: tests.filter((t) => !t.hidden).map(({ name, stdin, expected_output }) => ({ name, stdin, expected_output })),
+      hidden_count: tests.filter((t) => t.hidden).length,
+    };
   }
   return {
     id: step.id,
@@ -335,6 +348,16 @@ export async function saveStepResponse(token, stepId, payload) {
       textAnswer = crmAnswerToText(crm, submitted);
     }
 
+    // Sandbox code : le résultat d'exécution (meta.code) appartient au serveur,
+    // il est écrit par runCode(). Cette action-ci ne transporte que le source,
+    // et son `meta` vide écraserait les tests passés — d'où la reprise.
+    if (step.sandbox_kind === "code") {
+      const { data: existing } = await admin
+        .from("run_step_responses").select("meta")
+        .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+      if (existing?.meta?.code) meta = { ...meta, code: existing.meta.code };
+    }
+
     const row = {
       run_id: ctx.run.id,
       step_id: stepId,
@@ -389,6 +412,104 @@ export async function checkCrmAnswer(token, stepId) {
     return { success: true, hasMismatch: true };
   } catch (err) {
     console.error("checkCrmAnswer error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Sandbox code : exécution réelle du code du candidat ─────────────────────
+// Le nombre d'exécutions est plafonné SERVEUR. Deux raisons : chaque exécution
+// est un appel facturé chez le fournisseur, et un candidat qui relance à
+// l'aveugle 200 fois ne démontre plus rien — le nombre d'essais est lui-même un
+// signal, lisible dans le rapport.
+const MAX_CODE_RUNS = 12;
+
+export async function runCode(token, stepId, source) {
+  try {
+    const admin = createAdminClient();
+    const ctx = await resolveCandidateAndRun(admin, token);
+    if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
+    if (ctx.run.status !== "in_progress") return { success: false, error: "Run déjà soumis" };
+
+    const { data: step } = await admin
+      .from("experience_steps").select("id, sandbox_kind, config")
+      .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
+    // Les tests viennent de la BASE, jamais du client : c'est tout l'intérêt
+    // d'avoir des cas cachés.
+    const codeConfig = step?.sandbox_kind === "code" ? step.config?.code : null;
+    const tests = codeConfig?.tests || [];
+    if (!tests.length) return { success: false, error: "no_tests" };
+
+    const { data: existing } = await admin
+      .from("run_step_responses").select("meta")
+      .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+    const attempts = existing?.meta?.code?.attempts || 0;
+    if (attempts >= MAX_CODE_RUNS) return { success: false, error: "limit_reached", attemptsLeft: 0 };
+
+    const exec = await executeBatch({ source, language: codeConfig.language, tests });
+    if (!exec.success) return { success: false, error: exec.error, attemptsLeft: MAX_CODE_RUNS - attempts };
+
+    // Résultats complets côté serveur (entrées et attendus compris) : c'est ce
+    // que relira le scoring. La version renvoyée au candidat est filtrée plus bas.
+    const executions = tests.map((test, i) => ({
+      name: test.name || `Test ${i + 1}`,
+      hidden: !!test.hidden,
+      passed: exec.results[i].passed,
+      verdict: exec.results[i].verdict,
+      stdout: exec.results[i].stdout,
+      stderr: exec.results[i].stderr,
+      compile_output: exec.results[i].compile_output,
+      time: exec.results[i].time,
+    }));
+    const passed = executions.filter((e) => e.passed).length;
+
+    const codeMeta = {
+      language: codeConfig.language || null,
+      attempts: attempts + 1,
+      passed,
+      total: tests.length,
+      executions,
+      last_run_at: new Date().toISOString(),
+    };
+
+    // On persiste aussi le source : un candidat qui exécute puis ferme l'onglet
+    // ne doit pas perdre son travail.
+    const { error } = await admin.from("run_step_responses").upsert({
+      run_id: ctx.run.id,
+      step_id: stepId,
+      response_format: "code",
+      text_answer: source ?? "",
+      meta: { ...(existing?.meta || {}), code: codeMeta },
+      status: "submitted",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "run_id,step_id" });
+    if (error) throw error;
+
+    // Ce qui redescend au navigateur : le détail des cas VISIBLES, et pour les
+    // cas cachés uniquement réussi/échoué. Ni leur entrée, ni leur attendu.
+    const visibleTests = tests.filter((t) => !t.hidden);
+    const visible = executions.filter((e) => !e.hidden);
+    const hidden = executions.filter((e) => e.hidden);
+    return {
+      success: true,
+      attemptsLeft: MAX_CODE_RUNS - codeMeta.attempts,
+      summary: { passed, total: tests.length, hiddenPassed: hidden.filter((e) => e.passed).length, hiddenTotal: hidden.length },
+      // Une erreur de compilation frappe tous les cas de la même façon : on la
+      // remonte une seule fois plutôt que répétée sur chaque ligne.
+      compileError: executions.find((e) => e.verdict === "compile_error")?.compile_output || null,
+      results: visible.map((e, i) => ({
+        name: e.name,
+        passed: e.passed,
+        verdict: e.verdict,
+        stdin: visibleTests[i]?.stdin ?? "",
+        expected: visibleTests[i]?.expected_output ?? "",
+        stdout: e.stdout,
+        stderr: e.stderr,
+        time: e.time,
+      })),
+      hiddenResults: hidden.map((e) => ({ passed: e.passed, verdict: e.verdict })),
+    };
+  } catch (err) {
+    console.error("runCode error:", err);
     return { success: false, error: err.message };
   }
 }

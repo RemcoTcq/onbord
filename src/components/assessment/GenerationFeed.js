@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database } from "lucide-react";
+import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 // ─── Consommation du flux de génération ──────────────────────────────────────
@@ -76,7 +76,7 @@ const STEP_KIND_KEY = {
 };
 
 // Les entrées "enfant" sont indentées sous l'étape à laquelle elles se rattachent.
-const NESTED = new Set(['skill', 'criterion', 'source', 'field', 'trap']);
+const NESTED = new Set(['skill', 'criterion', 'source', 'field', 'trap', 'code_test']);
 
 // Renvoie l'élément, pas le composant : un composant créé pendant le rendu
 // serait remonté à chaque passe (react-hooks/static-components).
@@ -89,6 +89,8 @@ function feedIcon(kind, size = 13) {
     case 'step': return <ListChecks size={size} />;
     case 'skill': return <Target size={size} />;
     case 'crm_start': return <Contact size={size} />;
+    case 'code_start':
+    case 'code_test': return <Terminal size={size} />;
     case 'trap': return <AlertTriangle size={size} />;
     case 'version':
     case 'saved': return <Database size={size} />;

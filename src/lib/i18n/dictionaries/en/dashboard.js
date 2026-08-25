@@ -417,6 +417,21 @@ const dashboard = {
     qcmHelp:
       "Select the correct answer with the radio button. The candidate is scored automatically (right/wrong).",
 
+    code: {
+      language: "Execution language",
+      starter: "Starter code",
+      starterPlaceholder: "Code shown to the candidate when the step loads.",
+      tests: "Test cases",
+      testCount: "{visible} visible, {hidden} hidden",
+      testNamePlaceholder: "Case name (e.g. empty list)",
+      hidden: "Hidden",
+      stdin: "Standard input",
+      expected: "Expected output",
+      addTest: "Add a test case",
+      warnNoVisible: "No visible case: the candidate will not know what output format to produce.",
+      warnNoHidden: "No hidden case: printing the displayed answers would be enough to pass everything.",
+      help: "Grading runs the code for real: a wrong expected output fails every candidate. Trailing whitespace and a final empty line are ignored when comparing.",
+    },
     crm: {
       recordTitle: "CRM record — title",
       recordTitlePlaceholder: "Prospect record — new opportunity",

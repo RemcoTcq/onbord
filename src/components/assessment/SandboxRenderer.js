@@ -1,16 +1,17 @@
 "use client";
 
-import { MessageSquare, Terminal, Layout } from "lucide-react";
+import { MessageSquare, Layout } from "lucide-react";
 import EmailComposer from "./EmailComposer";
 import CrmSandbox from "./CrmSandbox";
+import CodeSandbox from "./CodeSandbox";
 import { field, DEFAULT_PRIMARY } from "./candidateUi";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 // Renderers de mise en situation. Même langage visuel que l'onboarding : champs
 // #fafafa (radius 12), focus-ring de marque (classe nodal-input), liseré de
-// marque en haut du conteneur. L'éditeur de code (pas d'équivalent onboarding)
-// reste sombre mais garde le même esprit (radius, espacements, liseré).
-export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY, config, compact = false }) {
+// marque en haut du conteneur. L'éditeur de code vit dans CodeSandbox : il
+// exécute réellement du code, ce n'est plus un simple renderer de saisie.
+export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY, config, compact = false, onRun }) {
   const t = useT();
   if (format === "email_reply") {
     return <EmailComposer value={value} onChange={onChange} primary={primary} />;
@@ -69,28 +70,10 @@ export default function SandboxRenderer({ format, value, onChange, primary = DEF
     );
   }
 
+  // Éditeur de code : composant à part, parce qu'il n'est plus un simple champ
+  // de saisie — il exécute réellement le code et rend des résultats de tests.
   if (format === "code" || format === "code_editor") {
-    // Pas d'équivalent onboarding : éditeur sombre lisible, même esprit (liseré, radius).
-    return (
-      <div style={{ border: "1px solid #334155", borderTop: `3px solid ${primary}`, borderRadius: 16, overflow: "hidden", background: "#0f172a" }}>
-        <div style={{ background: "#1e293b", color: "#cbd5e1", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8, fontSize: 12, borderBottom: "1px solid #334155" }}>
-          <Terminal size={14} />
-          <span>{t("candidate.sandbox.codeTitle")}</span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }} />
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#eab308" }} />
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }} />
-          </div>
-        </div>
-        <textarea
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={t("candidate.sandbox.codePlaceholder")}
-          style={{ width: "100%", padding: "16px", minHeight: 300, maxHeight: 480, overflowY: "auto", boxSizing: "border-box", overflowWrap: "break-word", border: "none", resize: "vertical", fontSize: 14, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", lineHeight: 1.6, outline: "none", background: "#0f172a", color: "#e2e8f0" }}
-          spellCheck="false"
-        />
-      </div>
-    );
+    return <CodeSandbox config={config?.code} value={value} onChange={onChange} onRun={onRun} primary={primary} />;
   }
 
   // Texte standard — champ de saisie de l'onboarding.

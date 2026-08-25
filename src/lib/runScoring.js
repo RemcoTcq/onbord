@@ -25,6 +25,18 @@ const JUSTIFICATIONS_AUTO = {
     crmFieldError: (label, given, expected) =>
       `${label} (saisi « ${given ?? "vide"} », attendu « ${expected} »)`,
     crmTrapMissed: (champs) => ` Dont l'information contradictoire du brief : ${champs}.`,
+    codeDimension: "Tests automatisés",
+    codeAllPassed: (total, essais) => `Les ${total} cas de test passent (${essais} exécution${essais > 1 ? "s" : ""}).`,
+    codePartial: (passed, total, essais, echecs) =>
+      `${passed}/${total} cas de test passent (${essais} exécution${essais > 1 ? "s" : ""}). Échecs : ${echecs}.`,
+    codeNeverRun: "Le candidat n'a jamais lancé les tests : la correction fonctionnelle n'a pas pu être établie.",
+    codeFailure: (nom, verdict) => (verdict === "ok" ? nom : `${nom} (${verdict})`),
+    codeVerdicts: {
+      timeout: "temps dépassé",
+      runtime_error: "erreur à l'exécution",
+      compile_error: "ne compile pas",
+      error: "échec d'exécution",
+    },
     empty: "vide",
   },
   en: {
@@ -39,9 +51,46 @@ const JUSTIFICATIONS_AUTO = {
     crmFieldError: (label, given, expected) =>
       `${label} (entered "${given ?? "empty"}", expected "${expected}")`,
     crmTrapMissed: (champs) => ` Including the contradictory detail from the brief: ${champs}.`,
+    codeDimension: "Automated tests",
+    codeAllPassed: (total, essais) => `All ${total} test cases pass (${essais} run${essais > 1 ? "s" : ""}).`,
+    codePartial: (passed, total, essais, echecs) =>
+      `${passed}/${total} test cases pass (${essais} run${essais > 1 ? "s" : ""}). Failures: ${echecs}.`,
+    codeNeverRun: "The candidate never ran the tests, so functional correctness could not be established.",
+    codeFailure: (nom, verdict) => (verdict === "ok" ? nom : `${nom} (${verdict})`),
+    codeVerdicts: {
+      timeout: "timed out",
+      runtime_error: "runtime error",
+      compile_error: "does not compile",
+      error: "execution failed",
+    },
     empty: "empty",
   },
 };
+
+// Niveau BARS d'un taux de tests passés. Mêmes paliers que la correction CRM :
+// un rapport où deux corrections déterministes se lisent côte à côte doit les
+// graduer pareil, sinon "3/5" veut dire deux choses différentes selon l'étape.
+function testsBarsLevel(score) {
+  if (score >= 95) return 5;
+  if (score >= 75) return 4;
+  if (score >= 50) return 3;
+  if (score >= 25) return 2;
+  return 1;
+}
+
+// Verdict d'exécution rendu lisible pour le prompt de scoring et le rapport.
+// Un code qui ne compile pas ne se juge PAS comme un code qui tourne et se
+// trompe : la distinction doit survivre jusqu'à l'évaluateur.
+function codeRunSummary(step, resp, L) {
+  const code = resp?.meta?.code;
+  const total = (step.config?.code?.tests || []).length;
+  if (!total) return null;
+  if (!code) return { never_run: true, total, passed: 0, attempts: 0, failures: [] };
+  const failures = (code.executions || [])
+    .filter((e) => !e.passed)
+    .map((e) => L.codeFailure(e.name, L.codeVerdicts[e.verdict] || e.verdict));
+  return { never_run: false, total: code.total ?? total, passed: code.passed ?? 0, attempts: code.attempts ?? 0, failures };
+}
 
 // Vérifie qu'un verbatim est une sous-chaîne réelle de la réponse du candidat
 // (jamais inventé). Normalise casse/espaces/ponctuation.
@@ -66,6 +115,16 @@ function candidateAnswerText(step, resp) {
     return idx != null ? `Réponse choisie : ${opt ?? `option ${idx}`}` : "(pas de réponse)";
   }
   if (step.response_format === "choice") return resp.meta?.choice ? `Réponse : ${resp.meta.choice}` : "(pas de réponse)";
+  // Sandbox code : l'évaluateur reçoit le code ET son résultat d'exécution. Il
+  // ne doit pas juger si "ça marche" — c'est mesuré — mais comment c'est écrit.
+  if (step.sandbox_kind === "code" && step.config?.code) {
+    const run = resp.meta?.code;
+    const verdict = run
+      ? `Exécution : ${run.passed}/${run.total} cas de test passés en ${run.attempts} exécution(s).` +
+        (run.executions || []).filter((e) => !e.passed).map((e) => `\n  - échec « ${e.name} » : ${e.verdict}`).join("")
+      : "Exécution : le candidat n'a jamais lancé les tests.";
+    return `${resp.text_answer || "(pas de code)"}\n\n[${verdict}]`;
+  }
   return resp.text_answer || "(pas de réponse)";
 }
 
@@ -191,6 +250,32 @@ export async function scoreRun(runId) {
     });
   }
 
+  // ── Sandbox code : correction déterministe par EXÉCUTION ──
+  // Même principe que le QCM et que les champs factuels du CRM : ce qui est
+  // mesurable ne passe pas par un LLM. Le modèle, lui, juge la qualité du code
+  // (lisibilité, cas limites, structure) sur les sous-dimensions du step.
+  const codeSteps = (steps || []).filter((s) => s.sandbox_kind === "code" && (s.config?.code?.tests || []).length);
+  const codeScores = [];
+  for (const s of codeSteps) {
+    const run = codeRunSummary(s, respByStep[s.id], L);
+    if (!run) continue;
+    const score = run.total ? Math.round((run.passed / run.total) * 100) : 0;
+    codeScores.push({
+      step_id: s.id,
+      skill_name: skillOf(s),
+      sub_dimension_name: L.codeDimension,
+      bars_level: run.never_run ? 1 : testsBarsLevel(score),
+      score: run.never_run ? 0 : score,
+      justification: run.never_run
+        ? L.codeNeverRun
+        : run.failures.length === 0
+          ? L.codeAllPassed(run.total, run.attempts)
+          : L.codePartial(run.passed, run.total, run.attempts, run.failures.join(" ; ")),
+      verbatim: "",
+      verbatim_verified: false,
+    });
+  }
+
   // ── Construit la trajectoire pour le prompt (uniquement les steps non-QCM) ──
   const traj = scored.map((s, i) => {
     const resp = respByStep[s.id];
@@ -307,8 +392,9 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
     });
   }
 
-  // Fusionne les scores BARS (Claude) et les scores déterministes (QCM + CRM)
-  const allScores = [...critScores, ...qcmScores, ...crmScores];
+  // Fusionne les scores BARS (Claude) et les scores déterministes
+  // (QCM + champs factuels du CRM + tests exécutés du sandbox code)
+  const allScores = [...critScores, ...qcmScores, ...crmScores, ...codeScores];
 
   const overall = allScores.length
     ? Math.round(allScores.reduce((s, c) => s + c.score, 0) / allScores.length)

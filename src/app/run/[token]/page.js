@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifyingAnswers } from "@/lib/actions/run";
+import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifyingAnswers, runCode } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
@@ -435,6 +435,7 @@ export default function RunPage() {
                   compact={isCrm && isSidebarMode}
                   value={isCrm ? (ans.crm || { fields: {}, notes: "" }) : ans.text}
                   onChange={(val) => setAnswer(isCrm ? "crm" : "text", val)}
+                  onRun={(source) => runCode(token, step.id, source)}
                   primary={primary}
                 />
               )}

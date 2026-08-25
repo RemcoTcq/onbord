@@ -16,6 +16,7 @@ import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
 import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "@/components/assessment/GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
+import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
 // Les libellés se résolvent au rendu — une constante de module figerait le
@@ -548,6 +549,14 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         />
       )}
 
+      {/* Éditeur de l'exercice de code */}
+      {local.sandbox_kind === "code" && (
+        <CodeExerciseEditor
+          code={local.config?.code}
+          onChange={(code) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), code } })); setDirty(true); }}
+        />
+      )}
+
       {/* Enregistrer */}
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
         <button className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -555,6 +564,106 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
           {dirty ? t("dashboard.experienceEditor.save") : t("dashboard.experienceEditor.saved")}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Éditeur de l'exercice de code. Même enjeu que l'éditeur CRM, en plus sévère :
+// la correction est faite par EXÉCUTION, donc une sortie attendue fausse fait
+// échouer tout le monde, y compris les meilleurs candidats — et ça ne se voit
+// qu'une fois l'expérience en ligne. C'est la partie à relire avant publication.
+function CodeExerciseEditor({ code, onChange }) {
+  const { t } = useI18n();
+  const c = code || { language: DEFAULT_LANGUAGE, starter_code: "", tests: [] };
+  const tests = c.tests || [];
+  const set = (patch) => onChange({ ...c, ...patch });
+  const setTest = (i, patch) => set({ tests: tests.map((tst, j) => (j === i ? { ...tst, ...patch } : tst)) });
+
+  const visibles = tests.filter((tst) => !tst.hidden).length;
+  const caches = tests.length - visibles;
+
+  const mono = { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "12.5px" };
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <label style={{ ...labelStyle, margin: "0 0 0.5rem" }}>{t("dashboard.experienceEditor.code.language")}</label>
+      <select value={c.language || DEFAULT_LANGUAGE} onChange={(e) => set({ language: e.target.value })} style={inputStyle}>
+        {Object.entries(CODE_LANGUAGES).map(([cle, l]) => <option key={cle} value={cle}>{l.label}</option>)}
+      </select>
+
+      <label style={{ ...labelStyle, margin: "0.75rem 0 0.5rem" }}>{t("dashboard.experienceEditor.code.starter")}</label>
+      <textarea
+        value={c.starter_code || ""}
+        onChange={(e) => set({ starter_code: e.target.value })}
+        rows={6}
+        placeholder={t("dashboard.experienceEditor.code.starterPlaceholder")}
+        style={{ ...inputStyle, ...mono, resize: "vertical" }}
+      />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.code.tests")}</label>
+        <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+          {t("dashboard.experienceEditor.code.testCount", { visible: visibles, hidden: caches })}
+        </span>
+      </div>
+
+      {/* Les deux façons de rendre l'exercice inexploitable, signalées sans bloquer. */}
+      {!visibles && (
+        <p style={{ fontSize: "11.5px", color: "#b45309", marginBottom: "0.5rem" }}>
+          {t("dashboard.experienceEditor.code.warnNoVisible")}
+        </p>
+      )}
+      {!caches && (
+        <p style={{ fontSize: "11.5px", color: "#b45309", marginBottom: "0.5rem" }}>
+          {t("dashboard.experienceEditor.code.warnNoHidden")}
+        </p>
+      )}
+
+      {tests.map((tst, i) => (
+        <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: "0.5rem" }}>
+            <input
+              value={tst.name || ""}
+              onChange={(e) => setTest(i, { name: e.target.value })}
+              placeholder={t("dashboard.experienceEditor.code.testNamePlaceholder")}
+              style={{ ...inputStyle, marginBottom: 0 }}
+            />
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", whiteSpace: "nowrap", color: "var(--muted-foreground)" }}>
+              <input type="checkbox" checked={!!tst.hidden} onChange={(e) => setTest(i, { hidden: e.target.checked })} />
+              {t("dashboard.experienceEditor.code.hidden")}
+            </label>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => set({ tests: tests.filter((_, j) => j !== i) })}
+              style={{ padding: "4px", color: "#dc2626" }}
+            ><Trash2 size={14} /></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <label style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.code.stdin")}</label>
+              <textarea value={tst.stdin || ""} onChange={(e) => setTest(i, { stdin: e.target.value })} rows={3}
+                style={{ ...inputStyle, ...mono, marginBottom: 0, resize: "vertical" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.code.expected")}</label>
+              <textarea value={tst.expected_output || ""} onChange={(e) => setTest(i, { expected_output: e.target.value })} rows={3}
+                style={{ ...inputStyle, ...mono, marginBottom: 0, resize: "vertical" }} />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={() => set({ tests: [...tests, { name: "", stdin: "", expected_output: "", hidden: false }] })}
+        style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+      >
+        <Plus size={13} /> {t("dashboard.experienceEditor.code.addTest")}
+      </button>
+
+      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
+        {t("dashboard.experienceEditor.code.help")}
+      </p>
     </div>
   );
 }

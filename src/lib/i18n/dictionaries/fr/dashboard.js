@@ -466,6 +466,21 @@ const dashboard = {
       "Sélectionnez la bonne réponse avec le bouton radio. Le candidat sera noté automatiquement (correct/incorrect).",
 
     // ── Sandbox CRM ─────────────────────────────────────────────────────
+    code: {
+      language: "Langage d'exécution",
+      starter: "Squelette de départ",
+      starterPlaceholder: "Code affiché au candidat au chargement de l'étape.",
+      tests: "Cas de test",
+      testCount: "{visible} visibles, {hidden} cachés",
+      testNamePlaceholder: "Nom du cas (ex. : liste vide)",
+      hidden: "Caché",
+      stdin: "Entrée standard",
+      expected: "Sortie attendue",
+      addTest: "Ajouter un cas de test",
+      warnNoVisible: "Aucun cas visible : le candidat ne saura pas quel format de sortie produire.",
+      warnNoHidden: "Aucun cas caché : il suffit d'imprimer les réponses affichées pour tout réussir.",
+      help: "La correction se fait par exécution réelle : une sortie attendue erronée fait échouer tous les candidats. Les espaces en fin de ligne et la ligne vide finale sont ignorés à la comparaison.",
+    },
     crm: {
       recordTitle: "Fiche CRM — titre de l'enregistrement",
       recordTitlePlaceholder: "Fiche prospect — nouvelle opportunité",
