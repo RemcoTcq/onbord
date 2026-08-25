@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { LOCALE_LABELS } from "@/lib/i18n/config";
 
 // ─── Consommation du flux de génération ──────────────────────────────────────
 // Partagé par les deux points d'entrée (chat de conception et génération
@@ -120,7 +121,41 @@ function feedText(t, e) {
     }
     case 'field': return t('dashboard.generationFeed.fieldLine', { label: e.label });
     case 'trap': return t('dashboard.generationFeed.trapLine', { label: e.label });
-    default: return e.label;
+
+    // Les événements de progression ne portent QUE des données : le serveur ne
+    // fabrique plus de phrase. Sans ça, la moitié du flux restait en français
+    // pour un recruteur anglophone — le contenu généré, lui, était bien dans la
+    // langue de l'offre.
+    case 'job':
+      return t(e.nbSkills ? 'dashboard.generationFeed.jobLine' : 'dashboard.generationFeed.jobLineNoSkill',
+        { title: e.title || t('dashboard.generationFeed.untitledJob'), count: e.nbSkills });
+    case 'context':
+      if (!e.charge) return t('dashboard.generationFeed.contextNone');
+      return e.industry
+        ? t('dashboard.generationFeed.contextLine', { industry: e.industry })
+        : t('dashboard.generationFeed.contextLoaded');
+    case 'brief': return t('dashboard.generationFeed.brief');
+    case 'locale':
+      return t('dashboard.generationFeed.localeLine', { label: LOCALE_LABELS[e.locale] || e.locale });
+    case 'design_start': return t('dashboard.generationFeed.designStart');
+    case 'design_done':
+      return t('dashboard.generationFeed.designDone', { count: e.nbEtapes })
+        + (e.minutes ? t('dashboard.generationFeed.designMinutes', { minutes: e.minutes }) : '');
+    case 'code_start':
+      return t('dashboard.generationFeed.codeStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
+    case 'crm_start':
+      return t('dashboard.generationFeed.crmStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
+    case 'code_test':
+      return t('dashboard.generationFeed.codeTest', { count: e.nbTests, hidden: e.nbCaches });
+    case 'retry': return t('dashboard.generationFeed.retry');
+    case 'version':
+      return t(e.version > 1 ? 'dashboard.generationFeed.newVersion' : 'dashboard.generationFeed.firstVersion',
+        { version: e.version });
+    case 'saved':
+      return t('dashboard.generationFeed.saved', { steps: e.nbEtapes, subDims: e.nbSubDims });
+    case 'done': return t('dashboard.generationFeed.done');
+
+    default: return e.label || '';
   }
 }
 

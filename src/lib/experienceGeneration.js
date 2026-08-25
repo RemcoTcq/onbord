@@ -11,7 +11,7 @@ import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { CRM_SKILL_NAME } from "@/lib/crmScoring";
 import { consigneLangueContenu } from "@/lib/i18n/prompt";
-import { coerceExperienceLocale, LOCALE_LABELS } from "@/lib/i18n/config";
+import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
@@ -306,7 +306,7 @@ async function generateCodeExercise({ title, description, companyContext, step, 
       // Un langage hors catalogue n'a pas d'identifiant chez l'exécuteur : on
       // retombe sur le défaut plutôt que de publier une étape inexécutable.
       if (!CODE_LANGUAGES[code.language]) code.language = DEFAULT_LANGUAGE;
-      onEvent?.({ kind: "code_test", label: `${tests.length} cas de test (${tests.filter((t) => t.hidden).length} cachés)` });
+      onEvent?.({ kind: "code_test", nbTests: tests.length, nbCaches: tests.filter((t) => t.hidden).length });
       return { success: true, code, usage };
     } catch (e) {
       lastErr = e.message;
@@ -502,7 +502,7 @@ export async function generateExperienceContent({ title, description, criteria, 
 
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    if (attempt > 1) onEvent?.({ kind: "retry", label: "Réponse incomplète — nouvelle tentative" });
+    if (attempt > 1) onEvent?.({ kind: "retry" });
     const scan = onEvent ? makeExperienceScanner(onEvent) : null;
     const response = await streamCompletion({
       system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
@@ -530,14 +530,15 @@ export async function generateExperienceContent({ title, description, criteria, 
         // maintenant leur scénario complet (sources, champs, piège).
         onEvent?.({
           kind: "design_done",
-          label: `Parcours complet : ${(parsed.steps || []).length} étapes${parsed.estimated_minutes ? `, ~${parsed.estimated_minutes} min` : ""}`,
+          nbEtapes: (parsed.steps || []).length,
+          minutes: parsed.estimated_minutes || null,
         });
 
         const extraUsages = [];
         for (const s of parsed.steps || []) {
           // Sandbox code : 2e passe elle aussi, pour la même raison que le CRM.
           if (s.sandbox_kind === "code") {
-            onEvent?.({ kind: "code_start", label: `Exercice de code : conception pour « ${s.title || "l'étape"} »` });
+            onEvent?.({ kind: "code_start", label: s.title || null });
             const exercice = await generateCodeExercise({ title, description, companyContext, step: s, locale, onEvent });
             if (!exercice.success) {
               // Pas d'exercice exécutable = pas de sandbox code. L'étape retombe
@@ -558,7 +559,7 @@ export async function generateExperienceContent({ title, description, criteria, 
             continue;
           }
           if (s.sandbox_kind !== "crm") continue;
-          onEvent?.({ kind: "crm_start", label: `Mise en situation CRM : rédaction du brief pour « ${s.title || "l'étape"} »` });
+          onEvent?.({ kind: "crm_start", label: s.title || null });
           const scenario = await generateCrmScenario({ title, description, companyContext, step: s, locale, onEvent });
           if (!scenario.success) {
             // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
@@ -621,10 +622,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 
     const crit = job.extracted_criteria || {};
     const nbSkills = (crit.hard_skills || []).length + (crit.soft_skills || []).length;
-    onEvent?.({
-      kind: "job",
-      label: `Offre analysée : ${job.title || "poste sans titre"}${nbSkills ? ` — ${nbSkills} compétences extraites` : " — aucune compétence extraite"}`,
-    });
+    onEvent?.({ kind: "job", title: job.title || null, nbSkills });
 
     const { data: profile } = await supabase
       .from("users")
@@ -635,19 +633,18 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     const ctx = profile?.company_ai_context || {};
     onEvent?.({
       kind: "context",
-      label: ctx.industry || ctx.description
-        ? `Contexte entreprise chargé${ctx.industry ? ` — ${ctx.industry}` : ""}`
-        : "Aucun contexte entreprise : génération sur la seule offre",
+      charge: !!(ctx.industry || ctx.description),
+      industry: ctx.industry || null,
     });
     if (additionalContext) {
-      onEvent?.({ kind: "brief", label: "Précisions du recruteur prises en compte en priorité" });
+      onEvent?.({ kind: "brief" });
     }
     // Langue du parcours : elle appartient à l'offre, jamais au recruteur qui
     // lance la génération. Un recruteur en interface anglaise qui génère une
     // offre néerlandaise doit obtenir une expérience en néerlandais.
     const locale = coerceExperienceLocale(job.experience_locale);
-    onEvent?.({ kind: "locale", label: `Langue du parcours candidat : ${LOCALE_LABELS[locale]}` });
-    onEvent?.({ kind: "design_start", label: "Conception des mises en situation…" });
+    onEvent?.({ kind: "locale", locale });
+    onEvent?.({ kind: "design_start" });
 
     const gen = await generateExperienceContent({
       title: job.title,
@@ -669,10 +666,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       .from("experiences").select("version").eq("job_id", job.id)
       .order("version", { ascending: false }).limit(1).maybeSingle();
     const nextVersion = (latest?.version ?? 0) + 1;
-    onEvent?.({
-      kind: "version",
-      label: nextVersion > 1 ? `Nouvelle version v${nextVersion} (les précédentes restent intactes)` : "Création de la version v1",
-    });
+    onEvent?.({ kind: "version", version: nextVersion });
 
     // Nettoyage : on archive les brouillons précédents SANS run (superseded par
     // celui-ci). Les expériences avec des runs — ou publiées — ne sont pas touchées.
@@ -724,8 +718,8 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     }
 
     const nbSubDims = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
-    onEvent?.({ kind: "saved", label: `${rows.length} étapes et ${nbSubDims} sous-dimensions enregistrées` });
-    onEvent?.({ kind: "done", label: "Expérience prête pour relecture" });
+    onEvent?.({ kind: "saved", nbEtapes: rows.length, nbSubDims });
+    onEvent?.({ kind: "done" });
 
     return { success: true, experienceId: experience.id, usage: gen.usage };
   } catch (err) {
