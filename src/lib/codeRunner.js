@@ -26,10 +26,31 @@ import { languageInfo } from "@/lib/constants/codeLanguages";
 
 const ENDPOINT = process.env.CODE_RUNNER_URL || "https://wandbox.org/api/compile.json";
 
-// Budget total d'un lot. Il doit rester SOUS le délai maximum d'une fonction
-// serverless : mieux vaut rendre « temps dépassé » proprement que se faire
-// couper au milieu, ce qui laisserait le candidat sans réponse du tout.
-const RUN_TIMEOUT_MS = 8000;
+// Délai d'UNE exécution. Le fournisseur ne tue une boucle infinie qu'au bout
+// de ~32 s : on coupe avant, sinon un candidat attend une demi-minute pour
+// apprendre que son code boucle.
+const RUN_TIMEOUT_MS = 15000;
+
+// Budget de l'ENSEMBLE du lot. Le segment /run porte maxDuration = 300, on a
+// donc de la marge ; ce plafond n'est là que pour ne jamais rester pendu.
+const BATCH_TIMEOUT_MS = 90000;
+
+// Combien de cas tournent EN MÊME TEMPS.
+//
+// C'EST LE RÉGLAGE LE PLUS DÉLICAT DU FICHIER — ne pas l'augmenter sans mesurer.
+// Lancer les 8 cas d'un coup a fait tomber le fournisseur en production le
+// 25/08/2026 : « OCI runtime error: crun: clone: Resource temporarily
+// unavailable », c'est-à-dire son hôte incapable de créer autant de conteneurs
+// d'un coup. C'est un service gratuit et partagé : on l'utilise doucement.
+const CONCURRENCE = 3;
+
+// Une panne d'infrastructure du fournisseur ARRIVE dans le champ des erreurs de
+// compilation. Sans cette liste, elle est affichée au candidat comme « ne
+// compile pas » et comptée comme un test échoué : on lui reproche une panne qui
+// n'est pas la sienne, et ça entre dans son score.
+const SIGNATURES_INFRA = /OCI runtime|\bcrun\b|\brunc\b|Resource temporarily unavailable|Cannot allocate memory|No space left on device/i;
+
+const dors = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function isCodeRunnerConfigured() {
   return !!ENDPOINT;
@@ -55,11 +76,16 @@ async function runOne({ compiler, source, stdin, signal }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ compiler, code: source, stdin: stdin ?? "" }),
-      signal,
+      // Deux raisons d'abandonner : ce cas-ci traîne (boucle infinie), ou le
+      // lot entier a dépassé son budget.
+      signal: AbortSignal.any([signal, AbortSignal.timeout(RUN_TIMEOUT_MS)]),
     });
   } catch (err) {
-    // Notre propre abandon (budget dépassé) se présente comme une erreur fetch.
-    if (err?.name === "AbortError") return { verdict: "timeout", stdout: "", stderr: "", compile_output: "" };
+    // Nos propres abandons se présentent comme des erreurs fetch : AbortError
+    // pour le budget du lot, TimeoutError pour le délai de ce cas-ci.
+    if (err?.name === "AbortError" || err?.name === "TimeoutError") {
+      return { verdict: "timeout", stdout: "", stderr: "", compile_output: "" };
+    }
     console.error("codeRunner fetch error:", err);
     return { verdict: "provider_unreachable", stdout: "", stderr: "", compile_output: "" };
   }
@@ -85,9 +111,12 @@ async function runOne({ compiler, source, stdin, signal }) {
   const status = Number(body.status);
 
   // L'ORDRE COMPTE. Un code qui ne compile pas ne se juge pas comme un code qui
-  // tourne et se trompe : la distinction doit survivre jusqu'au rapport.
+  // tourne et se trompe : la distinction doit survivre jusqu'au rapport. Et
+  // avant tout le reste, une panne de leur infrastructure n'est pas une erreur
+  // du candidat — elle se déguise en erreur de compilation, on la démasque ici.
   let verdict = "ok";
-  if (compileOutput.trim()) verdict = "compile_error";
+  if (SIGNATURES_INFRA.test(compileOutput) || SIGNATURES_INFRA.test(stderr)) verdict = "provider_busy";
+  else if (compileOutput.trim()) verdict = "compile_error";
   // 137 = tué par SIGKILL, c'est ainsi que finit une boucle infinie.
   else if (body.signal || status === 137) verdict = "timeout";
   else if (status !== 0) verdict = "runtime_error";
@@ -95,11 +124,36 @@ async function runOne({ compiler, source, stdin, signal }) {
   return { verdict, stdout, stderr, compile_output: compileOutput };
 }
 
+// Verdicts qui ne disent RIEN du code du candidat : ils ne doivent jamais être
+// comptés comme un test échoué.
+const VERDICTS_PANNE = ["provider_busy", "provider_unreachable", "provider_error", "quota_exceeded"];
+
+// Une saturation du fournisseur est passagère par nature : on redonne sa chance
+// au cas, une fois, après une pause. Inutile d'insister davantage — si le
+// service est à genoux, autant le dire au candidat que le marteler.
+async function runOneAvecReprise(args) {
+  const premier = await runOne(args);
+  if (!VERDICTS_PANNE.includes(premier.verdict)) return premier;
+  await dors(1500);
+  return runOne(args);
+}
+
+// Exécute les cas par vagues de CONCURRENCE, jamais tous d'un coup.
+async function executeAvecConcurrence(tests, fabriqueArgs) {
+  const resultats = new Array(tests.length);
+  let curseur = 0;
+  const ouvrier = async () => {
+    while (curseur < tests.length) {
+      const i = curseur++;
+      resultats[i] = await runOneAvecReprise(fabriqueArgs(tests[i]));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCE, tests.length) }, ouvrier));
+  return resultats;
+}
+
 /**
  * Exécute un même code source sur plusieurs entrées.
- *
- * Les cas partent EN PARALLÈLE, sous un budget commun : en série, six tests à
- * 3 s feraient vingt secondes et la fonction serveur serait coupée avant.
  *
  * @param {object} p
  * @param {string} p.source    code du candidat
@@ -113,32 +167,29 @@ export async function executeBatch({ source, language, tests }) {
   if (!tests?.length) return { success: false, error: "no_tests" };
 
   const compiler = languageInfo(language).wandbox;
-  const controller = new AbortController();
-  const budget = setTimeout(() => controller.abort(), RUN_TIMEOUT_MS);
+  const budgetLot = new AbortController();
+  const minuteurLot = setTimeout(() => budgetLot.abort(), BATCH_TIMEOUT_MS);
 
   let raw;
   try {
-    raw = await Promise.all(tests.map((test) => runOne({
-      compiler, source, stdin: test.stdin, signal: controller.signal,
-    })));
+    raw = await executeAvecConcurrence(tests, (test) => ({
+      compiler, source, stdin: test.stdin, signal: budgetLot.signal,
+    }));
   } finally {
-    clearTimeout(budget);
+    clearTimeout(minuteurLot);
   }
 
-  // Panne franche du fournisseur : tous les cas échouent de la même façon, et
-  // ce n'est pas la faute du candidat. On remonte l'erreur plutôt que d'écrire
-  // « 0/6 tests réussis » dans son rapport.
-  const panne = ["provider_unreachable", "provider_error", "quota_exceeded"];
-  if (raw.every((r) => panne.includes(r.verdict))) {
-    return { success: false, error: raw[0].verdict };
-  }
+  // UN SEUL cas en panne suffit à invalider le lot. Rendre un score partiel
+  // serait pire que ne rien rendre : « 4/8 » partirait dans meta.code, puis
+  // dans le rapport recruteur, comme si le candidat avait raté la moitié des
+  // cas — alors que quatre d'entre eux n'ont jamais tourné.
+  const enPanne = raw.filter((r) => VERDICTS_PANNE.includes(r.verdict));
+  if (enPanne.length) return { success: false, error: enPanne[0].verdict };
 
   return {
     success: true,
     results: raw.map((r, i) => ({
       ...r,
-      // Un verdict de panne isolé ne doit pas se lire comme un échec du code.
-      verdict: panne.includes(r.verdict) ? "error" : r.verdict,
       passed: r.verdict === "ok" && outputMatches(r.stdout, tests[i].expected_output),
       // Wandbox ne renvoie pas de durée d'exécution, et mesurer l'aller-retour
       // réseau à la place serait un chiffre faux affiché au candidat.

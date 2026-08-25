@@ -166,6 +166,7 @@ const candidate = {
       errors: {
         not_configured: "Code execution is unavailable right now. Write your solution: it will be reviewed.",
         quota_exceeded: "The execution service is busy at the moment. Try again in a few minutes.",
+        provider_busy: "The execution service is overloaded right now — this is not your code's fault. Wait a moment and run again.",
         provider_unreachable: "The execution service cannot be reached. Try again shortly.",
         provider_error: "Execution failed for a technical reason. Please try again.",
         timeout: "Execution took too long and was stopped. Check for infinite loops.",

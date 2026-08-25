@@ -190,6 +190,7 @@ const candidate = {
       errors: {
         not_configured: "L'exécution du code n'est pas disponible pour le moment. Écrivez votre solution : elle sera relue.",
         quota_exceeded: "Le service d'exécution est momentanément saturé. Réessayez dans quelques minutes.",
+        provider_busy: "Le service d'exécution est saturé en ce moment — cela ne vient pas de votre code. Patientez un instant et relancez.",
         provider_unreachable: "Le service d'exécution est injoignable. Réessayez dans quelques instants.",
         provider_error: "L'exécution a échoué pour une raison technique. Réessayez.",
         timeout: "L'exécution a été trop longue et a été interrompue. Vérifiez les boucles infinies.",

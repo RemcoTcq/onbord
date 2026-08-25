@@ -174,6 +174,7 @@ const candidate = {
       errors: {
         not_configured: "Code uitvoeren is momenteel niet beschikbaar. Schrijf uw oplossing: ze wordt nagelezen.",
         quota_exceeded: "De uitvoeringsdienst is momenteel verzadigd. Probeer het over enkele minuten opnieuw.",
+        provider_busy: "De uitvoeringsdienst is momenteel overbelast — dit ligt niet aan uw code. Wacht even en probeer opnieuw.",
         provider_unreachable: "De uitvoeringsdienst is onbereikbaar. Probeer het zo meteen opnieuw.",
         provider_error: "De uitvoering is om technische redenen mislukt. Probeer opnieuw.",
         timeout: "De uitvoering duurde te lang en werd gestopt. Controleer op oneindige lussen.",
