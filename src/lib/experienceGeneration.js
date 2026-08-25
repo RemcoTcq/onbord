@@ -220,7 +220,7 @@ Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
 // rigueur que la passe principale — occupée à concevoir tout un parcours — ne
 // tient pas.
 //
-// CONTRAINTE STRUCTURANTE : le code s'exécute chez Judge0, un fichier isolé qui
+// CONTRAINTE STRUCTURANTE : le code s'exécute chez un tiers, en un fichier isolé qui
 // lit stdin et écrit stdout. Pas de dépendances, pas de fichiers, pas de réseau.
 // L'énoncé doit donc spécifier le format d'entrée et de sortie AU CARACTÈRE
 // PRÈS, sinon un bon candidat échoue sur la forme et le signal est faussé.
@@ -254,6 +254,7 @@ CONTRAINTES D'EXÉCUTION (non négociables) :
 2. L'énoncé doit spécifier EXACTEMENT le format d'entrée (combien de lignes, dans quel ordre) et le format de sortie (quoi imprimer, sur combien de lignes, avec quelles unités ou quel arrondi). Un candidat compétent ne doit JAMAIS pouvoir hésiter sur la forme attendue. C'est la règle la plus importante : une sortie ambiguë transforme l'exercice en loterie.
 3. Aucun habillage dans la sortie : on imprime la valeur demandée, pas "Résultat : 42".
 4. L'exercice doit se résoudre en 20 à 30 minutes par une personne compétente. Une seule difficulté réelle, pas un empilement.
+5. JAVA UNIQUEMENT : la classe principale ne doit PAS être déclarée "public" — écris "class Main", jamais "public class Main". Le fichier compilé porte un autre nom chez l'exécuteur, et une classe publique fait échouer la compilation avant même que le candidat ait écrit une ligne.
 
 LANGAGE : choisis-en UN, cohérent avec le poste, parmi ${langages}. Utilise la clé, pas le libellé.
 

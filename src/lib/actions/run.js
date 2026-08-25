@@ -6,7 +6,7 @@ import { deductCredits } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
-import { executeBatch } from "@/lib/judge0";
+import { executeBatch } from "@/lib/codeRunner";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -417,11 +417,11 @@ export async function checkCrmAnswer(token, stepId) {
 }
 
 // ─── Sandbox code : exécution réelle du code du candidat ─────────────────────
-// Le nombre d'exécutions est plafonné SERVEUR. Deux raisons : chaque exécution
-// est un appel facturé chez le fournisseur, et un candidat qui relance à
-// l'aveugle 200 fois ne démontre plus rien — le nombre d'essais est lui-même un
-// signal, lisible dans le rapport.
-const MAX_CODE_RUNS = 12;
+// Le nombre d'exécutions est plafonné SERVEUR. Deux raisons : le fournisseur
+// est un service gratuit et partagé, qu'on n'a pas à marteler ; et un candidat
+// qui relance à l'aveugle vingt fois ne démontre plus rien — le nombre
+// d'essais est lui-même un signal, lisible dans le rapport.
+const MAX_CODE_RUNS = 4;
 
 export async function runCode(token, stepId, source) {
   try {
