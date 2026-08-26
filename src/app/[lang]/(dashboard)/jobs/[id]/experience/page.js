@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 import AutoTextarea from "@/components/ui/AutoTextarea";
+import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
 // Les libellés se résolvent au rendu — une constante de module figerait le
@@ -423,7 +424,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
             <label style={labelStyle}>{t("dashboard.experienceEditor.messageCap")}</label>
             <input
               type="number" min={1} max={200}
-              value={local.config?.ai_max_messages ?? 50}
+              value={local.config?.ai_max_messages ?? DEFAUT_ECHANGES_IA}
               onChange={(e) => {
                 const v = e.target.value === "" ? "" : Math.max(1, parseInt(e.target.value, 10) || 1);
                 setLocal((p) => ({ ...p, config: { ...(p.config || {}), ai_max_messages: v } }));

@@ -3,6 +3,7 @@ import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
 // - identité par token candidat (jamais candidateId/prompt du client) ;
@@ -44,7 +45,7 @@ async function resolveContext(admin, token, stepId) {
   if (!run) return { error: "Run introuvable", status: 403 };
 
   const perStep = Number(step.config?.ai_max_messages);
-  const maxMessages = perStep > 0 ? perStep : 50;
+  const maxMessages = perStep > 0 ? perStep : DEFAUT_ECHANGES_IA;
 
   // Langue du parcours : elle donne à l'assistant sa langue par défaut, celle
   // dans laquelle il ouvre la conversation et celle vers laquelle il retombe si
