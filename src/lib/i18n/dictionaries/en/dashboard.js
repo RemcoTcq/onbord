@@ -1183,11 +1183,17 @@ const dashboard = {
     ready: "Ready to hire?",
     done: "Well done — you're all set.",
     dismiss: "Hide this guide",
+    progress: "{done}/{total} steps done",
+
+    // The five steps of the actual journey since the Experience switch. Each
+    // label states the RESULT reached, not the action to take: it is a list of
+    // what is done, and it reads ticked off.
     steps: {
       account: "Account created",
-      firstJob: "First job created",
-      firstCandidate: "First candidate imported",
-      firstScoring: "First scoring run",
+      company: "Company profile and branding filled in",
+      firstJob: "First job created and analysed",
+      firstExperience: "First candidate experience generated",
+      firstCandidate: "First candidate received",
     },
   },
 

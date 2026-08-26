@@ -1,88 +1,75 @@
 "use client";
 
 import { useT } from "@/lib/i18n/I18nProvider";
-import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Loader2, PartyPopper, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Circle, ChevronRight, PartyPopper, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { LocaleLink as Link } from "@/lib/i18n/navigation";
+import { getOnboardingStatus } from "@/lib/actions/onboarding";
+
+// Le parcours réel d'un recruteur, dans l'ordre où il le vit. Il a changé avec
+// la bascule Experience : le guide décrivait encore « importer un candidat »
+// puis « lancer un scoring », deux gestes qui n'existent plus — on n'importe
+// plus personne, le candidat arrive par son lien, et le scoring part tout seul.
+//
+// Chaque étape porte OÙ ALLER pour la franchir : un guide qui dit quoi faire
+// sans y emmener oblige à chercher, et c'est exactement le moment où on
+// abandonne. `href` est une fonction du premier job, parce que deux des cinq
+// destinations n'existent qu'une fois une offre créée.
+const ETAPES = [
+  { id: "compte", cle: "account", href: () => null },
+  { id: "entreprise", cle: "company", href: () => "/compte/profil" },
+  { id: "offre", cle: "firstJob", href: (jobId) => (jobId ? `/jobs/${jobId}` : "/jobs/nouveau") },
+  { id: "experience", cle: "firstExperience", href: (jobId) => (jobId ? `/jobs/${jobId}/experience` : "/jobs/nouveau") },
+  { id: "candidat", cle: "firstCandidate", href: (jobId) => (jobId ? `/jobs/${jobId}` : "/jobs/nouveau") },
+];
 
 export default function OnboardingChecklist({ user }) {
   const t = useT();
-  const [status, setStatus] = useState({
-    jobCreated: false,
-    candidateImported: false,
-    scoringLaunched: false,
-  });
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState(null);
+  const [firstJobId, setFirstJobId] = useState(null);
   const [minimized, setMinimized] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  // Dérivé, pas recopié dans un état depuis un effet : le guide est terminé
+  // quand la base le dit, ou quand on vient de cliquer « faire disparaître ».
+  const [masqueALaMain, setMasqueALaMain] = useState(false);
+  const termine = !!user?.onboarding_completed_at || masqueALaMain;
+
+  const rafraichir = useCallback(() => {
+    getOnboardingStatus().then((res) => {
+      if (!res.success) return;
+      setStatus(res.status);
+      setFirstJobId(res.firstJobId);
+    });
+  }, []);
 
   useEffect(() => {
-    if (user?.onboarding_completed_at) {
-      setCompleted(true);
-      setLoading(false);
-      return;
-    }
+    if (user?.onboarding_completed_at) return;
+    rafraichir();
 
-    const checkStatus = async () => {
-      const supabase = createClient();
-      
-      // 1. Check jobs
-      const { count: jobCount } = await supabase
-        .from('jobs')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+    // Le recruteur quitte le tableau de bord pour franchir une étape et y
+    // revient : le retour de focus est le moment JUSTE pour recompter. Le
+    // sondage toutes les dix secondes d'avant interrogeait trois tables en
+    // boucle pour un état qui, l'essentiel du temps, ne bougeait pas.
+    window.addEventListener("focus", rafraichir);
+    return () => window.removeEventListener("focus", rafraichir);
+  }, [user, rafraichir]);
 
-      // 2. Check candidates
-      const { count: candidateCount } = await supabase
-        .from('candidates')
-        .select('*, jobs!inner(*)', { count: 'exact', head: true })
-        .eq('jobs.user_id', user.id);
+  if (termine || !status) return null;
 
-      // 3. Check scoring
-      const { count: scoringCount } = await supabase
-        .from('candidates')
-        .select('*, jobs!inner(*)', { count: 'exact', head: true })
-        .eq('jobs.user_id', user.id)
-        .not('score_cv', 'is', null);
+  const etapes = ETAPES.map((e) => ({
+    ...e,
+    label: t(`dashboard.onboarding.steps.${e.cle}`),
+    done: !!status[e.id],
+    href: e.href(firstJobId),
+  }));
 
-      const savedStatus = JSON.parse(localStorage.getItem(`onboarding_${user.id}`)) || {
-        jobCreated: false,
-        candidateImported: false,
-        scoringLaunched: false,
-      };
-
-      const newStatus = {
-        jobCreated: savedStatus.jobCreated || jobCount > 0,
-        candidateImported: savedStatus.candidateImported || candidateCount > 0,
-        scoringLaunched: savedStatus.scoringLaunched || scoringCount > 0,
-      };
-
-      localStorage.setItem(`onboarding_${user.id}`, JSON.stringify(newStatus));
-      setStatus(newStatus);
-      setLoading(false);
-    };
-
-    checkStatus();
-    // Re-check every 10 seconds while on dashboard
-    const interval = setInterval(checkStatus, 10000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  if (completed || loading) return null;
-
-  const steps = [
-    { id: "account", label: t("dashboard.onboarding.steps.account"), done: true },
-    { id: "job", label: t("dashboard.onboarding.steps.firstJob"), done: status.jobCreated },
-    { id: "candidate", label: t("dashboard.onboarding.steps.firstCandidate"), done: status.candidateImported },
-    { id: "scoring", label: t("dashboard.onboarding.steps.firstScoring"), done: status.scoringLaunched },
-  ];
-
-  const doneCount = steps.filter(s => s.done).length;
-  const progress = (doneCount / steps.length) * 100;
+  const doneCount = etapes.filter((e) => e.done).length;
+  const tout = doneCount === etapes.length;
+  const progress = (doneCount / etapes.length) * 100;
 
   if (minimized) {
     return (
-      <button 
+      <button
         onClick={() => setMinimized(false)}
         style={{
           position: "fixed", bottom: "24px", right: "24px", zIndex: 100,
@@ -91,8 +78,7 @@ export default function OnboardingChecklist({ user }) {
           boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", gap: "8px"
         }}
       >
-        <Loader2 size={16} className="spin" />
-        {doneCount}/4 Étapes complétées
+        {t("dashboard.onboarding.progress", { done: doneCount, total: etapes.length })}
       </button>
     );
   }
@@ -100,11 +86,11 @@ export default function OnboardingChecklist({ user }) {
   return (
     <div style={{
       position: "fixed", bottom: "24px", right: "24px", zIndex: 100,
-      width: "320px", background: "var(--card)", border: "1px solid var(--border)",
+      width: "340px", background: "var(--card)", border: "1px solid var(--border)",
       borderRadius: "16px", boxShadow: "0 10px 40px rgba(0,0,0,0.12)",
       overflow: "hidden", animation: "slideUp 0.4s ease"
     }}>
-      <div style={{ padding: "20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ padding: "20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
         <div>
           <h4 style={{ fontSize: "15px", fontWeight: "700" }}>{t("dashboard.onboarding.title")}</h4>
           <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{t("dashboard.onboarding.ready")}</p>
@@ -118,46 +104,73 @@ export default function OnboardingChecklist({ user }) {
         <div style={{ height: "100%", width: `${progress}%`, background: "var(--primary)", transition: "width 0.6s ease" }} />
       </div>
 
-      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-        {steps.map((step, i) => (
-          <div key={step.id} style={{ display: "flex", alignItems: "center", gap: "12px", opacity: step.done ? 1 : 0.6 }}>
-            {step.done ? (
-              <CheckCircle2 size={20} style={{ color: "#22c55e" }} />
-            ) : (
-              <Circle size={20} style={{ color: "var(--muted-foreground)" }} />
-            )}
-            <span style={{ 
-              fontSize: "13px", fontWeight: step.done ? "600" : "500",
-              textDecoration: step.done ? "line-through" : "none",
-              color: step.done ? "var(--muted-foreground)" : "var(--foreground)"
-            }}>
-              {step.label}
-            </span>
-          </div>
-        ))}
+      <div style={{ padding: "8px", display: "flex", flexDirection: "column" }}>
+        {etapes.map((etape) => {
+          const contenu = (
+            <>
+              {etape.done
+                ? <CheckCircle2 size={20} style={{ color: "#22c55e", flexShrink: 0 }} />
+                : <Circle size={20} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />}
+              <span style={{
+                fontSize: "13px", fontWeight: etape.done ? "600" : "500", flex: 1,
+                textDecoration: etape.done ? "line-through" : "none",
+                color: etape.done ? "var(--muted-foreground)" : "var(--foreground)",
+              }}>
+                {etape.label}
+              </span>
+              {/* Le chevron ne s'affiche que là où il y a quelque chose à aller
+                  faire : sur une étape franchie, il inviterait à revenir en
+                  arrière sans raison. */}
+              {!etape.done && etape.href && (
+                <ChevronRight size={15} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
+              )}
+            </>
+          );
+
+          const style = {
+            display: "flex", alignItems: "center", gap: "12px",
+            padding: "8px 10px", borderRadius: "8px",
+            opacity: etape.done ? 1 : 0.85, textDecoration: "none",
+          };
+
+          if (etape.done || !etape.href) {
+            return <div key={etape.id} style={style}>{contenu}</div>;
+          }
+          return (
+            <Link
+              key={etape.id}
+              href={etape.href}
+              style={{ ...style, cursor: "pointer" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--secondary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              {contenu}
+            </Link>
+          );
+        })}
       </div>
 
-      {doneCount === 4 && (
-        <div style={{ 
-          padding: "16px", background: "#f0fdf4", display: "flex", 
-          flexDirection: "column", gap: "8px", borderTop: "1px solid #bbf7d0" 
+      {tout && (
+        <div style={{
+          padding: "16px", background: "#f0fdf4", display: "flex",
+          flexDirection: "column", gap: "8px", borderTop: "1px solid #bbf7d0"
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <PartyPopper size={20} style={{ color: "#22c55e" }} />
             <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>{t("dashboard.onboarding.done")}</p>
           </div>
-          <button 
+          <button
             onClick={async () => {
               const supabase = createClient();
-              await supabase.from('users').update({ 
-                onboarding_completed_at: new Date().toISOString() 
+              await supabase.from('users').update({
+                onboarding_completed_at: new Date().toISOString()
               }).eq('id', user.id);
-              setCompleted(true);
+              setMasqueALaMain(true);
             }}
-            style={{ 
-              background: "transparent", border: "none", color: "#166534", 
-              fontSize: "12px", textDecoration: "underline", cursor: "pointer", 
-              alignSelf: "flex-start", padding: 0 
+            style={{
+              background: "transparent", border: "none", color: "#166534",
+              fontSize: "12px", textDecoration: "underline", cursor: "pointer",
+              alignSelf: "flex-start", padding: 0
             }}
           >
             {t("dashboard.onboarding.dismiss")}

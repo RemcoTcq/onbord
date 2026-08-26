@@ -1284,11 +1284,17 @@ const dashboard = {
     ready: 'Prêt à recruter ?',
     done: 'Bravo ! Vous êtes opérationnel.',
     dismiss: 'Faire disparaître ce guide',
+    progress: '{done}/{total} étapes franchies',
+
+    // Les cinq étapes du parcours réel, depuis la bascule Experience. Les
+    // libellés disent le RÉSULTAT atteint, pas l'action à faire : c'est une
+    // liste de ce qui est fait, elle se lit cochée.
     steps: {
       account: 'Compte créé',
-      firstJob: 'Première demande créée',
-      firstCandidate: 'Premier candidat importé',
-      firstScoring: 'Premier scoring lancé',
+      company: 'Profil entreprise et branding renseignés',
+      firstJob: 'Première offre créée et analysée',
+      firstExperience: 'Première expérience candidat générée',
+      firstCandidate: 'Premier candidat reçu',
     },
   },
 
