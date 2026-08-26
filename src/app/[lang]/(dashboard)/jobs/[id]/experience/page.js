@@ -17,6 +17,7 @@ import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "
 import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
+import AutoTextarea from "@/components/ui/AutoTextarea";
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
 // Les libellés se résolvent au rendu — une constante de module figerait le
@@ -388,12 +389,12 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
 
       {/* Énoncé */}
       <label style={labelStyle}>{t("dashboard.experienceEditor.stepPrompt")}</label>
-      <textarea
+      <AutoTextarea
         value={local.prompt || ""}
         onChange={(e) => set("prompt", e.target.value)}
         rows={4}
         placeholder="Consigne / mise en situation"
-        style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+        style={{ ...inputStyle, lineHeight: 1.5 }}
       />
 
       {/* Format + sandbox + assistant */}
@@ -466,7 +467,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
                   {(c.bars_levels || []).map((b, li) => (
                     <div key={li} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
                       <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "70px", flexShrink: 0, paddingTop: "8px" }}>N{b.level} {b.label}</span>
-                      <textarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", resize: "vertical" }} />
+                      <AutoTextarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", lineHeight: 1.5 }} />
                     </div>
                   ))}
                 </div>
@@ -592,7 +593,7 @@ function CodeExerciseEditor({ code, onChange }) {
       </select>
 
       <label style={{ ...labelStyle, margin: "0.75rem 0 0.5rem" }}>{t("dashboard.experienceEditor.code.starter")}</label>
-      <textarea
+      <AutoTextarea
         value={c.starter_code || ""}
         onChange={(e) => set({ starter_code: e.target.value })}
         rows={6}
@@ -641,13 +642,13 @@ function CodeExerciseEditor({ code, onChange }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <label style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.code.stdin")}</label>
-              <textarea value={tst.stdin || ""} onChange={(e) => setTest(i, { stdin: e.target.value })} rows={3}
-                style={{ ...inputStyle, ...mono, marginBottom: 0, resize: "vertical" }} />
+              <AutoTextarea value={tst.stdin || ""} onChange={(e) => setTest(i, { stdin: e.target.value })} rows={3}
+                style={{ ...inputStyle, ...mono, marginBottom: 0 }} />
             </div>
             <div>
               <label style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.code.expected")}</label>
-              <textarea value={tst.expected_output || ""} onChange={(e) => setTest(i, { expected_output: e.target.value })} rows={3}
-                style={{ ...inputStyle, ...mono, marginBottom: 0, resize: "vertical" }} />
+              <AutoTextarea value={tst.expected_output || ""} onChange={(e) => setTest(i, { expected_output: e.target.value })} rows={3}
+                style={{ ...inputStyle, ...mono, marginBottom: 0 }} />
             </div>
           </div>
         </div>
@@ -734,9 +735,9 @@ function CrmEditor({ crm, onChange }) {
                 <input value={s.received_at || ""} onChange={(e) => setSource(i, { received_at: e.target.value })} placeholder="Reçu le…" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 140px" }} />
               </div>
             )}
-            <textarea value={s.body || ""} onChange={(e) => setSource(i, { body: e.target.value })} rows={6}
+            <AutoTextarea value={s.body || ""} onChange={(e) => setSource(i, { body: e.target.value })} rows={6}
               placeholder={t("dashboard.experienceEditor.crm.sourceBodyPlaceholder")}
-              style={{ ...inputStyle, marginBottom: 0, resize: "vertical", lineHeight: 1.5, fontSize: "13px" }} />
+              style={{ ...inputStyle, marginBottom: 0, lineHeight: 1.5, fontSize: "13px" }} />
           </div>
         ))}
       </div>
@@ -824,8 +825,8 @@ function CrmEditor({ crm, onChange }) {
               <button className="btn btn-ghost btn-sm" onClick={() => set({ traps: traps.filter((_, j) => j !== i) })}
                 style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
             </div>
-            <textarea value={trap.description || ""} onChange={(e) => setTrap(i, { description: e.target.value })} rows={2}
-              placeholder={t("dashboard.experienceEditor.crm.trapSourcesPlaceholder")} style={{ ...inputStyle, marginBottom: "6px", resize: "vertical", fontSize: "13px" }} />
+            <AutoTextarea value={trap.description || ""} onChange={(e) => setTrap(i, { description: e.target.value })} rows={2}
+              placeholder={t("dashboard.experienceEditor.crm.trapSourcesPlaceholder")} style={{ ...inputStyle, marginBottom: "6px", fontSize: "13px", lineHeight: 1.5 }} />
             <input value={trap.resolution || ""} onChange={(e) => setTrap(i, { resolution: e.target.value })}
               placeholder={t("dashboard.experienceEditor.crm.trapResolutionPlaceholder")} style={{ ...inputStyle, marginBottom: "6px", fontSize: "13px" }} />
             <input value={trap.expected_signal || ""} onChange={(e) => setTrap(i, { expected_signal: e.target.value })}
