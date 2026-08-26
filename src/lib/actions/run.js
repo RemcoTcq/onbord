@@ -246,8 +246,6 @@ export async function startRun(token) {
         // Dérivée des étapes, pas relue en base : une expérience éditée après
         // sa génération annonçait au candidat la durée de sa première version.
         estimated_minutes: estimerMinutes(steps),
-        welcome_message: exp.welcome_message || null,
-        thank_you_message: exp.thank_you_message || null,
       },
       steps: (steps || []).map(sanitizeStepForCandidate),
       responses: responses || [],

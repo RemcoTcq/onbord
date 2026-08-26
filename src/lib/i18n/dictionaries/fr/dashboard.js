@@ -154,7 +154,6 @@ const dashboard = {
     unlockPipeline: "Déverrouiller la pipeline",
     noAssessment: "Aucune évaluation configurée",
     addTestsHint: "Ajoutez des tests via l'étape « Parcours » de votre offre.",
-    welcomePlaceholder: "Bienvenue ! Voici une courte mise en situation…",
     journey: "Parcours",
     detailsLink: "Détails",
     linkTest: "Associer un test",
@@ -171,23 +170,6 @@ const dashboard = {
     videoQuestions: "Questions vidéos",
     videoInterview: "Interview Vidéo",
     aiEvaluation: "Évaluation IA (Expérience)",
-
-    // ── Messages d'accueil et de fin, écrits par le recruteur ───────────
-    // Ils sont montrés AU CANDIDAT : leur langue est celle de l'offre, pas
-    // celle du dashboard. L'aide le rappelle pour éviter qu'un recruteur en
-    // interface anglaise les rédige en anglais sur une offre néerlandaise.
-    welcomeMessage: "Message de bienvenue",
-    thankYouMessage: "Message de remerciement",
-    welcomeMessageHelp:
-      "Affiché au candidat à son arrivée dans l'expérience, avant la 1re étape. À rédiger dans la langue de l'offre.",
-    thankYouMessageHelp:
-      "Affiché au candidat sur la page de fin, une fois le parcours terminé. À rédiger dans la langue de l'offre.",
-    thankYouPlaceholder:
-      "Merci d'avoir pris le temps ! Nous revenons vers vous rapidement.",
-    messageSaved: "Message enregistré",
-    generateExperienceFirst: "Générez d'abord l'expérience candidat.",
-    noExperienceYet:
-      "Aucune expérience n'existe encore. Générez l'expérience candidat (carte du milieu) avant d'enregistrer un message.",
 
     // ── Liste des candidats ─────────────────────────────────────────────
     searchCandidate: "Rechercher un candidat…",
@@ -827,13 +809,10 @@ const dashboard = {
     deleteStepConfirm: 'Supprimer cette étape ?',
     customStep: 'Étape personnalisée',
     clickToConfigure: 'Cliquez pour configurer la mise en situation',
-    clickToEdit: 'Cliquez pour éditer le texte',
 
     nodes: {
-      welcome: 'Message de bienvenue',
       qualifying: 'Questions qualificatives',
       experience: 'Expérience candidat',
-      thanks: 'Message de remerciement',
       sourcingHelp: 'Géré via votre ATS ou vos canaux de sourcing.',
       videoCall: 'Entretien visio',
       videoCallHelp: 'Entretien téléphonique ou en visio, géré directement par votre équipe.',

@@ -137,7 +137,6 @@ const dashboard = {
     unlockPipeline: "Unlock the pipeline",
     noAssessment: "No assessment configured",
     addTestsHint: "Add tests from the « Pipeline » step of your job.",
-    welcomePlaceholder: "Welcome! Here's a short practical exercise…",
     journey: "Pipeline",
     detailsLink: "Details",
     linkTest: "Link a test",
@@ -154,18 +153,6 @@ const dashboard = {
     videoQuestions: "Video questions",
     videoInterview: "Video interview",
     aiEvaluation: "AI assessment (Experience)",
-
-    welcomeMessage: "Welcome message",
-    thankYouMessage: "Thank-you message",
-    welcomeMessageHelp:
-      "Shown to the candidate when they arrive, before the first step. Write it in the language of the job.",
-    thankYouMessageHelp:
-      "Shown to the candidate on the final page, once they've finished. Write it in the language of the job.",
-    thankYouPlaceholder: "Thanks for taking the time! We'll get back to you shortly.",
-    messageSaved: "Message saved",
-    generateExperienceFirst: "Generate the candidate experience first.",
-    noExperienceYet:
-      "No experience exists yet. Generate the candidate experience (middle card) before saving a message.",
 
     searchCandidate: "Search for a candidate…",
     noCandidates: "No candidates",
@@ -754,13 +741,10 @@ const dashboard = {
     deleteStepConfirm: "Delete this step?",
     customStep: "Custom step",
     clickToConfigure: "Click to configure the exercise",
-    clickToEdit: "Click to edit the text",
 
     nodes: {
-      welcome: "Welcome message",
       qualifying: "Screening questions",
       experience: "Candidate experience",
-      thanks: "Thank-you message",
       sourcingHelp: "Handled through your ATS or your sourcing channels.",
       videoCall: "Video call interview",
       videoCallHelp: "Phone or video interview, run directly by your team.",

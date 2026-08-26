@@ -19,7 +19,6 @@ import {
   deleteJob
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
-import { getExperienceForJob, updateExperienceMessages } from "@/lib/actions/experience";
 import { getJobEntry } from "@/lib/actions/run";
 import { entryIsOpen } from "@/lib/candidateEntry";
 import { buildDefaultPipeline } from "@/lib/pipelineTemplate";
@@ -119,9 +118,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
-  const [experience, setExperience] = useState(null); // pour les cartes messages (welcome/thank_you)
   const [entry, setEntry] = useState(null); // l'offre accepte-t-elle des candidats ?
-  const [msgModal, setMsgModal] = useState(null); // { kind } | null
 
   // Candidates tab state
   const [searchQuery, setSearchQuery] = useState("");
@@ -169,17 +166,15 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes, expRes, entryRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes, entryRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
-      getExperienceForJob(jobId),
-      // Verdict serveur : `experience` ci-dessus est la version la plus récente
-      // NON archivée — après une régénération c'est un brouillon, qui masquerait
-      // la version publiée. On ne déduit donc pas l'ouverture depuis cet objet.
+      // Verdict serveur : l'ouverture de l'offre ne se déduit pas d'une lecture
+      // de l'expérience — la version la plus récente non archivée peut être un
+      // brouillon, qui masquerait la version publiée.
       getJobEntry(jobId),
     ]);
-    if (expRes?.success) setExperience(expRes.experience);
     setEntry(entryRes?.entry || "not_ready");
     if (jobRes.success) {
       setJob(jobRes.job);
@@ -749,7 +744,6 @@ export default function JobDetailPage() {
           setSelectedNodeId={setSelectedNodeId}
           handleAddPipelineNode={handleAddPipelineNode}
           onOpenExperience={() => router.push(`/jobs/${jobId}/experience`)}
-          onEditMessage={(kind) => setMsgModal({ kind })}
           onNodesChange={async (newNodes) => {
             const res = await updateJobDetails(jobId, { saved_flow_nodes: newNodes });
             if (res.success) {
@@ -877,64 +871,9 @@ export default function JobDetailPage() {
         />
       )}
 
-      {/* Éditeur de message (bienvenue / remerciement), lié à experiences */}
-      {msgModal && (
-        <MessageEditModal
-          kind={msgModal.kind}
-          experience={experience}
-          onClose={() => setMsgModal(null)}
-          onSave={async (value) => {
-            if (!experience) { toast(t("dashboard.jobDetail.generateExperienceFirst"), "error"); return; }
-            const res = await updateExperienceMessages(experience.id, { [msgModal.kind]: value.trim() || null });
-            if (res.success) {
-              setExperience((p) => ({ ...p, [msgModal.kind]: value.trim() || null }));
-              toast(t("dashboard.jobDetail.messageSaved"));
-              setMsgModal(null);
-            } else {
-              toast(res.error || t("dashboard.jobDetail.error"), "error");
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
-
-// ─── Modal d'édition d'un message candidat (welcome_message / thank_you_message) ─
-function MessageEditModal({ kind, experience, onClose, onSave }) {
-  const { t, locale } = useI18n();
-  const isWelcome = kind === "welcome_message";
-  const title = isWelcome ? t("dashboard.jobDetail.welcomeMessage") : t("dashboard.jobDetail.thankYouMessage");
-  const hint = isWelcome
-    ? t("dashboard.jobDetail.welcomeMessageHelp")
-    : t("dashboard.jobDetail.thankYouMessageHelp");
-  const [value, setValue] = useState(experience?.[kind] || "");
-  const [saving, setSaving] = useState(false);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={onClose}>
-      <div className="card" style={{ width: "560px", maxWidth: "100%", padding: "1.5rem" }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: "0.25rem" }}>{title}</h3>
-        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>{hint}</p>
-        {!experience && (
-          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#c2410c", borderRadius: 8, padding: "8px 12px", fontSize: 13, marginBottom: "1rem" }}>
-            {t("dashboard.jobDetail.noExperienceYet")}
-          </div>
-        )}
-        <textarea value={value} onChange={(e) => setValue(e.target.value)} rows={6}
-          placeholder={isWelcome ? t("dashboard.jobDetail.welcomePlaceholder") : t("dashboard.jobDetail.thankYouPlaceholder")}
-          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.5, resize: "vertical", boxSizing: "border-box" }} />
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t("common.actions.cancel")}</button>
-          <button className="btn btn-primary btn-sm" disabled={saving || !experience} onClick={async () => { setSaving(true); await onSave(value); setSaving(false); }}>
-            {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />} Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 // ═══════════════════════════════════════════════════════
 // TAB 1 — Pipelines
@@ -942,9 +881,15 @@ function MessageEditModal({ kind, experience, onClose, onSave }) {
 
 // Types de nœuds hérités désormais obsolètes (bascule Experience). On les retire
 // et on reconstruit une pipeline V1 déterministe :
-//   [sourcing] → Message bienvenue → Questions qualif (si présentes) →
-//   Expérience candidat → Message remerciement → [étapes verrouillées de fin]
-// Les 3 cartes (bienvenue / expérience / remerciement) sont le point d'entrée.
+//   [sourcing] → Questions qualif (si présentes) → Expérience candidat
+//   → [étapes verrouillées de fin]
+// La carte Expérience est le point d'entrée.
+//
+// Les cartes « message de bienvenue » et « message de remerciement » ont été
+// retirées : personnaliser ces deux textes n'apporte rien tant qu'on n'a pas de
+// clients pour le demander, et elles occupaient deux cartes sur quatre dans le
+// parcours. Le candidat voit les textes par défaut (app/run/[token]/page.js),
+// qui restent traduits. La colonne reste en base, non lue.
 const LEGACY_EVAL_NODE_TYPES = ["cv_scoring", "assessment", "ai_interview", "single_video_question", "accueil", "remerciements"];
 
 function buildV1PipelineNodes(rawNodes) {
@@ -954,26 +899,22 @@ function buildV1PipelineNodes(rawNodes) {
   const after = filtered.filter((n) => n.locked && n.type !== "sourcing");
   const qualifying = filtered.find((n) => n.type === "qualifying_questions");
   const middle = [
-    { id: "welcome_message", type: "welcome_message", v2: true, config: {} },
     ...(qualifying ? [qualifying] : []),
     { id: "experience_main", type: "experience", v2: true, config: {} },
-    { id: "thank_you_message", type: "thank_you_message", v2: true, config: {} },
   ];
   return [...before, ...middle, ...after];
 }
 
-function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onEditMessage, onNodesChange, onAIAssessmentClick }) {
+function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onNodesChange, onAIAssessmentClick }) {
   const { t, locale } = useI18n();
   const pipelineNodes = buildV1PipelineNodes(getPipelineNodes());
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Cliquer le bloc Expérience ouvre l'écran de config/relecture (étape 3) ;
-  // les cartes messages ouvrent leur éditeur de texte dédié ; les autres nœuds
-  // éditables ouvrent leur panneau latéral comme avant.
+  // les autres nœuds éditables ouvrent leur panneau latéral comme avant.
   function handleNodeClick(nodeId) {
     const node = pipelineNodes.find((n) => n.id === nodeId);
     if (node?.type === "experience") { onOpenExperience?.(); return; }
-    if (node?.type === "welcome_message" || node?.type === "thank_you_message") { onEditMessage?.(node.type); return; }
     setSelectedNodeId(nodeId);
   }
 

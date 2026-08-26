@@ -299,20 +299,20 @@ export default function RunPage() {
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><Check size={28} /></div>
           <h1 style={{ ...heading, marginBottom: "0.5rem" }}>{t("candidate.done.title")}</h1>
           <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
-            {/* Le message de remerciement paramétré par le recruteur prime : il
-                l'a écrit dans la langue de son offre, on ne le traduit pas. */}
-            {experience?.thank_you_message
-              || t("candidate.done.body", {
-                company: recruiter?.company_name || job?.company || t("candidate.notice.fallbackTeam"),
-              })}
+            {/* Le message de fin n'est plus paramétrable : la carte d'édition a
+                été retirée du parcours recruteur. Le texte traduit s'applique à
+                tout le monde — y compris aux expériences qui portent encore une
+                version personnalisée en base, qu'on ne peut plus modifier. */}
+            {t("candidate.done.body", {
+              company: recruiter?.company_name || job?.company || t("candidate.notice.fallbackTeam"),
+            })}
           </p>
         </div>
       </Center>
     );
   }
 
-  // Écran d'accueil : invite le candidat à démarrer l'expérience (message
-  // paramétrable par le recruteur, cf. experiences.welcome_message).
+  // Écran d'accueil : invite le candidat à démarrer l'expérience.
   if (showIntro) {
     return (
       <Center style={pageStyle}>
@@ -326,10 +326,9 @@ export default function RunPage() {
           )}
           <h1 style={{ ...heading, marginBottom: "0.75rem" }}>{job?.title || t("candidate.intro.fallbackTitle")}</h1>
           <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", marginBottom: "1.75rem" }}>
-            {/* Même règle que le message de fin : le texte d'accueil écrit par le
-                recruteur passe avant le nôtre, tel qu'il l'a rédigé. */}
-            {experience?.welcome_message
-              || t("candidate.intro.welcome", {
+            {/* Même règle que le message de fin : plus de version personnalisée,
+                le texte traduit pour tout le monde. */}
+            {t("candidate.intro.welcome", {
                 company: recruiter?.company_name || job?.company || t("candidate.intro.fallbackTeam"),
                 // Le parenthésage fait partie du fragment : en néerlandais comme
                 // en anglais il se place au même endroit, mais l'espace insécable

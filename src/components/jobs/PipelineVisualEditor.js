@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import {
   Check, BrainCircuit, ShieldCheck,
-  User, HandHeart, Plus, Trash2, X, ChevronRight, Search, Phone,
+  Plus, Trash2, X, ChevronRight, Search, Phone,
   MapPin, CheckSquare, GripVertical
 } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -15,12 +15,10 @@ import { useT } from "@/lib/i18n/I18nProvider";
 // module, avant que le provider i18n existe. Les libellés se résolvent au rendu,
 // via nodeLabel() / nodeTooltip() plus bas.
 export const NODE_TYPES = {
-  welcome_message: { icon: User, labelKey: "dashboard.pipeline.nodes.welcome", color: "#3b82f6", time: 0 },
   qualifying_questions: { icon: ShieldCheck, labelKey: "dashboard.pipeline.nodes.qualifying", color: "#8b5cf6", time: 2 },
   // Bascule Experience : le scoring CV, les tests QCM humains et l'interview
   // vidéo one-way sont obsolètes → l'évaluation est portée par le bloc Expérience.
   experience: { icon: BrainCircuit, labelKey: "dashboard.pipeline.nodes.experience", color: "#f59e0b", time: 10 },
-  thank_you_message: { icon: HandHeart, labelKey: "dashboard.pipeline.nodes.thanks", color: "#14b8a6", time: 0 },
 };
 
 export const LOCKED_NODE_TYPES = {
@@ -86,12 +84,6 @@ function SortableNodeCard({
     } else if (node.type === 'qualifying_questions') {
       label = t("dashboard.pipeline.nodes.qualifying");
       subtitle = `${node.config?.questions?.length || 0} questions`;
-    } else if (node.type === 'welcome_message') {
-      label = t("dashboard.pipeline.nodes.welcome");
-      subtitle = t("dashboard.pipeline.clickToEdit");
-    } else if (node.type === 'thank_you_message') {
-      label = t("dashboard.pipeline.nodes.thanks");
-      subtitle = t("dashboard.pipeline.clickToEdit");
     } else {
       label = t(meta.labelKey);
     }
@@ -258,7 +250,7 @@ export default function PipelineVisualEditor({
                   {t("dashboard.pipeline.addStep")}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {Object.entries(NODE_TYPES).filter(([k]) => !['welcome_message', 'thank_you_message'].includes(k)).map(([type, meta]) => {
+                  {Object.entries(NODE_TYPES).map(([type, meta]) => {
                     const isUnique = type === 'qualifying_questions' || type === 'experience';
                     const exists = isUnique ? nodes.some(n => n.type === type) : false;
                     const Icon = meta.icon;
