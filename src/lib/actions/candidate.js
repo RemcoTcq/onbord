@@ -6,7 +6,7 @@ import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
 import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
-import { DELAI_CORBEILLE_JOURS } from "@/lib/jobPurge";
+import { DELAI_CORBEILLE_JOURS, purgerOffre } from "@/lib/jobPurge";
 import { headers } from "next/headers";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
@@ -32,7 +32,8 @@ async function assertJobAcceptsCandidates(jobId) {
  * service_role.
  *
  * L'effacement réel a lieu au-delà du délai, dans lib/jobPurge.js, appelé par
- * /api/cron/purge.
+ * /api/cron/purge — ou plus tôt si le recruteur le demande explicitement depuis
+ * la corbeille (purgeJobNow, plus bas).
  *
  * PASSE PAR LE SERVICE_ROLE, comme listDeletedJobs et restoreJob, et pour la
  * même raison — que la migration 024 avait vue pour la lecture, mais pas pour
@@ -134,6 +135,60 @@ export async function restoreJob(jobId) {
   }
 }
 
+
+/**
+ * Efface DÉFINITIVEMENT une offre en corbeille, sans attendre les 7 jours.
+ *
+ * Le délai protège de la fausse manœuvre ; il ne doit pas empêcher le geste
+ * volontaire. Un recruteur qui veut faire disparaître une offre et ses données
+ * personnelles tout de suite — test raté, demande d'effacement d'un candidat,
+ * offre publiée par erreur — n'a pas à attendre une semaine que le cron passe.
+ *
+ * Deux garde-fous, et pas un de plus :
+ *   - l'offre doit APPARTENIR à l'appelant. Contrôle porté à la main, comme
+ *     dans les autres chemins de corbeille : purgerOffre() travaille en
+ *     service_role, qui contourne la RLS, et n'a aucune notion de propriétaire.
+ *   - l'offre doit DÉJÀ ÊTRE EN CORBEILLE. Purger directement une offre vivante
+ *     ferait de la suppression un geste irréversible en un clic, exactement ce
+ *     que la migration 024 a supprimé. Le passage par la corbeille reste
+ *     obligatoire : on ne raccourcit que l'attente, pas le parcours.
+ *
+ * L'effacement lui-même est délégué à purgerOffre() — le seul endroit du code
+ * qui efface réellement une offre (fichiers du stockage compris, dans l'ordre
+ * qu'impose le ON DELETE RESTRICT de candidate_runs).
+ */
+export async function purgeJobNow(jobId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const admin = createAdminClient();
+
+    // Lecture en admin pour la même raison que listDeletedJobs : la policy de
+    // lecture exclut les offres en corbeille, le client RLS ne verrait rien.
+    const { data: offre } = await admin
+      .from('jobs')
+      .select('id')
+      .eq('id', jobId)
+      .eq('user_id', user.id)
+      .not('deleted_at', 'is', null)
+      .maybeSingle();
+
+    if (!offre) return { success: false, error: "Offre introuvable dans la corbeille." };
+
+    const res = await purgerOffre(admin, jobId);
+    if (!res.ok) {
+      console.error("purgeJobNow error:", jobId, res.erreurs);
+      return { success: false, error: "Effacement incomplet : réessayez dans un instant." };
+    }
+
+    return { success: true, fichiers: res.fichiers };
+  } catch (error) {
+    console.error("purgeJobNow error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
 export async function scoreCandidate(jobId, cvText, jobData, candidateName, existingCandidateId = null) {
   try {
     const prompt = `Voici le texte extrait du profil candidat à analyser :\n\n${cvText}`;

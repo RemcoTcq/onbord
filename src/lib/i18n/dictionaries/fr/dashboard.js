@@ -69,6 +69,14 @@ const dashboard = {
     purgeSoon: "Effacement imminent",
     purgeIn_one: "Effacement définitif dans {count} jour",
     purgeIn_other: "Effacement définitif dans {count} jours",
+
+    // Le délai protège de la fausse manœuvre, il ne doit pas retenir le geste
+    // volontaire : l'effacement immédiat reste possible depuis la corbeille.
+    purgeNow: "Supprimer définitivement",
+    purgeNowConfirm:
+      "Effacer définitivement cette offre, ses candidats, leurs CV et leurs vidéos ?\n\nCette action est IRRÉVERSIBLE : elle n'attend pas les 7 jours et rien ne pourra être restauré.",
+    purged: "Offre définitivement effacée",
+    purgeError: "Effacement impossible",
   },
 
   // ── Statuts d'un candidat ─────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { Briefcase, Loader2, Trash2, MapPin, Users, Plus, Search, MessageSquare,
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatDateShort } from "@/lib/i18n/format";
-import { deleteJob, listDeletedJobs, restoreJob } from "@/lib/actions/candidate";
+import { deleteJob, listDeletedJobs, restoreJob, purgeJobNow } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
 
 export default function JobsPage() {
@@ -17,6 +17,7 @@ export default function JobsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [deletedJobs, setDeletedJobs] = useState([]);
   const [restoringId, setRestoringId] = useState(null);
+  const [purgingId, setPurgingId] = useState(null);
   const [tab, setTab] = useState("active");
   const [search, setSearch] = useState("");
   const { toast } = useToast();
@@ -53,13 +54,35 @@ export default function JobsPage() {
     setRestoringId(jobId);
     const res = await restoreJob(jobId);
     if (res.success) {
-      setDeletedJobs(prev => prev.filter(j => j.id !== jobId));
+      const reste = deletedJobs.filter(j => j.id !== jobId);
+      setDeletedJobs(reste);
+      if (reste.length === 0) setTab("active");
       await loadJobs();
       toast(t("dashboard.jobs.restored"));
     } else {
       toast(res.error || t("dashboard.jobs.restoreError"), "error");
     }
     setRestoringId(null);
+  }
+
+  // Effacement définitif demandé depuis la corbeille : on court-circuite le
+  // délai de 7 jours. Rien ne sera restaurable ensuite — d'où la confirmation
+  // explicite, plus alarmante que celle de la mise en corbeille.
+  async function handlePurge(e, jobId) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(t("dashboard.jobs.purgeNowConfirm"))) return;
+    setPurgingId(jobId);
+    const res = await purgeJobNow(jobId);
+    if (res.success) {
+      const reste = deletedJobs.filter(j => j.id !== jobId);
+      setDeletedJobs(reste);
+      if (reste.length === 0) setTab("active");
+      toast(t("dashboard.jobs.purged"));
+    } else {
+      toast(res.error || t("dashboard.jobs.purgeError"), "error");
+    }
+    setPurgingId(null);
   }
 
   async function handleDelete(e, jobId) {
@@ -184,16 +207,30 @@ export default function JobsPage() {
                     : t("dashboard.jobs.purgeIn", { count: job.joursRestants })}
                 </div>
               </div>
-              <button
-                onClick={(e) => handleRestore(e, job.id)}
-                className="btn btn-ghost btn-sm"
-                style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap" }}
-              >
-                {restoringId === job.id
-                  ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                  : <RotateCcw size={14} />}
-                {t("dashboard.jobs.restore")}
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                <button
+                  onClick={(e) => handleRestore(e, job.id)}
+                  disabled={purgingId === job.id}
+                  className="btn btn-ghost btn-sm"
+                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap" }}
+                >
+                  {restoringId === job.id
+                    ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    : <RotateCcw size={14} />}
+                  {t("dashboard.jobs.restore")}
+                </button>
+                <button
+                  onClick={(e) => handlePurge(e, job.id)}
+                  disabled={purgingId === job.id || restoringId === job.id}
+                  className="btn btn-ghost btn-sm"
+                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap", color: "var(--destructive)" }}
+                >
+                  {purgingId === job.id
+                    ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    : <Trash2 size={14} />}
+                  {t("dashboard.jobs.purgeNow")}
+                </button>
+              </div>
             </div>
           ))}
         </div>

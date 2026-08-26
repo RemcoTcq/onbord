@@ -61,6 +61,14 @@ const dashboard = {
     purgeSoon: "Deleting soon",
     purgeIn_one: "Permanently deleted in {count} day",
     purgeIn_other: "Permanently deleted in {count} days",
+
+    // The delay guards against slips; it must not hold back a deliberate
+    // decision — permanent deletion is available straight from the trash.
+    purgeNow: "Delete permanently",
+    purgeNowConfirm:
+      "Permanently erase this job, its candidates, their CVs and their videos?\n\nThis CANNOT be undone: it skips the 7-day window and nothing can be restored.",
+    purged: "Job permanently deleted",
+    purgeError: "Couldn't delete this job",
   },
 
   candidateStatus: {
