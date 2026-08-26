@@ -5,19 +5,27 @@ import { useLocaleHref } from "@/lib/i18n/navigation";
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Copy, Check, Link2, Trash2, Loader2, Shield } from "lucide-react";
+import { Copy, Check, Link2, Trash2, Loader2, Shield, UserPlus, KeyRound } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import {
   isCurrentUserAdmin,
   adminListInviteTokens,
   adminCreateInviteToken,
   adminDeleteInviteToken,
+  adminCreerCompte,
 } from "@/lib/actions/usage";
 
 // generateToken() vivait ici : 24 caractères tirés avec Math.random(), dont la
 // suite est prédictible. Sur une invitation qui peut porter le plan `admin`,
 // cela suffit à la deviner. Le jeton est désormais tiré côté serveur, avec
 // crypto.randomUUID() (cf. adminCreateInviteToken).
+
+// Style des champs du formulaire de création. Sorti du rendu : il est repris
+// par six entrées, et six copies finissent toujours par diverger.
+const CHAMP = {
+  padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--border)",
+  background: "var(--background)", fontSize: "14px", color: "var(--foreground)", width: "100%",
+};
 
 export default function AdminPage() {
   const { t, locale } = useI18n();
@@ -28,6 +36,17 @@ export default function AdminPage() {
   const [generating, setGenerating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
+
+  // Création directe d'un compte : le chemin principal depuis que l'inscription
+  // publique est fermée côté Supabase.
+  const VIDE = { email: "", first_name: "", last_name: "", company_name: "", plan: "core" };
+  const [form, setForm] = useState(VIDE);
+  const [creating, setCreating] = useState(false);
+  // Identifiants du dernier compte créé. Le mot de passe n'existe QUE là :
+  // Supabase n'en garde qu'un hachage, il ne se retrouve pas.
+  const [nouveau, setNouveau] = useState(null);
+  const [copieMdp, setCopieMdp] = useState(false);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,6 +90,21 @@ export default function AdminPage() {
       setTimeout(() => setCopiedId(null), 3000);
     }
     setGenerating(false);
+  }
+
+  async function handleCreerCompte(e) {
+    e.preventDefault();
+    setCreating(true);
+    setNouveau(null);
+    const res = await adminCreerCompte(form);
+    if (res.success) {
+      setNouveau({ email: res.email, motDePasse: res.motDePasse });
+      setForm(VIDE);
+      toast(t("dashboard.admin.accountCreated"));
+    } else {
+      toast(res.error || t("dashboard.admin.accountError"), "error");
+    }
+    setCreating(false);
   }
 
   async function handleDelete(id) {
@@ -136,8 +170,102 @@ export default function AdminPage() {
         </a>
       </div>
 
+      {/* ── Création directe d'un compte ─────────────────────────────────
+          Chemin principal depuis la fermeture des inscriptions publiques :
+          l'API d'administration n'est pas soumise au réglage Supabase, elle
+          reste donc le seul moyen de créer un compte. */}
+      <div className="card" style={{ marginBottom: "2rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+          <UserPlus size={18} style={{ color: "var(--primary)" }} />
+          <h2 style={{ fontSize: "16px", fontWeight: 700 }}>{t("dashboard.admin.createAccount")}</h2>
+        </div>
+        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
+          {t("dashboard.admin.createAccountHelp")}
+        </p>
+
+        <form onSubmit={handleCreerCompte} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <input
+              type="email" required value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder={t("dashboard.admin.fields.email")} style={CHAMP}
+            />
+            <input
+              type="text" value={form.company_name}
+              onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+              placeholder={t("dashboard.admin.fields.company")} style={CHAMP}
+            />
+            <input
+              type="text" value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              placeholder={t("dashboard.admin.fields.firstName")} style={CHAMP}
+            />
+            <input
+              type="text" value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              placeholder={t("dashboard.admin.fields.lastName")} style={CHAMP}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <select
+              value={form.plan}
+              onChange={(e) => setForm({ ...form, plan: e.target.value })}
+              style={{ ...CHAMP, width: "auto", fontWeight: 600, cursor: "pointer" }}
+            >
+              <option value="core">Core</option>
+              <option value="pro">Pro</option>
+              <option value="custom">Custom</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button
+              type="submit" className="btn btn-primary" disabled={creating}
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+            >
+              {creating ? <Loader2 size={18} className="spin" /> : <UserPlus size={18} />}
+              {t("dashboard.admin.createAccountSubmit")}
+            </button>
+          </div>
+        </form>
+
+        {/* Le mot de passe ne se retrouve pas : il n'existe que sur cet écran,
+            jusqu'au prochain rechargement. D'où l'avertissement, et le bouton
+            de copie plutôt qu'une sélection à la main. */}
+        {nouveau && (
+          <div style={{ marginTop: "1.25rem", padding: "16px", borderRadius: "10px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+              <KeyRound size={16} style={{ color: "#166534" }} />
+              <strong style={{ fontSize: "14px", color: "#166534" }}>{nouveau.email}</strong>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <code style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "0.03em", background: "white", padding: "8px 12px", borderRadius: "8px", border: "1px solid #bbf7d0", color: "#14532d" }}>
+                {nouveau.motDePasse}
+              </code>
+              <button
+                type="button" className="btn btn-ghost btn-sm"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(`${nouveau.email}\n${nouveau.motDePasse}`);
+                  setCopieMdp(true);
+                  setTimeout(() => setCopieMdp(false), 3000);
+                }}
+                style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534" }}
+              >
+                {copieMdp ? <Check size={15} /> : <Copy size={15} />}
+                {t("dashboard.admin.copyCredentials")}
+              </button>
+            </div>
+            <p style={{ fontSize: "12px", color: "#166534", marginTop: "10px" }}>
+              {t("dashboard.admin.passwordOnce")}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Generator */}
-      <div className="card" style={{ marginBottom: "2rem", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+      <div className="card" style={{ marginBottom: "2rem" }}>
+        <p style={{ fontSize: "13px", color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px" }}>
+          {t("dashboard.admin.invitesNeedSignup")}
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: "250px" }}>
           <label style={{ fontSize: "14px", fontWeight: "600", whiteSpace: "nowrap" }}>Plan :</label>
           <select
@@ -164,6 +292,7 @@ export default function AdminPage() {
           {generating ? <Loader2 size={18} className="spin" /> : <Link2 size={18} />}
           {t("dashboard.admin.generateLink")}
         </button>
+        </div>
       </div>
 
       {/* Tokens list */}

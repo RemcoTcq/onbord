@@ -106,12 +106,8 @@ function LoginPage() {
         </button>
       </form>
       
-      <div className="auth-footer">
-        {t("common.auth.noAccountYet")}{" "}
-        <Link href="/register" className="auth-link">
-          {t("common.auth.createAccount")}
-        </Link>
-      </div>
+      {/* Le lien vers /register est retiré : l'inscription publique est fermée
+          (réglage Supabase), la page ne fait plus que rediriger ici. */}
     </div>
   );
 }

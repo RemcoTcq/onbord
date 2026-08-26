@@ -976,11 +976,31 @@ const dashboard = {
     accessDenied: "Access denied",
     adminsOnly: "This page is for administrators only.",
     title: "Administration",
-    subtitle: "Generate invitation links for your clients.",
+    subtitle: "Create your clients' accounts and manage their access.",
     tabInvites: "Invitations",
     tabCosts: "API costs",
     tabCredits: "Credits & plans",
 
+    // ── Direct account creation ─────────────────────────────────────────
+    createAccount: "Create an account",
+    createAccountHelp:
+      "Public sign-up is closed: this is the only way to create an account. It works straight away, with no email confirmation.",
+    createAccountSubmit: "Create the account",
+    accountCreated: "Account created",
+    accountError: "Couldn't create the account",
+    copyCredentials: "Copy the credentials",
+    passwordOnce:
+      "Write this password down now: it is shown once and cannot be recovered afterwards.",
+    fields: {
+      email: "Email address",
+      company: "Company",
+      firstName: "First name",
+      lastName: "Last name",
+    },
+
+    // ── Invitations ─────────────────────────────────────────────────────
+    invitesNeedSignup:
+      "These links only work while public sign-up is enabled in Supabase. It is currently closed — use direct creation above.",
     linkGenerated: "Link generated and copied!",
     tokenDeleted: "Token deleted",
     linkCopied: "Link copied!",

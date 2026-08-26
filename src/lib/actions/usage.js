@@ -319,6 +319,92 @@ export async function adminCreateInviteToken(plan) {
   }
 }
 
+/**
+ * Crée un compte de A à Z, sans passer par l'inscription publique.
+ *
+ * ── Pourquoi cette action existe ─────────────────────────────────────────────
+ * L'inscription publique est fermée dans Supabase (« Allow new users to sign
+ * up » décoché). Ce réglage ferme la VRAIE porte : l'inscription ne passe pas
+ * par ce serveur, le navigateur appelle directement /auth/v1/signup avec la clé
+ * anon, qui est publique par construction. Retirer le formulaire n'aurait rien
+ * fermé du tout.
+ *
+ * L'API d'administration, elle, n'est pas soumise à ce réglage : c'est le seul
+ * chemin qui reste, et il est gardé par ADMIN_EMAILS.
+ *
+ * ── Choix de conception ──────────────────────────────────────────────────────
+ * email_confirm: true — le compte est utilisable immédiatement, sans attendre
+ * un mail de confirmation. C'est un compte de démonstration remis en main
+ * propre, pas une inscription à vérifier, et ça évite de dépendre de la limite
+ * d'envoi du SMTP.
+ *
+ * Le mot de passe est TIRÉ ICI et renvoyé une seule fois. Il n'est stocké nulle
+ * part : Supabase n'en garde qu'un hachage, et cette action ne le journalise
+ * pas. Perdu, il se remplace — il ne se retrouve pas.
+ *
+ * @param {{email: string, first_name?: string, last_name?: string, company_name?: string, plan: string}} champs
+ * @returns {Promise<{success: boolean, email?: string, motDePasse?: string, error?: string}>}
+ */
+export async function adminCreerCompte({ email, first_name, last_name, company_name, plan }) {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    const adresse = (email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adresse)) {
+      return { success: false, error: "Adresse e-mail invalide" };
+    }
+
+    // Même liste que les invitations : le plan vient du serveur, jamais d'un
+    // champ libre — « admin » est dans la liste, et il ouvre tout.
+    const plansValides = ["core", "pro", "custom", "admin"];
+    if (!plansValides.includes(plan)) return { success: false, error: "Plan inconnu" };
+
+    const motDePasse = genererMotDePasse();
+    const admin = createAdminClient();
+
+    const { data, error } = await admin.auth.admin.createUser({
+      email: adresse,
+      password: motDePasse,
+      email_confirm: true,
+      user_metadata: {
+        first_name: (first_name || "").trim(),
+        last_name: (last_name || "").trim(),
+        company_name: (company_name || "").trim(),
+      },
+    });
+
+    // Le cas courant est une adresse déjà prise : le message de Supabase le dit
+    // mieux qu'une phrase générique.
+    if (error) return { success: false, error: error.message };
+
+    // Le plan et les crédits ne viennent pas avec le compte : sans cet appel, la
+    // ligne user_usage n'existe pas et le plan retombe sur Core par défaut
+    // (utils/limits.js), quel que soit celui demandé ici.
+    const res = await changePlan(data.user.id, plan);
+    if (!res.success) {
+      return { success: false, error: "Compte créé, mais plan non appliqué : " + res.error };
+    }
+
+    return { success: true, email: adresse, motDePasse };
+  } catch (error) {
+    console.error("adminCreerCompte error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Mot de passe aléatoire, lisible à voix haute et retapable à la main : il est
+ * transmis de vive voix ou par message, pas copié-collé par une machine.
+ * Alphabet sans les caractères qu'on confond (0/O, 1/l/I).
+ */
+function genererMotDePasse() {
+  const alphabet = "abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const tirage = crypto.getRandomValues(new Uint8Array(15));
+  const car = [...tirage].map((o) => alphabet[o % alphabet.length]);
+  // Trois groupes de cinq, séparés par des tirets.
+  return [car.slice(0, 5), car.slice(5, 10), car.slice(10, 15)].map((g) => g.join("")).join("-");
+}
+
 /** Supprime une invitation. */
 export async function adminDeleteInviteToken(tokenId) {
   try {

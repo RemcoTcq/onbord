@@ -1060,12 +1060,31 @@ const dashboard = {
     accessDenied: 'Accès refusé',
     adminsOnly: 'Cette page est réservée aux administrateurs.',
     title: 'Administration',
-    subtitle: "Générez des liens d'invitation pour vos clients.",
+    subtitle: "Créez les comptes de vos clients et gérez leurs accès.",
     tabInvites: 'Invitations',
     tabCosts: 'Coûts API',
     tabCredits: 'Crédits & plans',
 
+    // ── Création directe d'un compte ────────────────────────────────────
+    createAccount: 'Créer un compte',
+    createAccountHelp:
+      "L'inscription publique est fermée : c'est le seul moyen de créer un compte. Il est utilisable immédiatement, sans confirmation par e-mail.",
+    createAccountSubmit: 'Créer le compte',
+    accountCreated: 'Compte créé',
+    accountError: 'Création impossible',
+    copyCredentials: 'Copier les identifiants',
+    passwordOnce:
+      "Notez ce mot de passe maintenant : il n'est affiché qu'une fois et ne peut pas être retrouvé ensuite.",
+    fields: {
+      email: 'Adresse e-mail',
+      company: 'Entreprise',
+      firstName: 'Prénom',
+      lastName: 'Nom',
+    },
+
     // ── Invitations ─────────────────────────────────────────────────────
+    invitesNeedSignup:
+      "Ces liens ne fonctionnent que si l'inscription publique est activée dans Supabase. Elle est fermée pour l'instant : utilisez la création directe ci-dessus.",
     linkGenerated: 'Lien généré et copié !',
     tokenDeleted: 'Token supprimé',
     linkCopied: 'Lien copié !',

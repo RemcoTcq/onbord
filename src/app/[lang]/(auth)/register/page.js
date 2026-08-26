@@ -1,162 +1,23 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useState } from "react";
-import { useRouter } from "@/lib/i18n/navigation";
-import { useT } from "@/lib/i18n/I18nProvider";
-import { createClient } from "@/lib/supabase/client";
-import { LocaleLink as Link } from "@/lib/i18n/navigation";
-import ConfirmEmailNotice from "@/components/auth/ConfirmEmailNotice";
-
-export default function RegisterPage() {
-  const t = useT();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  // Adresse en attente de confirmation : non nulle = l'inscription a réussi mais
-  // la session n'existera qu'après le clic sur le lien reçu par mail.
-  const [aConfirmer, setAConfirmer] = useState(null);
-  const router = useRouter();
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          company_name: companyName,
-        }
-      }
-    });
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    // Pas de session = confirmation d'e-mail exigée (réglage Supabase
-    // `mailer_autoconfirm`). Rediriger ici enverrait l'inscrit sur une route
-    // protégée où le proxy ne le reconnaîtrait pas, et le renverrait au login
-    // sans explication — il lirait un échec là où tout s'est bien passé.
-    if (!data.session) {
-      setAConfirmer(email);
-      setLoading(false);
-      return;
-    }
-
-    router.push("/accueil");
-    router.refresh();
-  };
-
-  if (aConfirmer) return <ConfirmEmailNotice email={aConfirmer} />;
-
-  return (
-    <div className="card" style={{ padding: '2rem' }}>
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold" style={{ color: 'var(--foreground)' }}>{t("common.auth.registerTitle")}</h2>
-        <p style={{ color: 'var(--muted-foreground)', marginTop: '0.5rem' }}>{t("common.auth.registerSubtitle")}</p>
-      </div>
-
-      <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-        {error && (
-          <div style={{ color: 'var(--destructive)', backgroundColor: 'var(--destructive-foreground)', padding: '0.75rem', borderRadius: 'var(--radius)', fontSize: '0.875rem' }}>
-            {error}
-          </div>
-        )}
-        <div className="space-y-4">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-             <div>
-                <label className="form-label" htmlFor="first-name">{t("common.auth.fields.firstName")}</label>
-                <input
-                  id="first-name"
-                  type="text"
-                  required
-                  className="input-field"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="last-name">{t("common.auth.fields.lastName")}</label>
-                <input
-                  id="last-name"
-                  type="text"
-                  required
-                  className="input-field"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-              </div>
-          </div>
-          <div>
-            <label className="form-label" htmlFor="company-name">{t("common.auth.fields.company")}</label>
-            <input
-              id="company-name"
-              type="text"
-              required
-              className="input-field"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="email-address">{t("common.auth.fields.email")}</label>
-            <input
-              id="email-address"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="input-field"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="password">{t("common.auth.fields.password")}</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              className="input-field"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%' }}
-            disabled={loading}
-          >
-            {loading ? t("common.auth.registerPending") : t("common.auth.registerSubmit")}
-          </button>
-        </div>
-      </form>
-      <div className="text-center mt-6">
-        <p style={{ fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
-          {t("common.auth.alreadyHaveAccount")}{" "}
-          <Link href="/login" style={{ color: 'var(--primary)', fontWeight: '500' }}>
-            {t("common.auth.signIn")}
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
+// L'inscription publique est fermée. Le formulaire qui vivait ici est parti
+// avec, et la page ne fait plus que renvoyer vers la connexion.
+//
+// ── Pourquoi une redirection, et pas une suppression ─────────────────────────
+// L'URL circule : elle a été partagée, indexée, mise en favori. Un 404 laisse
+// croire à une panne du site ; la connexion, elle, est ce que la personne
+// cherche neuf fois sur dix.
+//
+// ── Ce que cette page NE ferme PAS ───────────────────────────────────────────
+// Rien. L'inscription ne passe pas par ce serveur : le navigateur appelle
+// directement /auth/v1/signup chez Supabase, avec la clé anon, qui est publique
+// par construction. La vraie fermeture est le réglage « Allow new users to sign
+// up » du dashboard Supabase. Cette redirection ne fait qu'accorder l'interface
+// à cette décision — ne jamais la prendre pour la protection elle-même.
+//
+// Pour rouvrir : rétablir le réglage Supabase, restaurer le formulaire (il est
+// dans l'historique git) et remettre le lien retiré du bas de /login.
+export default async function RegisterPage({ params }) {
+  const { lang } = await params;
+  redirect(`/${lang}/login`);
 }
