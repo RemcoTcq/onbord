@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/lib/supabase/client";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
 
-export default function LoginPage() {
+// /auth/callback renvoie ici avec ?error=true quand l'échange du lien de
+// confirmation échoue — lien déjà utilisé, expiré, ou ouvert sur un autre
+// appareil que celui qui a lancé l'inscription. Le paramètre était posé depuis
+// le début et n'a jamais été lu : l'utilisateur atterrissait sur un formulaire
+// de connexion muet, sans savoir si sa confirmation avait marché.
+function LoginPage() {
   const t = useT();
+  const callbackFailed = useSearchParams().get("error") === "true";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -36,6 +43,11 @@ export default function LoginPage() {
 
   return (
     <div className="auth-card fade-in">
+      {callbackFailed && (
+        <div style={{ color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '12px', borderRadius: 'var(--radius-sm)', fontSize: '14px', marginBottom: '20px' }}>
+          {t("common.auth.confirmLinkFailed")}
+        </div>
+      )}
       <div className="auth-header">
         <div className="auth-logo">
           <img src="/logo.png" alt="Onbord" style={{ height: "40px", width: "auto" }} />
@@ -101,6 +113,14 @@ export default function LoginPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function LoginPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPage />
+    </Suspense>
   );
 }
 

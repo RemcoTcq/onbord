@@ -158,7 +158,9 @@ export async function claimInvitePlan(tokenId) {
       .single();
 
     if (!token || token.used) {
-      return { success: false, error: "Invitation invalide ou déjà utilisée" };
+      // Définitif : réessayer ne changera rien. C'est ce que claimPendingInvite
+      // attend pour cesser de repasser à chaque chargement du tableau de bord.
+      return { success: false, definitif: true, error: "Invitation invalide ou déjà utilisée" };
     }
 
     const plan = token.plan || "core";
@@ -170,9 +172,54 @@ export async function claimInvitePlan(tokenId) {
       .update({ used: true, used_by: user.id })
       .eq("id", tokenId);
 
-    return { success: true, plan };
+    return { success: true, definitif: true, plan };
   } catch (error) {
     console.error("claimInvitePlan error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Réclame l'invitation mise en attente à l'inscription, une fois l'e-mail confirmé.
+ *
+ * ── Pourquoi cette action existe ─────────────────────────────────────────────
+ * /join appelait claimInvitePlan() dans la foulée de signUp(). Or, quand la
+ * confirmation d'e-mail est exigée, signUp() ne rend AUCUNE session : l'action
+ * répondait « Non authentifié », l'écran affichait une erreur, et le compte
+ * était créé sans son plan. L'invité arrivait sur la plateforme sans les crédits
+ * de l'invitation qu'on venait de lui envoyer.
+ *
+ * Le jeton est donc simplement mis de côté sur le compte à sa création
+ * (user_metadata.pending_invite_token) et réclamé à la première session réelle.
+ *
+ * ── Sur la confiance accordée à user_metadata ────────────────────────────────
+ * Ce champ est modifiable par son propriétaire : il ne PROUVE rien. Il ne sert
+ * qu'à déclencher la tentative. Tout ce qui compte — le plan appliqué, la
+ * validité du jeton, sa consommation — est relu en base par claimInvitePlan, qui
+ * porte déjà sa limite de débit. La surface est celle d'aujourd'hui, où le
+ * client passe lui-même l'identifiant du jeton à cette même action.
+ */
+export async function claimPendingInvite() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const tokenId = user.user_metadata?.pending_invite_token;
+    if (!tokenId) return { success: true, claimed: false };
+
+    const res = await claimInvitePlan(tokenId);
+
+    // On n'efface le marqueur que sur un verdict définitif. Une coupure réseau
+    // ou une limite de débit atteinte doit laisser sa chance au chargement
+    // suivant — sinon l'invité perd son plan sur un incident passager.
+    if (res.definitif) {
+      await supabase.auth.updateUser({ data: { pending_invite_token: null } });
+    }
+
+    return { ...res, claimed: !!res.success };
+  } catch (error) {
+    console.error("claimPendingInvite error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }

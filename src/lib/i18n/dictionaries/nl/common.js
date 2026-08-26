@@ -72,6 +72,19 @@ const common = {
     joinInvalidToken: "Ongeldige uitnodigingslink. Geen token opgegeven.",
     joinPlanError: "Er ging iets mis bij het toekennen van je abonnement.",
 
+
+    // ── Wachten op e-mailbevestiging ────────────────────────────────────
+    // Getoond wanneer signUp() slaagt zonder sessie terug te geven.
+    confirmTitle: "Controleer je mailbox",
+    confirmBody:
+      "Je account is aangemaakt. We hebben net een bevestigingslink naar {email} gestuurd — open die om je account te activeren en het platform te bereiken.",
+    confirmSpamHint:
+      "Na een paar minuten nog niets? Kijk even in je spammap.",
+    confirmResend: "E-mail opnieuw versturen",
+    confirmResent: "E-mail opnieuw verstuurd. Controleer je mailbox.",
+    confirmAlreadyDone: "Al bevestigd?",
+    confirmLinkFailed:
+      "Deze bevestigingslink kon niet worden gevalideerd: hij is mogelijk al gebruikt, verlopen, of geopend op een ander apparaat dan waarop je je hebt geregistreerd. Log hieronder in, of vraag een nieuwe link aan via de registratiepagina.",
     alreadyHaveAccount: "Heb je al een account?",
     signIn: "Inloggen",
 

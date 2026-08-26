@@ -6,6 +6,7 @@ import { useRouter, LocaleLink as Link } from "@/lib/i18n/navigation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/lib/supabase/client";
 import { claimInvitePlan, validateInviteToken } from "@/lib/actions/usage";
+import ConfirmEmailNotice from "@/components/auth/ConfirmEmailNotice";
 
 function JoinForm() {
   const t = useT();
@@ -17,6 +18,7 @@ function JoinForm() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [aConfirmer, setAConfirmer] = useState(null);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -62,7 +64,11 @@ function JoinForm() {
     try {
       const supabase = createClient();
 
-      // 1. Create account
+      // 1. Création du compte. Le jeton d'invitation est MIS DE CÔTÉ sur le
+      // compte : quand la confirmation d'e-mail est exigée, la réclamation ne
+      // peut pas avoir lieu maintenant — il n'y a pas encore de session — et
+      // c'est ainsi que des invités arrivaient sans le plan de leur invitation.
+      // claimPendingInvite() le reprendra à leur première connexion réelle.
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -71,19 +77,25 @@ function JoinForm() {
             first_name: form.first_name,
             last_name: form.last_name,
             company_name: form.company_name,
+            pending_invite_token: tokenData.id,
           },
         },
       });
 
       if (signUpError) throw signUpError;
 
-      // 2. The invite token validation and plan assignment will be handled by claimInvitePlan
-      if (authData.user) {
-        // Just call the secure action which handles token validation, user_usage creation, and users.plan update
-        const res = await claimInvitePlan(tokenData.id);
-        if (!res.success) {
-          throw new Error(res.error || t("common.auth.joinPlanError"));
-        }
+      // 2. Confirmation exigée : on s'arrête là, l'écran explique la suite.
+      if (!authData.session) {
+        setAConfirmer(form.email);
+        setSubmitting(false);
+        return;
+      }
+
+      // 3. Session immédiate (confirmation désactivée) : le plan s'applique tout
+      // de suite, et le marqueur posé ci-dessus devient sans objet.
+      const res = await claimInvitePlan(tokenData.id);
+      if (!res.success) {
+        throw new Error(res.error || t("common.auth.joinPlanError"));
       }
 
       // 4. Redirect to dashboard
@@ -120,6 +132,16 @@ function JoinForm() {
           <Link href="/login" style={{ color: "var(--primary)", fontWeight: "600", fontSize: "14px" }}>
             {t("common.auth.alreadyHaveAccount")} {t("common.auth.signIn")}
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (aConfirmer) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--background)", padding: "20px" }}>
+        <div style={{ maxWidth: "480px", width: "100%" }}>
+          <ConfirmEmailNotice email={aConfirmer} />
         </div>
       </div>
     );

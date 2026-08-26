@@ -7,6 +7,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import { ToastProvider } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
+import { claimPendingInvite } from "@/lib/actions/usage";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardShell({ children }) {
@@ -23,6 +24,17 @@ export default function DashboardShell({ children }) {
       if (!authUser) {
         router.push("/login");
         return;
+      }
+
+      // Invitation mise de côté à l'inscription (/join) et jamais réclamée,
+      // faute de session à ce moment-là. C'est ici la PREMIÈRE session réelle du
+      // compte : on applique le plan avant de lire la ligne `users`, sinon
+      // l'invité verrait le plan par défaut jusqu'à son prochain chargement.
+      //
+      // Le test se fait sur les métadonnées déjà en main : aucun aller-retour
+      // supplémentaire dans le cas courant, qui est l'immense majorité.
+      if (authUser.user_metadata?.pending_invite_token) {
+        await claimPendingInvite();
       }
 
       // Load user data from DB

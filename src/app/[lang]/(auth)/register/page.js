@@ -5,6 +5,7 @@ import { useRouter } from "@/lib/i18n/navigation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/lib/supabase/client";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
+import ConfirmEmailNotice from "@/components/auth/ConfirmEmailNotice";
 
 export default function RegisterPage() {
   const t = useT();
@@ -15,6 +16,9 @@ export default function RegisterPage() {
   const [companyName, setCompanyName] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Adresse en attente de confirmation : non nulle = l'inscription a réussi mais
+  // la session n'existera qu'après le clic sur le lien reçu par mail.
+  const [aConfirmer, setAConfirmer] = useState(null);
   const router = useRouter();
 
   const handleRegister = async (e) => {
@@ -38,11 +42,24 @@ export default function RegisterPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push("/accueil");
-      router.refresh();
+      return;
     }
+
+    // Pas de session = confirmation d'e-mail exigée (réglage Supabase
+    // `mailer_autoconfirm`). Rediriger ici enverrait l'inscrit sur une route
+    // protégée où le proxy ne le reconnaîtrait pas, et le renverrait au login
+    // sans explication — il lirait un échec là où tout s'est bien passé.
+    if (!data.session) {
+      setAConfirmer(email);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/accueil");
+    router.refresh();
   };
+
+  if (aConfirmer) return <ConfirmEmailNotice email={aConfirmer} />;
 
   return (
     <div className="card" style={{ padding: '2rem' }}>

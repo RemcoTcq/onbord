@@ -67,6 +67,19 @@ const common = {
     joinInvalidToken: "Invalid invitation link. No token provided.",
     joinPlanError: "Something went wrong while assigning your plan.",
 
+
+    // ── Waiting for email confirmation ──────────────────────────────────
+    // Shown when signUp() succeeds without returning a session.
+    confirmTitle: "Check your inbox",
+    confirmBody:
+      "Your account is created. We've just sent a confirmation link to {email} — open it to activate your account and reach the platform.",
+    confirmSpamHint:
+      "Nothing after a few minutes? Have a look in your spam folder.",
+    confirmResend: "Resend the email",
+    confirmResent: "Email sent again. Check your inbox.",
+    confirmAlreadyDone: "Already confirmed?",
+    confirmLinkFailed:
+      "That confirmation link couldn't be validated: it may have already been used, expired, or been opened on a different device from the one you signed up on. Sign in below, or request a new link from the sign-up page.",
     alreadyHaveAccount: "Already have an account?",
     signIn: "Sign in",
 

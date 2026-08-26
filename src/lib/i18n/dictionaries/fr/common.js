@@ -76,6 +76,19 @@ const common = {
     joinInvalidToken: "Lien d'invitation invalide. Aucun token fourni.",
     joinPlanError: "Erreur lors de l'attribution du plan.",
 
+
+    // ── Attente de confirmation d'e-mail ────────────────────────────────
+    // Écran affiché quand signUp() réussit sans rendre de session.
+    confirmTitle: "Vérifiez votre boîte mail",
+    confirmBody:
+      "Votre compte est créé. Nous venons d'envoyer un lien de confirmation à {email} : ouvrez-le pour activer votre compte et accéder à la plateforme.",
+    confirmSpamHint:
+      "Rien reçu au bout de quelques minutes ? Regardez dans vos indésirables.",
+    confirmResend: "Renvoyer l'e-mail",
+    confirmResent: "E-mail renvoyé. Vérifiez votre boîte.",
+    confirmAlreadyDone: "Déjà confirmé ?",
+    confirmLinkFailed:
+      "Ce lien de confirmation n'a pas pu être validé : il a peut-être déjà servi, expiré, ou été ouvert sur un autre appareil que celui où vous vous êtes inscrit. Connectez-vous ci-dessous, ou demandez un nouveau lien depuis la page d'inscription.",
     alreadyHaveAccount: "Déjà un compte ?",
     signIn: "Se connecter",
 
