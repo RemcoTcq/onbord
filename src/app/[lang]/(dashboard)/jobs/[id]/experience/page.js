@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 import AutoTextarea from "@/components/ui/AutoTextarea";
+import { estimerMinutes } from "@/lib/experienceDuree";
 import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
@@ -221,7 +222,9 @@ export default function ExperienceReviewPage() {
               </h1>
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
                 {t("dashboard.experienceEditor.stepCount", { count: steps.length })}
-                {experience.estimated_minutes ? t("dashboard.experienceEditor.estimatedMinutes", { minutes: experience.estimated_minutes }) : ""}
+                {/* Calculée ici, pas lue en base : elle doit suivre l'ajout et
+                    le retrait d'étapes à l'écran, sans attendre un rechargement. */}
+                {estimerMinutes(steps) ? t("dashboard.experienceEditor.estimatedMinutes", { minutes: estimerMinutes(steps) }) : ""}
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

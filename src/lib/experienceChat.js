@@ -7,6 +7,8 @@
 // module "use server" ne peut exporter que des fonctions async, et une route
 // handler ne peut pas appeler une server action en Next 16.
 
+import { estimerMinutes } from "@/lib/experienceDuree";
+
 // ─── Bornes ───────────────────────────────────────────────────────────────────
 // Le fil entier tient dans UNE ligne jsonb (table experience_chats, migration
 // 025). Sans borne, cette ligne grossit à chaque tour et n'est jamais purgée.
@@ -150,7 +152,11 @@ export function construireEtatExperience(experience, steps) {
     };
   }
 
-  const entete = `Version v${experience.version} · statut : ${LIBELLES_STATUT[experience.status] || experience.status} · ${steps.length} étape${steps.length > 1 ? "s" : ""}${experience.estimated_minutes ? ` · ~${experience.estimated_minutes} min` : ""}`;
+  // Durée dérivée des étapes ci-dessous, comme partout ailleurs : l'assistant
+  // décrit l'expérience TELLE QU'ELLE EST, et il vient d'en retirer une étape
+  // une ligne plus haut. Le nombre stocké, lui, date de la génération.
+  const minutes = estimerMinutes(steps);
+  const entete = `Version v${experience.version} · statut : ${LIBELLES_STATUT[experience.status] || experience.status} · ${steps.length} étape${steps.length > 1 ? "s" : ""}${minutes ? ` · ~${minutes} min` : ""}`;
 
   const lignes = steps.map((s, i) => {
     const attributs = [

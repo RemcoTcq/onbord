@@ -7,6 +7,7 @@ import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
 import { executeBatch } from "@/lib/codeRunner";
+import { estimerMinutes } from "@/lib/experienceDuree";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
@@ -242,7 +243,9 @@ export async function startRun(token) {
       recruiter: recruiter || {},
       experience: {
         id: exp.id,
-        estimated_minutes: exp.estimated_minutes,
+        // Dérivée des étapes, pas relue en base : une expérience éditée après
+        // sa génération annonçait au candidat la durée de sa première version.
+        estimated_minutes: estimerMinutes(steps),
         welcome_message: exp.welcome_message || null,
         thank_you_message: exp.thank_you_message || null,
       },

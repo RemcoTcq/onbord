@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { CRM_SKILL_NAME } from "@/lib/crmScoring";
+import { estimerMinutes } from "@/lib/experienceDuree";
 import { consigneLangueContenu } from "@/lib/i18n/prompt";
 import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
@@ -657,7 +658,16 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     });
     if (!gen.success) return gen;
 
-    const { steps = [], estimated_minutes = null } = gen.experience;
+    const { steps = [] } = gen.experience;
+    // La durée annoncée par le modèle est ignorée : elle n'engage rien et se
+    // désaccorde du contenu dès la première retouche du recruteur. On dérive la
+    // même estimation que celle affichée partout ailleurs (lib/experienceDuree).
+    const estimated_minutes = estimerMinutes(steps.map((s) => ({
+      kind: s.kind,
+      response_format: s.response_format || "text",
+      sandbox_kind: s.sandbox_kind || "none",
+      ai_assistant_allowed: !!s.ai_assistant_allowed,
+    })));
 
     // Versionnage : une régénération crée TOUJOURS une nouvelle version. On ne
     // réécrit jamais une expérience existante — surtout pas une sur laquelle des
