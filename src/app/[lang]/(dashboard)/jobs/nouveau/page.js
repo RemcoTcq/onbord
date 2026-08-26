@@ -142,7 +142,9 @@ export default function NouvelleDemandePage() {
     setError(null);
     
     try {
-      const data = await analyzeJobDescription(targetContent);
+      // La langue du poste est choisie AVANT l'analyse, et c'est elle qui doit
+      // commander le titre et le résumé produits — pas la langue du dashboard.
+      const data = await analyzeJobDescription(targetContent, experienceLocale);
       setJobData(data);
       setRawDescription(targetContent); // Keep the analyzed content in state
 

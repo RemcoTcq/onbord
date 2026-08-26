@@ -130,28 +130,56 @@ Les intitulés d'étapes que tu cites dans l'état actuel ne sont pas traduits :
  *     toujours, quelle que soit la langue de l'offre ou du recruteur — sinon
  *     le <select> ne retrouve pas la valeur et le recruteur perd en silence
  *     ce que l'IA vient d'extraire ;
- *   • le TEXTE LIBRE (titre, résumé, noms de compétences) est lu par le
- *     recruteur : il suit sa langue d'interface, comme le rapport de scoring.
+ *   • le TEXTE DE L'OFFRE ELLE-MÊME — "title" et "clean_description" — suit la
+ *     LANGUE DU POSTE (jobs.experience_locale, choisie avant l'analyse). Ce
+ *     sont les mots de l'offre, pas une lecture qu'on en fait : un poste
+ *     anglais résumé en français produisait une offre bâtarde, et le titre est
+ *     de surcroît affiché au candidat.
+ *   • le RESTE DU TEXTE LIBRE (category, sub_family, noms de compétences, noms
+ *     des critères de sélection) suit la langue d'INTERFACE du recruteur. Ce
+ *     sont des étiquettes de classement et de filtrage, qu'il est seul à lire —
+ *     même raison que le rapport de scoring.
  *
  * L'evidence fait exception et reste dans la langue de l'offre : c'est une
  * citation exacte, et le prompt exige qu'elle soit un extrait réel du texte.
  * Même règle que le verbatim du scoring, pour la même raison.
+ *
+ * @param {string} uiLocale langue du dashboard recruteur (fr|en)
+ * @param {string} contentLocale langue du poste (fr|en|nl)
  */
-export function consigneLangueExtraction(uiLocale) {
-  const loc = coerceUiLocale(uiLocale);
-  const nom = LOCALE_NAMES_FR[loc];
+export function consigneLangueExtraction(uiLocale, contentLocale) {
+  const ui = coerceUiLocale(uiLocale);
+  const contenu = coerceExperienceLocale(contentLocale);
+  const nomUi = LOCALE_NAMES_FR[ui];
+  const nomContenu = LOCALE_NAMES_FR[contenu];
 
   const valeurs = `LES VALEURS D'ÉNUMÉRATION NE SE TRADUISENT JAMAIS. Les champs "role_type", "contract_type", "education_level", "priority" et le "name" des langues doivent être repris MOT POUR MOT dans la liste française imposée plus bas, même si l'offre est rédigée dans une autre langue. Une offre anglaise qui exige l'anglais donne "Anglais", pas "English" ; un Master donne "Master", jamais "Bac+5" ni "Master's degree".`;
 
-  if (loc === "fr") return `LANGUE DE SORTIE : français.\n\n${valeurs}`;
+  const evidence = `EXCEPTION — le champ "evidence" n'est JAMAIS traduit. C'est une citation exacte de l'offre, copiée mot pour mot : elle reste dans la langue dans laquelle l'offre a été écrite. Une evidence traduite n'est plus vérifiable.`;
 
-  return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nom}.
+  // Les deux langues coïncident : une seule consigne, sans distinguo à tenir.
+  if (ui === contenu) {
+    if (ui === "fr") return `LANGUE DE SORTIE : français.\n\n${evidence}\n\n${valeurs}`;
+    return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nomUi}.
 
-Le texte libre que tu produis est rédigé en ${nom} : "title", "clean_description", "sub_family", "category", le "name" des compétences et le "name" des critères de sélection. Ce sont des champs lus par le recruteur, dont l'interface est en ${nom}.
+Tout le texte libre que tu produis est rédigé en ${nomUi}.
 
-Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et rends le résultat en ${nom}.
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et rends le résultat en ${nomUi}.
 
-EXCEPTION — le champ "evidence" n'est JAMAIS traduit. C'est une citation exacte de l'offre, copiée mot pour mot : elle reste dans la langue dans laquelle l'offre a été écrite. Une evidence traduite n'est plus vérifiable.
+${evidence}
+
+${valeurs}`;
+  }
+
+  return `LANGUES DE SORTIE — CONSIGNE PRIORITAIRE. Deux champs suivent une langue, tous les autres en suivent une seconde. Ne les confonds pas.
+
+1. LANGUE DU POSTE — ${nomContenu}. Rédige en ${nomContenu} : "title" et "clean_description". Ce sont les mots de l'offre elle-même — le poste est publié dans cette langue et le titre est affiché au candidat. Les rédiger dans une autre langue produirait une offre bâtarde, quelle que soit la langue de l'offre brute qu'on te donne à lire.
+
+2. LANGUE DU RECRUTEUR — ${nomUi}. Rédige en ${nomUi} : "category", "sub_family", le "name" des compétences et le "name" des critères de sélection. Ce sont des étiquettes de classement, lues par le recruteur seul dans son interface.
+
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
+
+${evidence}
 
 ${valeurs}`;
 }

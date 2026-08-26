@@ -2,15 +2,25 @@
 
 import anthropic from "../anthropic";
 import { consigneLangueExtraction } from "@/lib/i18n/prompt";
+import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Analyzes a raw job description using Claude 3.5 Sonnet to extract structured criteria.
+ *
+ * DEUX langues en sortie, et elles ne se déduisent pas l'une de l'autre :
+ * le titre et le résumé de l'offre suivent la langue DU POSTE, tout le reste du
+ * texte libre suit la langue d'interface du recruteur (cf.
+ * consigneLangueExtraction). Sans le second paramètre, un poste anglais analysé
+ * par un recruteur francophone ressortait résumé en français.
+ *
  * @param {string} rawDescription - The raw text of the job description pasted by the user.
+ * @param {string} [contentLocale] - Langue du poste (jobs.experience_locale). Défaut : 'fr',
+ *   qui est aussi le défaut de la colonne — les deux ne doivent jamais diverger.
  * @returns {Promise<Object>} The extracted structured data.
  */
-export async function analyzeJobDescription(rawDescription) {
+export async function analyzeJobDescription(rawDescription, contentLocale = "fr") {
   if (!rawDescription || rawDescription.trim().length < 50) {
     throw new Error("La description est trop courte pour être analysée de manière fiable.");
   }
@@ -18,8 +28,9 @@ export async function analyzeJobDescription(rawDescription) {
   // Fetch active tests from the library to pass to the AI
   const supabase = await createClient();
 
-  // Langue d'interface du recruteur : les champs de texte libre extraits
-  // sont relus par lui dans le formulaire, pas par le candidat.
+  // Langue d'interface du recruteur : elle commande les étiquettes de
+  // classement (catégorie, compétences, critères), qu'il est seul à lire. Le
+  // titre et le résumé, eux, suivent la langue du poste reçue en paramètre.
   const { data: { user } } = await supabase.auth.getUser();
   let uiLocale = "fr";
   if (user) {
@@ -36,7 +47,7 @@ export async function analyzeJobDescription(rawDescription) {
     ? `\n\nVoici notre catalogue de tests métier globaux disponibles :\n<test_catalog>\n${JSON.stringify(activeTests, null, 2)}\n</test_catalog>`
     : "";
 
-  const prompt = `${consigneLangueExtraction(uiLocale)}
+  const prompt = `${consigneLangueExtraction(uiLocale, coerceExperienceLocale(contentLocale))}
 
 Vous êtes un assistant IA expert en recrutement. Votre tâche est d'analyser une offre d'emploi brute et d'en extraire les informations clés dans un format JSON structuré.
 
@@ -153,7 +164,10 @@ export async function createRoleQuick(title, description) {
 
     let criteria = {};
     if (description && description.trim().length >= 50) {
-      try { criteria = await analyzeJobDescription(description); } catch (e) { console.error("analyse offre (non bloquant):", e.message); }
+      // 'fr' explicite : cet écran n'offre pas de choix de langue, le poste est
+      // donc créé avec le défaut de la colonne experience_locale. Analyser dans
+      // une autre langue que celle qui sera stockée n'aurait aucun sens.
+      try { criteria = await analyzeJobDescription(description, "fr"); } catch (e) { console.error("analyse offre (non bloquant):", e.message); }
     }
     const finalTitle = (title && title.trim()) || criteria?.title || "Nouveau poste";
 
