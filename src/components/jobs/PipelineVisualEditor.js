@@ -80,10 +80,29 @@ function SortableNodeCard({
 
     if (node.type === 'experience') {
       label = t("dashboard.pipeline.nodes.experience");
-      subtitle = t("dashboard.pipeline.clickToConfigure");
+      // La carte annonçait « cliquez pour configurer » même sur une expérience
+      // déjà générée : elle invitait à refaire ce qui était fait, et ne disait
+      // rien de ce qu'elle contenait. Elle décrit maintenant son état, comme la
+      // carte voisine annonce son nombre de questions.
+      const exp = node.config?.experience;
+      if (!exp) {
+        subtitle = t("dashboard.pipeline.nodes.experienceEmpty");
+      } else if (exp.statut === "published") {
+        // Publiée : ce que le candidat va rencontrer, et le temps qu'on lui prend.
+        subtitle = t("dashboard.pipeline.nodes.experienceReady", {
+          count: exp.nbEtapes,
+          minutes: exp.minutes || 0,
+        });
+      } else {
+        // Brouillon : rien n'est visible côté candidat tant qu'on n'a pas publié.
+        // C'est l'information la plus utile ici, avant la durée.
+        subtitle = t("dashboard.pipeline.nodes.experienceDraft", { count: exp.nbEtapes });
+      }
     } else if (node.type === 'qualifying_questions') {
       label = t("dashboard.pipeline.nodes.qualifying");
-      subtitle = `${node.config?.questions?.length || 0} questions`;
+      subtitle = t("dashboard.pipeline.nodes.qualifyingCount", {
+        count: node.config?.questions?.length || 0,
+      });
     } else {
       label = t(meta.labelKey);
     }

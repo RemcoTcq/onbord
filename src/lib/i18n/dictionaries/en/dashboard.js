@@ -740,11 +740,20 @@ const dashboard = {
     deleteStep: "Delete",
     deleteStepConfirm: "Delete this step?",
     customStep: "Custom step",
-    clickToConfigure: "Click to configure the exercise",
 
     nodes: {
       qualifying: "Screening questions",
+      qualifyingCount_one: "{count} question",
+      qualifyingCount_other: "{count} questions",
+
       experience: "Candidate experience",
+      // Three states, three messages: the card said "click to configure" even
+      // on an experience that had already been generated.
+      experienceEmpty: "Click to generate it",
+      experienceDraft_one: "Draft · {count} step",
+      experienceDraft_other: "Draft · {count} steps",
+      experienceReady_one: "{count} step · ~{minutes} min",
+      experienceReady_other: "{count} steps · ~{minutes} min",
       sourcingHelp: "Handled through your ATS or your sourcing channels.",
       videoCall: "Video call interview",
       videoCallHelp: "Phone or video interview, run directly by your team.",

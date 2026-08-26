@@ -19,6 +19,8 @@ import {
   deleteJob
 } from "@/lib/actions/candidate";
 import { getTestsLibrary, selectQuestionsForJob, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { getExperienceForJob } from "@/lib/actions/experience";
+import { estimerMinutes } from "@/lib/experienceDuree";
 import { getJobEntry } from "@/lib/actions/run";
 import { entryIsOpen } from "@/lib/candidateEntry";
 import { buildDefaultPipeline } from "@/lib/pipelineTemplate";
@@ -119,6 +121,10 @@ export default function JobDetailPage() {
   const [activeTab, setActiveTab] = useState(EXPERIENCE_V1_ONLY ? "candidats" : "pipelines");
   const [copiedId, setCopiedId] = useState(null);
   const [entry, setEntry] = useState(null); // l'offre accepte-t-elle des candidats ?
+  // Ce que la carte Expérience doit annoncer : générée ou non, combien d'étapes,
+  // publiée ou brouillon. Un simple compteur, comme celui des questions
+  // qualificatives juste à côté.
+  const [experience, setExperience] = useState(null);
 
   // Candidates tab state
   const [searchQuery, setSearchQuery] = useState("");
@@ -166,16 +172,26 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes, entryRes] = await Promise.all([
+    const [jobRes, candidatesRes, testsRes, entryRes, expRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
       getTestsLibrary(),
-      // Verdict serveur : l'ouverture de l'offre ne se déduit pas d'une lecture
-      // de l'expérience — la version la plus récente non archivée peut être un
+      // Verdict serveur : l'ouverture de l'offre ne se déduit PAS de la lecture
+      // ci-dessous — la version la plus récente non archivée peut être un
       // brouillon, qui masquerait la version publiée.
       getJobEntry(jobId),
+      getExperienceForJob(jobId),
     ]);
     setEntry(entryRes?.entry || "not_ready");
+    setExperience(
+      expRes?.success && expRes.experience
+        ? {
+            statut: expRes.experience.status,
+            nbEtapes: (expRes.steps || []).length,
+            minutes: estimerMinutes(expRes.steps || []),
+          }
+        : null
+    );
     if (jobRes.success) {
       setJob(jobRes.job);
       setContextDescription(jobRes.job.description || "");
@@ -734,7 +750,8 @@ export default function JobDetailPage() {
       {/* Tab content */}
       {activeTab === "pipelines" && (
         <PipelinesTab 
-          job={job} 
+          job={job}
+          experience={experience}
           pipelineLocked={pipelineLocked} 
           setPipelineLocked={setPipelineLocked} 
           getPipelineNodes={getPipelineNodes} 
@@ -892,7 +909,7 @@ export default function JobDetailPage() {
 // qui restent traduits. La colonne reste en base, non lue.
 const LEGACY_EVAL_NODE_TYPES = ["cv_scoring", "assessment", "ai_interview", "single_video_question", "accueil", "remerciements"];
 
-function buildV1PipelineNodes(rawNodes) {
+function buildV1PipelineNodes(rawNodes, experience) {
   if (!EXPERIENCE_V1_ONLY) return rawNodes;
   const filtered = rawNodes.filter((n) => !LEGACY_EVAL_NODE_TYPES.includes(n.type));
   const before = filtered.filter((n) => n.locked && n.type === "sourcing");
@@ -900,14 +917,17 @@ function buildV1PipelineNodes(rawNodes) {
   const qualifying = filtered.find((n) => n.type === "qualifying_questions");
   const middle = [
     ...(qualifying ? [qualifying] : []),
-    { id: "experience_main", type: "experience", v2: true, config: {} },
+    // L'état de l'expérience voyage dans la config du nœud, comme le nombre de
+    // questions du nœud qualificatif juste avant : la carte doit dire ce qui EST,
+    // pas répéter « cliquez pour configurer » sur une expérience déjà générée.
+    { id: "experience_main", type: "experience", v2: true, config: { experience } },
   ];
   return [...before, ...middle, ...after];
 }
 
-function PipelinesTab({ job, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onNodesChange, onAIAssessmentClick }) {
+function PipelinesTab({ job, experience, pipelineLocked, setPipelineLocked, getPipelineNodes, testsLibrary, handleDeletePipelineNode, selectedNodeId, setSelectedNodeId, handleAddPipelineNode, onOpenExperience, onNodesChange, onAIAssessmentClick }) {
   const { t, locale } = useI18n();
-  const pipelineNodes = buildV1PipelineNodes(getPipelineNodes());
+  const pipelineNodes = buildV1PipelineNodes(getPipelineNodes(), experience);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Cliquer le bloc Expérience ouvre l'écran de config/relecture (étape 3) ;

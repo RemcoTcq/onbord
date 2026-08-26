@@ -808,11 +808,20 @@ const dashboard = {
     deleteStep: 'Supprimer',
     deleteStepConfirm: 'Supprimer cette étape ?',
     customStep: 'Étape personnalisée',
-    clickToConfigure: 'Cliquez pour configurer la mise en situation',
 
     nodes: {
       qualifying: 'Questions qualificatives',
+      qualifyingCount_one: '{count} question',
+      qualifyingCount_other: '{count} questions',
+
       experience: 'Expérience candidat',
+      // Trois états, trois messages : la carte disait « cliquez pour
+      // configurer » y compris sur une expérience déjà générée.
+      experienceEmpty: 'Cliquez pour la générer',
+      experienceDraft_one: 'Brouillon · {count} étape',
+      experienceDraft_other: 'Brouillon · {count} étapes',
+      experienceReady_one: '{count} étape · ~{minutes} min',
+      experienceReady_other: '{count} étapes · ~{minutes} min',
       sourcingHelp: 'Géré via votre ATS ou vos canaux de sourcing.',
       videoCall: 'Entretien visio',
       videoCallHelp: 'Entretien téléphonique ou en visio, géré directement par votre équipe.',
