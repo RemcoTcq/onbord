@@ -98,22 +98,34 @@ EXCEPTION — le champ "verbatim" n'est JAMAIS traduit. Le candidat a répondu e
  * Sans cette séparation, un recruteur anglophone obtiendrait un brief anglais
  * inséré dans un prompt français — ce qui marche, mais fait dériver le
  * calibrage du générateur sans qu'on puisse le constater.
+ *
+ * ── La langue d'interface est un DÉFAUT, pas une consigne ───────────────────
+ * La version précédente épinglait la conversation sur users.ui_locale : un
+ * recruteur en interface française qui écrivait en anglais se faisait répondre
+ * en français, à chaque tour. C'est un dialogue, pas un document — on suit son
+ * interlocuteur. La langue d'interface ne sert plus qu'à deux choses : ouvrir
+ * la conversation, et trancher quand le message ne dit rien de sa langue
+ * (« ok », « parfait », un lien collé).
+ *
+ * Même règle que l'assistant du candidat (api/run/assistant), pour la même
+ * raison. Deux surfaces conversationnelles qui suivraient des règles opposées
+ * finiraient par surprendre quelqu'un.
  */
 export function consigneLangueConversation(uiLocale) {
-  // coerceUiLocale, pas coerceExperienceLocale : le chat suit la langue du
-  // recruteur, qui ne peut être que fr ou en. Le néerlandais est une langue
-  // de parcours candidat, jamais une langue de dashboard.
-  const loc = coerceUiLocale(uiLocale);
-  if (loc === "fr") return `LANGUE DE SORTIE : français.`;
+  // coerceUiLocale, pas coerceExperienceLocale : la langue PAR DÉFAUT est celle
+  // du dashboard, qui ne peut être que fr ou en. Le recruteur reste libre
+  // d'écrire dans n'importe quelle langue, et d'être suivi.
+  const nom = LOCALE_NAMES_FR[coerceUiLocale(uiLocale)];
 
-  const nom = LOCALE_NAMES_FR[loc];
-  return `LANGUE DE LA CONVERSATION — CONSIGNE PRIORITAIRE : ${nom}.
+  return `LANGUE DE LA CONVERSATION — CONSIGNE PRIORITAIRE.
 
-Tu t'adresses au recruteur en ${nom} : toutes tes réponses visibles sont en ${nom}, y compris les questions que tu poses et les récapitulatifs d'état.
+Tu réponds au recruteur DANS LA LANGUE DE SON DERNIER MESSAGE. S'il t'écrit en anglais, tu réponds en anglais ; en néerlandais, en néerlandais. Cela vaut pour tout ce que tu lui montres : tes questions, tes propositions, tes récapitulatifs d'état.
 
-Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et réponds en ${nom}.
+Sa langue par défaut est le ${nom} : c'est celle dans laquelle tu ouvres la conversation, et celle vers laquelle tu reviens quand son message ne permet pas de trancher (« ok », « parfait », un lien collé).
 
-EXCEPTION — les entrées d'outil restent en FRANÇAIS. Les champs « brief » (generate_experience) et « consigne » (regenerate_step) sont lus par un autre prompt, en français : rédige-les en français même si l'échange se déroule en ${nom}. Reprends alors le sens de ce que le recruteur a dit, pas ses mots exacts.
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
+
+EXCEPTION — les entrées d'outil restent en FRANÇAIS, quelle que soit la langue de l'échange. Les champs « brief » (generate_experience) et « consigne » (regenerate_step) sont lus par un autre prompt, en français : rédige-les en français même si vous conversez en anglais. Reprends alors le sens de ce que le recruteur a dit, pas ses mots exacts.
 
 Les intitulés d'étapes que tu cites dans l'état actuel ne sont pas traduits : ils sont écrits dans la langue de l'offre, restitue-les tels quels.`;
 }
