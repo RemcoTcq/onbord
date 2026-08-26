@@ -553,6 +553,11 @@ const dashboard = {
     saveChanges: "Enregistrer les modifications",
     profileUpdated: "Profil mis à jour avec succès !",
 
+    // ── Session ─────────────────────────────────────────────────────────
+    session: "Session",
+    signOutHelp:
+      "Vous fermez la session sur cet appareil. Vos données et vos offres restent intactes.",
+
     // ── Sécurité ────────────────────────────────────────────────────────
     security: "Sécurité & connexion",
     securityIntro:

@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { updateProfile } from "@/lib/actions/user";
 import { useToast } from "@/components/ui/Toast";
 import { useT } from "@/lib/i18n/I18nProvider";
-import { Loader2 } from "lucide-react";
+import { useRouter } from "@/lib/i18n/navigation";
+import { Loader2, LogOut } from "lucide-react";
 
 export default function AccountInfoPage() {
   const t = useT();
@@ -15,6 +16,8 @@ export default function AccountInfoPage() {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     async function loadProfile() {
@@ -47,6 +50,15 @@ export default function AccountInfoPage() {
     }
     
     setSaving(false);
+  };
+
+  // La déconnexion n'existait que dans la barre latérale, derrière une icône
+  // sans libellé : personne ne la trouvait depuis les paramètres, qui sont
+  // pourtant l'endroit où on la cherche.
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await createClient().auth.signOut();
+    router.push("/login");
   };
 
   if (loading) {
@@ -112,6 +124,29 @@ export default function AccountInfoPage() {
           </button>
         </div>
       </form>
+
+      {/* Session — séparé du formulaire : ce n'est pas une modification à
+          enregistrer, c'est une action immédiate. */}
+      <div style={{ marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
+        <h3 style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--foreground)" }}>
+          {t("dashboard.account.session")}
+        </h3>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+          <p style={{ fontSize: "13px", color: "var(--muted-foreground)", margin: 0, maxWidth: "420px" }}>
+            {t("dashboard.account.signOutHelp")}
+          </p>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content", flexShrink: 0 }}
+          >
+            {signingOut ? <Loader2 size={16} className="spin" /> : <LogOut size={16} />}
+            {t("dashboard.nav.signOut")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

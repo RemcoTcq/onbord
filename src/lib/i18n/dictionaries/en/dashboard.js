@@ -498,6 +498,11 @@ const dashboard = {
     saveChanges: "Save changes",
     profileUpdated: "Profile updated successfully!",
 
+    // ── Session ─────────────────────────────────────────────────────────
+    session: "Session",
+    signOutHelp:
+      "This ends your session on this device. Your data and your jobs stay untouched.",
+
     security: "Security & sign-in",
     securityIntro:
       "To change your email or password, you must confirm your current password.",
