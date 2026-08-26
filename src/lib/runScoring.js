@@ -38,6 +38,8 @@ const JUSTIFICATIONS_AUTO = {
       error: "échec d'exécution",
     },
     empty: "vide",
+    recopiageCap: (pct) =>
+      ` Note plafonnée : ${pct} % de la réponse est reprise mot pour mot des messages de l'assistant IA. Ce qui est évalué ici est ce que le candidat a produit.`,
   },
   en: {
     qcmDimension: "Multiple choice — correct answer",
@@ -64,6 +66,8 @@ const JUSTIFICATIONS_AUTO = {
       error: "execution failed",
     },
     empty: "empty",
+    recopiageCap: (pct) =>
+      ` Score capped: ${pct}% of the answer is copied word for word from the AI assistant's messages. What is assessed here is what the candidate produced.`,
   },
 };
 
@@ -90,6 +94,45 @@ function codeRunSummary(step, resp, L) {
     .filter((e) => !e.passed)
     .map((e) => L.codeFailure(e.name, L.codeVerdicts[e.verdict] || e.verdict));
   return { never_run: false, total: code.total ?? total, passed: code.passed ?? 0, attempts: code.attempts ?? 0, failures };
+}
+
+// ─── Recopiage de l'assistant ────────────────────────────────────────────────
+// Le cas observé : le candidat colle l'énoncé dans l'assistant, puis recolle la
+// réponse de l'assistant dans le champ. L'usage de l'IA était bien noté sévère —
+// mais les sous-dimensions de la TÂCHE, elles, notaient la qualité du texte, qui
+// est celle du modèle. Un candidat qui n'a rien produit repartait avec une bonne
+// note sur le travail. C'est cette mesure qui rend le recopiage visible.
+//
+// Méthode : recouvrement par n-grammes (8 mots). On ne cherche pas une
+// ressemblance de sens — reformuler la sortie d'un modèle est un vrai travail,
+// et ne doit pas être puni — mais la reprise MOT POUR MOT de longues séquences.
+// Huit mots consécutifs identiques n'arrivent pas par hasard.
+const NGRAMME = 8;
+const SEUIL_SIGNAL = 0.35;   // au-delà : l'évaluateur en est informé
+const SEUIL_PLAFOND = 0.7;   // au-delà : plafond mécanique, sans appel
+
+function normaliserTexte(s) {
+  return (s || "").toLowerCase().replace(/[.,;:!?"""«»''()\[\]\-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function ngrammes(texte) {
+  const mots = normaliserTexte(texte).split(" ").filter(Boolean);
+  if (mots.length < NGRAMME) return [];
+  const out = [];
+  for (let i = 0; i + NGRAMME <= mots.length; i++) out.push(mots.slice(i, i + NGRAMME).join(" "));
+  return out;
+}
+
+/**
+ * Part de la réponse du candidat reprise mot pour mot à l'assistant.
+ * @returns {number} entre 0 et 1 ; 0 si la réponse est trop courte pour conclure.
+ */
+export function tauxRecopiage(reponse, textesAssistant) {
+  const cible = ngrammes(reponse);
+  if (!cible.length) return 0;
+  const source = new Set(textesAssistant.flatMap(ngrammes));
+  if (!source.size) return 0;
+  return cible.filter((g) => source.has(g)).length / cible.length;
 }
 
 // Vérifie qu'un verbatim est une sous-chaîne réelle de la réponse du candidat
@@ -277,6 +320,7 @@ export async function scoreRun(runId) {
   }
 
   // ── Construit la trajectoire pour le prompt (uniquement les steps non-QCM) ──
+  const copieParStep = {};
   const traj = scored.map((s, i) => {
     const resp = respByStep[s.id];
     const answer = candidateAnswerText(s, resp);
@@ -286,6 +330,17 @@ export async function scoreRun(runId) {
     }).join("\n");
     const skill = skillOf(s);
     const ai = (aiByStep[s.id] || []).map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n");
+    // Recopiage : mesuré ici, PAS laissé au jugement du modèle. Comparer une
+    // réponse à dix messages d'assistant est un travail de comptage, pas
+    // d'appréciation — et un évaluateur qui compte à vue rate les cas moyens.
+    const messagesAssistant = (aiByStep[s.id] || [])
+      .filter((m) => m.role === "assistant")
+      .map((m) => m.content || "");
+    const tauxCopie = messagesAssistant.length ? tauxRecopiage(answer, messagesAssistant) : 0;
+    copieParStep[s.id] = tauxCopie;
+    const copie = tauxCopie >= SEUIL_SIGNAL
+      ? `  RECOPIAGE MESURÉ : ${Math.round(tauxCopie * 100)} % des séquences de ${NGRAMME} mots de la réponse figurent MOT POUR MOT dans les messages de l'assistant.\n`
+      : "";
     // Piège du sandbox CRM : l'évaluateur doit connaître la contradiction placée
     // dans le brief pour juger si le candidat a croisé les sources.
     const trap = s.sandbox_kind === "crm" && s.config?.crm ? crmTrapBriefing(s.config.crm) : "";
@@ -297,7 +352,7 @@ export async function scoreRun(runId) {
       : "";
     return `ÉTAPE ${i + 1} — ${s.title || s.kind} (step_id: ${s.id})
   Énoncé : ${s.prompt}
-${trap ? `${trap}\n` : ""}${revision}  Réponse du candidat :
+${trap ? `${trap}\n` : ""}${revision}${copie}  Réponse du candidat :
   """${answer}"""
   Compétence évaluée : ${skill || "(non précisée)"}
   Sous-dimensions à noter :
@@ -311,6 +366,7 @@ Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une traj
 RÈGLES ABSOLUES :
 - Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
 - Justifie chaque note et cite un VERBATIM : un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle). Si rien de pertinent, verbatim = "" et note basse.
+- RECOPIAGE : quand une étape porte la ligne « RECOPIAGE MESURÉ », la réponse n'est pas le travail du candidat, c'est celui de l'assistant, collé. Note alors les sous-dimensions sur CE QUE LE CANDIDAT A PRODUIT — c'est-à-dire rien, ou presque : niveau 1 ou 2, jamais plus, quelle que soit la qualité apparente du texte. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le explicitement dans la justification, sans détour.
 - La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.
 - Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes (cadrage, itération, regard critique), dis pour chacun ce que le candidat a fait ou n'a pas fait, et appuie-toi sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
@@ -373,9 +429,16 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
 
     // Post-traitement : score dérivé du niveau BARS + vérification verbatim
     critScores = (parsed.sub_dimension_scores || []).map((c) => {
-      const level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
-      const score = (level - 1) * 25;
       const step = scored.find((s) => s.id === c.step_id);
+      // Au-delà du seuil, le plafond ne se négocie pas : le modèle a pour
+      // consigne de descendre à 1 ou 2, mais il lui arrive de se laisser
+      // impressionner par un texte bien tourné. Ce cas-là est trop net pour
+      // dépendre d'un jugement — et c'est exactement celui qu'on veut sanctionner.
+      const taux = copieParStep[c.step_id] || 0;
+      const plafonne = taux >= SEUIL_PLAFOND;
+      let level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
+      if (plafonne) level = Math.min(level, 2);
+      const score = (level - 1) * 25;
       const src = step ? candidateAnswerText(step, respByStep[step.id]) : "";
       return {
         step_id: c.step_id,
@@ -385,7 +448,7 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
         sub_dimension_name: c.sub_dimension_name || "",
         bars_level: level,
         score,
-        justification: c.justification || "",
+        justification: (c.justification || "") + (plafonne ? L.recopiageCap(Math.round(taux * 100)) : ""),
         verbatim: c.verbatim || "",
         verbatim_verified: verifyVerbatim(c.verbatim, src),
       };
