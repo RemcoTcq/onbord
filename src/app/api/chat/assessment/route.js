@@ -4,7 +4,9 @@ import {
   chargerFil, enregistrerFil, bornerFil, MAX_MESSAGES_MODELE,
   chargerExperienceCourante, construireEtatExperience,
 } from '@/lib/experienceChat';
-import { consigneLangueConversation } from '@/lib/i18n/prompt';
+import { consigneLangueConversation, rappelLangueConversation } from '@/lib/i18n/prompt';
+import { langueDeConversation } from '@/lib/i18n/detection';
+import { UI_LOCALES, coerceUiLocale } from '@/lib/i18n/config';
 
 // Chat-first de conception d'expérience : le chat prend l'offre + le contexte
 // entreprise en entrée, pose les questions nécessaires pour affiner, puis
@@ -58,7 +60,7 @@ const REGENERATE_STEP_TOOL = {
   },
 };
 
-function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experienceExiste, uiLocale }) {
+function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experienceExiste, langue }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -87,7 +89,10 @@ function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, experie
 
   // La consigne de langue passe EN TÊTE : placée après les huit points du
   // déroulé, elle se fait recouvrir par les exemples français qui la précèdent.
-  return `${consigneLangueConversation(uiLocale)}
+  // Et elle est REPRISE EN QUEUE : entre les deux il y a deux mille caractères
+  // de français, et c'est la dernière ligne lue qui pèse le plus au moment de
+  // rédiger. Une seule des deux positions ne suffisait pas.
+  return `${consigneLangueConversation(langue)}
 
 Tu es le concepteur d'expériences de présélection de Onbord. Tu aides le recruteur à concevoir une expérience courte (5–20 min) de MISES EN SITUATION qui prouvent les compétences — pas un questionnaire théorique, pas un test pioché dans une bibliothèque.
 
@@ -99,7 +104,9 @@ ${blocEtat}
 
 ${deroule}
 
-Ton direct et concret, pas de bla-bla. N'utilise JAMAIS de Markdown (pas de **, pas de listes à astérisques) — uniquement du texte brut.`;
+Ton direct et concret, pas de bla-bla. N'utilise JAMAIS de Markdown (pas de **, pas de listes à astérisques) — uniquement du texte brut.
+
+${rappelLangueConversation(langue)}`;
 }
 
 export async function POST(req) {
@@ -138,16 +145,34 @@ export async function POST(req) {
     const { experience, steps } = await chargerExperienceCourante(supabase, jobId);
     const etat = construireEtatExperience(experience, steps);
 
+    // Le chat de conception s'adresse au RECRUTEUR, pas au candidat : il suit
+    // la langue dans laquelle CELUI-CI écrit, pas celle de l'offre. Un recruteur
+    // anglophone conçoit en anglais une expérience qui sortira en néerlandais —
+    // la langue du parcours généré, elle, ne se décide pas ici : elle est lue en
+    // base (jobs.experience_locale) au moment de générer.
+    //
+    // La détection ne regarde QUE les messages humains du fil : les tool_result
+    // que le client y insère sont rédigés en français, et les prendre pour la
+    // parole du recruteur ramenait tout l'échange au français dès la première
+    // génération. Le fil complet est passé, pas seulement son extrémité : la
+    // langue de l'échange ne doit pas changer parce qu'on a rogné le contexte.
+    //
+    // Deux langues candidates seulement, celles de l'interface : le recruteur
+    // conçoit en français ou en anglais. Un message néerlandais ne trompe pas la
+    // détection pour autant, il ne tranche simplement pas — et on retombe sur sa
+    // langue d'interface.
+    const langue = langueDeConversation(fil, {
+      langues: UI_LOCALES,
+      defaut: coerceUiLocale(profile?.ui_locale),
+    });
+
     const system = buildSystemPrompt({
       title: job.title,
       skillsStr,
       companyContext: profile?.company_ai_context,
       blocEtat: etat.bloc,
       experienceExiste: etat.existe,
-      // Le chat de conception s'adresse au RECRUTEUR : il suit sa langue
-      // d'interface, pas celle de l'offre. Un recruteur anglophone conçoit en
-      // anglais une expérience qui sortira en néerlandais.
-      uiLocale: profile?.ui_locale,
+      langue,
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });

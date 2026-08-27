@@ -2,7 +2,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
-import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { langueDeConversation } from "@/lib/i18n/detection";
 import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
@@ -134,6 +135,27 @@ export async function POST(request) {
       .from("run_ai_messages").select("role, content, created_at")
       .eq("run_id", run.id).eq("step_id", step.id).order("created_at", { ascending: true });
 
+    const messages = [
+      ...(history || []).map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: message },
+    ];
+
+    // Langue de réponse tranchée SERVEUR, sur les seuls messages du candidat —
+    // même mécanique que le chat de conception (lib/i18n/detection.js), pour la
+    // même raison : le prompt système est en français, et une consigne du type
+    // « suis la langue de ton interlocuteur » se fait recouvrir par cette masse
+    // dès que le candidat écrit court. On ne demande donc plus au modèle de
+    // déduire la langue, on la lui donne.
+    //
+    // Le parcours reste le défaut : c'est la langue de l'étape que le candidat a
+    // sous les yeux, donc celle de son premier message tant que rien ne dit le
+    // contraire. Un candidat qui écrit dans une autre langue est suivi.
+    const langue = langueDeConversation(messages, {
+      langues: EXPERIENCE_LOCALES,
+      defaut: locale,
+    });
+    const nomLangue = LOCALE_NAMES_FR[langue];
+
     // Claude complet : assistant généraliste, sans bridage — on mesure COMMENT le
     // candidat s'en sert (noté séparément), pas s'il s'en sert. Tout est loggé.
     const system = `Tu es Claude, un assistant IA généraliste développé par Anthropic. Tu aides l'utilisateur du mieux possible : réponses claires, utiles et honnêtes. Contexte : l'utilisateur travaille sur la tâche suivante pendant une évaluation professionnelle.
@@ -142,12 +164,7 @@ ${step.prompt || ""}
 """
 Réponds naturellement, comme dans une conversation normale.
 
-LANGUE : cette évaluation se déroule en ${LOCALE_NAMES_FR[locale]}. C'est ta langue par défaut. Si le candidat t'écrit dans une autre langue, suis-le — mais quand son message ne permet pas de trancher (« ok », « merci », un simple bout de code), reviens au ${LOCALE_NAMES_FR[locale]}.`;
-
-    const messages = [
-      ...(history || []).map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: message },
-    ];
+LANGUE — CONSIGNE PRIORITAIRE : tu réponds en ${nomLangue}, et en ${nomLangue} seulement. Cette langue a été déterminée à partir des messages du candidat lui-même ; tu n'as ni à la deviner ni à la réévaluer. Elle prime sur la langue de ces instructions, qui sont en français pour des raisons internes, et sur celle de l'énoncé ci-dessus, qui peut être rédigé dans une autre langue.`;
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

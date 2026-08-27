@@ -99,35 +99,74 @@ EXCEPTION — le champ "verbatim" n'est JAMAIS traduit. Le candidat a répondu e
  * inséré dans un prompt français — ce qui marche, mais fait dériver le
  * calibrage du générateur sans qu'on puisse le constater.
  *
- * ── La langue d'interface est un DÉFAUT, pas une consigne ───────────────────
- * La version précédente épinglait la conversation sur users.ui_locale : un
- * recruteur en interface française qui écrivait en anglais se faisait répondre
- * en français, à chaque tour. C'est un dialogue, pas un document — on suit son
- * interlocuteur. La langue d'interface ne sert plus qu'à deux choses : ouvrir
- * la conversation, et trancher quand le message ne dit rien de sa langue
- * (« ok », « parfait », un lien collé).
+ * ── La langue est TRANCHÉE EN AMONT, elle n'est plus déduite ────────────────
+ * Deux versions ont échoué avant celle-ci, et pour des raisons opposées.
+ * La première épinglait la conversation sur users.ui_locale : un recruteur en
+ * interface française qui écrivait en anglais se faisait répondre en français,
+ * à chaque tour. La seconde a corrigé le tir en demandant au modèle de suivre
+ * « la langue du dernier message » — et le français est revenu, parce que le
+ * dernier message n'est pas toujours celui du recruteur : après une génération,
+ * c'est un tool_result que NOTRE client rédige en français.
  *
- * Même règle que l'assistant du candidat (api/run/assistant), pour la même
+ * On ne demande donc plus au modèle de déduire quoi que ce soit. La langue est
+ * calculée serveur à partir des seuls messages humains du fil
+ * (lib/i18n/detection.js) et arrive ici déjà tranchée : `locale` est la langue
+ * dans laquelle répondre, point. Le paramètre n'est plus un défaut.
+ *
+ * Même mécanique que l'assistant du candidat (api/run/assistant), pour la même
  * raison. Deux surfaces conversationnelles qui suivraient des règles opposées
  * finiraient par surprendre quelqu'un.
+ *
+ * @param {string} locale langue de réponse, déjà résolue (fr|en|nl)
  */
-export function consigneLangueConversation(uiLocale) {
-  // coerceUiLocale, pas coerceExperienceLocale : la langue PAR DÉFAUT est celle
-  // du dashboard, qui ne peut être que fr ou en. Le recruteur reste libre
-  // d'écrire dans n'importe quelle langue, et d'être suivi.
-  const nom = LOCALE_NAMES_FR[coerceUiLocale(uiLocale)];
+export function consigneLangueConversation(locale) {
+  const loc = coerceExperienceLocale(locale);
+  const nom = LOCALE_NAMES_FR[loc];
 
-  return `LANGUE DE LA CONVERSATION — CONSIGNE PRIORITAIRE.
+  // Les intitulés d'étapes cités dans l'état actuel sont écrits dans la langue
+  // de l'OFFRE, qui n'est pas forcément celle de l'échange : la consigne vaut
+  // dans tous les cas, y compris quand on converse en français.
+  const citations = `Les intitulés d'étapes que tu cites dans l'état actuel ne sont pas traduits : ils sont écrits dans la langue de l'offre, restitue-les tels quels.`;
 
-Tu réponds au recruteur DANS LA LANGUE DE SON DERNIER MESSAGE. S'il t'écrit en anglais, tu réponds en anglais ; en néerlandais, en néerlandais. Cela vaut pour tout ce que tu lui montres : tes questions, tes propositions, tes récapitulatifs d'état.
+  // Le fil contient des tool_result en français ET, en langue de conversation
+  // française, des messages du recruteur eux aussi en français : rien ne peut
+  // faire dériver le modèle, la mise en garde serait du bruit.
+  if (loc === "fr") {
+    return `LANGUE DE LA CONVERSATION : français. Tu écris au recruteur en français.
 
-Sa langue par défaut est le ${nom} : c'est celle dans laquelle tu ouvres la conversation, et celle vers laquelle tu reviens quand son message ne permet pas de trancher (« ok », « parfait », un lien collé).
+${citations}`;
+  }
 
-Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
+  return `LANGUE DE LA CONVERSATION — CONSIGNE PRIORITAIRE : ${nom}.
 
-EXCEPTION — les entrées d'outil restent en FRANÇAIS, quelle que soit la langue de l'échange. Les champs « brief » (generate_experience) et « consigne » (regenerate_step) sont lus par un autre prompt, en français : rédige-les en français même si vous conversez en anglais. Reprends alors le sens de ce que le recruteur a dit, pas ses mots exacts.
+Tu écris au recruteur en ${nom}, et en ${nom} seulement. Cela vaut pour TOUT ce que tu lui montres : tes questions, tes propositions, tes récapitulatifs d'état, et la phrase de clôture que tu écris après un appel d'outil.
 
-Les intitulés d'étapes que tu cites dans l'état actuel ne sont pas traduits : ils sont écrits dans la langue de l'offre, restitue-les tels quels.`;
+Cette langue a été déterminée à partir de ses propres messages, avant que tu ne lises ce prompt. Tu n'as pas à la deviner ni à la réévaluer : elle ne change pas en cours de réponse, et aucun élément du contexte ne l'invalide.
+
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et parle au recruteur en ${nom}.
+
+LES RÉSULTATS D'OUTIL NE SONT PAS DES MESSAGES DU RECRUTEUR. Les blocs tool_result du fil (« Expérience générée avec succès… », « Étape 3 réécrite en place… ») sont des notifications internes de la plateforme, toujours rédigées en français. Ils portent le rôle « user » sans être ses mots : leur langue ne dit rien de la sienne. Après une génération ou une réécriture, tu annonces le résultat en ${nom}.
+
+EXCEPTION — les entrées d'outil restent en FRANÇAIS, quelle que soit la langue de l'échange. Les champs « brief » (generate_experience) et « consigne » (regenerate_step) sont lus par un autre prompt, en français : rédige-les en français même si vous conversez en ${nom}. Reprends alors le sens de ce que le recruteur a dit, pas ses mots exacts.
+
+${citations}`;
+}
+
+/**
+ * Rappel de langue à placer en QUEUE de prompt système.
+ *
+ * Une consigne de langue en tête se fait recouvrir par ce qui la suit quand ce
+ * qui la suit fait deux mille caractères d'une AUTRE langue — c'est le cas du
+ * chat de conception, dont tout le déroulé est en français. Placer la consigne
+ * en tête reste juste (elle doit primer sur ce qui vient après), mais ne suffit
+ * pas : on la répète en une ligne juste avant le premier message, là où elle est
+ * lue en dernier.
+ *
+ * @param {string} locale langue de réponse, déjà résolue (fr|en|nl)
+ */
+export function rappelLangueConversation(locale) {
+  const nom = LOCALE_NAMES_FR[coerceExperienceLocale(locale)];
+  return `RAPPEL — tout ce que tu écris au recruteur est en ${nom}, y compris après un appel d'outil. Seules les entrées d'outil restent en français.`;
 }
 
 /**

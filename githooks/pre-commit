@@ -1,16 +1,21 @@
 #!/bin/sh
-# Contrôle i18n avant chaque commit.
+# Contrôles i18n avant chaque commit. Deux, désormais.
 #
-# Il attrape quatre choses que ni `next build` ni ESLint ne voient, parce
-# qu'elles ne cassent qu'à l'exécution — ou pas du tout :
-#   • une clé présente en fr/ et absente en en/ ou nl/ ;
-#   • un marqueur {company} perdu à la traduction ;
-#   • un composant qui appelle t() sans l'avoir déclaré (ReferenceError au
-#     premier rendu, en général sur un écran candidat) ;
-#   • une clé appelée qui n'existe dans aucun dictionnaire — la clé brute
-#     s'affiche alors à l'écran, sans la moindre alerte.
+# 1. check-i18n.mjs — parité des dictionnaires. Il attrape quatre choses que ni
+#    `next build` ni ESLint ne voient, parce qu'elles ne cassent qu'à
+#    l'exécution — ou pas du tout :
+#      • une clé présente en fr/ et absente en en/ ou nl/ ;
+#      • un marqueur {company} perdu à la traduction ;
+#      • un composant qui appelle t() sans l'avoir déclaré (ReferenceError au
+#        premier rendu, en général sur un écran candidat) ;
+#      • une clé appelée qui n'existe dans aucun dictionnaire — la clé brute
+#        s'affiche alors à l'écran, sans la moindre alerte.
+#    Les trois derniers cas se sont réellement produits pendant la traduction.
 #
-# Les trois derniers cas se sont réellement produits pendant la traduction.
+# 2. check-langue-chat.mjs — langue de réponse des deux chats. Elle repose sur
+#    des listes de mots, et une liste de mots, ça se complète : ajouter « je »
+#    au français (c'est aussi du néerlandais) suffit à faire répondre de travers,
+#    sans rien casser d'autre. Le bug ne se voit alors que chez un client.
 #
 # Pour passer outre ponctuellement : git commit --no-verify
 
@@ -18,14 +23,18 @@
 # le code de `grep`, pas celui de node, et le hook laisserait passer les
 # erreurs. PIPESTATUS existe en bash mais pas dans le /bin/sh de tous les
 # postes.
-sortie=$(node scripts/check-i18n.mjs 2>&1)
-code=$?
+BRUIT="MODULE_TYPELESS_PACKAGE_JSON\|Reparsing as ES module\|To eliminate this warning\|trace-warnings"
+code=0
 
-echo "$sortie" | grep -v "MODULE_TYPELESS_PACKAGE_JSON\|Reparsing as ES module\|To eliminate this warning\|trace-warnings"
+for controle in scripts/check-i18n.mjs scripts/check-langue-chat.mjs; do
+  sortie=$(node "$controle" 2>&1)
+  if [ $? -ne 0 ]; then code=1; fi
+  echo "$sortie" | grep -v "$BRUIT"
+done
 
 if [ "$code" -ne 0 ]; then
   echo ""
-  echo "Commit interrompu par le contrôle i18n. Corrigez, ou --no-verify si c'est délibéré."
+  echo "Commit interrompu par les contrôles i18n. Corrigez, ou --no-verify si c'est délibéré."
 fi
 
 exit "$code"
