@@ -393,6 +393,117 @@ export async function adminCreerCompte({ email, first_name, last_name, company_n
 }
 
 /**
+ * Tous les comptes de la plateforme, pour l'onglet Comptes de /admin.
+ *
+ * ── Pourquoi cet écran existe ────────────────────────────────────────────────
+ * adminCreerCompte() affiche le mot de passe UNE fois et ne le stocke nulle
+ * part. C'est le bon comportement, mais il laissait sans recours le cas où
+ * l'admin a fermé l'onglet : plus aucun moyen de retrouver le compte, ni même
+ * de se rappeler quelles adresses ont été créées. La liste répond au second
+ * problème, adminReinitialiserMotDePasse() au premier.
+ *
+ * Les deux sources sont nécessaires et aucune ne suffit :
+ *   • auth.users (API d'administration) porte l'adresse, la date de création
+ *     et la dernière connexion — la seule colonne qui dise si le compte a
+ *     réellement servi, donc si un mot de passe circule encore quelque part ;
+ *   • user_usage porte le plan et les crédits, que l'API d'auth ignore.
+ *
+ * La pagination est suivie jusqu'au bout plutôt que fixée à une page : une
+ * liste tronquée en silence à cent comptes se remarque le jour où le
+ * cent-unième manque, c'est-à-dire trop tard.
+ */
+export async function adminListerComptes() {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+
+    const admin = createAdminClient();
+
+    const comptesAuth = [];
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) return { success: false, error: error.message };
+      comptesAuth.push(...(data?.users || []));
+      if ((data?.users || []).length < 200) break;
+    }
+
+    const { data: usages } = await admin
+      .from("user_usage")
+      .select("user_id, plan, credits_balance");
+    const parUtilisateur = new Map((usages || []).map((u) => [u.user_id, u]));
+
+    // Le plus récent d'abord : un compte de démonstration se retrouve le
+    // lendemain de sa création, pas six mois après.
+    const comptes = comptesAuth
+      .map((u) => {
+        const usage = parUtilisateur.get(u.id);
+        return {
+          id: u.id,
+          email: u.email || "",
+          first_name: u.user_metadata?.first_name || "",
+          last_name: u.user_metadata?.last_name || "",
+          company_name: u.user_metadata?.company_name || "",
+          created_at: u.created_at,
+          last_sign_in_at: u.last_sign_in_at || null,
+          // `null` et non "core" : le plan absent est une anomalie (la ligne
+          // user_usage n'a pas été posée), et l'afficher comme un Core la
+          // masquerait derrière une valeur plausible.
+          plan: usage?.plan || null,
+          credits_balance: usage?.credits_balance ?? null,
+        };
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    return { success: true, comptes };
+  } catch (error) {
+    console.error("adminListerComptes error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Remplace le mot de passe d'un compte existant et le renvoie UNE fois.
+ *
+ * C'est le seul recours quand le mot de passe d'origine est perdu : Supabase
+ * n'en garde qu'un hachage bcrypt, il n'y a rien à relire. On ne le retrouve
+ * pas, on en pose un nouveau.
+ *
+ * CONSÉQUENCE À ASSUMER : l'ancien mot de passe cesse immédiatement de
+ * fonctionner. Si la personne à qui le compte a été remis l'avait déjà, elle se
+ * retrouve dehors sans être prévenue — c'est à l'appelant de la prévenir, et
+ * l'écran le dit avant de lancer l'action.
+ *
+ * Le garde est le même que pour la création (ADMIN_EMAILS) : cette action
+ * n'ouvre aucun pouvoir nouveau, adminCreerCompte() permet déjà de créer un
+ * compte de plan `admin`.
+ *
+ * @param {string} userId identifiant auth du compte visé
+ * @returns {Promise<{success: boolean, email?: string, motDePasse?: string, error?: string}>}
+ */
+export async function adminReinitialiserMotDePasse(userId) {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+    if (!userId) return { success: false, error: "Compte non précisé" };
+
+    const motDePasse = genererMotDePasse();
+    const admin = createAdminClient();
+
+    const { data, error } = await admin.auth.admin.updateUserById(userId, {
+      password: motDePasse,
+      // Un compte créé avant que `email_confirm: true` ne soit systématique
+      // peut être resté non confirmé : le mot de passe serait juste, et la
+      // connexion refuserait quand même. On répare les deux d'un coup.
+      email_confirm: true,
+    });
+    if (error) return { success: false, error: error.message };
+
+    return { success: true, email: data.user?.email || "", motDePasse };
+  } catch (error) {
+    console.error("adminReinitialiserMotDePasse error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
  * Mot de passe aléatoire, lisible à voix haute et retapable à la main : il est
  * transmis de vive voix ou par message, pas copié-collé par une machine.
  * Alphabet sans les caractères qu'on confond (0/O, 1/l/I).

@@ -1082,6 +1082,19 @@ const dashboard = {
       lastName: 'Nom',
     },
 
+    // ── Comptes existants ───────────────────────────────────────────────
+    accountsTitle: 'Comptes existants',
+    accountsHelp:
+      "Les mots de passe ne sont stockés nulle part : Supabase n'en garde qu'un hachage. Un mot de passe perdu ne se retrouve pas, il se remplace.",
+    noAccounts: 'Aucun compte pour le moment.',
+    noPlan: 'Sans plan',
+    neverSignedIn: 'Jamais connecté',
+    resetPassword: 'Nouveau mot de passe',
+    resetConfirm:
+      "Générer un nouveau mot de passe pour {email} ?\n\nL'ancien cessera immédiatement de fonctionner. Si cette personne l'utilise déjà, prévenez-la : elle ne pourra plus se connecter sans le nouveau.",
+    resetDone: 'Nouveau mot de passe généré',
+    resetError: 'Réinitialisation impossible',
+
     // ── Invitations ─────────────────────────────────────────────────────
     invitesNeedSignup:
       "Ces liens ne fonctionnent que si l'inscription publique est activée dans Supabase. Elle est fermée pour l'instant : utilisez la création directe ci-dessus.",
@@ -1102,6 +1115,9 @@ const dashboard = {
       creditsLeft: 'Crédits restants',
       allocatedPerMonth: 'Alloués/mois',
       reset: 'Reset',
+      account: 'Compte',
+      created: 'Créé le',
+      lastSignIn: 'Dernière connexion',
     },
     tokenStatus: { used: 'Utilisé', expired: 'Expiré', active: 'Actif' },
 

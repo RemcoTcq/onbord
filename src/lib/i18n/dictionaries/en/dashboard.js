@@ -998,6 +998,19 @@ const dashboard = {
       lastName: "Last name",
     },
 
+    // ── Existing accounts ───────────────────────────────────────────────
+    accountsTitle: "Existing accounts",
+    accountsHelp:
+      "Passwords are stored nowhere: Supabase only keeps a hash. A lost password cannot be recovered — it can only be replaced.",
+    noAccounts: "No accounts yet.",
+    noPlan: "No plan",
+    neverSignedIn: "Never signed in",
+    resetPassword: "New password",
+    resetConfirm:
+      "Generate a new password for {email}?\n\nThe old one stops working immediately. If this person is already using it, let them know — they won't be able to sign in without the new one.",
+    resetDone: "New password generated",
+    resetError: "Reset failed",
+
     // ── Invitations ─────────────────────────────────────────────────────
     invitesNeedSignup:
       "These links only work while public sign-up is enabled in Supabase. It is currently closed — use direct creation above.",
@@ -1018,6 +1031,9 @@ const dashboard = {
       creditsLeft: "Credits left",
       allocatedPerMonth: "Allocated/month",
       reset: "Reset",
+      account: "Account",
+      created: "Created",
+      lastSignIn: "Last sign-in",
     },
     tokenStatus: { used: "Used", expired: "Expired", active: "Active" },
 
