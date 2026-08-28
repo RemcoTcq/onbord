@@ -415,7 +415,13 @@ const dashboard = {
     messageCap: "Plafond d'échanges",
     skillAssessed: "Compétence évaluée",
     skillAssessedHint: "Compétence principale ciblée par cette étape",
+    subDimensions: "Sous-dimensions (BARS)",
+    addSubDimension: "Sous-dimension",
+    subDimensionName: "Nom de la sous-dimension",
     newSubDimension: "Nouvelle sous-dimension",
+    addStep: "Ajouter une étape",
+    addOption: "Ajouter une option",
+    promptPlaceholder: "Consigne / mise en situation",
     save: "Enregistrer",
     saved: "Enregistré",
 

@@ -373,7 +373,13 @@ const dashboard = {
     messageCap: "Message cap",
     skillAssessed: "Skill assessed",
     skillAssessedHint: "Main skill targeted by this step",
+    subDimensions: "Sub-dimensions (BARS)",
+    addSubDimension: "Sub-dimension",
+    subDimensionName: "Sub-dimension name",
     newSubDimension: "New sub-dimension",
+    addStep: "Add a step",
+    addOption: "Add an option",
+    promptPlaceholder: "Instructions / scenario",
     save: "Save",
     saved: "Saved",
 

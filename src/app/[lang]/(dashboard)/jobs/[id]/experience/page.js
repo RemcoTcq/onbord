@@ -276,7 +276,7 @@ export default function ExperienceReviewPage() {
           </div>
 
           <button className="btn btn-outline" onClick={handleAddStep} style={{ marginTop: "1.5rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Plus size={16} /> Ajouter une étape
+            <Plus size={16} /> {t("dashboard.experienceEditor.addStep")}
           </button>
         </>
       )}
@@ -397,7 +397,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         value={local.prompt || ""}
         onChange={(e) => set("prompt", e.target.value)}
         rows={4}
-        placeholder="Consigne / mise en situation"
+        placeholder={t("dashboard.experienceEditor.promptPlaceholder")}
         style={{ ...inputStyle, lineHeight: 1.5 }}
       />
 
@@ -455,17 +455,17 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
           <div style={{ borderLeft: "2px solid var(--border)", paddingLeft: "0.85rem", marginTop: "0.35rem" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
               <label style={{ ...labelStyle, margin: 0 }}>
-                Sous-dimensions (BARS){local.skill_assessed ? ` — ${local.skill_assessed}` : ""}
+                {t("dashboard.experienceEditor.subDimensions")}{local.skill_assessed ? ` — ${local.skill_assessed}` : ""}
               </label>
               <button className="btn btn-ghost btn-sm" onClick={addSubDimension} style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                <Plus size={13} /> Sous-dimension
+                <Plus size={13} /> {t("dashboard.experienceEditor.addSubDimension")}
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {(local.criteria || []).map((c, ci) => (
                 <div key={ci} style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "0.75rem" }}>
                   <div style={{ display: "flex", gap: "8px", marginBottom: "0.5rem" }}>
-                    <input value={c.name || ""} onChange={(e) => setSubDimension(ci, "name", e.target.value)} placeholder="Nom de la sous-dimension" style={{ ...inputStyle, fontWeight: 700, marginBottom: 0 }} />
+                    <input value={c.name || ""} onChange={(e) => setSubDimension(ci, "name", e.target.value)} placeholder={t("dashboard.experienceEditor.subDimensionName")} style={{ ...inputStyle, fontWeight: 700, marginBottom: 0 }} />
                     <button className="btn btn-ghost btn-sm" onClick={() => removeSubDimension(ci)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
                   </div>
                   {(c.bars_levels || []).map((b, li) => (
@@ -538,7 +538,7 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
             }}
             style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", marginTop: "0.5rem" }}
           >
-            <Plus size={13} /> Ajouter une option
+            <Plus size={13} /> {t("dashboard.experienceEditor.addOption")}
           </button>
           <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
             {t("dashboard.experienceEditor.qcmHelp")}
