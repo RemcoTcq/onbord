@@ -1,8 +1,7 @@
 "use server";
 
 import anthropic from "../anthropic";
-import { consigneLangueExtraction } from "@/lib/i18n/prompt";
-import { coerceExperienceLocale } from "@/lib/i18n/config";
+import { buildJobExtractionPrompt, SYSTEME_EXTRACTION } from "@/lib/jobExtractionPrompt";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,59 +46,12 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
     ? `\n\nVoici notre catalogue de tests métier globaux disponibles :\n<test_catalog>\n${JSON.stringify(activeTests, null, 2)}\n</test_catalog>`
     : "";
 
-  const prompt = `${consigneLangueExtraction(uiLocale, coerceExperienceLocale(contentLocale))}
-
-Vous êtes un assistant IA expert en recrutement. Votre tâche est d'analyser une offre d'emploi brute et d'en extraire les informations clés dans un format JSON structuré.
-
-Voici la description de l'offre d'emploi :
-<job_description>
-${rawDescription}
-</job_description>${testCatalogStr}
-
-Votre tâche est de générer un objet JSON avec la structure exacte suivante. N'ajoutez aucun texte avant ou après le JSON. Remplissez autant de champs que possible en vous basant UNIQUEMENT sur la description fournie. Si une information n'est pas mentionnée, laissez la valeur vide ("" ou []).
-
-ATTENTION CRITIQUE : Vous devez IMPÉRATIVEMENT échapper les guillemets doubles (\\") à l'intérieur des chaînes de caractères (notamment dans les champs "evidence" et "clean_description"). Le JSON généré doit être 100% valide et parsable par JSON.parse(). Ne mettez jamais de sauts de ligne non échappés dans les chaînes de caractères.
-
-Structure JSON attendue :
-{
-  "title": "Le titre précis du poste",
-  "category": "La famille d'emploi (ex: Vente, Engineering, Finance, etc.)",
-  "sub_family": "La sous-famille précise du poste (ex: Account Executive B2B, Backend Developer, etc.)",
-  "role_type": "Le type de rôle parmi ces 4 choix EXACTS : 'Contributeur individuel (IC) — Pas de responsabilité managériale, expert de son domaine', 'Manager — Gère une équipe, évalue, décide des ressources', 'Senior IC / Lead — Expert senior sans équipe directe mais avec influence', 'Director / Executive — Management de managers, vision stratégique'",
-  "talents_needed": "Nombre de personnes recherchées (ex: 1, 2, 3)",
-  "contract_type": "Le type de contrat, en français : 'CDI', 'CDD', 'Freelance', 'Stage', 'Alternance' ou 'Intérim'. Un 'permanent contract' est un 'CDI'.",
-  "work_mode": "onsite, remote, ou hybrid",
-  "location": "La ville ou région",
-  "experience_level": "junior, intermediate, senior, ou expert",
-  "years_of_experience": "Nombre d'années d'expérience requises (ex: 3, 5, 1-3, ou laisser vide)",
-  "education_level": "Niveau d'études requis. UNIQUEMENT l'une de ces trois valeurs exactes : 'Master', 'Bachelier', 'Indifférent'. Un Bac+5, un Master's degree ou un diplôme d'ingénieur donnent 'Master'. Si l'offre n'exige rien, 'Indifférent'.",
-  "hard_skills": [
-    { "name": "Nom de la compétence", "priority": "must_have", "evidence": "Citation exacte de l'offre justifiant cette compétence" }
-  ],
-  "soft_skills": [
-    { "name": "Nom du savoir-être", "priority": "ambiguous", "evidence": "Citation exacte de l'offre" }
-  ],
-  "languages": [
-    { "name": "Nom de la langue EN FRANÇAIS — 'Français', 'Anglais', 'Néerlandais', 'Allemand'… jamais 'English' ni 'Dutch'", "level": 3 }
-  ],
-  "selection_criteria": [
-    { "name": "Critère de sélection pour le scoring CV (ex: Maîtrise de React.js)", "weight": 20 }
-  ],
-  "clean_description": "Un résumé propre et formaté (quelques paragraphes max) des missions et du profil recherché.",
-  "recommended_test_ids": ["UUID_1", "UUID_2"]
-}
-Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
-Pour le champ "priority" des skills, utilisez UNIQUEMENT "must_have", "nice_to_have", ou "ambiguous" (si l'offre ne permet pas de déterminer l'importance de la compétence).
-
-RÈGLE ABSOLUE POUR LES SKILLS ET LES LANGUES — LISEZ ATTENTIVEMENT :
-1. Si l'utilisateur a fourni une description courte avec des mots-clés de compétences (ex: React, SQL, Python), vous DEVEZ ABSOLUMENT les extraire dans hard_skills. Ne les ignorez jamais.
-2. Soyez exhaustif : extrayez TOUTES les compétences (hard et soft) présentes ou sous-entendues dans le texte. Ne vous limitez pas.
-3. Vous devez TOUJOURS inclure la "preuve" (le champ evidence) c'est-à-dire l'extrait exact du texte original qui justifie l'extraction de cette compétence.
-4. INTERDICTION FORMELLE de lister les langues (ex: Anglais, Français, Néerlandais, English, etc.) dans les "hard_skills" ou "soft_skills". Les langues doivent figurer UNIQUEMENT dans le tableau "languages".
-
-RÈGLE POUR RECOMMENDED_TEST_IDS :
-En vous basant sur la description de l'offre et le <test_catalog> fourni, choisissez jusqu'à 2 tests globaux (maximum) qui correspondent le mieux au métier recherché. Retournez UNIQUEMENT la liste de leurs "id" (ex: "f575da89-..."). Si aucun test métier global ne correspond à l'offre, laissez la liste vide []. Ne proposez un test que s'il évalue directement le métier ou les compétences principales du poste.
-`;
+  const prompt = buildJobExtractionPrompt({
+    rawDescription,
+    testCatalogStr,
+    uiLocale,
+    contentLocale,
+  });
 
   try {
     const response = await anthropic.messages.create({
@@ -113,7 +65,7 @@ En vous basant sur la description de l'offre et le <test_catalog> fourni, choisi
       // dise pourquoi.
       max_tokens: 8000,
       temperature: 0.1, // Low temperature for consistent extraction
-      system: "Vous êtes un expert en extraction de données structurées. Répondez UNIQUEMENT avec un JSON valide.",
+      system: SYSTEME_EXTRACTION,
       messages: [
         {
           role: "user",

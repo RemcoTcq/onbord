@@ -9,11 +9,30 @@
 // Module PUR (aucun accès DB / réseau) : importé côté run candidat (avertissement
 // non spécifique) ET côté scoring (détail complet pour le rapport recruteur).
 
+import { coerceUiLocale } from "@/lib/i18n/config";
+
 // Compétence sous laquelle est regroupée toute la fiche CRM : la correction
 // déterministe des champs factuels ET la sous-dimension "Croisement des
 // sources". Partagée par la génération (skill_assessed du step) et le scoring
 // (skill_name du score) pour que le rapport recruteur les affiche ensemble.
-export const CRM_SKILL_NAME = "Extraction d'information";
+//
+// Elle suit la langue du RECRUTEUR, pas celle du parcours : c'est un titre de
+// grille de correction, retiré de ce que reçoit le candidat
+// (sanitizeStepForCandidate). Elle était figée en français, ce qui posait un
+// intertitre français au milieu d'un rapport anglais.
+//
+// Le regroupement du rapport se fait sur le skill_name des scores, tous écrits
+// en un seul passage de scoring : deux appels à des moments où la langue
+// d'interface diffère ne peuvent donc pas scinder un rapport en deux.
+const CRM_SKILL_NAMES = {
+  fr: "Extraction d'information",
+  en: "Information capture",
+};
+
+/** @param {string} uiLocale langue du dashboard recruteur (fr|en) */
+export function crmSkillName(uiLocale) {
+  return CRM_SKILL_NAMES[coerceUiLocale(uiLocale)];
+}
 
 // Normalisation de comparaison : casse, accents, ponctuation, espaces.
 export function normalizeText(value) {

@@ -9,10 +9,10 @@
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { CRM_SKILL_NAME } from "@/lib/crmScoring";
+import { crmSkillName } from "@/lib/crmScoring";
 import { estimerMinutes } from "@/lib/experienceDuree";
-import { consigneLangueContenu } from "@/lib/i18n/prompt";
-import { coerceExperienceLocale } from "@/lib/i18n/config";
+import { consigneLangueContenu, consigneLangueEtapes } from "@/lib/i18n/prompt";
+import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
@@ -73,7 +73,7 @@ const SCHEMA_STEP = `    {
       "ai_assistant_allowed": true,
       "targets_skills": ["Compétence ciblée"],
       "config": {},
-      "skill_assessed": "Nom de la compétence principale ciblée par cette étape",
+      "skill_assessed": "Nom de la compétence principale ciblée par cette étape — RENDU DANS LA LANGUE DU RECRUTEUR (voir la consigne de langue en tête), en TRADUISANT le nom repris de la liste des compétences si celle-ci est dans une autre langue",
       "sub_dimensions": [
         { "name": "Nom de la sous-dimension", "bars_levels": [
           { "level": 1, "label": "Insuffisant", "description": "..." },
@@ -90,7 +90,7 @@ const SCHEMA_STEP_CHAMPS = SCHEMA_STEP.split("\n").slice(1, -1).join("\n");
 // ─── Prompt de génération (offre + contexte entreprise → expérience) ──────────
 // Interne : dans un module "use server", seuls des exports async sont permis.
 // La démo hors repo garde une copie identique de ce prompt.
-function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext, locale }) {
+function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext, locale, uiLocale }) {
   const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}${s.priority ? ` (${s.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
   const ctx = companyContext || {};
@@ -104,7 +104,7 @@ function buildExperienceGenerationPrompt({ title, description, criteria, company
   // La consigne de langue est en TÊTE, avant tout le reste : placée en fin de
   // prompt, elle se fait recouvrir par les dizaines de lignes de règles et
   // d'exemples en français qui la précèdent, et le modèle rend du français.
-  return `${consigneLangueContenu(locale)}
+  return `${consigneLangueEtapes(locale, uiLocale)}
 
 Tu es un concepteur d'évaluations de recrutement par compétences. À partir d'une offre et du contexte de l'entreprise, tu génères une EXPÉRIENCE DE PRÉSÉLECTION courte (5 à 20 minutes) qui fait la PREUVE des compétences du candidat — pas un questionnaire théorique.
 
@@ -498,8 +498,8 @@ function makeCrmScanner(onEvent) {
 }
 
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
-export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, onEvent }) {
-  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext, locale });
+export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, uiLocale, onEvent }) {
+  const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext, locale, uiLocale });
 
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -581,7 +581,7 @@ export async function generateExperienceContent({ title, description, criteria, 
           // La fiche CRM est structurée sous une compétence fixe : c'est elle qui
           // regroupe à la fois la correction déterministe des champs factuels et
           // la sous-dimension "Croisement des sources" ci-dessous (décision D).
-          s.skill_assessed = CRM_SKILL_NAME;
+          s.skill_assessed = crmSkillName(uiLocale);
           // La détection se fait sur les trois langues : en néerlandais le
           // modèle écrit "bronnen", pas "sources", et le critère serait ajouté
           // en double.
@@ -589,7 +589,7 @@ export async function generateExperienceContent({ title, description, criteria, 
             /crois|source|cross.?check|bronn/i.test(c.name || "")
           );
           if (!hasCrossCheck) {
-            const critere = CRM_CROSS_CHECK_CRITERION[coerceExperienceLocale(locale)];
+            const critere = CRM_CROSS_CHECK_CRITERION[coerceUiLocale(uiLocale)];
             s.sub_dimensions = [...(s.sub_dimensions || []), critere];
           }
         }
@@ -627,7 +627,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 
     const { data: profile } = await supabase
       .from("users")
-      .select("company_ai_context")
+      .select("company_ai_context, ui_locale")
       .eq("id", user.id)
       .single();
 
@@ -640,10 +640,15 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     if (additionalContext) {
       onEvent?.({ kind: "brief" });
     }
-    // Langue du parcours : elle appartient à l'offre, jamais au recruteur qui
-    // lance la génération. Un recruteur en interface anglaise qui génère une
-    // offre néerlandaise doit obtenir une expérience en néerlandais.
+    // DEUX langues, et elles ne se déduisent pas l'une de l'autre :
+    //   • le parcours appartient à l'OFFRE — un recruteur en interface anglaise
+    //     qui génère une offre néerlandaise obtient une expérience en
+    //     néerlandais ;
+    //   • la grille de correction (skill_assessed, sous-dimensions, ancres BARS)
+    //     appartient au RECRUTEUR. Elle est retirée de ce que reçoit le candidat
+    //     (sanitizeStepForCandidate) : il ne la lit jamais, lui la lit toujours.
     const locale = coerceExperienceLocale(job.experience_locale);
+    const uiLocale = coerceUiLocale(profile?.ui_locale);
     onEvent?.({ kind: "locale", locale });
     onEvent?.({ kind: "design_start" });
 
@@ -654,6 +659,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       companyContext: ctx,
       additionalContext: (additionalContext || "").slice(0, 4000),
       locale,
+      uiLocale,
       onEvent,
     });
     if (!gen.success) return gen;
@@ -752,7 +758,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 // le recruteur avait déjà relues et ajustées à la main partaient avec l'ancienne
 // version. La régénération d'étape écrit EN PLACE, exactement comme l'édition
 // manuelle de l'écran de relecture — dont elle n'est que la variante assistée.
-function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale }) {
+function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale }) {
   const hard = (criteria.hard_skills || []).map((sk) => `- ${sk.name}${sk.priority ? ` (${sk.priority})` : ""}`).join("\n");
   const soft = (criteria.soft_skills || []).map((sk) => `- ${sk.name}`).join("\n");
   const ctx = companyContext || {};
@@ -792,7 +798,7 @@ function buildStepRegenerationPrompt({ title, description, criteria, companyCont
   // raison : une étape régénérée sans elle reviendrait en français au milieu
   // d'une expérience néerlandaise, alors que le recruteur ne demandait qu'une
   // retouche de fond.
-  return `${consigneLangueContenu(locale)}
+  return `${consigneLangueEtapes(locale, uiLocale)}
 
 Tu es un concepteur d'évaluations de recrutement par compétences. Tu dois RÉÉCRIRE UNE SEULE ÉTAPE d'une expérience de présélection déjà générée, et déjà relue par le recruteur.
 
@@ -893,6 +899,17 @@ export async function runStepRegeneration(stepId, instruction) {
     const job = step?.experiences?.jobs;
     if (!step || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
 
+    // DEUX langues, et elles ne se déduisent pas l'une de l'autre :
+    //   • le parcours appartient à l'OFFRE — un recruteur en interface anglaise
+    //     qui génère une offre néerlandaise obtient une expérience en
+    //     néerlandais ;
+    //   • la grille de correction (skill_assessed, sous-dimensions, ancres BARS)
+    //     appartient au RECRUTEUR. Elle est retirée de ce que reçoit le candidat
+    //     (sanitizeStepForCandidate) : il ne la lit jamais, lui la lit toujours.
+    const { data: profilRecruteur } = await supabase
+      .from("users").select("ui_locale").eq("id", user.id).single();
+    const uiLocale = coerceUiLocale(profilRecruteur?.ui_locale);
+
     // Les voisines situent l'étape et évitent les doublons. La position est
     // calculée sur la MÊME liste triée que celle affichée au chat : c'est ce qui
     // garantit que « l'étape 3 » désigne la même chose des deux côtés.
@@ -922,6 +939,7 @@ export async function runStepRegeneration(stepId, instruction) {
       autresEtapes,
       instruction: instruction.slice(0, 2000),
       locale: coerceExperienceLocale(job.experience_locale),
+      uiLocale,
     });
 
     let nouveau = null;
@@ -998,10 +1016,10 @@ export async function runStepRegeneration(stepId, instruction) {
 
       if (nouveau.sandbox_kind === "crm") {
         nouveau.response_format = "text";
-        nouveau.skill_assessed = CRM_SKILL_NAME;
+        nouveau.skill_assessed = crmSkillName(uiLocale);
         const dims = nouveau.sub_dimensions || [];
-        if (!dims.some((c) => /crois|source/i.test(c?.name || ""))) {
-          nouveau.sub_dimensions = [...dims, CRM_CROSS_CHECK_CRITERION];
+        if (!dims.some((c) => /crois|source|cross.?check|bronn/i.test(c?.name || ""))) {
+          nouveau.sub_dimensions = [...dims, CRM_CROSS_CHECK_CRITERION[coerceUiLocale(uiLocale)]];
         }
       }
     }

@@ -62,6 +62,72 @@ REGISTRE : ${REGISTRE[loc]} Si le schéma JSON plus bas mentionne « vouvoiement
 }
 
 /**
+ * Bloc de consigne pour la GÉNÉRATION D'ÉTAPES, qui produit DEUX natures de
+ * texte à la fois, pour deux lecteurs différents.
+ *
+ * ── La règle, énoncée par le produit ────────────────────────────────────────
+ * Ce que voit le RECRUTEUR suit la langue de la plateforme (users.ui_locale).
+ * Ce que voit le CANDIDAT suit la langue choisie avant l'import de l'offre
+ * (jobs.experience_locale). Une étape générée contient les deux.
+ *
+ * Et le partage n'est pas une question d'appréciation : il est déjà tranché
+ * dans le code. `sanitizeStepForCandidate` (lib/actions/run.js) ne laisse
+ * partir vers le navigateur du candidat que `title`, `prompt` et `config`.
+ * `skill_assessed` et `criteria` (les sous-dimensions et leurs ancres BARS)
+ * sont RETIRÉS : ce sont des outils de correction, lus dans le tableau de bord
+ * et nulle part ailleurs. Ils suivent donc le recruteur.
+ *
+ * Cas courant : les deux langues coïncident (un recruteur en français qui
+ * recrute en français). Le bloc reste alors simple — pas de distinguo à tenir
+ * quand il n'y a rien à distinguer — mais il nomme quand même les deux rôles,
+ * pour que le schéma puisse y renvoyer sans ambiguïté.
+ *
+ * @param {string} experienceLocale langue du parcours candidat (fr|en|nl)
+ * @param {string} uiLocale langue du dashboard recruteur (fr|en)
+ */
+export function consigneLangueEtapes(experienceLocale, uiLocale) {
+  const candidat = coerceExperienceLocale(experienceLocale);
+  const recruteur = coerceUiLocale(uiLocale);
+  const nomCandidat = LOCALE_NAMES_FR[candidat];
+  const nomRecruteur = LOCALE_NAMES_FR[recruteur];
+
+  // La liste des compétences injectée plus bas dans le prompt vient de
+  // l'extraction de l'offre, donc de la langue du RECRUTEUR. Sur les offres
+  // analysées avant la correction de l'extraction, elle peut être en français
+  // alors que tout le reste ne l'est pas : d'où l'ordre de traduire plutôt que
+  // de recopier, qui vaut dans les deux branches.
+  const competences = `Le champ "skill_assessed" est repris de la liste des compétences fournie plus bas. Si cette liste est rédigée dans une autre langue que celle attendue pour ce champ, TRADUIS-LA : ne recopie jamais un nom de compétence tel quel. Une compétence laissée dans sa langue d'origine met un titre étranger au-dessus d'une grille qui, elle, est dans la bonne langue — c'est le défaut le plus visible du parcours généré.`;
+
+  if (candidat === recruteur) {
+    const base = candidat === "fr"
+      ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "label" et "description" des niveaux BARS). ${REGISTRE.fr}`
+      : `${consigneLangueContenu(candidat)}
+
+Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, les "label" et "description" des niveaux BARS. Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
+
+    return `${base}
+
+${competences}`;
+  }
+
+  return `DEUX LANGUES DE SORTIE — CONSIGNE PRIORITAIRE. Elles ne dépendent pas du même choix et n'ont pas le même lecteur : ne les confonds pas, et n'en choisis pas une pour tout.
+
+1. CE QUE LIT LE CANDIDAT → ${nomCandidat}.
+   Les champs "title" et "prompt", et tout le contenu de "config" : options de QCM, sources et champs des mises en situation, énoncé de la sandbox, code de départ. C'est la langue du parcours, fixée à la création de l'offre.
+   REGISTRE : ${REGISTRE[candidat]}
+
+2. CE QUE LIT LE RECRUTEUR SEUL → ${nomRecruteur}.
+   Le champ "skill_assessed", le "name" de chaque sous-dimension, et les "label" et "description" de chaque niveau BARS. Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
+   L'exemple de verbatim glissé dans une description de niveau BARS illustre ce qu'on cherche à observer : il est lu par le recruteur, donc lui aussi en ${nomRecruteur}.
+
+Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
+
+Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — seules les VALEURS textuelles suivent ces deux langues. Les identifiants techniques (kind, response_format, sandbox_kind, step_id) ne sont jamais traduits.
+
+${competences}`;
+}
+
+/**
  * Bloc de consigne pour le RAPPORT lu par le recruteur.
  * `contentLocale` est la langue dans laquelle le candidat a répondu — elle sert
  * uniquement à protéger les verbatims.
@@ -198,6 +264,46 @@ export function rappelLangueConversation(locale) {
  * @param {string} uiLocale langue du dashboard recruteur (fr|en)
  * @param {string} contentLocale langue du poste (fr|en|nl)
  */
+/**
+ * Rappel de langue à placer en QUEUE du prompt d'extraction.
+ *
+ * La consigne en tête ne suffisait pas, et on l'a payé : une offre anglaise
+ * analysée avec l'interface en anglais ressortait avec `category: "Vente"` et
+ * des compétences en français. Deux causes, toutes deux corrigées :
+ *   • le schéma JSON portait des exemples de valeurs EN FRANÇAIS (« ex: Vente,
+ *     Engineering, Finance »), et le modèle les recopiait tels quels — c'est
+ *     littéralement « Vente » qui sortait ;
+ *   • entre la consigne et les champs qu'elle gouverne, il y a cinquante lignes
+ *     de schéma en français. La dernière ligne lue pèse le plus au moment de
+ *     rédiger, et ce n'était pas la consigne.
+ *
+ * Même remède que pour les chats : la langue est nommée en tête, marquée sur
+ * chaque champ concerné, et rappelée en queue.
+ *
+ * @param {string} uiLocale langue du dashboard recruteur (fr|en)
+ * @param {string} contentLocale langue du poste (fr|en|nl)
+ */
+export function rappelLangueExtraction(uiLocale, contentLocale) {
+  const ui = coerceUiLocale(uiLocale);
+  const contenu = coerceExperienceLocale(contentLocale);
+  const nomUi = LOCALE_NAMES_FR[ui];
+  const nomContenu = LOCALE_NAMES_FR[contenu];
+
+  const invariants = `Les valeurs d'énumération ("role_type", "contract_type", "education_level", "priority", le "name" des langues) et le champ "evidence" échappent à cette règle : elles ne se traduisent jamais.`;
+
+  if (ui === contenu) {
+    return `RAPPEL DE LANGUE — tout le texte libre que tu produis est rédigé en ${nomUi} : "title", "category", "sub_family", "clean_description", et le "name" des compétences comme des critères de sélection. Aucun mot français ne doit subsister dans ces champs si ${nomUi} n'est pas le français.
+
+${invariants}`;
+  }
+
+  return `RAPPEL DE LANGUE — deux langues, ne les confonds pas :
+  • "title" et "clean_description" en ${nomContenu} ;
+  • "category", "sub_family", le "name" des compétences et des critères de sélection en ${nomUi}.
+
+${invariants}`;
+}
+
 export function consigneLangueExtraction(uiLocale, contentLocale) {
   const ui = coerceUiLocale(uiLocale);
   const contenu = coerceExperienceLocale(contentLocale);

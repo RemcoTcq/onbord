@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, CRM_SKILL_NAME } from "@/lib/crmScoring";
+import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName } from "@/lib/crmScoring";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 
@@ -274,7 +274,7 @@ export async function scoreRun(runId) {
       step_id: s.id,
       // Même compétence que la sous-dimension "Croisement des sources" posée à la
       // génération : les deux signaux de la fiche s'affichent groupés.
-      skill_name: CRM_SKILL_NAME,
+      skill_name: crmSkillName(reportLocale),
       sub_dimension_name: L.crmDimension,
       bars_level: crmBarsLevel(ev.score),
       score: ev.score,

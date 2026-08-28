@@ -12,10 +12,14 @@
 #        s'affiche alors à l'écran, sans la moindre alerte.
 #    Les trois derniers cas se sont réellement produits pendant la traduction.
 #
-# 2. check-langue-chat.mjs — langue de réponse des deux chats. Elle repose sur
-#    des listes de mots, et une liste de mots, ça se complète : ajouter « je »
-#    au français (c'est aussi du néerlandais) suffit à faire répondre de travers,
-#    sans rien casser d'autre. Le bug ne se voit alors que chez un client.
+# 2. check-langue.mjs — langue de sortie des prompts IA. Deux choses fragiles,
+#    invisibles à la compilation, et qui ne se voient qu'en production :
+#      • la détection de langue des chats repose sur des listes de mots, et une
+#        liste de mots ça se complète — ajouter « je » au français (c'est aussi
+#        du néerlandais) suffit à faire répondre de travers ;
+#      • chaque champ du prompt d'extraction porte la langue dans laquelle il
+#        doit sortir. Retirer cette marque a déjà fait sortir « Vente » pour une
+#        offre anglaise analysée en interface anglaise.
 #
 # Pour passer outre ponctuellement : git commit --no-verify
 
@@ -26,7 +30,7 @@
 BRUIT="MODULE_TYPELESS_PACKAGE_JSON\|Reparsing as ES module\|To eliminate this warning\|trace-warnings"
 code=0
 
-for controle in scripts/check-i18n.mjs scripts/check-langue-chat.mjs; do
+for controle in scripts/check-i18n.mjs scripts/check-langue.mjs; do
   sortie=$(node "$controle" 2>&1)
   if [ $? -ne 0 ]; then code=1; fi
   echo "$sortie" | grep -v "$BRUIT"

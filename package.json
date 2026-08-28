@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "check:langue": "node scripts/check-langue-chat.mjs",
+    "check:langue": "node scripts/check-langue.mjs",
     "prepare": "git config core.hooksPath githooks || true"
   },
   "dependencies": {
