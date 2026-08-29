@@ -180,7 +180,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
     <div className="assistant-panel" style={{
       position: "sticky", top: "2rem",
       height: "calc(100vh - 4rem)", display: "flex", flexDirection: "column",
-      background: "#ffffff", border: "1px solid var(--border)", borderTop: `3px solid ${primary}`,
+      background: "#ffffff", border: "1px solid var(--border)",
       borderRadius: 16, overflow: "hidden",
     }}>
       <style>{`
@@ -203,9 +203,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         padding: "12px 14px", background: "#fafafa", borderBottom: "1px solid var(--border)", flexShrink: 0,
       }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 700, color: primary }}>
-          <Bot size={16} /> Claude
-        </span>
+        <span style={{ fontSize: 14.5, fontWeight: 700, color: "var(--foreground)" }}>Claude</span>
         <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {remaining != null && (
             <span style={{ fontSize: 11.5, color: "var(--muted-foreground)" }}>
@@ -237,7 +235,7 @@ export default function AssistantPanel({ token, stepId, primary = DEFAULT_PRIMAR
 
         {sending && !streaming && (
           <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--muted-foreground)" }}>
-            <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Claude écrit…
+            <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> {t("candidate.assistant.writing")}
           </div>
         )}
       </div>

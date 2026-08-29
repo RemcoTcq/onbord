@@ -356,11 +356,80 @@ export default function RunPage() {
     : step.response_format;
   const isCrm = sandboxFormat === "crm";
   const isSidebarMode = step.ai_assistant_allowed;
+  // Ces sandboxes dessinent déjà leur propre fenêtre (bordure + barre de titre).
+  // L'énoncé passe alors dans une carte à part, en pleine largeur au-dessus des
+  // deux colonnes : la mise en situation devient l'outil de travail, pas un
+  // champ posé au bas d'un paragraphe. Les autres formats (texte libre, QCM,
+  // choix, vidéo) restent dans la carte de l'énoncé — seuls, ils ne feraient pas
+  // une carte.
+  const ownWindowSandbox = ["text", "code"].includes(step.response_format)
+    && ["email_reply", "crm", "code", "code_editor", "client_reply", "technical_architecture"].includes(sandboxFormat);
   // Le chat prend 400px pour être un vrai espace de conversation ; replié, il se
   // réduit à son onglet vertical et rend la place à la tâche.
   const assistantWidth = assistantCollapsed ? 56 : 400;
   // La fiche CRM est à deux colonnes (sources | fiche) : il lui faut de la place.
-  const containerMaxWidth = isSidebarMode ? (isCrm ? 1260 : 1100) : (isCrm ? 980 : 720);
+  const containerMaxWidth = isSidebarMode ? (isCrm ? 1260 : 1280) : (isCrm ? 980 : ownWindowSandbox ? 900 : 720);
+
+  // Énoncé et bloc de réponse sont montés soit dans la même carte, soit séparés
+  // (cf. ownWindowSandbox). Décrits une seule fois ici pour que les deux
+  // dispositions ne divergent pas.
+  const briefBlock = (
+    <>
+      {step.title && <h2 style={{ ...heading, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
+      <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: ownWindowSandbox ? 0 : "1.5rem" }}>{step.prompt}</p>
+    </>
+  );
+
+  const answerBlock = (
+    <>
+      {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
+      {["text", "code"].includes(step.response_format) && (
+        <SandboxRenderer
+          format={sandboxFormat}
+          config={step.config}
+          compact={isCrm && isSidebarMode}
+          value={isCrm ? (ans.crm || { fields: {}, notes: "" }) : ans.text}
+          onChange={(val) => setAnswer(isCrm ? "crm" : "text", val)}
+          onRun={(source) => runCode(token, step.id, source)}
+          primary={primary}
+        />
+      )}
+
+      {crmNotice && (
+        // Hors carte, l'écart vient déjà du `gap` de la colonne.
+        <div style={{ marginTop: ownWindowSandbox ? 0 : "1rem", background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: 12, padding: "12px 14px", fontSize: 13.5, lineHeight: 1.55 }}>
+          {crmNotice}
+        </div>
+      )}
+
+      {step.response_format === "choice" && (
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          {["yes", "no"].map((v) => (
+            <button key={v} onClick={() => setAnswer("choice", v)}
+              style={{ ...optionBtn(primary, ans.choice === v), flex: 1, justifyContent: "center" }}>
+              {v === "yes" ? t("candidate.run.yes") : t("candidate.run.no")}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {step.response_format === "qcm" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {(step.config?.options || []).map((opt, i) => (
+            <button key={i} onClick={() => setAnswer("selected_index", i)}
+              style={optionBtn(primary, ans.selected_index === i)}>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {step.response_format === "video" && (
+        <ResponseRecorder token={token} stepId={step.id} existingVideoUrl={ans.videoSaved}
+          onSaved={() => setAnswer("videoSaved", true)} primary={primary} />
+      )}
+    </>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: PAGE_BG, padding: "2rem 1.5rem", ...pageStyle }}>
@@ -409,9 +478,19 @@ export default function RunPage() {
               : null}
           </div>
           <div style={{ height: 6, background: "#e2e8f0", borderRadius: 99, overflow: "hidden" }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: "var(--primary)", transition: "width .3s" }} />
+            {/* Couleur de marque du recruteur, comme le reste de la page — et
+                non le rose de la plateforme. */}
+            <div style={{ width: `${pct}%`, height: "100%", background: primary, transition: "width .3s" }} />
           </div>
         </div>
+
+        {/* Énoncé en pleine largeur : la mise en situation passe dessous, à
+            côté du chat, et gagne toute la colonne. */}
+        {ownWindowSandbox && (
+          <div style={{ ...container, minWidth: 0, overflowWrap: "break-word", marginBottom: "1.5rem" }}>
+            {briefBlock}
+          </div>
+        )}
 
         <div className={isSidebarMode ? "run-with-assistant" : undefined}
           style={{
@@ -422,57 +501,13 @@ export default function RunPage() {
           {/* Main Column — minWidth:0 essentiel : sans ça, un enfant de grid ne
               rétrécit pas sous sa largeur de contenu et un texte long déborde du bloc. */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", minWidth: 0 }}>
-            <div style={{ ...container, minWidth: 0, overflowWrap: "break-word" }}>
-              {step.title && <h2 style={{ ...heading, marginBottom: "0.75rem", overflowWrap: "break-word" }}>{step.title}</h2>}
-              <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", wordBreak: "break-word", marginBottom: "1.5rem" }}>{step.prompt}</p>
+            {ownWindowSandbox ? answerBlock : (
+              <div style={{ ...container, minWidth: 0, overflowWrap: "break-word" }}>
+                {briefBlock}
+                {answerBlock}
+              </div>
+            )}
 
-              {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
-              {["text", "code"].includes(step.response_format) && (
-                <SandboxRenderer
-                  format={sandboxFormat}
-                  config={step.config}
-                  compact={isCrm && isSidebarMode}
-                  value={isCrm ? (ans.crm || { fields: {}, notes: "" }) : ans.text}
-                  onChange={(val) => setAnswer(isCrm ? "crm" : "text", val)}
-                  onRun={(source) => runCode(token, step.id, source)}
-                  primary={primary}
-                />
-              )}
-
-              {crmNotice && (
-                <div style={{ marginTop: "1rem", background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: 12, padding: "12px 14px", fontSize: 13.5, lineHeight: 1.55 }}>
-                  {crmNotice}
-                </div>
-              )}
-
-              {step.response_format === "choice" && (
-                <div style={{ display: "flex", gap: "0.75rem" }}>
-                  {["yes", "no"].map((v) => (
-                    <button key={v} onClick={() => setAnswer("choice", v)}
-                      style={{ ...optionBtn(primary, ans.choice === v), flex: 1, justifyContent: "center" }}>
-                      {v === "yes" ? t("candidate.run.yes") : t("candidate.run.no")}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step.response_format === "qcm" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {(step.config?.options || []).map((opt, i) => (
-                    <button key={i} onClick={() => setAnswer("selected_index", i)}
-                      style={optionBtn(primary, ans.selected_index === i)}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step.response_format === "video" && (
-                <ResponseRecorder token={token} stepId={step.id} existingVideoUrl={ans.videoSaved}
-                  onSaved={() => setAnswer("videoSaved", true)} primary={primary} />
-              )}
-            </div>
-            
             {error && <p style={{ color: "#991b1b", fontSize: 13 }}>{error}</p>}
 
             {/* Navigation */}

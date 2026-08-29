@@ -133,6 +133,7 @@ const candidate = {
     collapse: "Réduire",
     placeholder: "Écrivez à Claude…",
     send: "Envoyer",
+    writing: "Claude écrit…",
     remainingMessages_one: "{count} échange restant",
     remainingMessages_other: "{count} échanges restants",
     limitReached: "Vous avez atteint le nombre maximum d'échanges pour cette évaluation.",
@@ -219,13 +220,13 @@ const candidate = {
 
   // ── Sandbox e-mail ────────────────────────────────────────────────────────
   emailComposer: {
-    toPlaceholder: "destinataire@exemple.com",
-    ccPlaceholder: "copie@exemple.com",
+    to: "À",
     send: "Envoyer",
     newMessage: "Nouveau message",
     subject: "Objet",
-    subjectPlaceholder: "Objet de votre message",
     bodyPlaceholder: "Rédigez votre email…",
+    expand: "Agrandir la fenêtre",
+    collapse: "Réduire la fenêtre",
     bold: "Gras",
     italic: "Italique",
     bulletList: "Liste à puces",
