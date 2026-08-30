@@ -4,6 +4,7 @@ import { computeAiCost } from "@/lib/constants/aiPricing";
 import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName } from "@/lib/crmScoring";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
+import { factureNotationCandidat } from "@/lib/utils/limits";
 
 const SCORING_MODEL = "claude-sonnet-4-6";
 
@@ -490,6 +491,22 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
   }
 
   await admin.from("candidate_runs").update({ status: "scored", scored_at: new Date().toISOString() }).eq("id", runId);
+
+  // ── Facturation : 2 crédits, au propriétaire de l'offre ───────────────────
+  // Placé APRÈS le passage en « scored », jamais avant : tous les chemins
+  // d'échec au-dessus sortent en laissant le run « submitted », rejouable, et
+  // ne doivent donc rien facturer. Une fois la ligne à « scored », l'entrée de
+  // scoreRun() renvoie alors alreadyScored — un second passage ne re-débite
+  // pas. C'est là toute l'idempotence, aucun drapeau à poser.
+  if (exp?.jobs?.user_id) {
+    const facture = await factureNotationCandidat(exp.jobs.user_id);
+    if (!facture.success) {
+      // Non bloquant : le rapport est écrit, le recruteur doit le voir. Un
+      // solde insuffisant se règle sur le compte, pas en cachant un résultat
+      // déjà produit.
+      console.error(`scoreRun ${runId} : débit de la notation refusé (non bloquant) — ${facture.error}`);
+    }
+  }
 
   // Dénormalise le score pour la liste candidats — inconditionnel, il n'écrase
   // aucune décision du recruteur.

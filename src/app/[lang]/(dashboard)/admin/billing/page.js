@@ -9,12 +9,14 @@ import { adminAddCredits, adminChangePlan, adminListUserUsage } from "@/lib/acti
 import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
-import { PLANS, CREDIT_PACKS } from "@/lib/constants/plans";
+import { PLANS, PLANS_ATTRIBUABLES, CREDIT_PACKS } from "@/lib/constants/plans";
 
+// Écran d'administration : c'est le seul de la plateforme où « Bêta » paraît en
+// clair. Partout ailleurs, un bêta-testeur est un Core (cf. planVisible).
 const PLAN_COLORS = {
   core: { bg: "#e0e7ff", color: "#4338ca", label: "Core" },
   pro: { bg: "#ede9fe", color: "#6d28d9", label: "Pro" },
-  custom: { bg: "#dcfce7", color: "#166534", label: "Custom" },
+  beta: { bg: "#fef3c7", color: "#92400e", label: "Bêta" },
   admin: { bg: "#1e293b", color: "#ffffff", label: "Admin" },
 };
 
@@ -59,7 +61,7 @@ export default function AdminBillingPage() {
           ? { ...u, plan: newPlan, credits_balance: PLANS[newPlan]?.creditsPerMonth || u.credits_balance, credits_allocated: PLANS[newPlan]?.creditsPerMonth || u.credits_allocated }
           : u
       ));
-      toast(`Plan mis à jour → ${PLANS[newPlan]?.label || newPlan}`);
+      toast(`Plan mis à jour → ${PLANS[newPlan]?.labelInterne || newPlan}`);
     } else {
       toast("Erreur : " + res.error, "error");
     }
@@ -122,13 +124,14 @@ export default function AdminBillingPage() {
 
       {/* Résumé */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
-        {Object.entries(PLANS).map(([key, p]) => {
+        {PLANS_ATTRIBUABLES.map((key) => {
+          const p = PLANS[key];
           const count = users.filter(u => u.plan === key).length;
           const pc = PLAN_COLORS[key] || PLAN_COLORS.core;
           return (
             <div key={key} className="card" style={{ padding: "1rem", textAlign: "center" }}>
               <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: pc.bg, color: pc.color }}>
-                {p.label}
+                {p.labelInterne}
               </span>
               <div style={{ fontSize: "2rem", fontWeight: "900", marginTop: "8px" }}>{count}</div>
               <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>utilisateur{count !== 1 ? "s" : ""}</div>
@@ -192,8 +195,8 @@ export default function AdminBillingPage() {
                         appearance: "none", paddingRight: "20px",
                       }}
                     >
-                      {Object.entries(PLANS).map(([key, p]) => (
-                        <option key={key} value={key}>{p.label}</option>
+                      {PLANS_ATTRIBUABLES.map((key) => (
+                        <option key={key} value={key}>{PLANS[key].labelInterne}</option>
                       ))}
                     </select>
                     {isPlanLoading && <Loader2 size={12} style={{ marginLeft: "6px", animation: "spin 1s linear infinite", display: "inline" }} />}

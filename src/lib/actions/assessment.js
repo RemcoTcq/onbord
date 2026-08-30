@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
-import { deductCredits, chargeCredits, planSetupCharges } from "../utils/limits";
 import { aggregateVideoScore, computeGlobalScore, resolveEnabledModules } from "../scoring";
 import { filterNonTestableSkills } from "../constants/taxonomie";
 
@@ -941,20 +940,9 @@ export async function submitAssessment(candidateId) {
 
     if (error) throw error;
 
-    // ★ Déduire les crédits "parcours complet" : 2 crédits par candidat qui soumet
-    // son évaluation, quel que soit le détail des modules. Idempotent par candidat
-    // (flag credits_charged_tests dans deductCredits).
-    {
-      const { data: job } = await supabase
-        .from("jobs")
-        .select("user_id")
-        .eq("id", candidate.job_id)
-        .single();
-      if (job?.user_id) {
-        await deductCredits(job.user_id, candidateId, "candidate_completion");
-      }
-    }
-
+    // Rien n'est facturé ici. Ce parcours hérité (banque de tests + module
+    // vidéo) ne structure plus le produit : seule la simulation Experience
+    // débite, à la création du run puis à sa notation.
     return { success: true, scoreGlobal, scoreTests, scoreVideo };
   } catch (err) {
     console.error("submitAssessment error:", err);
@@ -1035,31 +1023,8 @@ export async function saveAssessmentConfig(jobId, config) {
       }
     }
 
-    // ── Charges "setup" (idempotentes via assessment_config._charged) ──
-    // Registre lu depuis la DB (jamais depuis le client). On facture uniquement les
-    // nouveaux tests de compétences (4 cr/test) et le module vidéo (6 cr), une seule
-    // fois par offre. Débité au moment de la sauvegarde de l'offre.
-    const { data: existingJob } = await supabase
-      .from("jobs")
-      .select("assessment_config")
-      .eq("id", jobId)
-      .eq("user_id", user.id)
-      .single();
-
-    const existingLedger = existingJob?.assessment_config?._charged || { tests: [], video: false };
-    const ledger = { tests: [...existingLedger.tests], video: !!existingLedger.video };
-
-    for (const item of planSetupCharges(existingLedger, config)) {
-      const res = await chargeCredits(user.id, item.cost);
-      // Marqué comme facturé seulement si le débit a réussi (ou compte admin/gratuit) ;
-      // sinon on retentera à la prochaine sauvegarde (crédits insuffisants).
-      if (res.success) {
-        if (item.type === "assessment_setup") ledger.tests.push(item.testId);
-        if (item.type === "video_setup") ledger.video = true;
-      }
-    }
-    config._charged = ledger;
-
+    // Configurer les modules ne facture rien : le forfait de création d'offre
+    // (6 crédits, débité à l'extraction) couvre toute la configuration.
     const { error } = await supabase
       .from("jobs")
       .update({ assessment_config: config })
@@ -1267,18 +1232,8 @@ export async function saveVideoInterviewConfig(jobId, videoConfig) {
       },
     };
 
-    // Charge setup vidéo (6 cr), une seule fois par offre, via le registre partagé.
-    const existingLedger = existingConfig._charged || { tests: [], video: false };
-    const ledger = { tests: [...existingLedger.tests], video: !!existingLedger.video };
-    for (const item of planSetupCharges(existingLedger, newConfig)) {
-      const res = await chargeCredits(user.id, item.cost);
-      if (res.success) {
-        if (item.type === "assessment_setup") ledger.tests.push(item.testId);
-        if (item.type === "video_setup") ledger.video = true;
-      }
-    }
-    newConfig._charged = ledger;
-
+    // Configurer les modules ne facture rien : le forfait de création d'offre
+    // (6 crédits, débité à l'extraction) couvre toute la configuration.
     const { error } = await supabase
       .from("jobs")
       .update({ assessment_config: newConfig })

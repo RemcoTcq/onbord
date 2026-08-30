@@ -2,7 +2,6 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import anthropic from "../anthropic";
-import { deductCredits } from "../utils/limits";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
 import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
@@ -326,20 +325,8 @@ Retournez l'évaluation sous forme de JSON strict avec cette structure exacte :
       throw new Error("Impossible d'enregistrer le candidat en base de données.");
     }
 
-    // ★ Déduire 1 crédit CV (idempotent via flag credits_charged_cv)
-    let recruiterId = null;
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('user_id')
-      .eq('id', jobId)
-      .single();
-    if (job) {
-      recruiterId = job.user_id;
-    }
-    if (recruiterId) {
-      await deductCredits(recruiterId, candidate.id, "cv_scoring_per_candidate");
-    }
-
+    // Le scoring CV ne facture plus rien. Les seuls débits du produit sont la
+    // création d'une offre (6 cr) et le passage d'un candidat (1 + 2 cr).
     return { success: true, candidate };
   } catch (error) {
     console.error("Score Candidate Error:", error);

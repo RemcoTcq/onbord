@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, Copy, Check, Loader2, Mail, Lock } from "lucide-react";
 import { logMailSent, sendCandidateEmail } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
-import { PLANS } from "@/lib/constants/plans";
+import { PLANS, planVisible } from "@/lib/constants/plans";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale, LOCALE_LABELS } from "@/lib/i18n/config";
 import { templatesFor, EMAIL_TOKENS } from "@/lib/emails/templates";
@@ -27,8 +27,9 @@ export default function EmailModal({ isOpen, onClose, candidate, job, currentUse
   const { toast } = useToast();
 
   const isAlreadySent = existingLogs.some(log => log.mail_type === selectedType);
-  const userPlan = currentUser?.user_metadata?.plan || "core";
-  const canSendDirectly = PLANS[userPlan]?.features?.automatedEmails || userPlan === 'pro' || userPlan === 'custom';
+  // planVisible : un bêta-testeur est un Core, ici comme partout côté client.
+  const userPlan = planVisible(currentUser?.user_metadata?.plan);
+  const canSendDirectly = !!PLANS[userPlan]?.features?.automatedEmails;
 
   if (!isOpen) return null;
 

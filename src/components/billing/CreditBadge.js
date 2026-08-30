@@ -22,6 +22,7 @@ export default function CreditBadge() {
 
   if (!info) return null;
 
+  const illimite = !!info.illimite;
   const pct = info.credits_allocated > 0
     ? Math.min(100, Math.round((info.credits_balance / info.credits_allocated) * 100))
     : 100;
@@ -45,8 +46,8 @@ export default function CreditBadge() {
           <Zap size={11} fill={color} /> Crédits
         </span>
         <span style={{ fontSize: "12px", fontWeight: "800", color }}>
-          {info.credits_balance === 999999 ? "∞" : info.credits_balance}
-          {info.credits_balance !== 999999 && (
+          {illimite ? "∞" : info.credits_balance}
+          {!illimite && (
             <span style={{ fontWeight: "500", color: "var(--muted-foreground)", fontSize: "11px" }}>
               /{info.credits_allocated}
             </span>
@@ -54,7 +55,7 @@ export default function CreditBadge() {
         </span>
       </div>
 
-      {info.credits_balance !== 999999 && (
+      {!illimite && (
         <div style={{ height: "4px", background: "var(--border)", borderRadius: "99px", overflow: "hidden" }}>
           <div
             style={{
@@ -72,7 +73,7 @@ export default function CreditBadge() {
         <span style={{ fontSize: "10px", color: "var(--muted-foreground)", fontWeight: "600" }}>
           {t("dashboard.usage.planNamed", { plan: info.planLabel })}
         </span>
-        {info.credits_balance !== 999999 && pct <= 20 && (
+        {!illimite && pct <= 20 && (
           <a
             href={href("/compte/billing")}
             style={{ fontSize: "10px", fontWeight: "700", color, textDecoration: "underline" }}

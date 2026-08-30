@@ -891,16 +891,19 @@ const dashboard = {
     remainingCredits: "Credits remaining",
     unlimitedAccess: "✓ Your account has unlimited access.",
 
-    onAdd: "On adding (per job)",
-    qualifyingQuestions: "Screening questions",
-    skillsTest: "Skills test",
-    videoModule: "Video module (up to 3 questions)",
-    cvScoring: "CV scoring (AI)",
-    free: "Free",
+    autoReset: "Resets automatically on",
 
-    perCandidate: "Per candidate",
-    cvScoringPerCandidate: "CV scoring per candidate",
-    fullJourney: "Full pipeline (candidate)",
+    createJob: "Create a job",
+    createJobHelp:
+      "Parsing the ad, picking the skills, generating the simulation, regenerating it, publishing it. All included: once the job exists, configuring it costs nothing more.",
+    perJobUnit: "per job",
+
+    candidateRun: "Put a candidate through",
+    candidateRunHelp:
+      "{start} credit when they enter the simulation, {scoring} for the AI evaluation that runs automatically on submission. An invited candidate who never starts costs nothing.",
+    perCandidateUnit: "per candidate",
+
+    nothingElse: "Nothing else consumes credits.",
 
     extraCredits: "Extra credits",
     extraCreditsHelp: "Need more credits this month? Top up at any time.",

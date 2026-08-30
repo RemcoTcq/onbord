@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Copy, Check, Link2, Trash2, Loader2, Shield, UserPlus, KeyRound, Users, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { PLANS, PLANS_ATTRIBUABLES } from "@/lib/constants/plans";
 import {
   isCurrentUserAdmin,
   adminListInviteTokens,
@@ -230,10 +231,11 @@ export default function AdminPage() {
     );
   }
 
+  // Écran d'administration : le seul où « Bêta » s'affiche en clair.
   const PLAN_COLORS = {
     core: { bg: "#e0e7ff", color: "#4338ca" },
     pro: { bg: "#ede9fe", color: "#6d28d9" },
-    custom: { bg: "#f1f5f9", color: "#1e293b" },
+    beta: { bg: "#fef3c7", color: "#92400e" },
     admin: { bg: "#1e293b", color: "#ffffff" },
   };
 
@@ -303,10 +305,9 @@ export default function AdminPage() {
               onChange={(e) => setForm({ ...form, plan: e.target.value })}
               style={{ ...CHAMP, width: "auto", fontWeight: 600, cursor: "pointer" }}
             >
-              <option value="core">Core</option>
-              <option value="pro">Pro</option>
-              <option value="custom">Custom</option>
-              <option value="admin">Admin</option>
+              {PLANS_ATTRIBUABLES.map((id) => (
+                <option key={id} value={id}>{PLANS[id].labelInterne}</option>
+              ))}
             </select>
             <button
               type="submit" className="btn btn-primary" disabled={creating}
@@ -369,7 +370,7 @@ export default function AdminPage() {
                     <td style={{ padding: "14px 20px" }}>
                       {pc ? (
                         <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", background: pc.bg, color: pc.color }}>
-                          {c.plan.charAt(0).toUpperCase() + c.plan.slice(1)}
+                          {PLANS[c.plan]?.labelInterne || c.plan}
                         </span>
                       ) : (
                         // Pas de ligne user_usage : anomalie, pas un Core.
@@ -427,10 +428,9 @@ export default function AdminPage() {
               color: "var(--foreground)", cursor: "pointer", flex: 1
             }}
           >
-            <option value="core">Core</option>
-            <option value="pro">Pro</option>
-            <option value="custom">Custom</option>
-            <option value="admin">Admin</option>
+            {PLANS_ATTRIBUABLES.map((id) => (
+              <option key={id} value={id}>{PLANS[id].labelInterne}</option>
+            ))}
           </select>
         </div>
         <button
@@ -473,7 +473,7 @@ export default function AdminPage() {
                   </td>
                   <td style={{ padding: "14px 20px" }}>
                     <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", background: pc.bg, color: pc.color }}>
-                      {tok.plan.charAt(0).toUpperCase() + tok.plan.slice(1)}
+                      {PLANS[tok.plan]?.labelInterne || tok.plan}
                     </span>
                   </td>
                   <td style={{ padding: "14px 20px", fontSize: "13px" }}>

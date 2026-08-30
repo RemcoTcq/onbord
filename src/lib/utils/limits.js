@@ -1,111 +1,163 @@
-import { createClient, createAdminClient } from "../supabase/server";
+import { createAdminClient } from "../supabase/server";
 import { isAdmin } from "./admin";
-import { PLANS, CREDIT_COSTS } from "../constants/plans";
+import {
+  PLANS,
+  PLANS_ATTRIBUABLES,
+  CREDIT_COSTS,
+  CREDITS_ILLIMITES,
+  planVisible,
+} from "../constants/plans";
 
 /**
- * Récupère ou crée l'entrée user_usage pour un utilisateur.
+ * Moteur de crédits.
+ *
+ * ── Sur QUI est facturé ──────────────────────────────────────────────────────
+ * Toujours le propriétaire de l'offre, jamais l'appelant. C'est capital pour les
+ * débits candidat : ils partent d'une session ANONYME (le candidat n'a pas de
+ * compte). L'ancien code demandait `auth.getUser()` puis testait isAdmin() sur
+ * le résultat — dans le parcours candidat, ça renvoyait toujours « pas admin »,
+ * donc un recruteur de l'équipe se voyait quand même débiter. L'exonération se
+ * lit désormais sur le COMPTE FACTURÉ (estExonere ci-dessous).
+ *
+ * ── Ce qui débite ────────────────────────────────────────────────────────────
+ * Trois points d'appel, pas un de plus (barème dans constants/plans.js) :
+ *   factureCreationOffre()      6 cr — actions/job.js, au lancement de l'extraction
+ *   factureDemarrageCandidat()  1 cr — actions/run.js, à la création du run
+ *   factureNotationCandidat()   2 cr — runScoring.js, quand le run passe « scored »
  */
-async function getOrCreateUsage(supabase, userId) {
-  let { data: usage, error } = await supabase
+
+const PLAN_DEFAUT = "core";
+
+/**
+ * Un compte est exonéré s'il porte le plan `admin`, ou si son adresse figure
+ * dans ADMIN_EMAILS. La double lecture est délibérée : le plan en base est la
+ * source de vérité de la facturation, mais un compte de l'équipe créé avant que
+ * son plan ne soit posé ne doit pas se faire débiter entre-temps.
+ */
+async function estExonere(adminSupabase, userId, usage) {
+  if (usage?.plan === "admin") return true;
+  try {
+    const { data } = await adminSupabase.auth.admin.getUserById(userId);
+    return isAdmin(data?.user);
+  } catch {
+    // Sur incident de l'API d'auth, on facture : ne pas exonérer par accident
+    // vaut mieux qu'ouvrir la vanne sur une erreur réseau.
+    return false;
+  }
+}
+
+/** Plan par défaut d'un compte qui n'a pas encore de ligne user_usage. */
+async function planParDefaut(adminSupabase, userId) {
+  try {
+    const { data } = await adminSupabase.auth.admin.getUserById(userId);
+    return isAdmin(data?.user) ? "admin" : PLAN_DEFAUT;
+  } catch {
+    return PLAN_DEFAUT;
+  }
+}
+
+/** Récupère ou crée l'entrée user_usage d'un compte. */
+async function getOrCreateUsage(adminSupabase, userId) {
+  const { data: usage, error } = await adminSupabase
     .from("user_usage")
     .select("*")
     .eq("user_id", userId)
     .single();
 
-  if (error && error.code === "PGRST116") {
-    // Pas encore d'entrée — créer via upsert (plus sûr que insert)
-    const isAdminUser = await (async () => {
-      const { data: { user } } = await createClient().auth.getUser();
-      return isAdmin(user);
-    })();
-    const defaultPlan = isAdminUser ? "admin" : "core";
-    const plan = PLANS[defaultPlan];
-    const { data: newUsage, error: upsertError } = await supabase
-      .from("user_usage")
-      .upsert(
-        {
-          user_id: userId,
-          plan: defaultPlan,
-          credits_balance: plan.creditsPerMonth,
-          credits_allocated: plan.creditsPerMonth,
-          last_reset_date: new Date().toISOString(),
-        },
-        { onConflict: "user_id", ignoreDuplicates: false }
-      )
-      .select()
-      .single();
+  if (!error) return usage;
 
-    if (upsertError) {
-      // Si même l'upsert échoue (ex: RLS), retourner un usage virtuel par défaut
-      console.warn("getOrCreateUsage upsert failed, using virtual defaults:", upsertError.message);
-      return {
-        user_id: userId,
-        plan: defaultPlan,
-        credits_balance: 170,
-        credits_allocated: 170,
-        last_reset_date: new Date().toISOString(),
-      };
-    }
-    usage = newUsage;
-  } else if (error) {
+  if (error.code !== "PGRST116") {
     console.warn("getOrCreateUsage select failed, using virtual defaults:", error.message);
-    return {
-      user_id: userId,
-      plan: "core", // Fallback sûr en cas d'erreur totale
-      credits_balance: 170,
-      credits_allocated: 170,
-      last_reset_date: new Date().toISOString(),
-    };
+    return usageVirtuel(userId, PLAN_DEFAUT);
   }
 
-  return usage;
-}
-
-/**
- * Vérifie et applique le reset mensuel si nécessaire.
- */
-async function checkAndResetMonthly(supabase, usage) {
-  const lastReset = new Date(usage.last_reset_date);
-  const now = new Date();
-  if (
-    lastReset.getMonth() !== now.getMonth() ||
-    lastReset.getFullYear() !== now.getFullYear()
-  ) {
-    const plan = PLANS[usage.plan] || PLANS.core;
-    const { data: resetUsage } = await supabase
-      .from("user_usage")
-      .update({
+  const planId = await planParDefaut(adminSupabase, userId);
+  const plan = PLANS[planId];
+  const { data: nouveau, error: upsertError } = await adminSupabase
+    .from("user_usage")
+    .upsert(
+      {
+        user_id: userId,
+        plan: planId,
         credits_balance: plan.creditsPerMonth,
         credits_allocated: plan.creditsPerMonth,
-        last_reset_date: now.toISOString(),
-      })
-      .eq("user_id", usage.user_id)
-      .select()
-      .single();
-    return resetUsage;
+        last_reset_date: new Date().toISOString(),
+      },
+      { onConflict: "user_id", ignoreDuplicates: false }
+    )
+    .select()
+    .single();
+
+  if (upsertError) {
+    console.warn("getOrCreateUsage upsert failed, using virtual defaults:", upsertError.message);
+    return usageVirtuel(userId, planId);
   }
-  return usage;
+  return nouveau;
 }
 
 /**
- * Vérifie si l'utilisateur a suffisamment de crédits pour une action.
- * @param {string} userId
- * @param {number} cost - Nombre de crédits requis
- * @returns {Promise<{ allowed: boolean, remaining: number, error?: string }>}
+ * Consommation en mémoire, quand la base refuse. Marquée `_virtuel` : aucun
+ * débit n'est tenté dessus, sinon on retirerait des crédits à une ligne qui
+ * n'existe pas et le solde affiché serait une fiction.
  */
-export async function checkCredits(userId, cost) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+function usageVirtuel(userId, planId) {
+  const plan = PLANS[planId] || PLANS[PLAN_DEFAUT];
+  return {
+    user_id: userId,
+    plan: planId,
+    credits_balance: plan.creditsPerMonth,
+    credits_allocated: plan.creditsPerMonth,
+    last_reset_date: new Date().toISOString(),
+    _virtuel: true,
+  };
+}
 
-  if (isAdmin(user)) return { allowed: true, remaining: 999999 };
+/** Recharge mensuelle : au changement de mois, le solde repart à l'allocation. */
+async function checkAndResetMonthly(adminSupabase, usage) {
+  if (usage?._virtuel) return usage;
 
+  const dernierReset = new Date(usage.last_reset_date);
+  const maintenant = new Date();
+  if (
+    dernierReset.getMonth() === maintenant.getMonth() &&
+    dernierReset.getFullYear() === maintenant.getFullYear()
+  ) {
+    return usage;
+  }
+
+  const plan = PLANS[usage.plan] || PLANS[PLAN_DEFAUT];
+  const { data } = await adminSupabase
+    .from("user_usage")
+    .update({
+      credits_balance: plan.creditsPerMonth,
+      credits_allocated: plan.creditsPerMonth,
+      last_reset_date: maintenant.toISOString(),
+    })
+    .eq("user_id", usage.user_id)
+    .select()
+    .single();
+  return data || usage;
+}
+
+/** État de facturation d'un compte : sa ligne à jour, et s'il paie. */
+async function etatFacturation(userId) {
   const adminSupabase = createAdminClient();
   let usage = await getOrCreateUsage(adminSupabase, userId);
   usage = await checkAndResetMonthly(adminSupabase, usage);
+  const exonere = await estExonere(adminSupabase, userId, usage);
+  return { adminSupabase, usage, exonere };
+}
+
+/**
+ * Le compte a-t-il de quoi payer `cost` ? Ne débite rien.
+ * @returns {Promise<{ allowed: boolean, remaining: number, error?: string }>}
+ */
+export async function checkCredits(userId, cost) {
+  const { usage, exonere } = await etatFacturation(userId);
+  if (exonere) return { allowed: true, remaining: CREDITS_ILLIMITES };
 
   const remaining = usage.credits_balance;
   const allowed = remaining >= cost;
-
   return {
     allowed,
     remaining,
@@ -116,117 +168,40 @@ export async function checkCredits(userId, cost) {
 }
 
 /**
- * Déduit des crédits pour une action sur un candidat.
- * Idempotent : ne déduit pas si l'action a déjà été facturée pour ce candidat.
- *
- * @param {string} userId - ID du recruteur
- * @param {string} candidateId - ID du candidat (null pour les coûts "setup")
- * @param {'assessment_setup'|'video_setup'|'cv_scoring_per_candidate'|'candidate_completion'} actionType
- * @returns {Promise<{ success: boolean, deducted: boolean, remaining: number }>}
+ * Débit brut de `cost` crédits sur le compte `userId`.
+ * Ne lève jamais : l'appelant décide quoi faire du verdict — bloquer avant de
+ * dépenser de l'IA, ou seulement journaliser.
  */
-export async function deductCredits(userId, candidateId, actionType) {
+export async function chargeCredits(userId, cost) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!cost || cost <= 0) return { success: true, deducted: false };
+    if (!userId) return { success: false, deducted: false, error: "Compte à facturer inconnu" };
 
-    // Admins (@onbord.be) = gratuit
-    if (isAdmin(user)) return { success: true, deducted: false, remaining: 999999 };
-
-    const cost = CREDIT_COSTS[actionType];
-    if (!cost) return { success: true, deducted: false, remaining: 0 };
-
-    const adminSupabase = createAdminClient();
-
-    // Vérifier le flag sur le candidat (uniquement pour les coûts par candidat)
-    const flagColumn = {
-      cv_scoring_per_candidate: "credits_charged_cv",
-      candidate_completion: "credits_charged_tests",
-    }[actionType];
-
-    if (flagColumn) {
-      const { data: candidate } = await adminSupabase
-        .from("candidates")
-        .select(flagColumn)
-        .eq("id", candidateId)
-        .single();
-
-      if (candidate?.[flagColumn]) {
-        // Déjà facturé pour ce candidat sur ce type
-        return { success: true, deducted: false, remaining: -1 };
-      }
-    }
-
-    // Déduire atomiquement
-    let usage = await getOrCreateUsage(adminSupabase, userId);
-    usage = await checkAndResetMonthly(adminSupabase, usage);
+    const { adminSupabase, usage, exonere } = await etatFacturation(userId);
+    if (exonere) return { success: true, deducted: false, remaining: CREDITS_ILLIMITES };
+    if (usage._virtuel) return { success: false, deducted: false, error: "Consommation illisible" };
 
     if (usage.credits_balance < cost) {
       return {
         success: false,
         deducted: false,
         remaining: usage.credits_balance,
-        error: `Crédits insuffisants (${usage.credits_balance} restant${usage.credits_balance > 1 ? "s" : ""}).`,
+        error: `Crédits insuffisants (${usage.credits_balance} restant${usage.credits_balance > 1 ? "s" : ""}, ${cost} requis).`,
       };
     }
 
-    const { data: updated } = await adminSupabase
+    const { data } = await adminSupabase
       .from("user_usage")
       .update({ credits_balance: usage.credits_balance - cost })
       .eq("user_id", userId)
       .select("credits_balance")
       .single();
-
-    // Marquer le candidat comme facturé pour ce type
-    if (flagColumn) {
-      await adminSupabase
-        .from("candidates")
-        .update({ [flagColumn]: true })
-        .eq("id", candidateId);
-    }
 
     return {
       success: true,
       deducted: true,
-      remaining: updated?.credits_balance ?? usage.credits_balance - cost,
+      remaining: data?.credits_balance ?? usage.credits_balance - cost,
     };
-  } catch (err) {
-    // Ne jamais laisser une erreur de crédit planter l'action principale
-    console.error("deductCredits error (non-blocking):", err.message);
-    return { success: false, deducted: false, remaining: 0, error: err.message };
-  }
-}
-
-/**
- * Déduction "brute" de crédits pour une charge liée à une OFFRE (setup), sans logique
- * par-candidat ni flag candidat. Utilisée par les charges d'ajout de module.
- * Non-bloquant : ne fait jamais planter l'action principale.
- *
- * @returns {Promise<{ success: boolean, deducted: boolean, remaining?: number, error?: string }>}
- */
-export async function chargeCredits(userId, cost) {
-  try {
-    if (!cost || cost <= 0) return { success: true, deducted: false };
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (isAdmin(user)) return { success: true, deducted: false, remaining: 999999 };
-
-    const adminSupabase = createAdminClient();
-    let usage = await getOrCreateUsage(adminSupabase, userId);
-    usage = await checkAndResetMonthly(adminSupabase, usage);
-
-    if (usage.credits_balance < cost) {
-      return { success: false, deducted: false, remaining: usage.credits_balance, error: "Crédits insuffisants." };
-    }
-
-    const { data: updated } = await adminSupabase
-      .from("user_usage")
-      .update({ credits_balance: usage.credits_balance - cost })
-      .eq("user_id", userId)
-      .select("credits_balance")
-      .single();
-
-    return { success: true, deducted: true, remaining: updated?.credits_balance ?? usage.credits_balance - cost };
   } catch (err) {
     console.error("chargeCredits error (non-blocking):", err.message);
     return { success: false, deducted: false, error: err.message };
@@ -234,102 +209,80 @@ export async function chargeCredits(userId, cost) {
 }
 
 /**
- * Détermine les charges "setup" à facturer pour une offre, en comparant sa config
- * courante au registre de ce qui a DÉJÀ été facturé (`assessment_config._charged`).
- * Fonction PURE : ne facture rien, retourne seulement la liste des charges à appliquer.
- *
- * Règles :
- * - chaque test de compétences distinct (par test_id) → assessment_setup (une fois par offre)
- * - le module vidéo activé → video_setup (une fois par offre)
- * - questions qualificatives et scoring CV : gratuits à l'ajout (aucune charge setup)
- *
- * @param {object} existingLedger - { tests: string[], video: boolean }
- * @param {object} config - assessment_config de l'offre
- * @returns {Array<{ type: 'assessment_setup'|'video_setup', cost: number, testId?: string }>}
+ * 6 crédits — création d'une offre, au lancement de l'extraction.
+ * L'appelant BLOQUE sur un refus : il doit tomber AVANT le premier appel au
+ * modèle, sinon on aurait dépensé l'IA pour rien.
  */
-export function planSetupCharges(existingLedger, config) {
-  const chargedTests = new Set(existingLedger?.tests || []);
-  const videoCharged = !!existingLedger?.video;
-  const items = [];
-
-  const testsMod = config?.modules?.skills_tests;
-  if (testsMod?.enabled && Array.isArray(testsMod.tests)) {
-    for (const t of testsMod.tests) {
-      if (t?.test_id && !chargedTests.has(t.test_id)) {
-        items.push({ type: "assessment_setup", cost: CREDIT_COSTS.assessment_setup, testId: t.test_id });
-        chargedTests.add(t.test_id); // évite un doublon si le même test_id apparaît deux fois
-      }
-    }
-  }
-
-  const videoMod = config?.modules?.video_interview;
-  if (videoMod?.enabled && !videoCharged) {
-    items.push({ type: "video_setup", cost: CREDIT_COSTS.video_setup });
-  }
-
-  return items;
+export async function factureCreationOffre(userId) {
+  return chargeCredits(userId, CREDIT_COSTS.job_creation);
 }
 
 /**
- * Vérifie si l'utilisateur a accès à une feature selon son plan.
- * @param {string} userId
- * @param {keyof PLANS.core.features} featureName
- * @returns {Promise<boolean>}
+ * 1 crédit — un candidat entre réellement dans la simulation.
+ * Appelé à la création du run, qui n'a lieu qu'une fois : c'est là toute
+ * l'idempotence, aucun drapeau à poser sur le candidat.
  */
+export async function factureDemarrageCandidat(recruteurId) {
+  return chargeCredits(recruteurId, CREDIT_COSTS.candidate_start);
+}
+
+/**
+ * 2 crédits — notation d'un run par le modèle.
+ * Appelé une fois le run passé « scored ». scoreRun() sort immédiatement sur un
+ * run déjà noté : un second passage ne re-débite pas.
+ */
+export async function factureNotationCandidat(recruteurId) {
+  return chargeCredits(recruteurId, CREDIT_COSTS.candidate_scoring);
+}
+
+/** Le plan du compte ouvre-t-il cette fonctionnalité ? */
 export async function hasFeature(userId, featureName) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (isAdmin(user)) return true;
-
-  const adminSupabase = createAdminClient();
-  const usage = await getOrCreateUsage(adminSupabase, userId);
-  const plan = PLANS[usage.plan] || PLANS.core;
+  const { usage, exonere } = await etatFacturation(userId);
+  if (exonere) return true;
+  const plan = PLANS[usage.plan] || PLANS[PLAN_DEFAUT];
   return plan.features?.[featureName] ?? false;
 }
 
 /**
- * Retourne les informations complètes de crédits pour l'utilisateur connecté.
+ * Informations de crédits destinées au NAVIGATEUR du recruteur.
+ * planVisible() s'applique ICI : un bêta-testeur reçoit « core », jamais
+ * « beta » — ni dans l'identifiant, ni dans le libellé. C'est la seule sortie
+ * du moteur vers le client, donc le seul endroit où l'appliquer.
  */
 export async function getCreditInfo(userId) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { usage, exonere } = await etatFacturation(userId);
 
-  if (isAdmin(user)) {
+  if (exonere) {
     return {
-      plan: "custom",
-      planLabel: "Admin",
-      credits_balance: 999999,
-      credits_allocated: 999999,
+      plan: "admin",
+      planLabel: PLANS.admin.label,
+      credits_balance: CREDITS_ILLIMITES,
+      credits_allocated: CREDITS_ILLIMITES,
+      illimite: true,
       nextResetDate: null,
     };
   }
 
-  const adminSupabase = createAdminClient();
-  let usage = await getOrCreateUsage(adminSupabase, userId);
-  usage = await checkAndResetMonthly(adminSupabase, usage);
+  const idVisible = planVisible(usage.plan);
+  const plan = PLANS[idVisible];
 
-  const plan = PLANS[usage.plan] || PLANS.core;
-
-  // Calculer la prochaine date de reset (1er du mois suivant)
-  const now = new Date();
-  const nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const maintenant = new Date();
+  const prochainReset = new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 1);
 
   return {
-    plan: usage.plan,
+    plan: idVisible,
     planLabel: plan.label,
     credits_balance: usage.credits_balance,
     credits_allocated: usage.credits_allocated,
-    nextResetDate: nextReset.toISOString(),
+    illimite: false,
+    nextResetDate: prochainReset.toISOString(),
   };
 }
 
-/**
- * Ajoute des crédits à un utilisateur (appel admin uniquement).
- */
+/** Ajoute des crédits à un compte (outil d'administration). */
 export async function addCredits(userId, amount) {
   const adminSupabase = createAdminClient();
-  let usage = await getOrCreateUsage(adminSupabase, userId);
+  const usage = await getOrCreateUsage(adminSupabase, userId);
 
   const { data } = await adminSupabase
     .from("user_usage")
@@ -342,15 +295,18 @@ export async function addCredits(userId, amount) {
 }
 
 /**
- * Change le plan d'un utilisateur et ajuste ses crédits alloués (appel admin).
+ * Change le plan d'un compte et réaligne son allocation (outil d'administration).
+ * `users.plan` est tenu en phase avec `user_usage.plan` : le tableau de bord lit
+ * la première colonne, la facturation la seconde.
  */
 export async function changePlan(userId, newPlan) {
+  if (!PLANS_ATTRIBUABLES.includes(newPlan)) return { success: false, error: "Plan inconnu" };
+
   const adminSupabase = createAdminClient();
   const plan = PLANS[newPlan];
-  if (!plan) return { success: false, error: "Plan inconnu" };
 
-  // Garantit l'existence de la ligne user_usage (sinon l'update ne toucherait rien,
-  // par ex. pour un utilisateur fraîchement invité qui n'a pas encore d'usage).
+  // Garantit l'existence de la ligne : sans elle, l'update ne toucherait rien
+  // (cas d'un compte tout juste créé).
   await getOrCreateUsage(adminSupabase, userId);
 
   const { data } = await adminSupabase
@@ -364,21 +320,7 @@ export async function changePlan(userId, newPlan) {
     .select()
     .single();
 
-  // Garde users.plan (affiché dans le dashboard) synchronisé avec user_usage.plan.
   await adminSupabase.from("users").update({ plan: newPlan }).eq("id", userId);
 
   return { success: true, usage: data };
-}
-
-// Rétrocompatibilité — anciennes fonctions utilisées par jobs/nouveau
-export async function checkQuota(userId, type) {
-  if (type === "job") {
-    // Plus de limite sur les offres — on vérifie juste qu'ils ont des crédits
-    return { allowed: true, remaining: 999999 };
-  }
-  return { allowed: true, remaining: 999999 };
-}
-
-export async function incrementUsage() {
-  // Remplacé par deductCredits — no-op pour compatibilité
 }

@@ -2,16 +2,14 @@
 
 import {
   checkCredits,
-  deductCredits,
   hasFeature,
   getCreditInfo,
   addCredits,
   changePlan,
-  checkQuota,
-  incrementUsage,
 } from "../utils/limits";
 import { createClient, createAdminClient } from "../supabase/server";
 import { isAdmin } from "../utils/admin";
+import { PLANS_ATTRIBUABLES, planVisible } from "../constants/plans";
 import { consommer, ipDe, SEUILS } from "../rateLimit";
 import { headers } from "next/headers";
 
@@ -37,8 +35,6 @@ export async function isCurrentUserAdmin() {
   }
 }
 
-export { checkQuota, incrementUsage }; // rétrocompatibilité
-
 /**
  * Vérifie si l'utilisateur connecté a suffisamment de crédits.
  */
@@ -51,21 +47,6 @@ export async function checkUserCredits(cost) {
   } catch (error) {
     console.error("checkUserCredits error:", error);
     return { allowed: false, error: "Erreur technique" };
-  }
-}
-
-/**
- * Déduit les crédits pour une action sur un candidat (idempotent).
- */
-export async function deductUserCredits(candidateId, actionType) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-    return await deductCredits(user.id, candidateId, actionType);
-  } catch (error) {
-    console.error("deductUserCredits error:", error);
-    return { success: false, error: "Erreur technique" };
   }
 }
 
@@ -172,7 +153,10 @@ export async function claimInvitePlan(tokenId) {
       .update({ used: true, used_by: user.id })
       .eq("id", tokenId);
 
-    return { success: true, definitif: true, plan };
+    // planVisible : un jeton `beta` applique bien le plan bêta, mais ce qui
+    // revient au navigateur dit « core ». L'invité ne doit pas apprendre son
+    // statut de bêta-testeur en lisant la réponse de cette action.
+    return { success: true, definitif: true, plan: planVisible(plan) };
   } catch (error) {
     console.error("claimInvitePlan error:", error);
     return { success: false, error: "Erreur technique" };
@@ -265,8 +249,9 @@ export async function validateInviteToken(token) {
       return { success: false, error: "Ce lien d'invitation a expiré." };
     }
 
-    // `id` sert à claimInvitePlan, `plan` à l'affichage. Rien d'autre ne sort.
-    return { success: true, id: invitation.id, plan: invitation.plan || "core" };
+    // `id` sert à claimInvitePlan, `plan` à l'affichage — et il passe par
+    // planVisible : /join est une page publique, « beta » ne doit pas y paraître.
+    return { success: true, id: invitation.id, plan: planVisible(invitation.plan) };
   } catch (error) {
     console.error("validateInviteToken error:", error);
     return { success: false, error: "Erreur technique" };
@@ -299,8 +284,7 @@ export async function adminCreateInviteToken(plan) {
   try {
     if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
 
-    const plansValides = ["core", "pro", "custom", "admin"];
-    if (!plansValides.includes(plan)) return { success: false, error: "Plan inconnu" };
+    if (!PLANS_ATTRIBUABLES.includes(plan)) return { success: false, error: "Plan inconnu" };
 
     const token = crypto.randomUUID().replace(/-/g, "");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -356,8 +340,7 @@ export async function adminCreerCompte({ email, first_name, last_name, company_n
 
     // Même liste que les invitations : le plan vient du serveur, jamais d'un
     // champ libre — « admin » est dans la liste, et il ouvre tout.
-    const plansValides = ["core", "pro", "custom", "admin"];
-    if (!plansValides.includes(plan)) return { success: false, error: "Plan inconnu" };
+    if (!PLANS_ATTRIBUABLES.includes(plan)) return { success: false, error: "Plan inconnu" };
 
     const motDePasse = genererMotDePasse();
     const admin = createAdminClient();
@@ -550,13 +533,4 @@ export async function adminListUserUsage() {
     console.error("adminListUserUsage error:", error);
     return { success: false, error: "Erreur technique" };
   }
-}
-
-// Rétrocompatibilité
-export async function checkUserQuota(type) {
-  return { allowed: true, remaining: 999999 };
-}
-
-export async function incrementUserUsage() {
-  // no-op
 }

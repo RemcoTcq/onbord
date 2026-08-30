@@ -8,7 +8,6 @@ import { parseFile } from "@/lib/actions/parse-file";
 import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
 import { scoreCandidate } from "@/lib/actions/candidate";
 import { createClient } from "@/lib/supabase/client";
-import { checkUserQuota, incrementUserUsage } from "@/lib/actions/usage";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import JobLocaleSelector from "@/components/jobs/JobLocaleSelector";
@@ -191,12 +190,6 @@ export default function NouvelleDemandePage() {
       
       if (!user) throw new Error(t("dashboard.jobCreate.mustBeLoggedIn"));
 
-      // Vérification du quota
-      const quota = await checkUserQuota('job');
-      if (!quota.allowed) {
-        throw new Error(quota.error);
-      }
-
       let targetJobId = savedJobId || savedJob?.id;
 
       // `jobData` transporte la pipeline en cours après un retour depuis
@@ -270,10 +263,6 @@ export default function NouvelleDemandePage() {
       if (skillsToInsert.length > 0 && targetJobId) {
         const { error: skillsError } = await supabase.from('job_skills').insert(skillsToInsert);
         if (skillsError) throw skillsError;
-      }
-
-      if (!savedJobId) {
-        await incrementUserUsage('job');
       }
 
       if (continueToModules) {

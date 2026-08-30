@@ -5,11 +5,11 @@ import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { useI18n, useT } from "@/lib/i18n/I18nProvider";
 import { formatDateShort } from "@/lib/i18n/format";
 import { createClient } from "@/lib/supabase/client";
+import { getUserCreditInfo } from "@/lib/actions/usage";
 import { 
   Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
   Home, Users, Settings2, BarChart2, Star
 } from "lucide-react";
-import { PLANS } from "@/lib/constants/plans";
 
 const ICON_MAP = {
   Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
@@ -243,10 +243,7 @@ export default function Accueil() {
 
     setUserName(user.user_metadata?.first_name || user.email?.split("@")[0] || "");
     
-    const { data: usageData } = await supabase.from('company_usage').select('*').eq('user_id', user.id).single();
-    if (usageData) {
-      setUsage(usageData);
-    }
+    setUsage(await getUserCreditInfo());
 
     const { data: jobs } = await supabase
       .from("jobs")
@@ -276,17 +273,12 @@ export default function Accueil() {
     );
   }
 
-  const plan = usage ? (PLANS[usage.plan] || PLANS.core) : PLANS.core;
-  const maxCredits = plan.creditsPerMonth || 170;
-  
-  let creditsLeft = maxCredits;
-  if (usage && usage.credits_balance !== undefined && usage.credits_balance !== null) {
-      creditsLeft = usage.credits_balance;
-  } else if (usage) {
-      creditsLeft = Math.max(0, maxCredits - (usage.jobs_count * 10 || 0));
-  }
-  const creditsUsed = maxCredits - creditsLeft;
-  const creditsPercent = Math.min(100, Math.max(0, (creditsUsed / maxCredits) * 100));
+  const illimite = !!usage?.illimite;
+  const planLabel = usage?.planLabel || "—";
+  const maxCredits = usage?.credits_allocated ?? 0;
+  const creditsLeft = usage?.credits_balance ?? 0;
+  const creditsUsed = Math.max(0, maxCredits - creditsLeft);
+  const creditsPercent = maxCredits > 0 ? Math.min(100, Math.max(0, (creditsUsed / maxCredits) * 100)) : 0;
 
   return (
     <div className="fade-in" style={{ width: "100%", maxWidth: "1600px", margin: "0 auto", padding: "24px 32px", boxSizing: "border-box", overflowX: "hidden" }}>
@@ -365,12 +357,14 @@ export default function Accueil() {
           
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "24px" }}>
             <span>{t("dashboard.home.plan")}</span>
-            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{plan.label}</span>
+            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{planLabel}</span>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
             <span>{t("dashboard.home.creditsUsed")}</span>
-            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{creditsUsed} / {maxCredits}</span>
+            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>
+              {illimite ? "∞" : `${creditsUsed} / ${maxCredits}`}
+            </span>
           </div>
           
           <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden", marginBottom: "32px" }}>

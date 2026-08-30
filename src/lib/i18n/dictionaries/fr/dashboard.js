@@ -970,16 +970,19 @@ const dashboard = {
     remainingCredits: 'Crédits restants',
     unlimitedAccess: '✓ Votre compte a un accès illimité.',
 
-    onAdd: "À l'ajout (par offre)",
-    qualifyingQuestions: 'Questions qualificatives',
-    skillsTest: 'Test de compétences',
-    videoModule: "Module vidéo (jusqu'à 3 questions)",
-    cvScoring: 'Scoring CV (IA)',
-    free: 'Gratuit',
+    autoReset: 'Réinitialisation automatique le',
 
-    perCandidate: 'Par candidat',
-    cvScoringPerCandidate: 'Scoring CV par candidat',
-    fullJourney: 'Parcours complet (candidat)',
+    createJob: 'Créer une offre',
+    createJobHelp:
+      "Extraction de l'annonce, choix des compétences, génération de la simulation, régénérations et publication. Tout est compris : une fois l'offre créée, la configurer ne coûte plus rien.",
+    perJobUnit: 'par offre',
+
+    candidateRun: 'Faire passer un candidat',
+    candidateRunHelp:
+      "{start} crédit à son entrée dans la simulation, {scoring} pour son évaluation par l'IA, automatique à la soumission. Un candidat invité qui ne commence jamais ne coûte rien.",
+    perCandidateUnit: 'par candidat',
+
+    nothingElse: "Rien d'autre ne consomme de crédits.",
 
     extraCredits: 'Crédits supplémentaires',
     extraCreditsHelp: 'Besoin de plus de crédits ce mois-ci ? Rechargez à tout moment.',

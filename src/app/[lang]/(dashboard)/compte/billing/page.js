@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { getUserCreditInfo } from "@/lib/actions/usage";
 import { Zap, RefreshCw, Mail, ChevronRight, Sparkles, CreditCard } from "lucide-react";
-import { PLANS, CREDIT_COSTS, EXTRA_CREDIT_PRICING, PLAN_PRICING } from "@/lib/constants/plans";
+import { PLANS, CREDIT_COSTS, COUT_CANDIDAT_COMPLET, EXTRA_CREDIT_PRICING } from "@/lib/constants/plans";
 
 function CreditBar({ value, total, color }) {
   const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 100;
@@ -40,7 +40,7 @@ export default function BillingPage() {
     return <p style={{ color: "var(--muted-foreground)" }}>{t("dashboard.billing.loadError")}</p>;
   }
 
-  const isUnlimited = info.credits_balance === 999999;
+  const isUnlimited = !!info.illimite;
   const pct = info.credits_allocated > 0
     ? Math.min(100, Math.round((info.credits_balance / info.credits_allocated) * 100))
     : 100;
@@ -50,8 +50,9 @@ export default function BillingPage() {
     ? formatDateLong(info.nextResetDate, locale)
     : null;
 
+  // info.plan sort déjà de planVisible() : un bêta-testeur y lit « core ».
   const planDetails = PLANS[info.plan];
-  const extraPrice = EXTRA_CREDIT_PRICING[info.plan] || null;
+  const extraPrice = EXTRA_CREDIT_PRICING[info.plan] ?? null;
 
   return (
     <div className="fade-in" style={{ maxWidth: "720px" }}>
@@ -100,7 +101,7 @@ export default function BillingPage() {
             <CreditBar value={info.credits_balance} total={info.credits_allocated} color={creditColor} />
             {nextReset && (
               <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "8px" }}>
-                🔄 Réinitialisation automatique le <strong>{nextReset}</strong>
+                🔄 {t("dashboard.billing.autoReset")} <strong>{nextReset}</strong>
               </p>
             )}
           </>
@@ -111,66 +112,68 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Coût des actions */}
+      {/* Coût des actions — deux opérations, et deux seulement. */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
         <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
           <Sparkles size={14} style={{ color: "var(--primary)" }} /> {t("dashboard.billing.costPerAction")}
         </h3>
-        
-        <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>{t("dashboard.billing.onAdd")}</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "1.25rem" }}>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {[
-            { label: t("dashboard.billing.qualifyingQuestions"), cost: CREDIT_COSTS.qualifying_questions, icon: "✅" },
-            { label: t("dashboard.billing.skillsTest"), cost: CREDIT_COSTS.assessment_setup, icon: "🧠" },
-            { label: t("dashboard.billing.videoModule"), cost: CREDIT_COSTS.video_setup, icon: "🎥" },
-            { label: t("dashboard.billing.cvScoring"), cost: CREDIT_COSTS.cv_scoring_setup, icon: "📄" },
+            {
+              icon: "🧩",
+              label: t("dashboard.billing.createJob"),
+              help: t("dashboard.billing.createJobHelp"),
+              unit: t("dashboard.billing.perJobUnit"),
+              cost: CREDIT_COSTS.job_creation,
+            },
+            {
+              icon: "🏁",
+              label: t("dashboard.billing.candidateRun"),
+              help: t("dashboard.billing.candidateRunHelp", {
+                start: CREDIT_COSTS.candidate_start,
+                scoring: CREDIT_COSTS.candidate_scoring,
+              }),
+              unit: t("dashboard.billing.perCandidateUnit"),
+              cost: COUT_CANDIDAT_COMPLET,
+            },
           ].map(item => (
             <div
               key={item.label}
               style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "10px 14px", borderRadius: "8px",
+                display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px",
+                padding: "14px 16px", borderRadius: "10px",
                 background: "var(--background)",
                 border: "1px solid var(--border)",
               }}
             >
-              <span style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-                {item.icon} {item.label}
-              </span>
-              <span style={{ fontSize: "13px", fontWeight: "700" }}>
-                {item.cost === 0 ? t("dashboard.billing.free") : t("dashboard.billing.creditsSuffix", { count: item.cost })}
-              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  {item.icon} {item.label}
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "4px", lineHeight: 1.45 }}>
+                  {item.help}
+                </p>
+              </div>
+              <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "16px", fontWeight: "900" }}>
+                  {t("dashboard.billing.creditsSuffix", { count: item.cost })}
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--muted-foreground)", fontWeight: "600" }}>
+                  {item.unit}
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
-        <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "8px" }}>{t("dashboard.billing.perCandidate")}</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {[
-            { label: t("dashboard.billing.cvScoringPerCandidate"), cost: CREDIT_COSTS.cv_scoring_per_candidate, icon: "📄" },
-            { label: t("dashboard.billing.fullJourney"), cost: CREDIT_COSTS.candidate_completion, icon: "🏁" },
-          ].map(item => (
-            <div
-              key={item.label}
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "10px 14px", borderRadius: "8px",
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <span style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-                {item.icon} {item.label}
-              </span>
-              <span style={{ fontSize: "13px", fontWeight: "700" }}>
-                {item.cost} crédits / candidat
-              </span>
-            </div>
-          ))}
-        </div>
+        <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "12px" }}>
+          {t("dashboard.billing.nothingElse")}
+        </p>
       </div>
 
-      {/* Crédits supplémentaires */}
+      {/* Crédits supplémentaires — sans objet sur un compte illimité. */}
+      {!isUnlimited && (
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
         <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "4px" }}>{t("dashboard.billing.extraCredits")}</h3>
         <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
@@ -199,6 +202,7 @@ export default function BillingPage() {
           </a>
         </div>
       </div>
+      )}
 
       {/* CTA contact */}
       <div style={{

@@ -4,6 +4,8 @@ import anthropic from "../anthropic";
 import { buildJobExtractionPrompt, SYSTEME_EXTRACTION } from "@/lib/jobExtractionPrompt";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
+import { factureCreationOffre, chargeCredits } from "@/lib/utils/limits";
+import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 /**
  * Analyzes a raw job description using Claude 3.5 Sonnet to extract structured criteria.
@@ -31,8 +33,21 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
   // classement (catégorie, compétences, critères), qu'il est seul à lire. Le
   // titre et le résumé, eux, suivent la langue du poste reçue en paramètre.
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  // ── Facturation : 6 crédits, ici et une seule fois ────────────────────────
+  // C'est le forfait « création d'offre » en entier. L'extraction qui suit, le
+  // choix des compétences, la génération de la simulation, ses régénérations et
+  // sa publication ne coûtent plus rien : tout est déjà payé par ce débit.
+  //
+  // Il tombe AVANT l'appel au modèle, et il BLOQUE. Facturé plus loin — à la
+  // publication, par exemple — un compte à sec aurait quand même consommé
+  // l'extraction, puis la génération, puis les régénérations, gratuitement.
+  const facture = await factureCreationOffre(user.id);
+  if (!facture.success) throw new Error(facture.error || "Crédits insuffisants.");
+
   let uiLocale = "fr";
-  if (user) {
+  {
     const { data: profil } = await supabase.from("users").select("ui_locale").eq("id", user.id).single();
     if (profil?.ui_locale) uiLocale = profil.ui_locale;
   }
@@ -115,11 +130,30 @@ export async function createRoleQuick(title, description) {
     if (!user) return { success: false, error: "Non authentifié" };
 
     let criteria = {};
+    let factureFaite = false;
     if (description && description.trim().length >= 50) {
       // 'fr' explicite : cet écran n'offre pas de choix de langue, le poste est
       // donc créé avec le défaut de la colonne experience_locale. Analyser dans
       // une autre langue que celle qui sera stockée n'aurait aucun sens.
-      try { criteria = await analyzeJobDescription(description, "fr"); } catch (e) { console.error("analyse offre (non bloquant):", e.message); }
+      // analyzeJobDescription porte déjà le débit des 6 crédits. Si elle échoue
+      // APRÈS lui (modèle indisponible, JSON illisible), l'offre se crée quand
+      // même et le forfait reste consommé : l'IA a bien tourné. Seul un refus
+      // de facturation doit remonter au recruteur, d'où le test sur le message.
+      try {
+        criteria = await analyzeJobDescription(description, "fr");
+        factureFaite = true;
+      } catch (e) {
+        if ((e.message || "").startsWith("Crédits insuffisants")) return { success: false, error: e.message };
+        factureFaite = true;
+        console.error("analyse offre (non bloquant):", e.message);
+      }
+    }
+
+    // Offre créée sans extraction (description trop courte, ou absente) : le
+    // forfait reste dû. La simulation qui suivra est le gros de ce qu'il paie.
+    if (!factureFaite) {
+      const facture = await chargeCredits(user.id, CREDIT_COSTS.job_creation);
+      if (!facture.success) return { success: false, error: facture.error || "Crédits insuffisants." };
     }
     const finalTitle = (title && title.trim()) || criteria?.title || "Nouveau poste";
 

@@ -2,7 +2,7 @@
 
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { deductCredits } from "@/lib/utils/limits";
+import { factureDemarrageCandidat } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
@@ -222,6 +222,25 @@ export async function startRun(token) {
         .insert({ candidate_id: candidate.id, experience_id: exp.id, status: "in_progress" })
         .select().single();
       run = ins.data;
+
+      // ── Facturation : 1 crédit, au propriétaire de l'offre ────────────────
+      // Le candidat entre RÉELLEMENT dans la simulation. Les deux portes
+      // au-dessus (péremption du lien, questions qualificatives) sont déjà
+      // franchies : un invité qui ne commence jamais, ou qui est recalé à la
+      // porte, ne coûte rien.
+      //
+      // Aucune idempotence à écrire : ce bloc ne s'exécute que s'il n'y avait
+      // pas de run, et il en crée un. C'est la création de la ligne qui fait le
+      // verrou. Non bloquant — un solde à zéro n'enferme pas dehors un candidat
+      // convoqué, ce serait lui faire porter le compte de son recruteur.
+      // Conditionné à `run` : si l'insert a échoué, il n'y a pas de run, donc
+      // rien à facturer — et le prochain passage retentera l'insert.
+      if (run) {
+        const facture = await factureDemarrageCandidat(job.user_id);
+        if (!facture.success) {
+          console.error("startRun : débit du démarrage refusé (non bloquant) —", facture.error);
+        }
+      }
       // Verrouille l'expérience au 1er run (versionnage : plus d'édition destructive).
       if (!exp.locked_at) {
         await admin.from("experiences").update({ locked_at: new Date().toISOString() }).eq("id", exp.id);
@@ -573,16 +592,9 @@ export async function submitRun(token) {
       .eq("id", ctx.candidate.id)
       .in("status", ["invited", "in_progress"]);
 
-    // Facturation "candidat qui complète le parcours" — au propriétaire de
-    // l'offre, idempotente (flag credits_charged_tests sur le candidat).
-    // Non-bloquant : n'empêche jamais la soumission.
-    try {
-      const { data: job } = await admin
-        .from("jobs").select("user_id").eq("id", ctx.candidate.job_id).single();
-      if (job?.user_id) await deductCredits(job.user_id, ctx.candidate.id, "candidate_completion");
-    } catch (e) {
-      console.error("submitRun completion charge failed (non-blocking):", e.message);
-    }
+    // Rien n'est facturé ici. Le parcours candidat coûte 3 crédits, débités en
+    // deux temps : 1 à la création du run (startRun), 2 à la notation
+    // (runScoring). La soumission n'est qu'un changement de statut.
 
     // Scoring unique à la soumission, planifié APRÈS l'envoi de la réponse :
     // le candidat voit son écran de remerciement tout de suite au lieu
