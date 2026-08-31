@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ArrowRight, Loader2, Check, Send } from "lucide-react";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
+import { LIENS_LEGAUX, LIEN_LEGAL_PROPS } from "@/lib/constants/legal";
 
 export function getContrastColor(hexColor) {
   if (!hexColor) return '#ffffff';
@@ -30,6 +31,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
   const primaryText = getContrastColor(primaryColor);
   // Extrait du JSX : les phrases de consentement sont désormais assemblées par
   // tNodes(), où répéter le style en ligne à chaque lien nuirait à la lecture.
+  // Le lien prend la couleur de marque du recruteur, comme le reste du parcours.
   const linkStyle = { color: primaryColor, textDecoration: "underline", fontWeight: "500" };
   const logoUrl = recruiter?.company_logo_url || null;
   const companyName = recruiter?.company_name || job?.company || t("candidate.onboarding.fallbackCompany");
@@ -344,8 +346,8 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                 />
                 <span style={{ fontSize: "0.95rem", lineHeight: "1.4", color: "var(--foreground)" }}>
                   {tNodes(t("candidate.onboarding.consentTerms"), {
-                    terms: <a href="#" style={linkStyle}>{t("candidate.onboarding.termsLink")}</a>,
-                    privacy: <a href="#" style={linkStyle}>{t("candidate.onboarding.privacyPolicy")}</a>,
+                    terms: <a href={LIENS_LEGAUX.conditions} {...LIEN_LEGAL_PROPS} style={linkStyle}>{t("candidate.onboarding.termsLink")}</a>,
+                    privacy: <a href={LIENS_LEGAUX.confidentialite} {...LIEN_LEGAL_PROPS} style={linkStyle}>{t("candidate.onboarding.privacyPolicy")}</a>,
                   })}
                 </span>
               </label>
@@ -360,7 +362,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                 />
                 <span style={{ fontSize: "0.95rem", lineHeight: "1.4", color: "var(--foreground)" }}>
                   {tNodes(t("candidate.onboarding.consentAi"), {
-                    aiLink: <a href="#" style={linkStyle}>{t("candidate.onboarding.aiAnalysis")}</a>,
+                    aiLink: <a href={LIENS_LEGAUX.transparenceIA} {...LIEN_LEGAL_PROPS} style={linkStyle}>{t("candidate.onboarding.aiAnalysis")}</a>,
                   })}
                 </span>
               </label>
