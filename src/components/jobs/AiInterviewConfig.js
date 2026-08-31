@@ -371,7 +371,7 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
                   <textarea 
                     className="input-field" 
                     rows={3}
-                    placeholder="Ex : Startup de 20 personnes dans la fintech, ambiance collaborative..."
+                    placeholder={t("dashboard.aiInterview.contextPlaceholder")}
                     value={config.context_about || ""}
                     onChange={e => updateConfig({ context_about: e.target.value })}
                   />
@@ -493,7 +493,7 @@ export default function AiInterviewConfig({ job, onSave, hideSaveBar, embedded, 
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                     <input
                       className="input-field"
-                      placeholder='Ex : "Indisponible avant 3 mois", "Pas de permis B"'
+                      placeholder={t("dashboard.aiInterview.dealbreakerPlaceholder")}
                       value={newCriterion}
                       onChange={e => setNewCriterion(e.target.value)}
                       style={{ borderColor: '#fca5a5' }}

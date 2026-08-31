@@ -22,12 +22,24 @@ const STRING_RE = /"((?:[^"\\]|\\.){2,}?)"|'((?:[^'\\]|\\.){2,}?)'/g;
 const JSX_RE = />([^<>{}\n]{2,})</g;
 const TPL_RE = /`([^`${}\n]{3,})`/g;
 
+// Attributs dont la valeur est, par définition, du texte lu par un humain.
+// Ils échappent à looksHuman : « Rechercher... », « ex: 3 ans, 1-3 ans » et
+// « Ex: Acme Corp » n'ont ni accent ni forme « Mot Mot », donc les trois
+// motifs de looksHuman les rejettent tous les trois. Le contexte suffit à
+// décider — un placeholder n'est jamais du code.
+const ATTR_RE = /(?:placeholder|title|alt|aria-label)=(?:"([^"]{2,})"|'([^']{2,})')/g;
+
 export function extract(file) {
   const src = readFileSync(file, "utf8");
   const out = new Map();
-  const add = (s, line, kind) => {
+  // `force` : la valeur d'un attribut de texte (placeholder, title, alt) est
+  // humaine par construction — le contexte le dit mieux que la forme de la
+  // chaîne. Sans cette dérogation, looksHuman rejetait « Rechercher... »,
+  // « ex: 3 ans, 1-3 ans » et « De… » : ni accent, ni forme « Mot Mot ».
+  const add = (s, line, kind, force = false) => {
     const v = (s || "").trim();
-    if (!v || NOISE.test(v) || CSS_PROP.test(v) || !looksHuman(v)) return;
+    if (!v || NOISE.test(v) || CSS_PROP.test(v)) return;
+    if (!force && !looksHuman(v)) return;
     if (!out.has(v)) out.set(v, { line, kind });
   };
 
@@ -36,6 +48,14 @@ export function extract(file) {
     if (/^\s*(\/\/|\*|\/\*)/.test(ln)) return; // commentaire : le FR y reste
     for (const m of ln.matchAll(STRING_RE)) add(m[1] ?? m[2], n, "string");
     for (const m of ln.matchAll(JSX_RE)) add(m[1], n, "jsx");
+    for (const m of ln.matchAll(ATTR_RE)) {
+      const v = (m[1] ?? m[2] ?? '').trim();
+      // On écarte ce qui n'est pas de la langue : URL, gabarit de saisie,
+      // points de suspension seuls, valeur d'une seule lettre.
+      if (/[A-Za-zÀ-ÿ]{2}/.test(v) && !/^(https?:|[/#]|[• _-]+$)/.test(v)) {
+        add(v, n, 'attribut', true);
+      }
+    }
     for (const m of ln.matchAll(TPL_RE)) add(m[1], n, "template");
 
     // Texte JSX SEUL sur sa ligne — le cas que la première version manquait :

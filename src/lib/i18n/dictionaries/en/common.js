@@ -2,6 +2,7 @@
 
 const common = {
   actions: {
+    search: "Search…",
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",
@@ -84,6 +85,7 @@ const common = {
     signIn: "Sign in",
 
     fields: {
+      emailPlaceholder: "you@company.com",
       firstName: "First name",
       lastName: "Last name",
       company: "Company",

@@ -214,6 +214,7 @@ const dashboard = {
   },
 
   candidateDetail: {
+    taxonomyId: "Taxonomy ID",
     backToCandidates: "Back to candidates",
     contact: "Contact",
     viewOriginalCv: "View original CV",
@@ -345,6 +346,11 @@ const dashboard = {
   },
 
   experienceEditor: {
+    sourceFrom: "From…",
+    sourceSubject: "Subject…",
+    sourceReceived: "Received…",
+    fieldLabel: "Displayed label",
+    fieldKey: "key",
     addSource: "Source",
     addField: "Field",
     addTrap: "Inconsistency",
@@ -554,6 +560,8 @@ const dashboard = {
   },
 
   aiInterview: {
+    contextPlaceholder: "e.g. a 20-person fintech start-up, collaborative culture…",
+    dealbreakerPlaceholder: "e.g. « not available for 3 months », « no driving licence »",
     hiddenFromCandidate: "Not visible to the candidate",
     heading: "Assessment (AI interview)",
     intro:
@@ -697,6 +705,9 @@ const dashboard = {
   },
 
   jobForm: {
+    categoryPlaceholder: "e.g. Sales, Engineering…",
+    subFamilyPlaceholder: "e.g. Account Executive (B2B)…",
+    yearsPlaceholder: "e.g. 3 years, 1-3 years, 5+ years",
     mustHave: "Must have",
     niceToHave: "Nice to have",
     subFamily: "Specification",
@@ -794,6 +805,7 @@ const dashboard = {
   },
 
   experiences: {
+    titlePlaceholder: "e.g. Account Executive B2B",
     title: "Experiences",
     subtitle: "The candidate experiences generated for your roles.",
     search: "Search for a job…",
@@ -874,6 +886,9 @@ const dashboard = {
   },
 
   companyProfile: {
+    websitePlaceholder: "https://your-company.com",
+    targetMarketPlaceholder: "e.g. HR SaaS, fintech, retail, IT consulting…",
+    businessModelPlaceholder: "e.g. B2B SaaS, B2C, marketplace, professional services…",
     title: "Company profile",
     websiteAndContext: "Website & AI context",
     targetMarket: "Target market",
@@ -945,6 +960,8 @@ const dashboard = {
   },
 
   branding: {
+    companyNamePlaceholder: "e.g. Acme Corp",
+    taglinePlaceholder: "e.g. an innovative greentech start-up…",
     visualCustomisation: "Visual customisation",
     logoUploaded: "Logo uploaded!",
     uploadFailed: "Upload failed.",
@@ -1239,6 +1256,7 @@ const dashboard = {
   },
 
   qualifyingConfig: {
+    questionPlaceholder: "e.g. do you hold a driving licence?",
     addQuestion: "Add a question",
     addAnother: "Add another question",
     questionNumber: "Question {n}",

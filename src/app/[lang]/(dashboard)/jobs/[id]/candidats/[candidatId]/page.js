@@ -482,7 +482,7 @@ export default function CandidateDetailPage() {
                           <span style={{ fontSize: '13px', fontWeight: '600' }}>
                             {item.name}
                             {skillFromJob && skillFromJob.taxonomy_id && (
-                              <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }} title="ID Taxonomie">
+                              <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }} title={t("dashboard.candidateDetail.taxonomyId")}>
                                 {skillFromJob.taxonomy_id}
                               </span>
                             )}

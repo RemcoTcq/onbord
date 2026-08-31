@@ -191,7 +191,7 @@ function JoinForm() {
 
           <div>
             <label style={{ fontSize: "13px", fontWeight: "600", marginBottom: "6px", display: "block" }}>{t("common.auth.fields.email")}</label>
-            <input className="input-field" type="email" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="votre@email.com" />
+            <input className="input-field" type="email" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder={t("common.auth.fields.emailPlaceholder")} />
           </div>
 
           <div>

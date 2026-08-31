@@ -173,7 +173,7 @@ export default function JobsPage() {
           <input
             type="text"
             className="input-field"
-            placeholder="Rechercher..."
+            placeholder={t("common.actions.search")}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ paddingLeft: "32px", fontSize: "12px" }}

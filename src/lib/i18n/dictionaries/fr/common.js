@@ -8,6 +8,7 @@
 const common = {
   // ── Actions récurrentes ───────────────────────────────────────────────────
   actions: {
+    search: "Rechercher…",
     save: "Enregistrer",
     cancel: "Annuler",
     delete: "Supprimer",
@@ -93,6 +94,7 @@ const common = {
     signIn: "Se connecter",
 
     fields: {
+      emailPlaceholder: "votre@email.com",
       firstName: "Prénom",
       lastName: "Nom",
       company: "Entreprise",

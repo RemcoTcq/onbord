@@ -312,7 +312,7 @@ function NewRoleModal({ onClose, onCreated, toast }) {
   return (
     <Modal title={t("dashboard.experiences.newJob")} onClose={onClose}>
       <label style={labelS}>{t("dashboard.experiences.jobTitle")}</label>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : Account Executive B2B" autoFocus
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("dashboard.experiences.titlePlaceholder")} autoFocus
         style={inputS} />
       <label style={{ ...labelS, marginTop: 12 }}>{t("dashboard.experiences.jobDescription")}</label>
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6}

@@ -734,9 +734,9 @@ function CrmEditor({ crm, onChange }) {
             </div>
             {s.type === "email" && (
               <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
-                <input value={s.from || ""} onChange={(e) => setSource(i, { from: e.target.value })} placeholder="De…" style={{ ...inputStyle, marginBottom: 0 }} />
-                <input value={s.subject || ""} onChange={(e) => setSource(i, { subject: e.target.value })} placeholder="Objet…" style={{ ...inputStyle, marginBottom: 0 }} />
-                <input value={s.received_at || ""} onChange={(e) => setSource(i, { received_at: e.target.value })} placeholder="Reçu le…" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 140px" }} />
+                <input value={s.from || ""} onChange={(e) => setSource(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceFrom")} style={{ ...inputStyle, marginBottom: 0 }} />
+                <input value={s.subject || ""} onChange={(e) => setSource(i, { subject: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceSubject")} style={{ ...inputStyle, marginBottom: 0 }} />
+                <input value={s.received_at || ""} onChange={(e) => setSource(i, { received_at: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceReceived")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 140px" }} />
               </div>
             )}
             <AutoTextarea value={s.body || ""} onChange={(e) => setSource(i, { body: e.target.value })} rows={6}
@@ -760,8 +760,8 @@ function CrmEditor({ crm, onChange }) {
           return (
             <div key={i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${isFactual ? "#0ea5e9" : "#a855f7"}`, borderRadius: "8px", padding: "0.75rem" }}>
               <div style={{ display: "flex", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
-                <input value={f.label || ""} onChange={(e) => setField(i, { label: e.target.value })} placeholder="Libellé affiché" style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontWeight: 600 }} />
-                <input value={f.key || ""} onChange={(e) => setField(i, { key: e.target.value })} placeholder="clé" style={{ ...inputStyle, marginBottom: 0, flex: "0 0 130px", fontFamily: "monospace", fontSize: "12px" }} />
+                <input value={f.label || ""} onChange={(e) => setField(i, { label: e.target.value })} placeholder={t("dashboard.experienceEditor.fieldLabel")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontWeight: 600 }} />
+                <input value={f.key || ""} onChange={(e) => setField(i, { key: e.target.value })} placeholder={t("dashboard.experienceEditor.fieldKey")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 130px", fontFamily: "monospace", fontSize: "12px" }} />
                 <select value={f.type || "text"} onChange={(e) => setField(i, { type: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 120px" }}>
                   {CRM_FIELD_TYPES.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
                 </select>

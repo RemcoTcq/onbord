@@ -199,7 +199,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
             <label className="form-label">{t("dashboard.jobForm.jobFamily")}</label>
             <input 
               className="input-field" 
-              placeholder="ex: Vente, Engineering..." 
+              placeholder={t("dashboard.jobForm.categoryPlaceholder")} 
               value={jobData.category || ""}
               onChange={e => updateField('category', e.target.value)}
             />
@@ -208,7 +208,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
             <label className="form-label">{t("dashboard.jobForm.subFamily")}</label>
             <input 
               className="input-field" 
-              placeholder="ex: Account Executive (B2B)..." 
+              placeholder={t("dashboard.jobForm.subFamilyPlaceholder")} 
               value={jobData.sub_family || ""}
               onChange={e => updateField('sub_family', e.target.value)}
             />
@@ -345,7 +345,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
         <label className="form-label">{t("dashboard.jobForm.experienceRequired")}</label>
         <input 
           className="input-field" 
-          placeholder="ex: 3 ans, 1-3 ans, 5+ ans" 
+          placeholder={t("dashboard.jobForm.yearsPlaceholder")} 
           value={jobData.years_of_experience || ""} 
           onChange={e => updateField('years_of_experience', e.target.value)} 
         />

@@ -7,6 +7,7 @@
 
 const common = {
   actions: {
+    search: "Zoeken…",
     save: "Opslaan",
     cancel: "Annuleren",
     delete: "Verwijderen",
@@ -89,6 +90,7 @@ const common = {
     signIn: "Inloggen",
 
     fields: {
+      emailPlaceholder: "jij@bedrijf.com",
       firstName: "Voornaam",
       lastName: "Achternaam",
       company: "Bedrijf",

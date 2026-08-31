@@ -241,6 +241,7 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    taxonomyId: "ID taxonomie",
     backToCandidates: "Retour aux candidats",
     contact: "Contacter",
     viewOriginalCv: "Voir le CV original",
@@ -386,6 +387,11 @@ const dashboard = {
   // l'offre et ne doit jamais être traduit à l'affichage. Seuls les libellés
   // d'interface, les aides et les valeurs par défaut sont ci-dessous.
   experienceEditor: {
+    sourceFrom: "De…",
+    sourceSubject: "Objet…",
+    sourceReceived: "Reçu le…",
+    fieldLabel: "Libellé affiché",
+    fieldKey: "clé",
     addSource: "Source",
     addField: "Champ",
     addTrap: "Incohérence",
@@ -614,6 +620,8 @@ const dashboard = {
   // candidat, vivent dans lib/interview/defaults.js et suivent la langue de
   // l'offre.
   aiInterview: {
+    contextPlaceholder: "Ex : start-up de 20 personnes dans la fintech, ambiance collaborative…",
+    dealbreakerPlaceholder: "Ex : « indisponible avant 3 mois », « pas de permis B »",
     hiddenFromCandidate: "Non visible par le candidat",
     heading: "Assessment (entretien IA)",
     intro:
@@ -763,6 +771,9 @@ const dashboard = {
 
 // ── Formulaire d'offre — étape 2 (critères) ───────────────────────────────
   jobForm: {
+    categoryPlaceholder: "ex : Vente, Engineering…",
+    subFamilyPlaceholder: "ex : Account Executive (B2B)…",
+    yearsPlaceholder: "ex : 3 ans, 1-3 ans, 5+ ans",
     mustHave: "Indispensable",
     niceToHave: "Apprécié",
     subFamily: "Sous-famille",
@@ -863,6 +874,7 @@ const dashboard = {
 
   // ── Bibliothèque des expériences ──────────────────────────────────────────
   experiences: {
+    titlePlaceholder: "Ex : Account Executive B2B",
     title: "Expériences",
     subtitle: "Les expériences candidat générées pour vos postes.",
     search: "Rechercher un poste…",
@@ -952,6 +964,9 @@ const dashboard = {
 
 // ── Profil entreprise (contexte IA privé) ─────────────────────────────────
   companyProfile: {
+    websitePlaceholder: "https://votre-entreprise.com",
+    targetMarketPlaceholder: "Ex : SaaS RH, Fintech, Retail, conseil IT…",
+    businessModelPlaceholder: "Ex : B2B SaaS, B2C, marketplace, services professionnels…",
     title: "Profil entreprise",
     websiteAndContext: "Site web & contexte IA",
     targetMarket: "Marché cible",
@@ -1025,6 +1040,8 @@ const dashboard = {
 
   // ── Branding employeur ────────────────────────────────────────────────────
   branding: {
+    companyNamePlaceholder: "Ex : Acme Corp",
+    taglinePlaceholder: "Ex : start-up innovante dans la greentech…",
     visualCustomisation: "Personnalisation visuelle",
     logoUploaded: 'Logo téléversé avec succès !',
     uploadFailed: 'Échec du téléversement.',
@@ -1336,6 +1353,7 @@ const dashboard = {
 
   // ── Questions qualificatives ──────────────────────────────────────────────
   qualifyingConfig: {
+    questionPlaceholder: "Ex : avez-vous le permis B ?",
     addQuestion: "Ajouter une question",
     addAnother: "Ajouter une autre question",
     questionNumber: "Question {n}",

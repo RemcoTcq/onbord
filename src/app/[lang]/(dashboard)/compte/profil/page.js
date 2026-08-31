@@ -135,7 +135,7 @@ export default function CompanyProfilePage() {
                 className="input-field"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder="https://votre-entreprise.com"
+                placeholder={t("dashboard.companyProfile.websitePlaceholder")}
                 style={{ flex: 1 }}
               />
               <button
@@ -195,7 +195,7 @@ export default function CompanyProfilePage() {
                 className="input-field"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                placeholder="Ex: SaaS RH, Fintech, Retail, Conseil IT..."
+                placeholder={t("dashboard.companyProfile.targetMarketPlaceholder")}
                 style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
               />
             </div>
@@ -208,7 +208,7 @@ export default function CompanyProfilePage() {
                 className="input-field"
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
-                placeholder="Ex: B2B SaaS, B2C, Marketplace, Services professionnels..."
+                placeholder={t("dashboard.companyProfile.businessModelPlaceholder")}
                 style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
               />
             </div>

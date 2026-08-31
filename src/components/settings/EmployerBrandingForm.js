@@ -145,7 +145,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
                 className="input-field" 
                 value={companyName} 
                 onChange={(e) => setCompanyName(e.target.value)} 
-                placeholder="Ex: Acme Corp" 
+                placeholder={t("dashboard.branding.companyNamePlaceholder")} 
                 required
               />
             </div>
@@ -156,7 +156,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
                 className="input-field" 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
-                placeholder="Ex: Start-up innovante dans le domaine de la greentech..." 
+                placeholder={t("dashboard.branding.taglinePlaceholder")} 
                 rows={3}
               />
             </div>

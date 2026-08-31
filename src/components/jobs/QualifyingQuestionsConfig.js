@@ -60,7 +60,7 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Ex: Avez-vous le permis B ?"
+                  placeholder={t("dashboard.qualifyingConfig.questionPlaceholder")}
                   value={q.text}
                   onChange={(e) => updateQuestion(i, "text", e.target.value)}
                 />
