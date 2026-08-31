@@ -1,7 +1,7 @@
 "use client";
 
 import LanguageSelector from "@/components/settings/LanguageSelector";
-import { useT } from "@/lib/i18n/I18nProvider";
+import { useT, tNodes } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { getCompanyProfile, updateCompanyProfile, fetchAndAnalyzeWebsite } from "@/lib/actions/company-profile";
 import { useToast } from "@/components/ui/Toast";
@@ -98,7 +98,7 @@ export default function CompanyProfilePage() {
 
       <div style={{ marginBottom: "2rem" }}>
         <h2 style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
-          <Building2 size={20} style={{ color: "var(--primary)" }} /> Profil Entreprise
+          <Building2 size={20} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.title")}
         </h2>
         <p style={{ color: "var(--muted-foreground)", marginTop: "0.25rem", fontSize: "13px" }}>
           {t("dashboard.companyProfile.subtitle")}
@@ -113,7 +113,9 @@ export default function CompanyProfilePage() {
       }}>
         <Lock size={15} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
         <p style={{ fontSize: "12.5px", color: "#15803d", margin: 0, lineHeight: "1.6" }}>
-          <strong>{t("dashboard.companyProfile.privateContext")}</strong> — Ces données enrichissent les analyses IA (qualification des offres, scoring candidats) mais ne sont jamais affichées aux candidats.
+          {tNodes(t("dashboard.companyProfile.privateNotice"), {
+            label: <strong key="l">{t("dashboard.companyProfile.privateContext")}</strong>,
+          })}
         </p>
       </div>
 
@@ -122,7 +124,7 @@ export default function CompanyProfilePage() {
         {/* BLOC A — Site web + génération IA */}
         <div className="card">
           <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Globe size={15} style={{ color: "var(--primary)" }} /> Site web &amp; Contexte IA
+            <Globe size={15} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.websiteAndContext")}
           </h3>
 
           <div style={{ marginBottom: "1rem" }}>
@@ -173,7 +175,7 @@ export default function CompanyProfilePage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div>
               <label className="form-label" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Target size={12} /> Marché cible
+                <Target size={12} /> {t("dashboard.companyProfile.targetMarket")}
               </label>
               <input
                 type="text"
@@ -199,7 +201,7 @@ export default function CompanyProfilePage() {
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
               <label className="form-label" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Users size={12} /> Modèle commercial (Domain)
+                <Users size={12} /> {t("dashboard.companyProfile.businessModel")}
               </label>
               <input
                 type="text"
@@ -251,7 +253,7 @@ export default function CompanyProfilePage() {
           </div>
 
           <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <TrendingUp size={15} style={{ color: "var(--primary)" }} /> Tendances observées (auto-généré)
+            <TrendingUp size={15} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.observedTrends")}
           </h3>
           <div style={{ height: "80px", background: "var(--secondary)", borderRadius: "6px" }} />
         </div>

@@ -113,6 +113,11 @@ const dashboard = {
 
   // ── Fiche offre ───────────────────────────────────────────────────────────
   jobDetail: {
+    delete: "Supprimer",
+    colCandidate: "Candidat",
+    colScore: "Score global",
+    colStatus: "Statut",
+    colActions: "Actions",
     back: "Retour",
     jobLabel: "Offre d'emploi",
 
@@ -236,6 +241,18 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    backToCandidates: "Retour aux candidats",
+    contact: "Contacter",
+    viewOriginalCv: "Voir le CV original",
+    delete: "Supprimer",
+    gdpr: "RGPD",
+    cvAnalysis: "Analyse du CV",
+    skillsTests: "Tests de compétences",
+    aiAnalysis: "Analyse IA",
+    slowerThanAverage: "Plus lent que la moyenne",
+    topPerformer: "Top Performer",
+    aiInterview: "Entretien IA",
+    videoInterview: "Entretien vidéo",
     levelBetween: "Niveau {level} : intermédiaire entre N{low} ({lowLabel}) et N{high} ({highLabel}).",
     notFound: "Candidat introuvable",
     back: "Retour",
@@ -369,6 +386,9 @@ const dashboard = {
   // l'offre et ne doit jamais être traduit à l'affichage. Seuls les libellés
   // d'interface, les aides et les valeurs par défaut sont ci-dessous.
   experienceEditor: {
+    addSource: "Source",
+    addField: "Champ",
+    addTrap: "Incohérence",
     reviewTitle: "Relecture de l'expérience",
     stepCount_one: "{count} étape",
     stepCount_other: "{count} étapes",
@@ -671,6 +691,7 @@ const dashboard = {
 
   // ── Configuration de l'entretien vidéo ────────────────────────────────────
   videoInterview: {
+    customQuestion: "Question personnalisée",
     categories: { motivation: "Motivation", experience: "Expérience", softSkills: "Soft skills", technical: "Technique", cultureFit: "Culture fit", custom: "Sur-mesure" },
     loadLibraryError: "Erreur lors du chargement de la bibliothèque",
     saveJobFirst: "Sauvegardez d'abord votre offre",
@@ -742,6 +763,8 @@ const dashboard = {
 
 // ── Formulaire d'offre — étape 2 (critères) ───────────────────────────────
   jobForm: {
+    mustHave: "Indispensable",
+    niceToHave: "Apprécié",
     subFamily: "Sous-famille",
     section: 'Détails du poste',
     sectionHelp: 'Pré-rempli depuis votre offre. Ajuster si besoin.',
@@ -929,6 +952,12 @@ const dashboard = {
 
 // ── Profil entreprise (contexte IA privé) ─────────────────────────────────
   companyProfile: {
+    title: "Profil entreprise",
+    websiteAndContext: "Site web & contexte IA",
+    targetMarket: "Marché cible",
+    businessModel: "Modèle commercial (Domain)",
+    observedTrends: "Tendances observées (auto-généré)",
+    privateNotice: "{label} — Ces données enrichissent les analyses IA (qualification des offres, scoring candidats) mais ne sont jamais affichées aux candidats.",
     urlRequired: "Veuillez saisir l'URL de votre site web.",
     contextGenerated: 'Contexte IA généré avec succès ! Vérifiez et ajustez les champs si besoin.',
     analysisFailed: 'Analyse impossible. Remplissez les champs manuellement.',
@@ -957,6 +986,8 @@ const dashboard = {
 
   // ── Facturation ───────────────────────────────────────────────────────────
   billing: {
+    order: "Commander",
+    contactUs: "Nous contacter",
     loadError: 'Impossible de charger les informations de facturation.',
     title: 'Facturation & crédits',
     subtitle: 'Suivez votre consommation et rechargez votre compte.',
@@ -994,6 +1025,7 @@ const dashboard = {
 
   // ── Branding employeur ────────────────────────────────────────────────────
   branding: {
+    visualCustomisation: "Personnalisation visuelle",
     logoUploaded: 'Logo téléversé avec succès !',
     uploadFailed: 'Échec du téléversement.',
     appliedToAll: 'Modifications appliquées à TOUTES les offres de votre entreprise.',
@@ -1024,6 +1056,9 @@ const dashboard = {
 
 // ── Création d'une offre ──────────────────────────────────────────────────
   jobCreate: {
+    tipLabel: "Conseil :",
+    protectedSites: "LinkedIn, Indeed ou Glassdoor",
+    urlHint: "{tip} Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable. Elle peut ne pas fonctionner avec {sites} qui protègent leurs pages. Dans ce cas, copiez-collez le texte de l'offre directement.",
     steps: { job: "1. Offre d'emploi", details: '2. Détails', journey: '3. Parcours' },
     heading: "Commençons par votre offre d'emploi",
     intro:
@@ -1274,6 +1309,7 @@ const dashboard = {
 
   // ── Configuration des tests de compétences ────────────────────────────────
   skillsTestConfig: {
+    requestCustom: "Demander un test sur-mesure",
     categories: { cognitif: "Cognitif", langue: "Langues", metier: "Métier", personnalite: "Personnalité", ia: "IA" },
     loadingLibrary: 'Chargement de la bibliothèque…',
     totalDuration: 'Durée totale estimée pour le candidat',
@@ -1300,6 +1336,8 @@ const dashboard = {
 
   // ── Questions qualificatives ──────────────────────────────────────────────
   qualifyingConfig: {
+    addQuestion: "Ajouter une question",
+    addAnother: "Ajouter une autre question",
     questionNumber: "Question {n}",
     none: 'Aucune question qualificative',
     noneHelp:
@@ -1353,6 +1391,7 @@ const dashboard = {
 
   // ── Widget de crédits ─────────────────────────────────────────────────────
   usage: {
+    credits: "Crédits",
     planNamed: "Formule {plan}",
     credits: 'Crédits',
     resetsMonthly: 'Réinitialisation le 1er du mois',
@@ -1363,6 +1402,8 @@ const dashboard = {
 
   // ── Critères de scoring CV ────────────────────────────────────────────────
   cvCriteria: {
+    weightWarning: "Le total des poids est de {total}. Il devrait être de 100 % pour un scoring précis.",
+    addCriterion: "Ajouter un critère",
     placeholder: "Ex : expérience en management d'équipe",
     distributeEvenly: 'Répartir équitablement',
   },

@@ -127,7 +127,7 @@ export default function SkillsTestConfig({ config, onChange, jobId, jobData }) {
             onClick={() => setShowChatCreator(true)}
             style={{ padding: "4px 10px", fontSize: "12px", height: "auto" }}
           >
-            <Bot size={14} style={{ marginRight: "6px" }} /> Demander un test sur-mesure
+            <Bot size={14} style={{ marginRight: "6px" }} /> {t("dashboard.skillsTestConfig.requestCustom")}
           </button>
           <span style={{
             fontSize: "12px", fontWeight: "700", padding: "2px 10px", borderRadius: "99px",

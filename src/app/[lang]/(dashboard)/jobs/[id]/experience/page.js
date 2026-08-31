@@ -717,7 +717,7 @@ function CrmEditor({ crm, onChange }) {
         <label style={{ ...labelStyle, margin: 0 }}>Sources du brief ({sources.length})</label>
         <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
           onClick={() => set({ sources: [...sources, { id: `s${sources.length + 1}`, type: "email", body: "" }] })}>
-          <Plus size={13} /> Source
+          <Plus size={13} /> {t("dashboard.experienceEditor.addSource")}
         </button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -751,7 +751,7 @@ function CrmEditor({ crm, onChange }) {
         <label style={{ ...labelStyle, margin: 0 }}>Champs de la fiche ({fields.length})</label>
         <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
           onClick={() => set({ fields: [...fields, { key: `champ_${fields.length + 1}`, label: "", type: "text", nature: "judgment" }] })}>
-          <Plus size={13} /> Champ
+          <Plus size={13} /> {t("dashboard.experienceEditor.addField")}
         </button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -814,7 +814,7 @@ function CrmEditor({ crm, onChange }) {
         <label style={{ ...labelStyle, margin: 0 }}>Incohérence volontaire ({traps.length})</label>
         <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
           onClick={() => set({ traps: [...traps, { id: `trap_${traps.length + 1}`, kind: "contradiction", fields: [], description: "", resolution: "", expected_signal: "" }] })}>
-          <Plus size={13} /> Incohérence
+          <Plus size={13} /> {t("dashboard.experienceEditor.addTrap")}
         </button>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>

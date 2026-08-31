@@ -250,8 +250,8 @@ export default function JobFormStep2({ jobData, setJobData }) {
         </div>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
-          {renderSkillBox('hard_skills', 'must_have', 'MUST HAVE')}
-          {renderSkillBox('hard_skills', 'nice_to_have', 'NICE TO HAVE')}
+          {renderSkillBox('hard_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
+          {renderSkillBox('hard_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
         </div>
       </div>
 
@@ -271,8 +271,8 @@ export default function JobFormStep2({ jobData, setJobData }) {
         </div>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
-          {renderSkillBox('soft_skills', 'must_have', 'MUST HAVE')}
-          {renderSkillBox('soft_skills', 'nice_to_have', 'NICE TO HAVE')}
+          {renderSkillBox('soft_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
+          {renderSkillBox('soft_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
         </div>
       </div>
 

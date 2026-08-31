@@ -11,7 +11,7 @@ export default function BrandingPage() {
     <div>
       <div style={{ marginBottom: "2rem" }}>
         <h2 style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
-          <Palette size={20} style={{ color: "var(--primary)" }} /> Personnalisation visuelle
+          <Palette size={20} style={{ color: "var(--primary)" }} /> {t("dashboard.branding.visualCustomisation")}
         </h2>
         <p style={{ color: "var(--muted-foreground)", marginTop: "0.25rem", fontSize: "13px" }}>
           {t("dashboard.branding.pageSubtitle")}

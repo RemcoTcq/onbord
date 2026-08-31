@@ -1219,7 +1219,7 @@ function CandidatsTab({
               {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
             </span>
             <button className="btn btn-sm" style={{ background: "#fee2e2", color: "#991b1b", border: "none" }} onClick={handleBulkDelete} disabled={actionLoading === "bulk"}>
-              <Trash2 size={14} /> Supprimer
+              <Trash2 size={14} /> {t("dashboard.jobDetail.delete")}
             </button>
             {actionLoading === "bulk" && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
           </div>
@@ -1248,10 +1248,10 @@ function CandidatsTab({
                     style={{ cursor: "pointer", width: "16px", height: "16px" }}
                   />
                 </th>
-                <th>CANDIDAT</th>
-                <th>SCORE GLOBAL</th>
-                <th>STATUT</th>
-                <th>ACTIONS</th>
+                <th>{t("dashboard.jobDetail.colCandidate")}</th>
+                <th>{t("dashboard.jobDetail.colScore")}</th>
+                <th>{t("dashboard.jobDetail.colStatus")}</th>
+                <th>{t("dashboard.jobDetail.colActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1609,7 +1609,7 @@ function ParametresTab({ job, settingsForm, setSettingsForm, handleSaveSettings,
             }}
           >
             {deletingJob && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
-            <Trash2 size={14} /> Supprimer
+            <Trash2 size={14} /> {t("dashboard.jobDetail.delete")}
           </button>
         </div>
       </div>

@@ -327,7 +327,7 @@ export default function Accueil() {
                 background: "transparent", cursor: "pointer"
               }} className="hover-bg-secondary"
             >
-              <Plus size={18} /> Add
+              <Plus size={18} /> {t("dashboard.home.addShortcut")}
             </button>
           )}
 

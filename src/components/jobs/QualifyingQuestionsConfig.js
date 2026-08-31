@@ -43,7 +43,7 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
             {t("dashboard.qualifyingConfig.noneHelp")}
           </p>
           <button className="btn btn-outline btn-sm" onClick={addQuestion}>
-            <Plus size={16} /> Ajouter une question
+            <Plus size={16} /> {t("dashboard.qualifyingConfig.addQuestion")}
           </button>
         </div>
       ) : (
@@ -90,7 +90,7 @@ export default function QualifyingQuestionsConfig({ config, onChange }) {
           ))}
           
           <button className="btn btn-outline" style={{ alignSelf: 'flex-start', marginTop: '0.5rem' }} onClick={addQuestion}>
-            <Plus size={16} /> Ajouter une autre question
+            <Plus size={16} /> {t("dashboard.qualifyingConfig.addAnother")}
           </button>
         </div>
       )}

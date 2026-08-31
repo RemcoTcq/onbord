@@ -7,7 +7,13 @@ const looksHuman = (s) =>
   s.length > 1 && s.length < 400 &&
   (FR.test(s) ||
     /^[A-ZÀ-Ý][a-zà-ÿ]+(\s+[\wà-ÿ'’-]+)+/.test(s) ||
-    /^[A-ZÀ-Ý][a-zà-ÿ]{2,}$/.test(s));
+    /^[A-ZÀ-Ý][a-zà-ÿ]{2,}$/.test(s) ||
+    // EN-TÊTES EN MAJUSCULES. Les quatre colonnes du tableau des candidats
+    // (CANDIDAT, SCORE GLOBAL, STATUT, ACTIONS) sont restées en français
+    // jusqu'au 31/08/2026 parce que les deux motifs ci-dessus exigent une
+    // minuscule après l'initiale. Le bruit ajouté (CDI, SQL, POST) se trie à
+    // la relecture ; un en-tête manqué, non.
+    /^[A-ZÀ-Ý][A-ZÀ-Ý0-9 '’-]{2,}$/.test(s));
 
 const NOISE = /^(use client|use server|server-only|\d+px|#[0-9a-f]{3,8}|var\(|--|https?:|[a-z-]+\/[a-z-]+$)/i;
 const CSS_PROP = /^(flex|grid|none|auto|center|bold|solid|hidden|absolute|relative|pointer|inherit|border-box|nowrap|ellipsis|column|row|wrap|block|inline-block|100%|Loader2|Bold)$/i;
@@ -64,6 +70,23 @@ export function extract(file) {
           && /[A-Za-zÀ-ÿ]{2}/.test(avant)
           && !/^(return|const|let|var|if|else|import|export|from|case|default|await|async|function|new|typeof)/.test(avant)) {
         add(avant, n, "jsx-avant-expr");
+      }
+    }
+
+    // Texte JSX APRÈS une balise, en fin de ligne :
+    //     <Trash2 size={14} /> Supprimer
+    //     <span>🔒</span> Non visible par le candidat
+    // Aucune règle précédente ne les voit : JSX_RE veut « >texte< » sur la
+    // même ligne, « seul sur sa ligne » refuse toute balise, et « avant-expr »
+    // coupe au premier < — qui est ici en position 0. Motif rencontré quatre
+    // fois entre le 23 et le 31/08/2026, signalé par un humain à chaque fois.
+    {
+      const apres = seul.match(/>[ ]*([^<>{}`"']+)$/);
+      if (apres) {
+        const texte = apres[1].trim();
+        if (/[A-Za-zÀ-ÿ]{2}/.test(texte) && !/[=;:,]$/.test(texte)) {
+          add(texte, n, "jsx-apres-balise");
+        }
       }
     }
   });

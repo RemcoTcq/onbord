@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/lib/i18n/I18nProvider";
+import { useT, tNodes } from "@/lib/i18n/I18nProvider";
 import { useState } from "react";
 import { Plus, Trash2, Sliders, Info, AlertTriangle } from "lucide-react";
 
@@ -102,7 +102,7 @@ export default function CvScoringCriteria({ criteria, onChange }) {
             fontSize: "13px", fontWeight: "600", color: "var(--muted-foreground)", cursor: "pointer"
           }}
         >
-          <Plus size={16} /> Ajouter un critère
+          <Plus size={16} /> {t("dashboard.cvCriteria.addCriterion")}
         </button>
 
         <button
@@ -116,7 +116,9 @@ export default function CvScoringCriteria({ criteria, onChange }) {
       {totalWeight !== 100 && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: "var(--radius)", color: "#9a3412", fontSize: "12px" }}>
           <AlertTriangle size={14} />
-          Le total des poids est de <strong>{totalWeight}%</strong>. Il devrait être de 100% pour un scoring précis.
+          {tNodes(t("dashboard.cvCriteria.weightWarning"), {
+            total: <strong key="w">{totalWeight}%</strong>,
+          })}
         </div>
       )}
     </div>

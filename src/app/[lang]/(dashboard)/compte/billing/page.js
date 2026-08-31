@@ -198,7 +198,7 @@ export default function BillingPage() {
               whiteSpace: "nowrap",
             }}
           >
-            <Mail size={14} /> Commander
+            <Mail size={14} /> {t("dashboard.billing.order")}
           </a>
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function BillingPage() {
             whiteSpace: "nowrap",
           }}
         >
-          <Mail size={14} /> Nous contacter
+          <Mail size={14} /> {t("dashboard.billing.contactUs")}
         </a>
       </div>
     </div>

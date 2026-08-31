@@ -302,11 +302,11 @@ export default function CandidateDetailPage() {
           onClick={() => router.push(`/jobs/${jobId}`)}
           style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600" }}
         >
-          <ArrowLeft size={18} /> Retour aux candidats
+          <ArrowLeft size={18} /> {t("dashboard.candidateDetail.backToCandidates")}
         </button>
         <div style={{ display: "flex", gap: "0.75rem" }}>
           <button className="btn btn-primary btn-sm" onClick={() => setEmailModalOpen(true)}>
-            <Mail size={16} /> Contacter
+            <Mail size={16} /> {t("dashboard.candidateDetail.contact")}
           </button>
         </div>
       </div>
@@ -342,7 +342,7 @@ export default function CandidateDetailPage() {
                 className="btn btn-outline btn-sm"
                 style={{ width: "100%", marginTop: "0.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
               >
-                <FileText size={14} /> Voir le CV original
+                <FileText size={14} /> {t("dashboard.candidateDetail.viewOriginalCv")}
               </a>
             )}
 
@@ -370,7 +370,7 @@ export default function CandidateDetailPage() {
               </button>
 
               <button className="btn btn-ghost btn-sm" onClick={handleDelete} disabled={actionLoading} style={{ width: "100%", color: "#991b1b" }}>
-                <Trash2 size={14} /> Supprimer
+                <Trash2 size={14} /> {t("dashboard.candidateDetail.delete")}
               </button>
             </div>
           </div>
@@ -381,7 +381,7 @@ export default function CandidateDetailPage() {
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                <span style={{ color: "var(--muted-foreground)" }}>RGPD</span>
+                <span style={{ color: "var(--muted-foreground)" }}>{t("dashboard.candidateDetail.gdpr")}</span>
                 <span style={{ fontWeight: "600", color: candidate.gdpr_consent_at ? "#166534" : "#991b1b" }}>{candidate.gdpr_consent_at ? t("dashboard.candidateDetail.granted") : t("dashboard.candidateDetail.no")}</span>
               </div>
               {Array.isArray(candidate.anti_cheat_metrics) && (
@@ -465,7 +465,7 @@ export default function CandidateDetailPage() {
             <div className="card" style={{ padding: "1.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <FileText size={18} style={{ color: "var(--primary)" }} /> Analyse du CV
+                  <FileText size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.cvAnalysis")}
                 </h3>
               </div>
               <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.5rem" }}>{candidate.ai_summary}</p>
@@ -707,7 +707,7 @@ export default function CandidateDetailPage() {
           {!candidate.experience_run && candidate.test_sessions && candidate.test_sessions.length > 0 && (
             <div className="card" style={{ padding: "1.5rem" }}>
               <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.5rem" }}>
-                <TrendingUp size={18} style={{ color: "var(--primary)" }} /> Tests de compétences
+                <TrendingUp size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.skillsTests")}
               </h3>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {candidate.test_sessions.map((session) => {
@@ -742,17 +742,17 @@ export default function CandidateDetailPage() {
                                 border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px",
                               }}
                             >
-                              <Sparkles size={11} /> Analyse IA
+                              <Sparkles size={11} /> {t("dashboard.candidateDetail.aiAnalysis")}
                             </button>
                           )}
                           {!isAiTest && session.cheat_flags?.slow_candidate && (
                             <div style={{ background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ffedd5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Clock size={12} /> Plus lent que la moyenne
+                              <Clock size={12} /> {t("dashboard.candidateDetail.slowerThanAverage")}
                             </div>
                           )}
                           {!isAiTest && session.cheat_flags?.top_performer && (
                             <div style={{ background: "#f5f5f5", color: "#0a0a0a", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Star size={12} fill="currentColor" /> Top Performer
+                              <Star size={12} fill="currentColor" /> {t("dashboard.candidateDetail.topPerformer")}
                             </div>
                           )}
                           <div style={{ textAlign: "right" }}>
@@ -817,7 +817,7 @@ export default function CandidateDetailPage() {
             <div className="card" style={{ padding: "1.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <MessageSquare size={18} style={{ color: "var(--primary)" }} /> Interview IA
+                  <MessageSquare size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.aiInterview")}
                 </h3>
 
               </div>
@@ -893,7 +893,7 @@ export default function CandidateDetailPage() {
             <div className="card" style={{ padding: "1.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Video size={18} style={{ color: "var(--primary)" }} /> Entretien Vidéo
+                  <Video size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.videoInterview")}
                 </h3>
                 {candidate.video_interview_score != null && candidate.video_interview_score > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>

@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import JobLocaleSelector from "@/components/jobs/JobLocaleSelector";
-import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale } from "@/lib/i18n/config";
 import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
 
@@ -495,9 +495,10 @@ export default function NouvelleDemandePage() {
                 }}>
                   <Info size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
                   <p style={{ fontSize: '12.5px', color: '#1e40af', margin: 0, lineHeight: '1.6' }}>
-                    <strong>Conseil :</strong> Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable.
-                    {' '}Elle peut ne pas fonctionner avec <strong>LinkedIn, Indeed ou Glassdoor</strong> qui protègent leurs pages.
-                    {' '}Dans ce cas, copiez-collez le texte de l&apos;offre directement.
+                    {tNodes(t("dashboard.jobCreate.urlHint"), {
+                      tip: <strong key="t">{t("dashboard.jobCreate.tipLabel")}</strong>,
+                      sites: <strong key="s">{t("dashboard.jobCreate.protectedSites")}</strong>,
+                    })}
                   </p>
                 </div>
 

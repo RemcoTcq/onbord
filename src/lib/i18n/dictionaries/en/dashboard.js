@@ -100,6 +100,11 @@ const dashboard = {
   },
 
   jobDetail: {
+    delete: "Delete",
+    colCandidate: "Candidate",
+    colScore: "Overall score",
+    colStatus: "Status",
+    colActions: "Actions",
     back: "Back",
     jobLabel: "Job",
 
@@ -209,6 +214,18 @@ const dashboard = {
   },
 
   candidateDetail: {
+    backToCandidates: "Back to candidates",
+    contact: "Contact",
+    viewOriginalCv: "View original CV",
+    delete: "Delete",
+    gdpr: "GDPR",
+    cvAnalysis: "CV analysis",
+    skillsTests: "Skills tests",
+    aiAnalysis: "AI analysis",
+    slowerThanAverage: "Slower than average",
+    topPerformer: "Top performer",
+    aiInterview: "AI interview",
+    videoInterview: "Video interview",
     levelBetween: "Level {level}: between N{low} ({lowLabel}) and N{high} ({highLabel}).",
     notFound: "Candidate not found",
     back: "Back",
@@ -328,6 +345,9 @@ const dashboard = {
   },
 
   experienceEditor: {
+    addSource: "Source",
+    addField: "Field",
+    addTrap: "Inconsistency",
     reviewTitle: "Experience review",
     stepCount_one: "{count} step",
     stepCount_other: "{count} steps",
@@ -608,6 +628,7 @@ const dashboard = {
   },
 
   videoInterview: {
+    customQuestion: "Custom question",
     categories: { motivation: "Motivation", experience: "Experience", softSkills: "Soft skills", technical: "Technical", cultureFit: "Culture fit", custom: "Custom" },
     loadLibraryError: "Couldn't load the library",
     saveJobFirst: "Save your job first",
@@ -676,6 +697,8 @@ const dashboard = {
   },
 
   jobForm: {
+    mustHave: "Must have",
+    niceToHave: "Nice to have",
     subFamily: "Specification",
     section: "Job details",
     sectionHelp: "Pre-filled from your posting. Adjust as needed.",
@@ -851,6 +874,12 @@ const dashboard = {
   },
 
   companyProfile: {
+    title: "Company profile",
+    websiteAndContext: "Website & AI context",
+    targetMarket: "Target market",
+    businessModel: "Business model (Domain)",
+    observedTrends: "Observed trends (auto-generated)",
+    privateNotice: "{label} — This data enriches the AI analyses (job qualification, candidate scoring) but is never shown to candidates.",
     urlRequired: "Please enter your website URL.",
     contextGenerated: "AI context generated! Check and adjust the fields if needed.",
     analysisFailed: "Couldn't analyse the site. Fill in the fields manually.",
@@ -878,6 +907,8 @@ const dashboard = {
   },
 
   billing: {
+    order: "Order",
+    contactUs: "Contact us",
     loadError: "Couldn't load your billing information.",
     title: "Billing & credits",
     subtitle: "Track your usage and top up your account.",
@@ -914,6 +945,7 @@ const dashboard = {
   },
 
   branding: {
+    visualCustomisation: "Visual customisation",
     logoUploaded: "Logo uploaded!",
     uploadFailed: "Upload failed.",
     appliedToAll: "Changes applied to ALL your company's jobs.",
@@ -943,6 +975,9 @@ const dashboard = {
   },
 
   jobCreate: {
+    tipLabel: "Tip:",
+    protectedSites: "LinkedIn, Indeed or Glassdoor",
+    urlHint: "{tip} This works with your own careers site or with ATSs such as Greenhouse, Lever or Workable. It may not work with {sites}, which protect their pages. In that case, paste the job text directly.",
     steps: { job: "1. Job posting", details: "2. Details", journey: "3. Pipeline" },
     heading: "Let's start with your job posting",
     intro:
@@ -1179,6 +1214,7 @@ const dashboard = {
   },
 
   skillsTestConfig: {
+    requestCustom: "Request a custom test",
     categories: { cognitif: "Cognitive", langue: "Languages", metier: "Job-specific", personnalite: "Personality", ia: "AI" },
     loadingLibrary: "Loading the library…",
     totalDuration: "Total estimated time for the candidate",
@@ -1203,6 +1239,8 @@ const dashboard = {
   },
 
   qualifyingConfig: {
+    addQuestion: "Add a question",
+    addAnother: "Add another question",
     questionNumber: "Question {n}",
     none: "No screening questions",
     noneHelp:
@@ -1252,6 +1290,7 @@ const dashboard = {
   },
 
   usage: {
+    credits: "Credits",
     planNamed: "{plan} plan",
     credits: "Credits",
     resetsMonthly: "Resets on the 1st of the month",
@@ -1261,6 +1300,8 @@ const dashboard = {
   },
 
   cvCriteria: {
+    weightWarning: "The weights add up to {total}. They should total 100% for accurate scoring.",
+    addCriterion: "Add a criterion",
     placeholder: "e.g. experience managing a team",
     distributeEvenly: "Distribute evenly",
   },

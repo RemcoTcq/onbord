@@ -82,7 +82,7 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
           fontSize: "13px"
         }}
       >
-        <X size={16} /> Annuler
+        <X size={16} /> {t("common.actions.cancel")}
       </button>
 
       <div className="zoom-in" style={{ textAlign: "center", marginBottom: "40px" }}>

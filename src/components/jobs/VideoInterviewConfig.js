@@ -297,7 +297,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
           style={{ gap: "8px", opacity: isFull ? 0.5 : 1, cursor: isFull ? 'not-allowed' : 'pointer' }}
           title={isFull ? t("dashboard.videoInterview.limitReached") : ""}
         >
-          <Plus size={16} /> Question personnalisée
+          <Plus size={16} /> {t("dashboard.videoInterview.customQuestion")}
         </button>
         {isFull && <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>{t("dashboard.videoInterview.libraryLimitReached")}</span>}
       </div>

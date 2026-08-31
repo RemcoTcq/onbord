@@ -43,7 +43,7 @@ export default function CreditBadge() {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
         <span style={{ fontSize: "11px", fontWeight: "700", color, display: "flex", alignItems: "center", gap: "5px" }}>
-          <Zap size={11} fill={color} /> Crédits
+          <Zap size={11} fill={color} /> {t("dashboard.usage.credits")}
         </span>
         <span style={{ fontSize: "12px", fontWeight: "800", color }}>
           {illimite ? "∞" : info.credits_balance}
