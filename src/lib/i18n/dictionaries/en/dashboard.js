@@ -841,8 +841,12 @@ const dashboard = {
   chatCreator: {
     title: 'Assessment expert',
     greeting: "Hello! Let's design the screening experience together. Describe what you need, in your own words.",
+    // The FIRST question, deliberately written here rather than left to the
+    // prompt: this way it is guaranteed to come first, costs nothing, and is
+    // already in the right language. The previous version offered a menu of
+    // categories and harvested exactly that — categories.
     greetingForJob:
-      "Let's design the screening experience for {role} together. Tell me what you have in mind in a few words — the kind of exercise that matters most, the tone you want, or the typical client profile. I'll ask a few questions, then generate it.",
+      "Let's design the screening experience for {role} together. Let's start with what matters most: what does the ideal exercise look like to you — what would you really want to watch a candidate handle?",
     thisRole: "this role",
 
     alreadyGenerated_one:
@@ -859,7 +863,10 @@ const dashboard = {
     confirmFirstShort: 'Please confirm the action…',
     clearConversation: 'Clear the conversation',
     clearConfirm: 'Clear this conversation? Steps already generated are not affected.',
-    cleared: 'Starting fresh. Describe what you want from this screening experience.',
+    // Clearing the conversation also clears the discovery record (the whole row
+    // is deleted), so we ask the opening question again.
+    cleared:
+      "Starting fresh. What does the ideal exercise look like to you for this role — what would you really want to watch a candidate handle?",
 
     sendError: 'Something went wrong while sending your message',
     generationFailed: 'Generation failed',
@@ -1135,7 +1142,11 @@ const dashboard = {
     contextNone: "No company context: generating from the job posting alone",
     brief: "Your notes take priority",
     localeLine: "Candidate journey language: {label}",
+    reflexion: "Thinking through skill coverage and overall coherence…",
     designStart: "Designing the practical exercises…",
+    critiqueStart: "Reviewing the journey with a critical eye…",
+    critiqueOk: "Review: the journey holds up, nothing to rework",
+    critiqueFix: "Review: step {n} “{label}” is being rewritten",
     designDone_one: "Full pipeline: {count} step",
     designDone_other: "Full pipeline: {count} steps",
     designMinutes: ", ~{minutes} min",

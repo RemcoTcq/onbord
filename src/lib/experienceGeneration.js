@@ -8,6 +8,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
+import { chargerDecouverte } from "@/lib/experienceChat";
+import { construireBriefDecouverte } from "@/lib/experienceDecouverte";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { crmSkillName } from "@/lib/crmScoring";
 import { estimerMinutes } from "@/lib/experienceDuree";
@@ -16,6 +18,42 @@ import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
+
+// ─── Réflexion interne avant réponse ──────────────────────────────────────────
+// Le modèle devait jusqu'ici sortir son JSON immédiatement, sans espace pour
+// raisonner sur la répartition des compétences ou la cohérence du scénario.
+// `adaptive` lui rend cet espace : il décide lui-même combien il en prend.
+//
+// `display: "omitted"` : personne n'affiche ce raisonnement — le feed ne montre
+// que les événements du pipeline, et le chat de conception ne rend que les blocs
+// `text` (extractText, AssessmentChatCreator). Un résumé serait du texte qu'on
+// stocke pour rien, et que le chat repaierait en entrée à CHAQUE tour suivant.
+// La réflexion est facturée de la même façon dans les deux cas : `display` ne
+// change que ce qui revient.
+const REFLEXION = { type: "adaptive", display: "omitted" };
+
+// ── Et une réflexion BORNÉE, sinon elle mange tout ──────────────────────────
+// Sans ce réglage, le modèle réfléchit au niveau "high" (le défaut) : mesuré au
+// banc, une génération complète dépassait alors 16 000 tokens de sortie et se
+// faisait TRONQUER — deux fois de suite, donc génération perdue. La réflexion
+// qu'on cherche ici tient en quelques phrases (répartir les compétences, tenir
+// la cohérence du scénario), pas en une délibération sans fin.
+//
+// "medium" est donc un plafond de qualité autant que de coût : au-delà, on
+// paie de la latence et un risque de troncature pour un raisonnement dont on
+// n'a pas l'usage.
+const EFFORT_REFLEXION = "medium";
+
+// Interrupteur d'exploitation : la réflexion se coupe par variable
+// d'environnement, sans toucher au code. Elle change le comportement de TOUTES
+// les passes à la fois — c'est précisément ce qu'on veut pouvoir annuler d'un
+// geste si elle dérape en production.
+const REFLEXION_ACTIVE = process.env.ONBORD_REFLEXION !== "0";
+
+// Idem pour la passe de critique (2e regard sur le parcours généré). Séparée de
+// la précédente : ce sont deux leviers indépendants, et l'un peut être bon
+// pendant que l'autre déçoit.
+const CRITIQUE_ACTIVE = process.env.ONBORD_CRITIQUE !== "0";
 
 // ─── Règles partagées par les deux prompts ────────────────────────────────────
 // Ces règles décrivent CE QU'EST UNE BONNE ÉTAPE. Elles valent donc à
@@ -120,7 +158,7 @@ ${soft || "Non précisés"}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
-${additionalContext ? `\nPRÉCISIONS DU RECRUTEUR (issues de l'échange — À PRENDRE EN COMPTE EN PRIORITÉ) :\n${additionalContext}\n` : ""}
+${additionalContext ? `\nMATÉRIAU DU RECRUTEUR — issu de l'échange de conception, ET IL PRIME SUR TOUT LE RESTE :\n${additionalContext}\n\nCOMMENT T'EN SERVIR — c'est ce qui sépare un parcours que le recruteur reconnaît d'un parcours générique :\n- Les passages entre guillemets sont SES MOTS. Reprends-les TELS QUELS dans les énoncés, les messages client et les sources des mises en situation : le nom exact de son produit, la formulation exacte d'une objection, le vocabulaire de son marché. Ne les paraphrase pas, ne les traduis pas en langue de bois professionnelle.\n- S'il a raconté une situation qu'il a vécue, BÂTIS LA TÂCHE DESSUS plutôt que d'en inventer une autre. C'est la situation dont tu sais qu'elle arrive vraiment dans cette entreprise.\n- Un scénario qu'on pourrait recopier tel quel sur l'offre d'un concurrent est un scénario raté, même s'il respecte toutes les règles ci-dessous.\n` : ""}
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
 - "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
 - "task" : tâche courte et réaliste inspirée du poste (rédiger un email client, répondre à une situation, produire un court document/analyse). C'est le cœur de la preuve.
@@ -287,8 +325,14 @@ async function generateCodeExercise({ title, description, companyContext, step, 
     const response = await streamCompletion({
       system: "Tu conçois des exercices de code pour des évaluations de recrutement. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       prompt,
-      maxTokens: 4000,
+      // 8000 (c'était 4000) : la réflexion se sert dans le même budget.
+      maxTokens: 8000,
       temperature: 0.4,
+      // La passe où la réflexion se justifie le plus : le prompt demande déjà
+      // « vérifie mentalement chaque cas avant de l'écrire », et un
+      // `expected_output` faux pénalise tous les candidats sans se voir avant
+      // la mise en ligne. C'est exactement le travail qu'on lui refusait.
+      reflexion: true,
     });
     const usage = response.usage;
     if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
@@ -398,11 +442,27 @@ function mergeUsage(usages) {
 // tokens pour pouvoir émettre un événement dès qu'un fragment exploitable est
 // arrivé. C'est ce qui permet au feed d'afficher le travail RÉEL du modèle, à sa
 // vitesse réelle — une étape complexe met plus longtemps à apparaître.
-async function streamCompletion({ system, prompt, maxTokens, temperature, onText }) {
+//
+// `reflexion` : laisse le modèle raisonner avant d'écrire. DEUX pièges, tous
+// deux constatés sur l'API réelle et non déduits de la documentation :
+//
+//  1. `thinking` et `temperature` NE COHABITENT PAS. L'API refuse (400 :
+//     « temperature may only be set to 1 when thinking is enabled »). On laisse
+//     donc tomber la température sur les passes qui réfléchissent : entre une
+//     température calibrée à 0.4 et un raisonnement, c'est le raisonnement qui
+//     porte la qualité. Les passes sans réflexion gardent la leur, inchangée.
+//  2. Les tokens de réflexion se prélèvent sur `max_tokens`. Chaque appelant
+//     qui active la réflexion doit relever son plafond, sinon le modèle
+//     consomme son budget à réfléchir et rend un JSON tronqué — la panne que
+//     `stop_reason === "max_tokens"` rattrape, au prix d'un appel entier.
+async function streamCompletion({ system, prompt, maxTokens, temperature, onText, reflexion = false }) {
+  const reflechit = reflexion && REFLEXION_ACTIVE;
   const stream = anthropic.messages.stream({
     model: GENERATION_MODEL,
     max_tokens: maxTokens,
-    temperature,
+    ...(reflechit
+      ? { thinking: REFLEXION, output_config: { effort: EFFORT_REFLEXION } }
+      : { temperature }),
     system,
     messages: [{ role: "user", content: prompt }],
   });
@@ -414,8 +474,15 @@ async function streamCompletion({ system, prompt, maxTokens, temperature, onText
   });
 
   const final = await stream.finalMessage();
+  // Avec la réflexion, `content[0]` est un bloc `thinking` : lire `.text` dessus
+  // renvoie undefined, et l'extraction du JSON échoue sur TOUTES les passes.
+  // On concatène les blocs `text`, les seuls à porter la réponse.
+  const texteFinal = final.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("");
   return {
-    text: final.content[0]?.text ?? text,
+    text: texteFinal || text,
     usage: computeAiCost(GENERATION_MODEL, final.usage),
     stop_reason: final.stop_reason,
   };
@@ -497,6 +564,270 @@ function makeCrmScanner(onEvent) {
   );
 }
 
+// ─── 2e regard : la passe de critique ─────────────────────────────────────────
+// Une génération qui respecte toutes les règles peut rester fade : un « client
+// mécontent » sans visage, un énoncé qui pourrait être copié-collé sur
+// n'importe quelle offre, une grille dont les niveaux 3 et 5 disent la même
+// chose. Rien de tout ça n'est une erreur de structure — c'est une erreur de
+// qualité, et elle ne se voit qu'en relisant.
+//
+// Cette passe relit donc le parcours AVANT le recruteur, et fait réécrire les
+// étapes qui ne passeraient pas la barre. Elle tourne juste après la conception
+// et AVANT les 2e passes CRM/code : un scénario CRM pèse 600-900 tokens, autant
+// ne pas l'écrire sur un énoncé qu'on va jeter — et l'étape corrigée reçoit
+// ensuite son scénario, écrit sur le bon énoncé.
+//
+// ── Ce qui l'empêche de faire plus de mal que de bien ────────────────────────
+// Un modèle à qui on demande « qu'est-ce qui ne va pas ? » trouve toujours
+// quelque chose. Sans garde-fous, cette passe réécrirait du bon travail :
+//   • UN SEUL TOUR, jamais de boucle ;
+//   • AU PLUS 2 étapes réécrites, les plus graves ;
+//   • un défaut doit être CITÉ, et la citation est vérifiée en JS contre le
+//     texte réel de l'étape (même règle que le verbatim du scoring) : un défaut
+//     inventé est écarté sans être payé ;
+//   • la réécriture passe par le prompt de régénération d'étape, donc par les
+//     MÊMES règles que la génération — une correction ne peut pas produire ce
+//     que la génération s'interdit ;
+//   • si la réécriture échoue, on garde l'étape d'origine. Cette passe ne peut
+//     jamais dégrader, seulement améliorer ou ne rien faire.
+const CRITIQUE_MAX_REECRITURES = 2;
+
+// Rendu lisible des étapes pour le critique. Pas le JSON brut : on lui demande
+// de juger ce qu'un recruteur lirait, et les accolades ne l'aident pas.
+function rendreEtapesPourCritique(steps) {
+  return steps.map((s, i) => {
+    const sousDims = (s.sub_dimensions || s.criteria || []).map((c) => {
+      const niveaux = (c?.bars_levels || []).map((n) => `      [${n.level}] ${n.description || ""}`).join("\n");
+      return `    • ${c?.name || "sans nom"}\n${niveaux}`;
+    }).join("\n");
+
+    return [
+      `ÉTAPE ${i + 1} — ${s.kind} · ${s.response_format || "text"}${s.sandbox_kind && s.sandbox_kind !== "none" ? ` · sandbox ${s.sandbox_kind}` : ""}`,
+      `  Titre : ${s.title || "sans titre"}`,
+      s.skill_assessed ? `  Compétence évaluée : ${s.skill_assessed}` : null,
+      `  Énoncé : ${(s.prompt || "").replace(/\s+/g, " ").trim()}`,
+      s.config?.client_message ? `  Message client : ${String(s.config.client_message).replace(/\s+/g, " ").trim()}` : null,
+      s.config?.crm_brief ? `  Situation CRM prévue : ${s.config.crm_brief}` : null,
+      s.config?.code_brief ? `  Tâche de code prévue : ${s.config.code_brief}` : null,
+      sousDims ? `  Sous-dimensions :\n${sousDims}` : null,
+    ].filter(Boolean).join("\n");
+  }).join("\n\n");
+}
+
+function buildCritiquePrompt({ title, description, criteria, companyContext, additionalContext, steps }) {
+  const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}`).join("\n");
+  const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
+  const ctx = companyContext || {};
+  const companyBlock = [
+    ctx.description && `Description : ${ctx.description}`,
+    ctx.industry && `Secteur : ${ctx.industry}`,
+    ctx.target_market && `Marché cible : ${ctx.target_market}`,
+  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+
+  // Pas de consigne de langue de sortie : ce prompt ne produit RIEN qui soit lu
+  // par le candidat ou le recruteur. Ses `consigne` repartent vers le prompt de
+  // régénération, qui est en français — même règle que les entrées d'outil du
+  // chat. Seul `extrait_fautif` échappe à ça : c'est une citation, elle reste
+  // dans la langue de l'étape, sinon elle n'est plus vérifiable.
+  return `Tu es un recruteur exigeant. On te présente une expérience de présélection qui vient d'être conçue pour ton offre, et tu dois décider si tu la publies TELLE QUELLE devant de vrais candidats.
+
+Tu ne juges PAS la structure (nombre d'étapes, formats de réponse, champs manquants) : elle est vérifiée ailleurs. Tu juges ce qu'aucune vérification automatique ne voit — est-ce que ce parcours donne envie, est-ce qu'il est crédible, est-ce qu'il fera vraiment la différence entre un bon candidat et un moyen ?
+
+POSTE : ${title || "Non précisé"}
+DESCRIPTION :
+${(description || "").slice(0, 1000) || "Non fournie"}
+
+COMPÉTENCES TECHNIQUES :
+${hard || "Non précisées"}
+
+SAVOIR-ÊTRE :
+${soft || "Non précisés"}
+
+CONTEXTE ENTREPRISE :
+${companyBlock}
+${additionalContext ? `\nCE QUE LE RECRUTEUR A DIT DE SON MÉTIER (matériau recueilli en entretien) :\n${additionalContext}\n` : ""}
+LE PARCOURS À RELIRE :
+${rendreEtapesPourCritique(steps)}
+
+CE QUI EST BLOQUANT — et rien d'autre :
+1. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même métier. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché. C'est le défaut le plus fréquent et le plus coûteux.
+2. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
+${additionalContext ? `3. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `3. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}4. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
+5. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
+
+CE QUI N'EST PAS BLOQUANT : une tournure perfectible, une longueur, une préférence de ton, un choix de format discutable, une orthographe. Ne les signale pas.
+
+RÈGLES DE JUGEMENT — lis-les avant de répondre :
+- Un parcours correct est le cas NORMAL. Si rien n'est bloquant, dis-le : "publiable", liste vide. Ne cherche pas un défaut pour en trouver un — faire réécrire une étape correcte est un dommage, pas une amélioration.
+- Signale AU PLUS ${CRITIQUE_MAX_REECRITURES} étapes. Si tu en vois plus, garde les plus graves : celles qu'un candidat remarquerait.
+- Pour CHAQUE problème, "extrait_fautif" doit être un passage RECOPIÉ MOT POUR MOT depuis l'étape (énoncé, titre, ou description d'un niveau). Ne le traduis pas, ne le reformule pas, ne l'abrège pas : il est vérifié automatiquement contre le texte de l'étape, et un extrait introuvable fait écarter ton signalement.
+- "consigne" est rédigée EN FRANÇAIS pour un concepteur qui ne voit ni cette conversation ni ton raisonnement. Dis ce qui doit changer ET ce qui doit être conservé. Sois concret : "remplace le client anonyme par un DRH d'une PME industrielle de 80 personnes qui conteste le prix au moment de signer" vaut mieux que "rends la situation plus réaliste".
+- INTERDIT DANS UNE CONSIGNE : demander au candidat de RACONTER une expérience passée ("décrivez une situation où vous avez…", "expliquez comment vous avez déjà…"). Ce produit interdit les questions rétrospectives auto-déclaratives — elles recréent le biais du CV — et le concepteur appliquera ta consigne AVANT tout le reste : une consigne fautive fait donc entrer dans le parcours ce que la génération s'interdit. Demande une mise en situation JOUÉE DANS L'INSTANT, jamais un récit.
+
+Réponds UNIQUEMENT avec un JSON valide :
+{
+  "verdict": "publiable" | "a_revoir",
+  "problemes": [
+    { "etape": 2, "probleme": "Ce qui ne va pas, en une phrase.", "extrait_fautif": "…passage recopié mot pour mot…", "consigne": "Consigne de réécriture, en français." }
+  ]
+}`;
+}
+
+// Normalise pour comparer une citation au texte d'une étape : les espaces et
+// les retours à la ligne du JSON ne doivent pas faire échouer un extrait juste.
+function normaliserPourCitation(s) {
+  return String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// Tout le texte d'une étape que le critique a pu lire, mis bout à bout : c'est
+// contre ça qu'on vérifie ses citations.
+function texteEtape(step) {
+  const dims = (step.sub_dimensions || step.criteria || []).flatMap((c) => [
+    c?.name,
+    ...(c?.bars_levels || []).map((n) => n?.description),
+  ]);
+  return normaliserPourCitation([
+    step.title, step.prompt,
+    step.config?.client_message, step.config?.crm_brief, step.config?.code_brief,
+    ...dims,
+  ].filter(Boolean).join(" ¶ "));
+}
+
+/**
+ * Relit le parcours et renvoie les étapes à réécrire, déjà filtrées.
+ *
+ * Ne renvoie JAMAIS d'erreur bloquante : un échec de critique laisse passer le
+ * parcours tel quel. Perdre un 2e regard est ennuyeux, perdre la génération que
+ * le recruteur attend depuis deux minutes l'est bien davantage.
+ *
+ * Exportée pour être exerçable seule : le risque propre à cette passe est
+ * qu'elle réécrive du bon travail, et ça ne se vérifie qu'en lui soumettant des
+ * parcours dont on sait déjà s'ils sont bons ou fades.
+ */
+export async function critiquerExperience({ title, description, criteria, companyContext, additionalContext, steps }) {
+  const prompt = buildCritiquePrompt({ title, description, criteria, companyContext, additionalContext, steps });
+
+  const response = await streamCompletion({
+    system: "Tu relis des évaluations de recrutement avant publication. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
+    prompt,
+    maxTokens: 4000,
+    // Juger demande de peser plusieurs lectures d'un même énoncé : c'est le
+    // genre de tâche pour laquelle cette passe existe.
+    reflexion: true,
+    temperature: 0.3,
+  });
+
+  if (response.stop_reason === "max_tokens") return { problemes: [], usage: response.usage };
+  const match = (response.text || "").match(/\{[\s\S]*\}/);
+  if (!match) return { problemes: [], usage: response.usage };
+
+  let parsed;
+  try {
+    parsed = JSON.parse(match[0]);
+  } catch {
+    return { problemes: [], usage: response.usage };
+  }
+
+  const bruts = Array.isArray(parsed.problemes) ? parsed.problemes : [];
+  const retenus = [];
+  for (const p of bruts) {
+    const index = Number(p?.etape) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= steps.length) continue;
+    if (!p?.consigne || !String(p.consigne).trim()) continue;
+
+    // La citation fait foi. Un extrait qu'on ne retrouve pas dans l'étape est un
+    // défaut inventé — le mode d'échec propre à cette passe, et le seul qu'on
+    // puisse attraper sans relire soi-même.
+    const extrait = normaliserPourCitation(p.extrait_fautif);
+    if (extrait.length < 12 || !texteEtape(steps[index]).includes(extrait)) continue;
+
+    if (retenus.some((r) => r.index === index)) continue; // une étape ne se réécrit qu'une fois
+    retenus.push({ index, probleme: String(p.probleme || "").trim(), consigne: String(p.consigne).trim() });
+    if (retenus.length >= CRITIQUE_MAX_REECRITURES) break;
+  }
+
+  return { problemes: retenus, usage: response.usage, ecartes: bruts.length - retenus.length };
+}
+
+// Applique une étape réécrite sur l'étape d'origine, EN MÉMOIRE (avant toute
+// persistance). Même principe que la fusion de runStepRegeneration : le modèle
+// ne renvoie que ce qu'il change, une clé absente veut dire « je n'y touche
+// pas » — remplacer effacerait ce que la consigne ne visait pas.
+function fusionnerEtapeReecrite(ancienne, nouvelle) {
+  const memeSandbox = (ancienne.sandbox_kind || "none") === (nouvelle.sandbox_kind || "none");
+  return {
+    ...ancienne,
+    kind: nouvelle.kind || ancienne.kind,
+    title: nouvelle.title || ancienne.title,
+    prompt: nouvelle.prompt ?? ancienne.prompt,
+    response_format: nouvelle.response_format || ancienne.response_format,
+    sandbox_kind: nouvelle.sandbox_kind || ancienne.sandbox_kind || "none",
+    ai_assistant_allowed: nouvelle.ai_assistant_allowed ?? ancienne.ai_assistant_allowed,
+    skill_assessed: nouvelle.skill_assessed || ancienne.skill_assessed,
+    targets_skills: nouvelle.targets_skills || ancienne.targets_skills,
+    sub_dimensions: Array.isArray(nouvelle.sub_dimensions) && nouvelle.sub_dimensions.length
+      ? nouvelle.sub_dimensions
+      : (ancienne.sub_dimensions || []),
+    config: {
+      ...(memeSandbox ? (ancienne.config || {}) : {}),
+      ...(nouvelle.config || {}),
+    },
+  };
+}
+
+/**
+ * Passe de critique complète : relire, puis réécrire ce qui doit l'être.
+ * Renvoie les étapes (modifiées ou non) et les usages à comptabiliser.
+ */
+async function relireEtCorriger({ title, description, criteria, companyContext, additionalContext, steps, locale, uiLocale, onEvent }) {
+  const usages = [];
+  onEvent?.({ kind: "critique_start" });
+
+  const { problemes, usage } = await critiquerExperience({
+    title, description, criteria, companyContext, additionalContext, steps,
+  });
+  if (usage) usages.push(usage);
+
+  if (!problemes.length) {
+    onEvent?.({ kind: "critique_ok" });
+    return { steps, usages };
+  }
+
+  const corrigees = steps.slice();
+  for (const pb of problemes) {
+    const etape = corrigees[pb.index];
+    onEvent?.({ kind: "critique_fix", n: pb.index + 1, label: etape.title || null });
+
+    const fix = await regenererEtapeContenu({
+      title, description, criteria, companyContext,
+      // Forme attendue par le prompt de régénération : il lit les
+      // sous-dimensions sous le nom de colonne `criteria` (celui de la base).
+      step: { ...etape, criteria: etape.sub_dimensions || etape.criteria || [] },
+      position: pb.index + 1,
+      total: corrigees.length,
+      autresEtapes: corrigees
+        .map((e, i) => ({ position: i + 1, kind: e.kind, title: e.title, skill_assessed: e.skill_assessed }))
+        .filter((_, i) => i !== pb.index),
+      instruction: pb.consigne,
+      locale, uiLocale,
+    });
+
+    // L'usage est comptabilisé même quand la réécriture échoue : l'appel a bien
+    // été payé, et la page Coûts doit le voir.
+    if (fix.usage) usages.push(fix.usage);
+
+    // Réécriture ratée : on garde l'étape d'origine. Une passe de qualité qui
+    // dégrade le résultat serait pire que pas de passe du tout.
+    if (!fix.success) {
+      console.error("critique — réécriture échouée:", fix.error);
+      continue;
+    }
+    corrigees[pb.index] = fusionnerEtapeReecrite(etape, fix.step);
+  }
+
+  return { steps: corrigees, usages };
+}
+
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
 export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, uiLocale, onEvent }) {
   const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext, locale, uiLocale });
@@ -505,13 +836,25 @@ export async function generateExperienceContent({ title, description, criteria, 
   for (let attempt = 1; attempt <= 2; attempt++) {
     if (attempt > 1) onEvent?.({ kind: "retry" });
     const scan = onEvent ? makeExperienceScanner(onEvent) : null;
+    // La réflexion se voit dans le feed : sans cette ligne, le recruteur regarde
+    // un curseur immobile pendant les dizaines de secondes où le modèle répartit
+    // les compétences — et le feed a justement pour raison d'être de montrer le
+    // travail réel plutôt qu'une barre de progression fictive.
+    if (REFLEXION_ACTIVE) onEvent?.({ kind: "reflexion" });
     const response = await streamCompletion({
       system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       prompt,
-      // 8000 : une expérience complète (3-6 étapes + grilles BARS détaillées avec
-      // exemples) dépasse largement 4000 tokens et se faisait tronquer -> JSON invalide.
-      maxTokens: 8000,
+      // 24000 : c'était 8000, déjà relevé une fois parce qu'une expérience
+      // complète (3-6 étapes + grilles BARS avec exemples) se faisait tronquer.
+      // La réflexion se sert dans le MÊME budget, et le banc l'a montré sans
+      // douceur : à 16000, effort par défaut, les DEUX tentatives sont sorties
+      // tronquées et la génération était perdue. Le plafond monte, et l'effort
+      // est borné plus haut (EFFORT_REFLEXION) — les deux ensemble, parce que
+      // relever le plafond seul ne fait que payer plus longtemps.
+      // On est en streaming : un plafond haut ne coûte que ce qui sort.
+      maxTokens: 24000,
       temperature: 0.4,
+      reflexion: true,
       onText: scan || undefined,
     });
     const text = response.text || "";
@@ -536,6 +879,23 @@ export async function generateExperienceContent({ title, description, criteria, 
         });
 
         const extraUsages = [];
+
+        // ── 2e regard, AVANT les passes CRM/code ────────────────────────────
+        // Enveloppé : une critique qui échoue laisse passer le parcours tel
+        // quel. C'est un supplément de qualité, jamais un point de panne.
+        if (CRITIQUE_ACTIVE && (parsed.steps || []).length) {
+          try {
+            const relu = await relireEtCorriger({
+              title, description, criteria: criteria || {}, companyContext, additionalContext,
+              steps: parsed.steps, locale, uiLocale, onEvent,
+            });
+            parsed.steps = relu.steps;
+            extraUsages.push(...relu.usages);
+          } catch (e) {
+            console.error("relireEtCorriger failed:", e.message);
+          }
+        }
+
         for (const s of parsed.steps || []) {
           // Sandbox code : 2e passe elle aussi, pour la même raison que le CRM.
           if (s.sandbox_kind === "code") {
@@ -637,7 +997,24 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       charge: !!(ctx.industry || ctx.description),
       industry: ctx.industry || null,
     });
-    if (additionalContext) {
+
+    // ── Le matériau du chat, relu EN BASE et non transmis par le client ──────
+    // Le brief que le chat envoie ne porte plus que l'INTENTION du recruteur ;
+    // les faits qu'il a racontés — sa situation vécue, ses mots exacts — vivent
+    // dans la fiche de découverte, et arrivent ici RECOPIÉS depuis un JSON
+    // stocké. C'est tout le levier : une synthèse réécrite au moment de générer
+    // diluait précisément ce qui rendait le scénario reconnaissable.
+    //
+    // Relu côté serveur plutôt que reçu du navigateur : rien à faire transiter,
+    // rien à faire tenir dans le plafond du chemin réseau, et une source unique.
+    const fiche = await chargerDecouverte(supabase, jobId);
+    const materiau = construireBriefDecouverte(fiche);
+    // 12000 (c'était 4000) : le brief seul y tenait, le brief PLUS la fiche non.
+    // Une coupe tomberait sur la fin du matériau, donc sur le vocabulaire du
+    // recruteur — en silence, et en supprimant justement ce qu'on est venu
+    // chercher. La fiche est bornée par construction (construireBriefDecouverte).
+    const contexteComplet = [additionalContext, materiau].filter(Boolean).join("\n\n").slice(0, 12000);
+    if (contexteComplet) {
       onEvent?.({ kind: "brief" });
     }
     // DEUX langues, et elles ne se déduisent pas l'une de l'autre :
@@ -657,7 +1034,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       description: job.description,
       criteria: crit,
       companyContext: ctx,
-      additionalContext: (additionalContext || "").slice(0, 4000),
+      additionalContext: contexteComplet,
       locale,
       uiLocale,
       onEvent,
@@ -868,6 +1245,52 @@ function cumulerUsage(precedent, ajout) {
 }
 
 /**
+ * Réécriture d'UNE étape — la partie MODÈLE, sans base de données.
+ *
+ * Extraite de runStepRegeneration pour que la passe de critique puisse la
+ * réemployer AVANT toute persistance : elle corrige des étapes qui n'existent
+ * encore qu'en mémoire, et qui n'ont donc pas d'id à passer.
+ *
+ * L'intérêt du partage n'est pas d'économiser vingt lignes : c'est que la
+ * correction automatique et la retouche demandée par le recruteur passent par
+ * le MÊME prompt, donc par les mêmes REGLES_ETAPE que la génération complète.
+ * Une correction ne peut pas produire ce que la génération s'interdit.
+ *
+ * @returns {Promise<{success: boolean, step?: object, usage?: object, error?: string}>}
+ */
+async function regenererEtapeContenu({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale }) {
+  const prompt = buildStepRegenerationPrompt({
+    title, description, criteria: criteria || {}, companyContext,
+    step, position, total, autresEtapes,
+    instruction: String(instruction || "").slice(0, 2000),
+    locale, uiLocale,
+  });
+
+  let usage = null;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await streamCompletion({
+      system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
+      prompt,
+      // 4000 : une seule étape avec ses grilles BARS détaillées, là où la
+      // génération complète en demande 16000 pour trois à six étapes.
+      maxTokens: 4000,
+      temperature: 0.4,
+    });
+    usage = cumulerUsage(usage, response.usage);
+    if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
+    const match = (response.text || "").match(/\{[\s\S]*\}/);
+    if (!match) { lastErr = "aucun JSON dans la réponse"; continue; }
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (!parsed.title && !parsed.prompt) { lastErr = "étape vide"; continue; }
+      return { success: true, step: parsed, usage };
+    } catch (e) { lastErr = e.message; }
+  }
+  return { success: false, error: `Régénération invalide (${lastErr}).`, usage };
+}
+
+/**
  * Réécrit une étape EN PLACE, à partir d'une consigne en langage libre.
  *
  * Volontairement SANS versionnage : c'est une édition, au même titre que celle
@@ -928,7 +1351,7 @@ export async function runStepRegeneration(stepId, instruction) {
       .from("users").select("company_ai_context").eq("id", user.id).single();
     const companyContext = profile?.company_ai_context || {};
 
-    const prompt = buildStepRegenerationPrompt({
+    const regen = await regenererEtapeContenu({
       title: job.title,
       description: job.description,
       criteria: job.extracted_criteria || {},
@@ -937,35 +1360,13 @@ export async function runStepRegeneration(stepId, instruction) {
       position,
       total: liste.length,
       autresEtapes,
-      instruction: instruction.slice(0, 2000),
+      instruction,
       locale: coerceExperienceLocale(job.experience_locale),
       uiLocale,
     });
-
-    let nouveau = null;
-    let usage = null;
-    let lastErr = "";
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const response = await streamCompletion({
-        system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
-        prompt,
-        // 4000 : une seule étape avec ses grilles BARS détaillées, là où la
-        // génération complète en demande 8000 pour trois à six étapes.
-        maxTokens: 4000,
-        temperature: 0.4,
-      });
-      usage = cumulerUsage(usage, response.usage);
-      if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
-      const match = (response.text || "").match(/\{[\s\S]*\}/);
-      if (!match) { lastErr = "aucun JSON dans la réponse"; continue; }
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (!parsed.title && !parsed.prompt) { lastErr = "étape vide"; continue; }
-        nouveau = parsed;
-        break;
-      } catch (e) { lastErr = e.message; }
-    }
-    if (!nouveau) return { success: false, error: `Régénération invalide (${lastErr}).` };
+    let usage = regen.usage || null;
+    if (!regen.success) return { success: false, error: regen.error };
+    const nouveau = regen.step;
 
     // ── config : on FUSIONNE, on ne remplace pas ─────────────────────────────
     // Le modèle ne renvoie que ce qu'il a l'intention de changer, et il a toutes

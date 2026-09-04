@@ -68,18 +68,57 @@ function bornerPourStockage(messages) {
   return out;
 }
 
-/** Fil enregistré pour une offre. Tableau vide si aucun échange. */
-export async function chargerFil(supabase, jobId) {
+/**
+ * Fil + fiche de découverte d'une offre, en une lecture.
+ *
+ * Les deux vivent dans la même ligne (migration 030) et sont toujours voulus au
+ * même moment : le fil porte ce qui s'est dit, la fiche porte ce qu'on en a
+ * retenu. Un aller-retour de moins par tour de chat, et aucun risque de lire
+ * l'un dans un état et l'autre dans un autre.
+ *
+ * Une erreur ne fait pas échouer le tour : on repart d'un fil vide et d'une
+ * fiche vide plutôt que de refuser de parler au recruteur.
+ */
+export async function chargerFilEtDecouverte(supabase, jobId) {
   const { data, error } = await supabase
     .from("experience_chats")
-    .select("messages")
+    .select("messages, decouverte")
     .eq("job_id", jobId)
     .maybeSingle();
   if (error) {
-    console.error("chargerFil error:", error.message);
-    return [];
+    console.error("chargerFilEtDecouverte error:", error.message);
+    return { messages: [], decouverte: null };
   }
-  return Array.isArray(data?.messages) ? data.messages : [];
+  return {
+    messages: Array.isArray(data?.messages) ? data.messages : [],
+    decouverte: data?.decouverte || null,
+  };
+}
+
+/** Fil enregistré pour une offre. Tableau vide si aucun échange. */
+export async function chargerFil(supabase, jobId) {
+  const { messages } = await chargerFilEtDecouverte(supabase, jobId);
+  return messages;
+}
+
+/**
+ * La seule fiche, sans le fil.
+ *
+ * Lecture séparée à dessein : la génération n'a que faire de la conversation,
+ * et le fil peut peser jusqu'à 400 ko. Les tirer ensemble pour n'en garder
+ * qu'un ferait transiter tout ça pour rien à chaque génération.
+ */
+export async function chargerDecouverte(supabase, jobId) {
+  const { data, error } = await supabase
+    .from("experience_chats")
+    .select("decouverte")
+    .eq("job_id", jobId)
+    .maybeSingle();
+  if (error) {
+    console.error("chargerDecouverte error:", error.message);
+    return null;
+  }
+  return data?.decouverte || null;
 }
 
 /**
@@ -90,13 +129,22 @@ export async function chargerFil(supabase, jobId) {
  *
  * Ne fait JAMAIS échouer le tour de chat : perdre la mémoire d'un échange est
  * ennuyeux, perdre la réponse que le recruteur attend l'est davantage.
+ *
+ * `decouverte` est OPTIONNEL, et son absence ne l'efface pas : la clé n'est
+ * alors pas envoyée, donc pas écrite. C'est ce qui permet aux appelants qui ne
+ * touchent qu'au fil (le mode ajustement) de ne pas emporter la fiche avec eux.
  */
-export async function enregistrerFil(supabase, jobId, messages) {
+export async function enregistrerFil(supabase, jobId, messages, decouverte = undefined) {
   try {
     const { error } = await supabase
       .from("experience_chats")
       .upsert(
-        { job_id: jobId, messages: bornerPourStockage(messages), updated_at: new Date().toISOString() },
+        {
+          job_id: jobId,
+          messages: bornerPourStockage(messages),
+          ...(decouverte === undefined ? {} : { decouverte }),
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: "job_id" }
       );
     if (error) throw error;

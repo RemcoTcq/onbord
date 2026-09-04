@@ -915,8 +915,14 @@ const dashboard = {
   chatCreator: {
     title: 'Expert Assessment',
     greeting: "Bonjour ! On conçoit ensemble l'expérience de présélection. Décrivez votre besoin en langage libre.",
+    // La PREMIÈRE question, et elle n'est pas dans le prompt : elle est écrite
+    // ici, donc garantie d'être posée en premier, gratuitement et dans la bonne
+    // langue. L'ancienne version proposait un menu de catégories (« le ton
+    // attendu, le profil de client typique ») et récoltait exactement ça : des
+    // catégories. Celle-ci demande une image concrète, et sa réponse remplit
+    // souvent trois emplacements de la fiche de découverte d'un coup.
     greetingForJob:
-      "On conçoit ensemble l'expérience de présélection pour {role}. Dites-moi votre intention en quelques mots — par ex. le type de mise en situation qui compte le plus, le ton attendu, ou le profil de client typique. Je vous poserai quelques questions puis je génère.",
+      "On conçoit ensemble l'expérience de présélection pour {role}. Commençons par le plus important : comment voyez-vous la mise en situation idéale pour ce poste — qu'est-ce que vous aimeriez vraiment voir un candidat gérer ?",
     thisRole: "ce poste",
 
     // Message d'ouverture quand une expérience existe déjà mais qu'aucune
@@ -936,7 +942,11 @@ const dashboard = {
     confirmFirstShort: "Veuillez confirmer l'action…",
     clearConversation: 'Effacer la conversation',
     clearConfirm: 'Effacer cette conversation ? Les étapes déjà générées ne sont pas modifiées.',
-    cleared: 'On repart de zéro. Décrivez votre intention pour cette expérience de présélection.',
+    // Effacer la conversation efface aussi la fiche de découverte (la ligne
+    // entière est supprimée) : on repose donc la première question, comme au
+    // premier jour.
+    cleared:
+      "On repart de zéro. Comment voyez-vous la mise en situation idéale pour ce poste — qu'est-ce que vous aimeriez vraiment voir un candidat gérer ?",
 
     sendError: "Erreur lors de l'envoi du message",
     generationFailed: 'Échec de la génération',
@@ -1223,7 +1233,11 @@ const dashboard = {
     contextNone: "Aucun contexte entreprise : génération sur la seule offre",
     brief: "Précisions du recruteur prises en compte en priorité",
     localeLine: "Langue du parcours candidat : {label}",
+    reflexion: "Réflexion : répartition des compétences et cohérence du parcours…",
     designStart: "Conception des mises en situation…",
+    critiqueStart: "Relecture critique du parcours…",
+    critiqueOk: "Relecture : le parcours passe la barre, rien à reprendre",
+    critiqueFix: "Relecture : l'étape {n} « {label} » est réécrite",
     designDone_one: "Parcours complet : {count} étape",
     designDone_other: "Parcours complet : {count} étapes",
     designMinutes: ", ~{minutes} min",

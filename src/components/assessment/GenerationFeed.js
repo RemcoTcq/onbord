@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal } from "lucide-react";
+import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal, Brain, Eye, PencilLine } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { LOCALE_LABELS } from "@/lib/i18n/config";
 
@@ -87,6 +87,10 @@ function feedIcon(kind, size = 13) {
     case 'context': return <Building2 size={size} />;
     case 'brief': return <Target size={size} />;
     case 'design_start': return <Sparkles size={size} />;
+    case 'reflexion': return <Brain size={size} />;
+    case 'critique_start':
+    case 'critique_ok': return <Eye size={size} />;
+    case 'critique_fix': return <PencilLine size={size} />;
     case 'step': return <ListChecks size={size} />;
     case 'skill': return <Target size={size} />;
     case 'crm_start': return <Contact size={size} />;
@@ -137,7 +141,12 @@ function feedText(t, e) {
     case 'brief': return t('dashboard.generationFeed.brief');
     case 'locale':
       return t('dashboard.generationFeed.localeLine', { label: LOCALE_LABELS[e.locale] || e.locale });
+    case 'reflexion': return t('dashboard.generationFeed.reflexion');
     case 'design_start': return t('dashboard.generationFeed.designStart');
+    case 'critique_start': return t('dashboard.generationFeed.critiqueStart');
+    case 'critique_ok': return t('dashboard.generationFeed.critiqueOk');
+    case 'critique_fix':
+      return t('dashboard.generationFeed.critiqueFix', { n: e.n, label: e.label || t('dashboard.generationFeed.thisStep') });
     case 'design_done':
       return t('dashboard.generationFeed.designDone', { count: e.nbEtapes })
         + (e.minutes ? t('dashboard.generationFeed.designMinutes', { minutes: e.minutes }) : '');
