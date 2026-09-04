@@ -93,6 +93,46 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
    QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information non structurée d'un tiers et à la CONSIGNER correctement dans un outil — vente, SDR, business developer, support/SAV, ADV, ops, office management, assistanat.
    NE PAS choisir "crm" pour un poste purement technique, créatif ou managérial. AU PLUS UN step "crm" par expérience, et son "response_format" doit être "text".`;
 
+// ─── L'offre, telle qu'elle entre dans les prompts ───────────────────────────
+// Le défaut que ce bloc corrige, remonté à l'usage : une offre de vente
+// PARTENARIATS produisait des mises en situation de prospection client. Le
+// modèle ne lisait pas mal l'offre — il ne la recevait presque pas.
+//
+// Trois causes, et la troisième est la vraie :
+//   1. la description était coupée à 1200 caractères, là où une offre réelle en
+//      fait trois à cinq mille. Le passage qui disait « partenaires » passait
+//      régulièrement à la coupe ;
+//   2. `clean_description` — le résumé des missions et du profil, écrit à
+//      l'extraction PUIS relu et corrigé par le recruteur, donc le texte le plus
+//      juste et le plus dense du dossier — n'était transmis à AUCUN prompt ;
+//   3. rien ne disait au modèle à quoi sert quoi. Les compétences arrivaient en
+//      pleine lumière, l'offre en note de bas de page. Or « Négociation » et
+//      « Prospection » suffisent à évoquer un commercial : faute de mieux, il
+//      complétait avec le stéréotype du métier.
+//
+// La famille et la sous-famille sont ajoutées au titre : c'est souvent là que se
+// lit la nuance (Vente · Partenariats) quand le titre seul dit « Sales ».
+function blocOffre({ title, description, criteria }) {
+  const crit = criteria || {};
+  const missions = String(crit.clean_description || "").trim();
+  const famille = [crit.category, crit.sub_family].filter(Boolean).join(" · ");
+
+  return [
+    `POSTE : ${title || "Non précisé"}${famille ? ` — ${famille}` : ""}`,
+    missions
+      ? `MISSIONS ET PROFIL (résumé de l'offre, relu et corrigé par le recruteur — c'est la source la plus fiable) :\n${missions.slice(0, 1500)}`
+      : null,
+    `OFFRE D'EMPLOI (texte d'origine) :\n${(description || "").slice(0, 3500) || "Non fournie"}`,
+  ].filter(Boolean).join("\n\n");
+}
+
+// Ce que l'offre apporte et que les compétences n'apportent pas. Placé juste
+// avant les règles de conception, donc lu après l'offre elle-même.
+const REGLE_ANCRAGE_OFFRE = `ANCRAGE DANS CETTE OFFRE-CI — à lire avant de concevoir la moindre étape :
+Les compétences listées disent CE QU'IL FAUT MESURER. L'offre dit DANS QUEL MONDE : à qui le candidat s'adresse, ce qu'il cherche à obtenir d'eux, ce que l'entreprise vend, et à quoi ressemble une journée. Les deux sont indispensables et l'une ne remplace pas l'autre.
+NE RETOMBE JAMAIS SUR LA VERSION GÉNÉRIQUE DU MÉTIER. Un poste de vente peut viser des PARTENAIRES et non des clients ; un poste de support peut être interne ; un poste marketing peut ne jamais toucher au grand public ; un poste de recrutement peut ne sourcer que des profils techniques. Si l'offre parle de partenariats, les mises en situation mettent en scène des partenaires à convaincre de collaborer — jamais des prospects à qui vendre.
+Avant d'écrire la première étape, repère dans l'offre : à qui le candidat parle, ce qu'il attend d'eux, et ce qui rend CE poste différent d'un autre portant le même intitulé. Si une étape que tu viens d'écrire resterait vraie pour n'importe quelle offre du même intitulé, elle est à refaire.`;
+
 const REGLES_QCM = `RÈGLES QCM ANTI-BIAIS :
 - TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
 - Chaque distracteur doit être PLAUSIBLE pour quelqu'un qui connaît partiellement le sujet. Pas de réponses absurdes.
@@ -146,18 +186,18 @@ function buildExperienceGenerationPrompt({ title, description, criteria, company
 
 Tu es un concepteur d'évaluations de recrutement par compétences. À partir d'une offre et du contexte de l'entreprise, tu génères une EXPÉRIENCE DE PRÉSÉLECTION courte (5 à 20 minutes) qui fait la PREUVE des compétences du candidat — pas un questionnaire théorique.
 
-POSTE : ${title || "Non précisé"}
-DESCRIPTION :
-${(description || "").slice(0, 1200) || "Non fournie"}
+${blocOffre({ title, description, criteria })}
 
-COMPÉTENCES TECHNIQUES :
+COMPÉTENCES TECHNIQUES À MESURER :
 ${hard || "Non précisées"}
 
-SAVOIR-ÊTRE :
+SAVOIR-ÊTRE À MESURER :
 ${soft || "Non précisés"}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
+
+${REGLE_ANCRAGE_OFFRE}
 ${additionalContext ? `\nMATÉRIAU DU RECRUTEUR — issu de l'échange de conception, ET IL PRIME SUR TOUT LE RESTE :\n${additionalContext}\n\nCOMMENT T'EN SERVIR — c'est ce qui sépare un parcours que le recruteur reconnaît d'un parcours générique :\n- Les passages entre guillemets sont SES MOTS. Reprends-les TELS QUELS dans les énoncés, les messages client et les sources des mises en situation : le nom exact de son produit, la formulation exacte d'une objection, le vocabulaire de son marché. Ne les paraphrase pas, ne les traduis pas en langue de bois professionnelle.\n- S'il a raconté une situation qu'il a vécue, BÂTIS LA TÂCHE DESSUS plutôt que d'en inventer une autre. C'est la situation dont tu sais qu'elle arrive vraiment dans cette entreprise.\n- Un scénario qu'on pourrait recopier tel quel sur l'offre d'un concurrent est un scénario raté, même s'il respecte toutes les règles ci-dessous.\n` : ""}
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
 - "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
@@ -188,7 +228,7 @@ Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct
 // Passe séparée à dessein : un config.crm complet (deux sources rédigées) pèse
 // 600-900 tokens et refait dérailler la passe principale, qui a déjà été
 // tronquée par le passé (d'où max_tokens 8000). On isole le risque.
-function buildCrmScenarioPrompt({ title, description, companyContext, step, locale }) {
+function buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -205,8 +245,7 @@ Tu conçois une MISE EN SITUATION "fiche CRM" pour une évaluation de recrutemen
 
 Le candidat reçoit un brief réaliste et EN DÉSORDRE (comme dans la vraie vie), puis doit structurer cette information dans une fiche type CRM. On mesure sa capacité à EXTRAIRE et ORGANISER l'information — pas sa communication.
 
-POSTE : ${title || "Non précisé"}
-DESCRIPTION : ${(description || "").slice(0, 800) || "Non fournie"}
+${blocOffre({ title, description, criteria })}
 CONTEXTE ENTREPRISE :
 ${companyBlock}
 
@@ -263,7 +302,7 @@ Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
 // lit stdin et écrit stdout. Pas de dépendances, pas de fichiers, pas de réseau.
 // L'énoncé doit donc spécifier le format d'entrée et de sortie AU CARACTÈRE
 // PRÈS, sinon un bon candidat échoue sur la forme et le signal est faussé.
-function buildCodeExercisePrompt({ title, description, companyContext, step, locale }) {
+function buildCodeExercisePrompt({ title, description, criteria, companyContext, step, locale }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -279,8 +318,7 @@ Tu conçois un EXERCICE DE CODE EXÉCUTABLE pour une évaluation de recrutement.
 
 Le code du candidat sera exécuté automatiquement dans un bac à sable isolé, puis comparé à des sorties attendues. Cela impose des contraintes absolues, listées plus bas.
 
-POSTE : ${title || "Non précisé"}
-DESCRIPTION : ${(description || "").slice(0, 800) || "Non fournie"}
+${blocOffre({ title, description, criteria })}
 CONTEXTE ENTREPRISE :
 ${companyBlock}
 
@@ -318,8 +356,8 @@ Réponds UNIQUEMENT avec un JSON valide :
 }
 
 // Génère l'exercice exécutable d'un step "code" (2e passe).
-async function generateCodeExercise({ title, description, companyContext, step, locale, onEvent }) {
-  const prompt = buildCodeExercisePrompt({ title, description, companyContext, step, locale });
+async function generateCodeExercise({ title, description, criteria, companyContext, step, locale, onEvent }) {
+  const prompt = buildCodeExercisePrompt({ title, description, criteria, companyContext, step, locale });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const response = await streamCompletion({
@@ -396,8 +434,8 @@ const CRM_CROSS_CHECK_CRITERION = {
 };
 
 // Génère le scénario complet d'un step "crm" (2e passe).
-async function generateCrmScenario({ title, description, companyContext, step, locale, onEvent }) {
-  const prompt = buildCrmScenarioPrompt({ title, description, companyContext, step, locale });
+async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, onEvent }) {
+  const prompt = buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const scan = onEvent ? makeCrmScanner(onEvent) : null;
@@ -633,14 +671,12 @@ function buildCritiquePrompt({ title, description, criteria, companyContext, add
 
 Tu ne juges PAS la structure (nombre d'étapes, formats de réponse, champs manquants) : elle est vérifiée ailleurs. Tu juges ce qu'aucune vérification automatique ne voit — est-ce que ce parcours donne envie, est-ce qu'il est crédible, est-ce qu'il fera vraiment la différence entre un bon candidat et un moyen ?
 
-POSTE : ${title || "Non précisé"}
-DESCRIPTION :
-${(description || "").slice(0, 1000) || "Non fournie"}
+${blocOffre({ title, description, criteria })}
 
-COMPÉTENCES TECHNIQUES :
+COMPÉTENCES TECHNIQUES À MESURER :
 ${hard || "Non précisées"}
 
-SAVOIR-ÊTRE :
+SAVOIR-ÊTRE À MESURER :
 ${soft || "Non précisés"}
 
 CONTEXTE ENTREPRISE :
@@ -650,10 +686,11 @@ LE PARCOURS À RELIRE :
 ${rendreEtapesPourCritique(steps)}
 
 CE QUI EST BLOQUANT — et rien d'autre :
-1. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même métier. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché. C'est le défaut le plus fréquent et le plus coûteux.
-2. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
-${additionalContext ? `3. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `3. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}4. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
-5. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
+1. RÔLE TRAHI — le défaut le plus grave, vérifie-le en premier : la mise en situation met en scène la version GÉNÉRIQUE du métier au lieu de ce que dit l'offre. Des clients à qui vendre là où l'offre parle de PARTENAIRES à convaincre de collaborer, du grand public là où elle parle de B2B, des utilisateurs externes là où le support est interne. Relis à qui le candidat s'adresse dans l'offre, puis à qui il s'adresse dans l'étape : si ce n'est pas la même personne, c'est bloquant.
+2. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même intitulé. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché.
+3. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
+${additionalContext ? `4. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `4. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}5. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
+6. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
 
 CE QUI N'EST PAS BLOQUANT : une tournure perfectible, une longueur, une préférence de ton, un choix de format discutable, une orthographe. Ne les signale pas.
 
@@ -900,7 +937,7 @@ export async function generateExperienceContent({ title, description, criteria, 
           // Sandbox code : 2e passe elle aussi, pour la même raison que le CRM.
           if (s.sandbox_kind === "code") {
             onEvent?.({ kind: "code_start", label: s.title || null });
-            const exercice = await generateCodeExercise({ title, description, companyContext, step: s, locale, onEvent });
+            const exercice = await generateCodeExercise({ title, description, criteria, companyContext, step: s, locale, onEvent });
             if (!exercice.success) {
               // Pas d'exercice exécutable = pas de sandbox code. L'étape retombe
               // en tâche texte plutôt que d'afficher un éditeur sans tests.
@@ -921,7 +958,7 @@ export async function generateExperienceContent({ title, description, criteria, 
           }
           if (s.sandbox_kind !== "crm") continue;
           onEvent?.({ kind: "crm_start", label: s.title || null });
-          const scenario = await generateCrmScenario({ title, description, companyContext, step: s, locale, onEvent });
+          const scenario = await generateCrmScenario({ title, description, criteria, companyContext, step: s, locale, onEvent });
           if (!scenario.success) {
             // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
             // simple plutôt que d'exposer une fiche vide au candidat.
@@ -1181,18 +1218,18 @@ Tu es un concepteur d'évaluations de recrutement par compétences. Tu dois RÉ�
 
 Tu ne produis QUE cette étape. Les autres ne sont là que pour te situer : n'y touche pas, ne les reprends pas, ne les recopie pas.
 
-POSTE : ${title || "Non précisé"}
-DESCRIPTION :
-${(description || "").slice(0, 1200) || "Non fournie"}
+${blocOffre({ title, description, criteria })}
 
-COMPÉTENCES TECHNIQUES :
+COMPÉTENCES TECHNIQUES À MESURER :
 ${hard || "Non précisées"}
 
-SAVOIR-ÊTRE :
+SAVOIR-ÊTRE À MESURER :
 ${soft || "Non précisés"}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
+
+${REGLE_ANCRAGE_OFFRE}
 
 LES AUTRES ÉTAPES DE L'EXPÉRIENCE (contexte — ne les régénère pas, et évite de faire doublon avec elles) :
 ${voisines}
@@ -1394,8 +1431,14 @@ export async function runStepRegeneration(stepId, instruction) {
         const scenario = await generateCrmScenario({
           title: job.title,
           description: job.description,
+          criteria: job.extracted_criteria || {},
           companyContext,
           step: { ...nouveau, config: nouveau.config || {} },
+          // `locale` manquait ici, et le défaut ne se voyait pas depuis le
+          // français : un scénario CRM refait sur une expérience néerlandaise
+          // repartait avec des sources en français, au milieu d'un parcours qui,
+          // lui, était bien en néerlandais.
+          locale: coerceExperienceLocale(job.experience_locale),
         });
         if (scenario.success) {
           usage = cumulerUsage(usage, scenario.usage);
