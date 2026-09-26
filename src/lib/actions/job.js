@@ -4,8 +4,17 @@ import anthropic from "../anthropic";
 import { buildJobExtractionPrompt, SYSTEME_EXTRACTION } from "@/lib/jobExtractionPrompt";
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
-import { factureCreationOffre, chargeCredits } from "@/lib/utils/limits";
+import { checkCredits } from "@/lib/utils/limits";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
+
+const CECR_VERS_NIVEAU = { A1: 1, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
+
+function niveauEntier(brut) {
+  const cecr = CECR_VERS_NIVEAU[String(brut ?? "").trim().toUpperCase()];
+  if (cecr) return cecr;
+  const n = Math.round(Number(brut));
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 5) : 3;
+}
 
 /**
  * Analyzes a raw job description using Claude 3.5 Sonnet to extract structured criteria.
@@ -35,16 +44,16 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  // ── Facturation : 6 crédits, ici et une seule fois ────────────────────────
-  // C'est le forfait « création d'offre » en entier. L'extraction qui suit, le
-  // choix des compétences, la génération de la simulation, ses régénérations et
-  // sa publication ne coûtent plus rien : tout est déjà payé par ce débit.
+  // ── Facturation : un contrôle, pas un débit ────────────────────────────────
+  // Les 6 crédits sont débités quand l'agent a créé la simulation
+  // (factureGenerationSimulation, lib/experienceGeneration.js), plus ici : une
+  // offre analysée puis abandonnée ne coûte plus rien.
   //
-  // Il tombe AVANT l'appel au modèle, et il BLOQUE. Facturé plus loin — à la
-  // publication, par exemple — un compte à sec aurait quand même consommé
-  // l'extraction, puis la génération, puis les régénérations, gratuitement.
-  const facture = await factureCreationOffre(user.id);
-  if (!facture.success) throw new Error(facture.error || "Crédits insuffisants.");
+  // Mais l'extraction est un appel au modèle. On refuse donc, AVANT lui, un
+  // compte qui ne pourrait pas payer la simulation à laquelle elle mène —
+  // sinon un compte à sec analyserait des offres à volonté, gratuitement.
+  const solde = await checkCredits(user.id, CREDIT_COSTS.simulation_generation);
+  if (!solde.allowed) throw new Error(solde.error || "Crédits insuffisants.");
 
   let uiLocale = "fr";
   {
@@ -111,7 +120,14 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
     if (debut === -1 || fin <= debut) {
       throw new Error("L'IA n'a pas renvoyé un format JSON valide.");
     }
-    return JSON.parse(textResponse.slice(debut, fin + 1));
+    const extrait = JSON.parse(textResponse.slice(debut, fin + 1));
+    // Le curseur du formulaire et le prompt de scoring lisent un entier de 1 à
+    // 5. Le schéma demandé décrit le niveau en toutes lettres (échelle CECR) :
+    // un modèle qui renverrait « 4 » en chaîne, ou « C1 », casserait le curseur.
+    if (Array.isArray(extrait.languages)) {
+      extrait.languages = extrait.languages.map((l) => ({ ...l, level: niveauEntier(l?.level) }));
+    }
+    return extrait;
   } catch (error) {
     console.error("Error analyzing job description:", error);
     throw new Error(error.message || "Impossible d'analyser l'offre pour le moment. Veuillez réessayer.");
@@ -130,31 +146,23 @@ export async function createRoleQuick(title, description) {
     if (!user) return { success: false, error: "Non authentifié" };
 
     let criteria = {};
-    let factureFaite = false;
     if (description && description.trim().length >= 50) {
       // 'fr' explicite : cet écran n'offre pas de choix de langue, le poste est
       // donc créé avec le défaut de la colonne experience_locale. Analyser dans
       // une autre langue que celle qui sera stockée n'aurait aucun sens.
-      // analyzeJobDescription porte déjà le débit des 6 crédits. Si elle échoue
-      // APRÈS lui (modèle indisponible, JSON illisible), l'offre se crée quand
-      // même et le forfait reste consommé : l'IA a bien tourné. Seul un refus
-      // de facturation doit remonter au recruteur, d'où le test sur le message.
+      // Rien n'est débité ici : les 6 crédits tombent quand l'agent aura créé
+      // la simulation. Seul un solde insuffisant — refusé par
+      // analyzeJobDescription avant d'appeler le modèle — doit remonter au
+      // recruteur, d'où le test sur le message. Toute autre panne d'analyse
+      // laisse créer l'offre, sans critères.
       try {
         criteria = await analyzeJobDescription(description, "fr");
-        factureFaite = true;
       } catch (e) {
         if ((e.message || "").startsWith("Crédits insuffisants")) return { success: false, error: e.message };
-        factureFaite = true;
         console.error("analyse offre (non bloquant):", e.message);
       }
     }
 
-    // Offre créée sans extraction (description trop courte, ou absente) : le
-    // forfait reste dû. La simulation qui suivra est le gros de ce qu'il paie.
-    if (!factureFaite) {
-      const facture = await chargeCredits(user.id, CREDIT_COSTS.job_creation);
-      if (!facture.success) return { success: false, error: facture.error || "Crédits insuffisants." };
-    }
     const finalTitle = (title && title.trim()) || criteria?.title || "Nouveau poste";
 
     const { data: job, error } = await supabase
@@ -221,6 +229,13 @@ export async function updateJobAiConfig(jobId, config) {
  * pour les compétences non-testables. (Phase 2.3)
  */
 export async function generateInterviewQuestions(jobData, interviewSkills) {
+  // Point d'entrée HTTP public (server action) qui appelle le modèle sur un
+  // texte fourni par l'appelant : réservé à un recruteur connecté.
+  {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié", questions: [], decisive_criteria: [] };
+  }
   if (!interviewSkills || interviewSkills.length === 0) {
     return { success: true, questions: [], decisive_criteria: [] };
   }

@@ -324,6 +324,11 @@ export async function saveTestAnswer(sessionId, answer) {
 export async function completeTestSession(sessionId, questionIds) {
   try {
     const supabase = await createClient();
+    // Plus appelée nulle part depuis le passage aux simulations, mais toujours
+    // exposée (server action = point d'entrée HTTP public) et elle appelle le
+    // modèle. Fermée aux sessions anonymes plutôt que laissée ouverte.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
 
     const { data: session } = await supabase
       .from("candidate_test_sessions")
@@ -752,6 +757,9 @@ export async function saveOpenAnswer(sessionId, questionId, textAnswer, timeSeco
 export async function completeOpenTestSession(sessionId, questionIds) {
   try {
     const supabase = await createClient();
+    // Même cas que completeTestSession : plus appelée, toujours exposée.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
 
     const { data: session } = await supabase
       .from("candidate_test_sessions")
@@ -1111,10 +1119,15 @@ export async function getVideoQuestionLibrary() {
 export async function generateVideoQuestions(jobId) {
   try {
     const supabase = await createClient();
+    // Session ET propriété vérifiées ici, pas laissées à la RLS : ce qui est
+    // en jeu n'est pas la lecture de l'offre, c'est l'appel au modèle qui suit.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
     const { data: job } = await supabase
       .from("jobs")
       .select("title, description, extracted_criteria")
       .eq("id", jobId)
+      .eq("user_id", user.id)
       .single();
 
     if (!job) return { success: false, error: "Job not found" };

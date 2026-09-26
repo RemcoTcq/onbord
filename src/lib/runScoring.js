@@ -3,6 +3,7 @@ import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName } from "@/lib/crmScoring";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
+import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 import { factureNotationCandidat } from "@/lib/utils/limits";
 
@@ -351,9 +352,13 @@ export async function scoreRun(runId) {
     const revision = crmMeta?.warned
       ? `  Signal : averti une fois qu'une information ne correspondait pas aux sources (sans savoir laquelle), le candidat a ${crmMeta.revised ? "repris" : "laissé tel quel"} le contenu de sa fiche.\n`
       : "";
+    // La scène que le candidat avait sous les yeux (message client, fiche du
+    // prospect, contexte du document) : sans elle, le correcteur notait un
+    // e-mail de prospection sans savoir à qui il s'adressait.
+    const scene = sceneEnTexte(s.config, "    ");
     return `ÉTAPE ${i + 1} — ${s.title || s.kind} (step_id: ${s.id})
   Énoncé : ${s.prompt}
-${trap ? `${trap}\n` : ""}${revision}${copie}  Réponse du candidat :
+${scene ? `  Mise en situation remise au candidat :\n${scene}\n` : ""}${trap ? `${trap}\n` : ""}${revision}${copie}  Réponse du candidat :
   """${answer}"""
   Compétence évaluée : ${skill || "(non précisée)"}
   Sous-dimensions à noter :
@@ -366,6 +371,7 @@ Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une traj
 
 RÈGLES ABSOLUES :
 - Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
+- MISE EN SITUATION : quand une étape porte une « Mise en situation remise au candidat », juge la réponse AU REGARD de cette scène — une réponse client sur ce qu'elle répond au message reçu, un e-mail de prospection sur ce qu'il fait de ce qu'on savait du prospect. Le candidat l'avait sous les yeux : un détail de la scène qu'il ignore compte, un détail qu'il invente aussi. Si l'énoncé lui demandait de répondre dans une langue donnée, une réponse dans cette langue est la réponse attendue, jamais un écart.
 - Justifie chaque note et cite un VERBATIM : un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle). Si rien de pertinent, verbatim = "" et note basse.
 - RECOPIAGE : quand une étape porte la ligne « RECOPIAGE MESURÉ », la réponse n'est pas le travail du candidat, c'est celui de l'assistant, collé. Note alors les sous-dimensions sur CE QUE LE CANDIDAT A PRODUIT — c'est-à-dire rien, ou presque : niveau 1 ou 2, jamais plus, quelle que soit la qualité apparente du texte. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le explicitement dans la justification, sans détour.
 - La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.

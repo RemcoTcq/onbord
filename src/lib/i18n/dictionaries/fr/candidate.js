@@ -165,6 +165,7 @@ const candidate = {
     chatTitle: "Chat interne / client",
     chatPlaceholder: "Votre réponse dans le chat…",
     chatSampleMessage: "Pouvez-vous m'expliquer pourquoi cette solution est préférable ?",
+    brief: { title: "Contexte", to: "Destinataire", subject: "Objet" },
     docTitle: "Document d'architecture / conception",
     docPlaceholder: "# Architecture proposée…",
     codeTitle: "Éditeur de code (sandbox)",

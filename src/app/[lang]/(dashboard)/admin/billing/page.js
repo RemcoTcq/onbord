@@ -5,7 +5,7 @@ import { useLocaleHref } from "@/lib/i18n/navigation";
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { adminAddCredits, adminChangePlan, adminListUserUsage } from "@/lib/actions/usage";
+import { adminAddCredits, adminChangePlan, adminChangeCycle, adminListUserUsage } from "@/lib/actions/usage";
 import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
@@ -68,12 +68,30 @@ export default function AdminBillingPage() {
     setActionLoading(prev => ({ ...prev, [`plan_${userId}`]: false }));
   }
 
+  // Mensuel / annuel. En annuel, `debut` (« AAAA-MM ») fixe le mois où l'année
+  // a commencé ; absent, c'est le mois en cours. Le solde n'est pas touché.
+  async function handleChangeCycle(userId, cycle, debut) {
+    setActionLoading(prev => ({ ...prev, [`cycle_${userId}`]: true }));
+    const res = await adminChangeCycle(userId, cycle, debut);
+    if (res.success) {
+      setUsers(prev => prev.map(u =>
+        u.user_id === userId
+          ? { ...u, billing_cycle: res.usage?.billing_cycle, cycle_start: res.usage?.cycle_start, renewal_date: res.renewalDate }
+          : u
+      ));
+      toast(t("dashboard.admin.cycles.updated"));
+    } else {
+      toast("Erreur : " + res.error, "error");
+    }
+    setActionLoading(prev => ({ ...prev, [`cycle_${userId}`]: false }));
+  }
+
   async function handleAddCredits(userId, amount) {
     setActionLoading(prev => ({ ...prev, [`credits_${userId}`]: true }));
     const res = await adminAddCredits(userId, amount);
     if (res.success) {
       setUsers(prev => prev.map(u =>
-        u.user_id === userId ? { ...u, credits_balance: res.newBalance } : u
+        u.user_id === userId ? { ...u, credits_balance: res.newBalance, credits_allocated: res.newAllocated ?? u.credits_allocated } : u
       ));
       toast(`+${amount} crédits ajoutés ✓`);
     } else {
@@ -200,6 +218,33 @@ export default function AdminBillingPage() {
                       ))}
                     </select>
                     {isPlanLoading && <Loader2 size={12} style={{ marginLeft: "6px", animation: "spin 1s linear infinite", display: "inline" }} />}
+
+                    {/* Cycle de facturation — sans objet pour un compte illimité. */}
+                    {!PLANS[u.plan]?.illimite && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                        <select
+                          value={u.billing_cycle === "annual" ? "annual" : "monthly"}
+                          onChange={e => handleChangeCycle(u.user_id, e.target.value)}
+                          disabled={actionLoading[`cycle_${u.user_id}`]}
+                          style={{ padding: "3px 8px", borderRadius: "6px", fontSize: "11px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
+                        >
+                          <option value="monthly">{t("dashboard.admin.cycles.monthly")}</option>
+                          <option value="annual">{t("dashboard.admin.cycles.annual")}</option>
+                        </select>
+                        {u.billing_cycle === "annual" && (
+                          <input
+                            type="month"
+                            title={t("dashboard.admin.cycles.since")}
+                            aria-label={t("dashboard.admin.cycles.since")}
+                            value={u.cycle_start ? String(u.cycle_start).slice(0, 7) : ""}
+                            max={new Date().toISOString().slice(0, 7)}
+                            onChange={e => e.target.value && handleChangeCycle(u.user_id, "annual", e.target.value)}
+                            disabled={actionLoading[`cycle_${u.user_id}`]}
+                            style={{ padding: "2px 6px", borderRadius: "6px", fontSize: "11px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)" }}
+                          />
+                        )}
+                      </div>
+                    )}
                   </td>
 
                   {/* Crédits restants */}
@@ -212,9 +257,11 @@ export default function AdminBillingPage() {
                     </div>
                   </td>
 
-                  {/* Alloués/mois */}
+                  {/* Alloués/mois — l'allocation du PLAN. credits_allocated compte
+                      aussi le report d'un compte annuel : ce n'est pas le même
+                      nombre. */}
                   <td style={{ padding: "14px 16px", fontSize: "13px", color: "var(--muted-foreground)" }}>
-                    {u.credits_allocated}
+                    {PLANS[u.plan]?.creditsPerMonth ?? u.credits_allocated}
                   </td>
 
                   {/* Reset */}
@@ -225,6 +272,11 @@ export default function AdminBillingPage() {
                           locale
                         )
                       : "—"}
+                    {u.renewal_date && (
+                      <div style={{ marginTop: "2px" }}>
+                        {t("dashboard.admin.cycles.renewal", { date: formatDateShort(u.renewal_date, locale) })}
+                      </div>
+                    )}
                   </td>
 
                   {/* Actions — Ajout de crédits */}
@@ -235,7 +287,7 @@ export default function AdminBillingPage() {
                           key={pack.id}
                           onClick={() => handleAddCredits(u.user_id, pack.credits)}
                           disabled={isCreditsLoading}
-                          title={`+${pack.credits} crédits (${pack.price}€)`}
+                          title={`+${pack.credits} crédits`}
                           style={{
                             padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700",
                             background: "var(--secondary)", color: "var(--foreground)",

@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { getUserCreditInfo } from "@/lib/actions/usage";
 import { Zap, RefreshCw, Mail, ChevronRight, Sparkles, CreditCard } from "lucide-react";
-import { PLANS, CREDIT_COSTS, COUT_CANDIDAT_COMPLET, EXTRA_CREDIT_PRICING } from "@/lib/constants/plans";
+import { PLANS, CREDIT_COSTS, COUT_CANDIDAT_COMPLET } from "@/lib/constants/plans";
 
 function CreditBar({ value, total, color }) {
   const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 100;
@@ -52,7 +52,6 @@ export default function BillingPage() {
 
   // info.plan sort déjà de planVisible() : un bêta-testeur y lit « core ».
   const planDetails = PLANS[info.plan];
-  const extraPrice = EXTRA_CREDIT_PRICING[info.plan] ?? null;
 
   return (
     <div className="fade-in" style={{ maxWidth: "720px" }}>
@@ -80,8 +79,13 @@ export default function BillingPage() {
             {planDetails && (
               <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
                 {isUnlimited ? t("dashboard.billing.unlimitedCredits") : t("dashboard.billing.creditsPerMonth", { count: planDetails.creditsPerMonth })}
-                {planDetails.priceAnnual !== null && planDetails.priceAnnual > 0 && (
+                {/* Le prix affiché est celui du cycle du compte, plus toujours
+                    celui de l'annuel. */}
+                {!isUnlimited && info.cycle === "annual" && planDetails.priceAnnual > 0 && (
                   <span> · {t("dashboard.billing.pricePerMonthAnnual", { price: planDetails.priceAnnual })}</span>
+                )}
+                {!isUnlimited && info.cycle !== "annual" && planDetails.priceMonthly > 0 && (
+                  <span> · {t("dashboard.billing.pricePerMonth", { price: planDetails.priceMonthly })}</span>
                 )}
               </p>
             )}
@@ -99,10 +103,22 @@ export default function BillingPage() {
               </span>
             </div>
             <CreditBar value={info.credits_balance} total={info.credits_allocated} color={creditColor} />
-            {nextReset && (
+            {nextReset && info.cycle !== "annual" && (
               <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "8px" }}>
                 🔄 {t("dashboard.billing.autoReset")} <strong>{nextReset}</strong>
               </p>
+            )}
+            {/* Annuel : la recharge S'AJOUTE au solde, et le report s'éteint au
+                renouvellement (voir CYCLES, constants/plans.js). */}
+            {nextReset && info.cycle === "annual" && (
+              <>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "8px" }}>
+                  🔄 {t("dashboard.billing.nextRefill", { count: planDetails?.creditsPerMonth ?? 0 })} <strong>{nextReset}</strong>
+                </p>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "4px", lineHeight: 1.5 }}>
+                  {t("dashboard.billing.rolloverHelp", { date: info.renewalDate ? formatDateLong(info.renewalDate, locale) : "—" })}
+                </p>
+              </>
             )}
           </>
         ) : (
@@ -112,7 +128,7 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Coût des actions — deux opérations, et deux seulement. */}
+      {/* Coût des actions — trois opérations, et trois seulement. */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
         <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
           <Sparkles size={14} style={{ color: "var(--primary)" }} /> {t("dashboard.billing.costPerAction")}
@@ -125,7 +141,14 @@ export default function BillingPage() {
               label: t("dashboard.billing.createJob"),
               help: t("dashboard.billing.createJobHelp"),
               unit: t("dashboard.billing.perJobUnit"),
-              cost: CREDIT_COSTS.job_creation,
+              cost: CREDIT_COSTS.simulation_generation,
+            },
+            {
+              icon: "✏️",
+              label: t("dashboard.billing.regenerateStep"),
+              help: t("dashboard.billing.regenerateStepHelp"),
+              unit: t("dashboard.billing.perStepUnit"),
+              cost: CREDIT_COSTS.step_regeneration,
             },
             {
               icon: "🏁",
@@ -172,37 +195,9 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Crédits supplémentaires — sans objet sur un compte illimité. */}
-      {!isUnlimited && (
-      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <h3 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "4px" }}>{t("dashboard.billing.extraCredits")}</h3>
-        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
-          {t("dashboard.billing.extraCreditsHelp")}
-        </p>
-        <div style={{
-          padding: "1.25rem", borderRadius: "12px", border: "1px solid var(--border)",
-          background: "var(--background)", display: "flex", justifyContent: "space-between", alignItems: "center"
-        }}>
-          <div>
-            <div style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "4px" }}>{t("dashboard.billing.pricePerExtraCredit")}</div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--foreground)" }}>
-              {extraPrice !== null ? `${extraPrice.toFixed(2).replace('.', ',')} €` : t("dashboard.billing.onQuote")}
-            </div>
-          </div>
-          <a
-            href="mailto:hello@onbord.be"
-            style={{
-              background: "var(--foreground)", color: "white", padding: "8px 16px",
-              borderRadius: "8px", fontSize: "13px", fontWeight: "700",
-              textDecoration: "none", display: "flex", alignItems: "center", gap: "6px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <Mail size={14} /> {t("dashboard.billing.order")}
-          </a>
-        </div>
-      </div>
-      )}
+      {/* Plus d'encart « crédits supplémentaires » : l'achat de crédits à l'unité
+          a été retiré de l'offre (voir constants/plans.js). Un compte à court
+          passe par le contact ci-dessous. */}
 
       {/* CTA contact */}
       <div style={{

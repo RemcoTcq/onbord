@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { runExperienceGeneration, generateExperienceContent as runGenerationContent, runStepRegeneration } from "@/lib/experienceGeneration";
+import { runExperienceGeneration, runStepRegeneration } from "@/lib/experienceGeneration";
 import { chargerExperienceCourante } from "@/lib/experienceChat";
 
 // ─── Génération ───────────────────────────────────────────────────────────────
@@ -14,10 +14,13 @@ export async function generateExperience(jobId, additionalContext = "") {
   return runExperienceGeneration(jobId, additionalContext, null);
 }
 
-// Génération sans persistance (tests / démo hors repo).
-export async function generateExperienceContent(args) {
-  return runGenerationContent(args);
-}
+// Il y avait ici `generateExperienceContent(args)` : la génération SANS
+// persistance, exposée pour « tests / démo hors repo ». Dans un module
+// "use server", tout export est un point d'entrée HTTP public — celui-ci ne
+// vérifiait ni session, ni offre, ni crédits : n'importe qui pouvait faire
+// tourner le modèle aux frais d'Onbord. Personne ne l'appelait. Retiré le
+// 25/09/2026. La fonction pure reste dans lib/experienceGeneration.js pour un
+// banc local, qui l'importe directement, sans passer par HTTP.
 
 // ─── Régénération ciblée d'une étape ──────────────────────────────────────────
 // Le pendant assisté de updateStep : même écriture EN PLACE, même absence de

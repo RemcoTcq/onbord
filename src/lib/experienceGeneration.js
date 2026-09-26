@@ -15,6 +15,10 @@ import { crmSkillName } from "@/lib/crmScoring";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { consigneLangueContenu, consigneLangueEtapes } from "@/lib/i18n/prompt";
 import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
+import { niveauLangueLisible } from "@/lib/i18n/languages";
+import { sceneEnTexte } from "@/lib/sceneEtape";
+import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureRegenerationEtape } from "@/lib/utils/limits";
+import { CREDIT_COSTS } from "@/lib/constants/plans";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 const GENERATION_MODEL = "claude-sonnet-4-6";
@@ -85,7 +89,7 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
 8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
-   - Pour "email" : config.to, config.subject, config.context
+   - Pour "email" : config.to (le destinataire : nom, fonction, entreprise), config.subject (l'objet s'il est imposé, par exemple une réponse « Re : … » ; chaîne vide si c'est au candidat de l'écrire — jamais un texte entre crochets), config.context (la fiche remise au candidat : qui est le destinataire, où, pourquoi lui écrire — c'est tout ce que le candidat saura de lui). Les trois sont rédigés dans la langue de la scène quand elle diffère de celle du parcours (voir l'exception de langue en tête)
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
    - Pour "document" : config.document_context
    - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation. Le scénario détaillé sera produit dans un second temps ; ne génère PAS les sources ni les champs ici.
@@ -112,15 +116,28 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
 //
 // La famille et la sous-famille sont ajoutées au titre : c'est souvent là que se
 // lit la nuance (Vente · Partenariats) quand le titre seul dit « Sales ».
+//
+// Les langues exigées, elles, n'arrivaient dans AUCUN prompt de génération : le
+// recruteur réglait « Français C2 » sur une offre anglaise, et le modèle n'en
+// savait rien. C'est pourtant ce qui dit dans quelle langue se joue la scène
+// (consigneLangueScene, lib/i18n/prompt.js). Elles sont données en CECR, parce
+// que « 5 » ne veut rien dire pour le modèle et « C2 » tout.
 function blocOffre({ title, description, criteria }) {
   const crit = criteria || {};
   const missions = String(crit.clean_description || "").trim();
   const famille = [crit.category, crit.sub_family].filter(Boolean).join(" · ");
+  const langues = (crit.languages || [])
+    .filter((l) => l?.name)
+    .map((l) => `${l.name} — ${niveauLangueLisible(l.level)}`)
+    .join(" ; ");
 
   return [
     `POSTE : ${title || "Non précisé"}${famille ? ` — ${famille}` : ""}`,
     missions
       ? `MISSIONS ET PROFIL (résumé de l'offre, relu et corrigé par le recruteur — c'est la source la plus fiable) :\n${missions.slice(0, 1500)}`
+      : null,
+    langues
+      ? `LANGUES EXIGÉES PAR LE POSTE : ${langues}\n(Elles aident à savoir dans quelle langue le candidat parlera à ses interlocuteurs. Jamais une raison de créer une étape qui teste la langue.)`
       : null,
     `OFFRE D'EMPLOI (texte d'origine) :\n${(description || "").slice(0, 3500) || "Non fournie"}`,
   ].filter(Boolean).join("\n\n");
@@ -131,7 +148,7 @@ function blocOffre({ title, description, criteria }) {
 const REGLE_ANCRAGE_OFFRE = `ANCRAGE DANS CETTE OFFRE-CI — à lire avant de concevoir la moindre étape :
 Les compétences listées disent CE QU'IL FAUT MESURER. L'offre dit DANS QUEL MONDE : à qui le candidat s'adresse, ce qu'il cherche à obtenir d'eux, ce que l'entreprise vend, et à quoi ressemble une journée. Les deux sont indispensables et l'une ne remplace pas l'autre.
 NE RETOMBE JAMAIS SUR LA VERSION GÉNÉRIQUE DU MÉTIER. Un poste de vente peut viser des PARTENAIRES et non des clients ; un poste de support peut être interne ; un poste marketing peut ne jamais toucher au grand public ; un poste de recrutement peut ne sourcer que des profils techniques. Si l'offre parle de partenariats, les mises en situation mettent en scène des partenaires à convaincre de collaborer — jamais des prospects à qui vendre.
-Avant d'écrire la première étape, repère dans l'offre : à qui le candidat parle, ce qu'il attend d'eux, et ce qui rend CE poste différent d'un autre portant le même intitulé. Si une étape que tu viens d'écrire resterait vraie pour n'importe quelle offre du même intitulé, elle est à refaire.`;
+Avant d'écrire la première étape, repère dans l'offre : à qui le candidat parle, DANS QUELLE LANGUE il leur parle, ce qu'il attend d'eux, et ce qui rend CE poste différent d'un autre portant le même intitulé. Si une étape que tu viens d'écrire resterait vraie pour n'importe quelle offre du même intitulé, elle est à refaire.`;
 
 const REGLES_QCM = `RÈGLES QCM ANTI-BIAIS :
 - TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
@@ -265,7 +282,8 @@ RÈGLES DE CONCEPTION :
 5. Pour un champ "select", les options doivent être un vocabulaire métier plausible (4 à 5 options), et l'attendu doit être EXACTEMENT l'une des options.
 6. Le type "date" est réservé aux échéances DATÉES ; son "expected" doit alors être au format jj/mm/aaaa et cette date doit figurer dans une source. Si la source ne donne qu'une échéance vague ("fin juin", "avant l'été"), utilise le type "text".
 7. ÉNONCÉ : réécris l'énoncé de l'étape ("step_prompt"). Il doit être COURT (2 à 3 phrases), poser la scène et demander de compléter la fiche à partir des documents affichés. Il ne doit SURTOUT PAS contenir les informations à extraire (ni le nom, ni les chiffres, ni l'échéance) : tout doit se trouver uniquement dans les sources, sinon l'exercice n'a plus d'objet. Il ne doit pas non plus mentionner qu'il y a une contradiction.
-8. Aucun emoji. Vouvoiement. Français professionnel.
+8. LANGUE DE LA SCÈNE (voir l'exception en tête) : si les interlocuteurs du poste parlent une autre langue que celle du parcours, les SOURCES sont rédigées dans leur langue — ce sont leurs e-mails et leurs appels. "step_prompt", "record_title" et les "label" des champs restent dans la langue du parcours. Les "expected" des champs "factual" sont recopiés des sources, donc dans la langue des sources : ils sont comparés mot pour mot. Le "step_prompt" ne doit donc JAMAIS demander de traduire la fiche ni de « tout remplir en » une langue : il peut demander de rédiger les champs de synthèse dans la langue de l'équipe, mais il précise que les valeurs factuelles (noms, intitulés, chiffres) se recopient telles qu'elles figurent dans les sources. Un candidat qui traduirait un intitulé de poste obéirait à l'énoncé et serait compté faux.
+9. Aucun emoji. Vouvoiement. Registre professionnel.
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
@@ -312,7 +330,9 @@ function buildCodeExercisePrompt({ title, description, criteria, companyContext,
   const langages = Object.entries(CODE_LANGUAGES)
     .map(([cle, l]) => `"${cle}" (${l.label})`).join(", ");
 
-  return `${consigneLangueContenu(locale)}
+  // Pas d'exception de langue de la scène : un exercice de code n'a pas
+  // d'interlocuteur, elle n'y serait que du bruit.
+  return `${consigneLangueContenu(locale, { scene: false })}
 
 Tu conçois un EXERCICE DE CODE EXÉCUTABLE pour une évaluation de recrutement.
 
@@ -644,7 +664,10 @@ function rendreEtapesPourCritique(steps) {
       `  Titre : ${s.title || "sans titre"}`,
       s.skill_assessed ? `  Compétence évaluée : ${s.skill_assessed}` : null,
       `  Énoncé : ${(s.prompt || "").replace(/\s+/g, " ").trim()}`,
-      s.config?.client_message ? `  Message client : ${String(s.config.client_message).replace(/\s+/g, " ").trim()}` : null,
+      // La scène entière, fiche du prospect comprise : sans elle, le critique
+      // jugeait une tâche de prospection sur son seul énoncé — et ne pouvait
+      // pas voir dans quelle langue la scène était jouée.
+      sceneEnTexte(s.config, "  ") || null,
       s.config?.crm_brief ? `  Situation CRM prévue : ${s.config.crm_brief}` : null,
       s.config?.code_brief ? `  Tâche de code prévue : ${s.config.code_brief}` : null,
       sousDims ? `  Sous-dimensions :\n${sousDims}` : null,
@@ -687,17 +710,18 @@ ${rendreEtapesPourCritique(steps)}
 
 CE QUI EST BLOQUANT — et rien d'autre :
 1. RÔLE TRAHI — le défaut le plus grave, vérifie-le en premier : la mise en situation met en scène la version GÉNÉRIQUE du métier au lieu de ce que dit l'offre. Des clients à qui vendre là où l'offre parle de PARTENAIRES à convaincre de collaborer, du grand public là où elle parle de B2B, des utilisateurs externes là où le support est interne. Relis à qui le candidat s'adresse dans l'offre, puis à qui il s'adresse dans l'étape : si ce n'est pas la même personne, c'est bloquant.
-2. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même intitulé. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché.
-3. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
-${additionalContext ? `4. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `4. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}5. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
-6. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
+2. SCÈNE JOUÉE DANS LA MAUVAISE LANGUE : l'offre dit que le candidat parlera à ses interlocuteurs dans une autre langue que celle du parcours — une entreprise anglophone qui recrute pour attaquer le marché francophone, par exemple — et l'étape fait pourtant parler ces interlocuteurs dans la langue du parcours : l'objection citée, le message client, la fiche du prospect à contacter (le contexte d'un e-mail à écrire), les sources. Ou elle ne dit pas au candidat de leur répondre dans leur langue. L'énoncé, lui, peut rester dans la langue du parcours : c'est la SCÈNE qui doit changer de langue. Ne le signale PAS si l'offre ne dit rien de tel.
+3. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même intitulé. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché.
+4. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
+${additionalContext ? `5. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `5. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}6. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
+7. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
 
 CE QUI N'EST PAS BLOQUANT : une tournure perfectible, une longueur, une préférence de ton, un choix de format discutable, une orthographe. Ne les signale pas.
 
 RÈGLES DE JUGEMENT — lis-les avant de répondre :
 - Un parcours correct est le cas NORMAL. Si rien n'est bloquant, dis-le : "publiable", liste vide. Ne cherche pas un défaut pour en trouver un — faire réécrire une étape correcte est un dommage, pas une amélioration.
 - Signale AU PLUS ${CRITIQUE_MAX_REECRITURES} étapes. Si tu en vois plus, garde les plus graves : celles qu'un candidat remarquerait.
-- Pour CHAQUE problème, "extrait_fautif" doit être un passage RECOPIÉ MOT POUR MOT depuis l'étape (énoncé, titre, ou description d'un niveau). Ne le traduis pas, ne le reformule pas, ne l'abrège pas : il est vérifié automatiquement contre le texte de l'étape, et un extrait introuvable fait écarter ton signalement.
+- Pour CHAQUE problème, "extrait_fautif" doit être un passage RECOPIÉ MOT POUR MOT depuis l'étape (énoncé, titre, message client, contexte de l'e-mail ou du document, ou description d'un niveau). Ne le traduis pas, ne le reformule pas, ne l'abrège pas : il est vérifié automatiquement contre le texte de l'étape, et un extrait introuvable fait écarter ton signalement.
 - "consigne" est rédigée EN FRANÇAIS pour un concepteur qui ne voit ni cette conversation ni ton raisonnement. Dis ce qui doit changer ET ce qui doit être conservé. Sois concret : "remplace le client anonyme par un DRH d'une PME industrielle de 80 personnes qui conteste le prix au moment de signer" vaut mieux que "rends la situation plus réaliste".
 - INTERDIT DANS UNE CONSIGNE : demander au candidat de RACONTER une expérience passée ("décrivez une situation où vous avez…", "expliquez comment vous avez déjà…"). Ce produit interdit les questions rétrospectives auto-déclaratives — elles recréent le biais du CV — et le concepteur appliquera ta consigne AVANT tout le reste : une consigne fautive fait donc entrer dans le parcours ce que la génération s'interdit. Demande une mise en situation JOUÉE DANS L'INSTANT, jamais un récit.
 
@@ -726,6 +750,7 @@ function texteEtape(step) {
   return normaliserPourCitation([
     step.title, step.prompt,
     step.config?.client_message, step.config?.crm_brief, step.config?.code_brief,
+    step.config?.to, step.config?.subject, step.config?.context, step.config?.document_context,
     ...dims,
   ].filter(Boolean).join(" ¶ "));
 }
@@ -1018,6 +1043,16 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       .single();
     if (!job) return { success: false, error: "Offre introuvable ou accès refusé" };
 
+    // ── Facturation : contrôle AVANT le modèle, débit APRÈS l'enregistrement ──
+    // Chaque génération complète coûte 6 crédits (voir CREDIT_COSTS), sauf la
+    // première d'une offre déjà payée sous l'ancien barème. On refuse ici un
+    // compte qui ne pourrait pas payer, plutôt que de faire tourner plusieurs
+    // minutes de modèle pour rien.
+    if (!(await simulationPrepayee(job.id))) {
+      const solde = await checkCredits(user.id, CREDIT_COSTS.simulation_generation);
+      if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
+    }
+
     const crit = job.extracted_criteria || {};
     const nbSkills = (crit.hard_skills || []).length + (crit.soft_skills || []).length;
     onEvent?.({ kind: "job", title: job.title || null, nbSkills });
@@ -1146,6 +1181,12 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
       if (stepsErr) throw stepsErr;
     }
+
+    // La nouvelle version existe : c'est maintenant, et pas avant, qu'elle est
+    // due. Un échec de débit (solde tombé pendant la génération) ne défait pas
+    // la simulation — le recruteur l'a, l'IA a tourné — il est journalisé.
+    const facture = await factureGenerationSimulation(user.id, job.id);
+    if (!facture.success) console.error("factureGenerationSimulation:", job.id, facture.error);
 
     const nbSubDims = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
     onEvent?.({ kind: "saved", nbEtapes: rows.length, nbSubDims });
@@ -1359,6 +1400,11 @@ export async function runStepRegeneration(stepId, instruction) {
     const job = step?.experiences?.jobs;
     if (!step || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
 
+    // 1 crédit par réécriture (CREDIT_COSTS.step_regeneration) : contrôlé ici,
+    // avant le modèle, débité une fois l'étape écrite.
+    const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
+    if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
+
     // DEUX langues, et elles ne se déduisent pas l'une de l'autre :
     //   • le parcours appartient à l'OFFRE — un recruteur en interface anglaise
     //     qui génère une offre néerlandaise obtient une expérience en
@@ -1497,6 +1543,11 @@ export async function runStepRegeneration(stepId, instruction) {
     const { data: stepMaj, error: majErr } = await supabase
       .from("experience_steps").update(maj).eq("id", step.id).select().single();
     if (majErr) throw majErr;
+
+    // L'étape est réécrite : le crédit est dû. Même règle que la génération
+    // complète — un échec de débit ne défait pas ce que le recruteur a obtenu.
+    const facture = await factureRegenerationEtape(user.id);
+    if (!facture.success) console.error("factureRegenerationEtape:", step.id, facture.error);
 
     // Coût comptabilisé À PART de generation_usage, qui reste l'instantané de la
     // génération complète (migration 025).

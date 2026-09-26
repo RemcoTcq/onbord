@@ -64,7 +64,10 @@ export const SLOTS = {
     plancher: true,
   },
   interlocuteur: {
-    libelle: "À qui le candidat aura affaire (client, prospect, collègue, patient…) et ce que ces gens veulent",
+    // La langue est ici et pas dans un sixième emplacement : ce n'est pas une
+    // question de plus, c'est une précision sur les mêmes gens. Elle décide de
+    // la langue de la scène (consigneLangueScene) quand l'offre ne la dit pas.
+    libelle: "À qui le candidat aura affaire (client, prospect, collègue, patient…), ce que ces gens veulent, et dans quelle langue il leur parlera si ce n'est pas celle de l'offre",
     plancher: true,
   },
 };

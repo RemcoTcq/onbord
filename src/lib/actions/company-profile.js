@@ -79,6 +79,14 @@ export async function updateCompanyProfile(profileData) {
  * @returns {{ success: boolean, context?: object, error?: string }}
  */
 export async function fetchAndAnalyzeWebsite(url) {
+  // Point d'entrée HTTP public (server action) : sans session, n'importe qui
+  // faisait télécharger une URL de son choix par le serveur, puis analyser par
+  // le modèle aux frais d'Onbord. Réservé à un recruteur connecté.
+  {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+  }
   if (!url || !url.trim()) {
     return { success: false, error: "URL manquante." };
   }

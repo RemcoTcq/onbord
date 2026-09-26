@@ -36,21 +36,68 @@ const REGISTRE = {
 };
 
 /**
+ * La LANGUE DE LA SCÈNE — une troisième langue dans le contenu candidat, et la
+ * seule que le code ne connaît pas : elle se lit dans l'offre.
+ *
+ * ── Le cas qui l'a fait naître ──────────────────────────────────────────────
+ * Une startup belge qui travaille en anglais recrute un Account Executive pour
+ * attaquer le marché francophone. Offre en anglais, parcours en anglais — à
+ * raison, c'est la langue de l'entreprise. Mais l'objection que le prospect
+ * opposait au candidat, l'entreprise qu'il devait prospecter par e-mail : tout
+ * était en anglais aussi. On mesurait sa vente en anglais, alors que le poste
+ * consiste à vendre en français.
+ *
+ * D'où deux couches dans une mise en situation. La CONSIGNE (titre, énoncé, ce
+ * qu'on attend) reste dans la langue du parcours : c'est ainsi que l'entreprise
+ * briefe ses équipes. La SCÈNE — ce que disent les interlocuteurs, et ce à quoi
+ * le candidat répond — passe dans la langue du terrain.
+ *
+ * ── Pourquoi aucun champ en base ────────────────────────────────────────────
+ * La langue du terrain n'est pas une propriété qu'on fige à la création de
+ * l'offre comme experience_locale : c'est une lecture de son contenu, et un
+ * même poste peut viser deux marchés. On la fait lire au modèle, avec les
+ * langues exigées sous les yeux (blocOffre, lib/experienceGeneration.js), et la
+ * passe de critique vérifie qu'il ne l'a pas ignorée.
+ *
+ * Placée dans la consigne de langue, en TÊTE de prompt, et pas parmi les règles
+ * de conception : c'est une exception à la consigne de langue, elle doit se lire
+ * avec elle. Reléguée plus bas, elle perdrait contre « tout le texte destiné au
+ * candidat est rédigé en … », marqué prioritaire.
+ */
+function consigneLangueScene(nomParcours) {
+  return `EXCEPTION — LA LANGUE DE LA SCÈNE. Le parcours est en ${nomParcours}, mais le métier ne s'exerce pas forcément en ${nomParcours}. Une entreprise qui travaille en anglais peut recruter un commercial pour attaquer le marché francophone : on le briefe en anglais, mais ses prospects lui parlent français, et c'est en français qu'il devra les convaincre. Mesurer sa vente en anglais, ce serait mesurer autre chose que le poste.
+
+Avant d'écrire, lis dans l'offre — et dans les langues qu'elle exige — la langue dans laquelle le candidat exercera ce qu'on lui fait faire : celle de ses INTERLOCUTEURS (clients, prospects, partenaires, fournisseurs, patients…). Pas celle de l'équipe, ni celle dans laquelle l'offre est rédigée.
+- Si c'est la langue du parcours, cette exception ne s'applique pas.
+- Si c'en est une autre, sépare deux couches dans chaque mise en situation qui met en scène ces interlocuteurs :
+  • LA CONSIGNE reste en ${nomParcours} : le titre, l'énoncé qui pose la scène et dit ce qu'on attend du candidat, les libellés des champs d'une fiche.
+  • LA SCÈNE passe dans la langue du terrain : les paroles citées d'un interlocuteur (l'objection qu'il formule, la question qu'il pose — entre guillemets dans l'énoncé), le message client auquel répondre, le contenu des sources et documents remis au candidat, et la fiche du prospect ou du partenaire à contacter — qui il est, où il se trouve, pourquoi l'approcher —, destinataire et objet compris. Cette fiche passe dans la langue du terrain MÊME quand elle a l'air d'un brief interne (le "context" d'un e-mail à écrire) : le candidat doit comprendre la situation dans la langue où il va écrire, c'est une partie de l'épreuve.
+  • L'énoncé dit EXPLICITEMENT, en ${nomParcours}, dans quelle langue répondre : le candidat répond dans la langue du terrain, puisque c'est elle que le poste met à l'épreuve.
+- Si l'offre vise plusieurs marchés linguistiques (des clients francophones ET néerlandophones, par exemple), répartis les mises en situation entre ces langues.
+- Ne l'applique QUE si l'offre le justifie. Une langue seulement « appréciée », ou des interlocuteurs qui parlent la langue du parcours, ne changent rien. Et cette exception ne crée jamais d'étape consacrée à tester la langue : elle habille les mises en situation, elle ne s'évalue pas à part.`;
+}
+
+/**
  * Bloc de consigne pour le CONTENU destiné au candidat.
  * À insérer en tête de prompt : une consigne de langue placée après 40 lignes
  * de règles se fait recouvrir par les exemples français qui la précèdent.
+ *
+ * @param {string} locale langue du parcours candidat (fr|en|nl)
+ * @param {{scene?: boolean}} [options] `scene: false` retire l'exception de la
+ *   langue de la scène, pour un contenu sans interlocuteur (exercice de code).
  */
-export function consigneLangueContenu(locale) {
+export function consigneLangueContenu(locale, { scene = true } = {}) {
   const loc = coerceExperienceLocale(locale);
   const nom = LOCALE_NAMES_FR[loc];
+  const exception = scene ? `\n\n${consigneLangueScene(nom)}` : "";
 
   if (loc === "fr") {
-    return `LANGUE DE SORTIE : français. Tous les textes que tu génères sont en français. ${REGISTRE.fr}`;
+    return `LANGUE DE SORTIE : français. Tous les textes que tu génères sont en français${scene ? ", à l'exception décrite ci-dessous près" : ""}. ${REGISTRE.fr}${exception}`;
   }
 
   return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nom}.
 
-Tout le texte destiné au candidat est rédigé en ${nom} : titres d'étapes, énoncés, briefs de tâche, options de QCM, libellés et descriptions des ancres BARS, contenu des sources et des champs dans les mises en situation.
+Tout le texte destiné au candidat est rédigé en ${nom} : titres d'étapes, énoncés, briefs de tâche, options de QCM, libellés et descriptions des ancres BARS, contenu des sources et des champs dans les mises en situation${scene ? " — à l'exception de la langue de la scène, décrite plus bas" : ""}.
 
 Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et rends le résultat en ${nom}.
 
@@ -58,7 +105,7 @@ Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — s
 
 Rédige en ${nom} naturel et idiomatique, pas en traduction mot à mot depuis le français : le candidat doit lire un texte écrit dans sa langue, pas un texte traduit.
 
-REGISTRE : ${REGISTRE[loc]} Si le schéma JSON plus bas mentionne « vouvoiement », ignore cette mention — elle ne vaut que pour le français.`;
+REGISTRE : ${REGISTRE[loc]} Si le schéma JSON plus bas mentionne « vouvoiement », ignore cette mention — elle ne vaut que pour le français.${exception}`;
 }
 
 /**
@@ -99,13 +146,18 @@ export function consigneLangueEtapes(experienceLocale, uiLocale) {
   const competences = `Le champ "skill_assessed" est repris de la liste des compétences fournie plus bas. Si cette liste est rédigée dans une autre langue que celle attendue pour ce champ, TRADUIS-LA : ne recopie jamais un nom de compétence tel quel. Une compétence laissée dans sa langue d'origine met un titre étranger au-dessus d'une grille qui, elle, est dans la bonne langue — c'est le défaut le plus visible du parcours généré.`;
 
   if (candidat === recruteur) {
+    // L'exception de la scène vient APRÈS le paragraphe sur le recruteur : lu
+    // juste derrière elle, « cela vaut aussi pour… » l'aurait étendue aux
+    // grilles BARS, qui restent dans la langue du recruteur quoi qu'il arrive.
     const base = candidat === "fr"
-      ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "label" et "description" des niveaux BARS). ${REGISTRE.fr}`
-      : `${consigneLangueContenu(candidat)}
+      ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "label" et "description" des niveaux BARS) — à l'exception décrite ci-dessous près. ${REGISTRE.fr}`
+      : `${consigneLangueContenu(candidat, { scene: false })}
 
 Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, les "label" et "description" des niveaux BARS. Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
 
     return `${base}
+
+${consigneLangueScene(nomCandidat)}
 
 ${competences}`;
   }
@@ -113,12 +165,14 @@ ${competences}`;
   return `DEUX LANGUES DE SORTIE — CONSIGNE PRIORITAIRE. Elles ne dépendent pas du même choix et n'ont pas le même lecteur : ne les confonds pas, et n'en choisis pas une pour tout.
 
 1. CE QUE LIT LE CANDIDAT → ${nomCandidat}.
-   Les champs "title" et "prompt", et tout le contenu de "config" : options de QCM, sources et champs des mises en situation, énoncé de la sandbox, code de départ. C'est la langue du parcours, fixée à la création de l'offre.
+   Les champs "title" et "prompt", et tout le contenu de "config" : options de QCM, sources et champs des mises en situation, énoncé de la sandbox, code de départ. C'est la langue du parcours, fixée à la création de l'offre — à l'exception de la langue de la scène, décrite au point 3.
    REGISTRE : ${REGISTRE[candidat]}
 
 2. CE QUE LIT LE RECRUTEUR SEUL → ${nomRecruteur}.
    Le champ "skill_assessed", le "name" de chaque sous-dimension, et les "label" et "description" de chaque niveau BARS. Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
    L'exemple de verbatim glissé dans une description de niveau BARS illustre ce qu'on cherche à observer : il est lu par le recruteur, donc lui aussi en ${nomRecruteur}.
+
+3. ${consigneLangueScene(nomCandidat)}
 
 Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
 
@@ -129,27 +183,34 @@ ${competences}`;
 
 /**
  * Bloc de consigne pour le RAPPORT lu par le recruteur.
- * `contentLocale` est la langue dans laquelle le candidat a répondu — elle sert
- * uniquement à protéger les verbatims.
+ * `contentLocale` est la langue du parcours — celle dans laquelle le candidat a
+ * répondu, sauf aux étapes jouées dans la langue du terrain. Elle ne sert qu'à
+ * protéger les verbatims.
  */
 export function consigneLangueRapport(uiLocale, contentLocale) {
   const rapport = coerceExperienceLocale(uiLocale);
   const contenu = coerceExperienceLocale(contentLocale);
   const nomRapport = LOCALE_NAMES_FR[rapport];
 
+  // Le verbatim est protégé dans TOUS les cas, y compris quand parcours et
+  // rapport partagent la même langue : une étape peut avoir demandé au candidat
+  // de répondre dans la langue de ses futurs interlocuteurs (consigneLangueScene).
+  // Parcours anglais, rapport anglais, réponse en français — sans cette ligne,
+  // rien n'empêchait le modèle de traduire la citation, que verifyVerbatim()
+  // rejetait ensuite.
+  const verbatim = `EXCEPTION — le champ "verbatim" n'est JAMAIS traduit. C'est un extrait EXACT de la réponse du candidat, copié mot pour mot dans la langue où il l'a écrite. Le parcours est en ${LOCALE_NAMES_FR[contenu]}, mais une étape a pu lui demander de répondre dans une autre langue — celle de ses futurs interlocuteurs : le verbatim reste alors dans cette langue-là. Un verbatim traduit n'est plus vérifiable et invalide la preuve.`;
+
   if (rapport === "fr" && contenu === "fr") {
-    return `LANGUE DE SORTIE : français.`;
+    return `LANGUE DE SORTIE : français.
+
+${verbatim}`;
   }
 
-  const base = `LANGUE DU RAPPORT — CONSIGNE PRIORITAIRE : ${nomRapport}.
+  return `LANGUE DU RAPPORT — CONSIGNE PRIORITAIRE : ${nomRapport}.
 
-Les champs "justification" et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. Ce rapport est lu par un recruteur, pas par le candidat.`;
+Les champs "justification" et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. Ce rapport est lu par un recruteur, pas par le candidat.
 
-  if (contenu === rapport) return base;
-
-  return `${base}
-
-EXCEPTION — le champ "verbatim" n'est JAMAIS traduit. Le candidat a répondu en ${LOCALE_NAMES_FR[contenu]} : le verbatim doit rester un extrait EXACT de sa réponse, copié mot pour mot, donc en ${LOCALE_NAMES_FR[contenu]}. Un verbatim traduit n'est plus vérifiable et invalide la preuve.`;
+${verbatim}`;
 }
 
 /**

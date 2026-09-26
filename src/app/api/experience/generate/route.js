@@ -4,8 +4,9 @@ import { runExperienceGeneration } from "@/lib/experienceGeneration";
 // Claude. Elle en vaut maintenant jusqu'à cinq — conception avec réflexion,
 // scénario CRM, exercice de code, relecture critique, et jusqu'à deux
 // réécritures — et le banc en a mesuré une à 300 secondes tout rond, c'est-à-dire
-// AU plafond précédent. Une génération coupée en plein flux, c'est six crédits
-// débités pour rien.
+// AU plafond précédent. Une génération coupée en plein flux, c'est plusieurs
+// minutes de modèle payées pour rien — et une simulation que le recruteur n'a
+// pas (les 6 crédits, eux, ne tombent qu'une fois la simulation enregistrée).
 //
 // 600 : le double de la mesure la plus longue. Ce n'est pas une cible, c'est une
 // marge : le flux NDJSON pousse déjà chaque étape au client, donc l'attente est

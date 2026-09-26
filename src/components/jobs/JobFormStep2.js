@@ -7,6 +7,9 @@ import { useT } from "@/lib/i18n/I18nProvider";
 
 import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "@/lib/constants/skills";
 import { TAXONOMIE_COMPETENCES } from "@/lib/constants/taxonomie";
+import { niveauCecr } from "@/lib/i18n/languages";
+
+const NIVEAUX_LANGUE = [1, 2, 3, 4, 5];
 
 const DEFAULT_LANGUAGES = ["Français", "Anglais", "Néerlandais"];
 // Les noms de langues sont stockés en français dans jobData.languages — c'est
@@ -309,15 +312,33 @@ export default function JobFormStep2({ jobData, setJobData }) {
             {(jobData.languages || []).map(lang => (
               <div key={lang.name} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <span style={{ width: '100px', fontWeight: '500', fontSize: '14px' }}>{CLES_LANGUES[lang.name] ? t(`dashboard.jobForm.languageNames.${CLES_LANGUES[lang.name]}`) : lang.name}</span>
-                <input 
-                  type="range" 
-                  min="1" 
-                  max="5" 
-                  value={lang.level} 
-                  onChange={(e) => handleUpdateLanguageLevel(lang.name, e.target.value)}
-                  style={{ flex: 1, accentColor: 'var(--primary)' }}
-                />
-                <span style={{ fontSize: '14px', fontWeight: '600', width: '30px', textAlign: 'right' }}>{lang.level}/5</span>
+                {/* Le curseur reste sur 1-5 (c'est ce qui est stocké) ; l'échelle
+                    CECR en dessous dit au recruteur ce que chaque cran veut dire. */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={lang.level}
+                    onChange={(e) => handleUpdateLanguageLevel(lang.name, e.target.value)}
+                    style={{ width: '100%', accentColor: 'var(--primary)' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                    {NIVEAUX_LANGUE.map(n => (
+                      <span
+                        key={n}
+                        onClick={() => handleUpdateLanguageLevel(lang.name, n)}
+                        style={{ cursor: 'pointer', color: n === Number(lang.level) ? 'var(--primary)' : 'var(--muted-foreground)', fontWeight: n === Number(lang.level) ? '700' : '400' }}
+                      >
+                        {niveauCecr(n)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ width: '130px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
+                  <span style={{ fontSize: '14px', fontWeight: '700' }}>{niveauCecr(lang.level)}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'right' }}>{t(`dashboard.jobForm.languageLevels.${lang.level}`)}</span>
+                </div>
                 <button type="button" onClick={() => handleRemoveLanguage(lang.name)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer' }}><X size={16} /></button>
               </div>
             ))}

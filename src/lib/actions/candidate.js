@@ -7,6 +7,7 @@ import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 import { DELAI_CORBEILLE_JOURS, purgerOffre } from "@/lib/jobPurge";
 import { headers } from "next/headers";
+import { niveauLangueLisible } from "@/lib/i18n/languages";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
 // faire passer. Le blocage d'interface ne suffit pas — un lien public déjà
@@ -190,6 +191,18 @@ export async function purgeJobNow(jobId) {
 }
 export async function scoreCandidate(jobId, cvText, jobData, candidateName, existingCandidateId = null) {
   try {
+    // Server action = point d'entrée HTTP public. Sans ce contrôle, n'importe
+    // qui faisait tourner le modèle sur un texte de son choix, aux frais
+    // d'Onbord, et insérait un candidat sur l'offre de son choix.
+    {
+      const garde = await createClient();
+      const { data: { user } } = await garde.auth.getUser();
+      if (!user) return { success: false, error: "Non authentifié" };
+      const { data: offre } = await garde
+        .from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+      if (!offre) return { success: false, error: "Accès refusé" };
+    }
+
     const prompt = `Voici le texte extrait du profil candidat à analyser :\n\n${cvText}`;
     
     const response = await anthropic.messages.create({
@@ -214,7 +227,7 @@ Soft Skills :
 ${jobData.soft_skills ? jobData.soft_skills.map(s => `- ${s.name} (${s.priority})`).join('\n') : 'Non spécifié'}
 
 Langues :
-${jobData.languages ? jobData.languages.map(l => `- ${l.name} (Niveau ${l.level})`).join('\n') : 'Non spécifié'}
+${jobData.languages ? jobData.languages.map(l => `- ${l.name} (niveau ${niveauLangueLisible(l.level)})`).join('\n') : 'Non spécifié'}
 
 CRITÈRES DE SÉLECTION (Utilisez UNIQUEMENT ces critères pour calculer le score final) :
 ${jobData.selection_criteria ? jobData.selection_criteria.map(c => `- ${c.name} (Poids: ${c.weight}%)`).join('\n') : 'Non spécifié'}
@@ -957,6 +970,10 @@ export async function sendCandidateEmail(candidateId, jobId, mailType, toEmail, 
 export async function generateConstructiveFeedback(candidateId) {
   try {
     const supabase = await createClient();
+    // Session exigée avant tout : la lecture du candidat est bornée par la RLS,
+    // mais un point d'entrée qui appelle le modèle ne s'en remet pas à elle seule.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
     const { data: candidate, error } = await supabase
       .from('candidates')
       .select('*, jobs(title)')

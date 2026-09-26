@@ -5,6 +5,7 @@ import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { langueDeConversation } from "@/lib/i18n/detection";
 import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
+import { sceneEnTexte } from "@/lib/sceneEtape";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
 // - identité par token candidat (jamais candidateId/prompt du client) ;
@@ -156,11 +157,17 @@ export async function POST(request) {
     });
     const nomLangue = LOCALE_NAMES_FR[langue];
 
+    // La scène de l'étape (message client, fiche du prospect…) : le candidat
+    // l'a sous les yeux, l'assistant doit la voir aussi. Sans elle, un candidat
+    // qui demandait « aide-moi à écrire à ce prospect » se faisait demander qui
+    // était ce prospect. Rien de caché là-dedans : c'est ce qu'affiche la page.
+    const scene = sceneEnTexte(step.config);
+
     // Claude complet : assistant généraliste, sans bridage — on mesure COMMENT le
     // candidat s'en sert (noté séparément), pas s'il s'en sert. Tout est loggé.
     const system = `Tu es Claude, un assistant IA généraliste développé par Anthropic. Tu aides l'utilisateur du mieux possible : réponses claires, utiles et honnêtes. Contexte : l'utilisateur travaille sur la tâche suivante pendant une évaluation professionnelle.
 """
-${step.prompt || ""}
+${step.prompt || ""}${scene ? `\n\n${scene}` : ""}
 """
 Réponds naturellement, comme dans une conversation normale.
 

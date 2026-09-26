@@ -546,6 +546,15 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         </div>
       )}
 
+      {/* Scène d'une mise en situation écrite (message client, fiche du destinataire, contexte) */}
+      {CHAMPS_SCENE[local.sandbox_kind] && (
+        <SceneEditor
+          kind={local.sandbox_kind}
+          config={local.config}
+          onChange={(patch) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), ...patch } })); setDirty(true); }}
+        />
+      )}
+
       {/* Éditeur de fiche CRM */}
       {local.sandbox_kind === "crm" && (
         <CrmEditor
@@ -669,6 +678,41 @@ function CodeExerciseEditor({ code, onChange }) {
       <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
         {t("dashboard.experienceEditor.code.help")}
       </p>
+    </div>
+  );
+}
+
+// La scène d'une mise en situation écrite : le message de l'interlocuteur, la
+// fiche du destinataire d'un e-mail, le contexte d'un document. Générée, montrée
+// au candidat, lue par le correcteur — et jusqu'ici invisible ici même : le
+// recruteur publiait une scène qu'il n'avait jamais lue. Elle compte d'autant
+// plus quand elle est jouée dans une autre langue que le parcours.
+// [clé de config, nombre de lignes] — une seule ligne : champ simple.
+const CHAMPS_SCENE = {
+  client_reply: [["client_message", 4]],
+  email: [["to", 1], ["subject", 1], ["context", 4]],
+  document: [["document_context", 4]],
+};
+
+function SceneEditor({ kind, config, onChange }) {
+  const { t } = useI18n();
+  return (
+    <div style={{ marginTop: "0.75rem" }}>
+      {CHAMPS_SCENE[kind].map(([cle, lignes]) => (
+        <div key={cle}>
+          <label style={labelStyle}>{t(`dashboard.experienceEditor.scene.${cle}`)}</label>
+          {lignes > 1 ? (
+            <AutoTextarea
+              value={config?.[cle] || ""}
+              onChange={(e) => onChange({ [cle]: e.target.value })}
+              rows={lignes}
+              style={{ ...inputStyle, lineHeight: 1.5 }}
+            />
+          ) : (
+            <input value={config?.[cle] || ""} onChange={(e) => onChange({ [cle]: e.target.value })} style={inputStyle} />
+          )}
+        </div>
+      ))}
     </div>
   );
 }

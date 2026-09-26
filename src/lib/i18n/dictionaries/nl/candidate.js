@@ -149,6 +149,7 @@ const candidate = {
     chatTitle: "Interne chat / klantchat",
     chatPlaceholder: "Je antwoord in de chat…",
     chatSampleMessage: "Kun je uitleggen waarom deze oplossing beter is?",
+    brief: { title: "Context", to: "Ontvanger", subject: "Onderwerp" },
     docTitle: "Architectuur- / ontwerpdocument",
     docPlaceholder: "# Voorgestelde architectuur…",
     codeTitle: "Code-editor (sandbox)",

@@ -459,6 +459,14 @@ const dashboard = {
       warnNoHidden: "No hidden case: printing the displayed answers would be enough to pass everything.",
       help: "Grading runs the code for real: a wrong expected output fails every candidate. Trailing whitespace and a final empty line are ignored when comparing.",
     },
+    // Keyed by the step's config key (CHAMPS_SCENE, experience page).
+    scene: {
+      client_message: "Message from the counterpart — shown to the candidate",
+      to: "Recipient — shown to the candidate",
+      subject: "Fixed subject — leave empty if the candidate writes it",
+      context: "Context given to the candidate",
+      document_context: "Document context — shown to the candidate",
+    },
     crm: {
       recordTitle: "CRM record — title",
       recordTitlePlaceholder: "Prospect record — new opportunity",
@@ -732,6 +740,8 @@ const dashboard = {
     languages: "Languages",
     addLanguage: "Add a language",
     languageNames: { french: "French", english: "English", dutch: "Dutch" },
+    // Keyed by the stored level (1-5); the CEFR code comes from lib/i18n/languages.
+    languageLevels: { 1: "Basic", 2: "Intermediate", 3: "Upper intermediate", 4: "Advanced", 5: "Proficient" },
     degree: "Degree",
     degrees: { master: "Master's", bachelor: "Bachelor's", any: "No preference" },
     experienceRequired: "Experience required",
@@ -929,7 +939,6 @@ const dashboard = {
   },
 
   billing: {
-    order: "Order",
     contactUs: "Contact us",
     loadError: "Couldn't load your billing information.",
     title: "Billing & credits",
@@ -941,15 +950,24 @@ const dashboard = {
     unlimitedCredits: "Unlimited credits",
     creditsPerMonth: "{count} credits/month",
     pricePerMonthAnnual: "€{price}/month (billed annually)",
+    pricePerMonth: "€{price}/month",
+    nextRefill: "+{count} credits added to your balance on",
+    rolloverHelp:
+      "Annual plan: credits you don't use roll over from month to month. Your balance starts again from zero when your subscription renews, on {date}.",
     remainingCredits: "Credits remaining",
     unlimitedAccess: "✓ Your account has unlimited access.",
 
     autoReset: "Resets automatically on",
 
-    createJob: "Create a job",
+    createJob: "Create a simulation",
     createJobHelp:
-      "Parsing the ad, picking the skills, generating the simulation, regenerating it, publishing it. All included: once the job exists, configuring it costs nothing more.",
-    perJobUnit: "per job",
+      "Charged every time the AI agent creates a job's simulation: the first time, and on each full regeneration. Parsing the ad, editing by hand and publishing cost nothing — and neither does a generation that fails.",
+    perJobUnit: "per generation",
+
+    regenerateStep: "Regenerate a step",
+    regenerateStepHelp:
+      "Each step the AI agent rewrites at your request, from the button or the chat. Editing a step yourself costs nothing.",
+    perStepUnit: "per step",
 
     candidateRun: "Put a candidate through",
     candidateRunHelp:
@@ -958,10 +976,6 @@ const dashboard = {
 
     nothingElse: "Nothing else consumes credits.",
 
-    extraCredits: "Extra credits",
-    extraCreditsHelp: "Need more credits this month? Top up at any time.",
-    pricePerExtraCredit: "Price per extra credit",
-    onQuote: "On request",
     needMore: "Need more credits, or an upgrade?",
     needMoreHelp: "Get in touch — we manage your account by hand.",
   },
@@ -1089,6 +1103,14 @@ const dashboard = {
     noTokens: "No links generated yet.",
     copyLink: "Copy the link",
     delete: "Delete",
+    // An account's billing cycle (/admin/billing).
+    cycles: {
+      monthly: "Monthly",
+      annual: "Annual",
+      since: "Year starts",
+      renewal: "Renews {date}",
+      updated: "Billing cycle updated",
+    },
     columns: {
       token: "Token",
       plan: "Plan",

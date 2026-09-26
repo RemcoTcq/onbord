@@ -66,7 +66,7 @@ Structure JSON attendue :
     { "name": "Nom du savoir-être — RÉDIGÉ EN ${nomUi}, même si l'offre le nomme dans une autre langue", "priority": "ambiguous", "evidence": "Citation exacte de l'offre" }
   ],
   "languages": [
-    { "name": "Nom de la langue EN FRANÇAIS — 'Français', 'Anglais', 'Néerlandais', 'Allemand'… jamais 'English' ni 'Dutch'", "level": 3 }
+    { "name": "Nom de la langue EN FRANÇAIS — 'Français', 'Anglais', 'Néerlandais', 'Allemand'… jamais 'English' ni 'Dutch'", "level": "Entier de 1 à 5, calé sur le CECR : 1 = A1–A2, 2 = B1, 3 = B2, 4 = C1, 5 = C2 (langue maternelle ou bilingue). Un niveau 'courant' ou 'fluent' vaut 4 ; 'natif' ou 'native' vaut 5 ; si l'offre ne précise rien, 3." }
   ],
   "selection_criteria": [
     { "name": "Critère de sélection pour le scoring CV — RÉDIGÉ EN ${nomUi}", "weight": 20 }

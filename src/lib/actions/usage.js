@@ -6,6 +6,8 @@ import {
   getCreditInfo,
   addCredits,
   changePlan,
+  changeCycle,
+  prochainRenouvellement,
 } from "../utils/limits";
 import { createClient, createAdminClient } from "../supabase/server";
 import { isAdmin } from "../utils/admin";
@@ -104,6 +106,21 @@ export async function adminChangePlan(targetUserId, newPlan) {
     return await changePlan(targetUserId, newPlan);
   } catch (error) {
     console.error("adminChangePlan error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Passe un compte en facturation mensuelle ou annuelle (admin seulement).
+ * En annuel, les crédits non utilisés se reportent jusqu'au renouvellement
+ * (voir CYCLES, constants/plans.js).
+ */
+export async function adminChangeCycle(targetUserId, cycle, debut) {
+  try {
+    if (!(await requireAdmin())) return { success: false, error: "Accès refusé" };
+    return await changeCycle(targetUserId, cycle, debut);
+  } catch (error) {
+    console.error("adminChangeCycle error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }
@@ -528,7 +545,13 @@ export async function adminListUserUsage() {
       .select("*")
       .order("credits_balance", { ascending: true });
 
-    return { success: true, usages: data || [] };
+    // La date de renouvellement se calcule ici, avec la même fonction que la
+    // recharge : la recopier côté navigateur ferait deux règles à tenir.
+    const usages = (data || []).map((u) => ({
+      ...u,
+      renewal_date: prochainRenouvellement(u)?.toISOString() || null,
+    }));
+    return { success: true, usages };
   } catch (error) {
     console.error("adminListUserUsage error:", error);
     return { success: false, error: "Erreur technique" };

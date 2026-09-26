@@ -503,6 +503,14 @@ const dashboard = {
       warnNoHidden: "Aucun cas caché : il suffit d'imprimer les réponses affichées pour tout réussir.",
       help: "La correction se fait par exécution réelle : une sortie attendue erronée fait échouer tous les candidats. Les espaces en fin de ligne et la ligne vide finale sont ignorés à la comparaison.",
     },
+    // Indexés par la clé de config de l'étape (CHAMPS_SCENE, page de l'expérience).
+    scene: {
+      client_message: "Message de l'interlocuteur — montré au candidat",
+      to: "Destinataire — montré au candidat",
+      subject: "Objet imposé — vide si le candidat l'écrit",
+      context: "Contexte remis au candidat",
+      document_context: "Contexte du document — montré au candidat",
+    },
     crm: {
       recordTitle: "Fiche CRM — titre de l'enregistrement",
       recordTitlePlaceholder: "Fiche prospect — nouvelle opportunité",
@@ -798,6 +806,8 @@ const dashboard = {
     languages: 'Langues',
     addLanguage: 'Ajouter une langue',
     languageNames: { french: "Français", english: "Anglais", dutch: "Néerlandais" },
+    // Indexés par le niveau stocké (1-5) ; le code CECR vient de lib/i18n/languages.
+    languageLevels: { 1: 'Notions', 2: 'Intermédiaire', 3: 'Intermédiaire avancé', 4: 'Avancé', 5: 'Maîtrise' },
     degree: 'Diplôme',
     degrees: { master: 'Master', bachelor: 'Bachelier', any: 'Indifférent' },
     experienceRequired: 'Expérience requise',
@@ -1011,7 +1021,6 @@ const dashboard = {
 
   // ── Facturation ───────────────────────────────────────────────────────────
   billing: {
-    order: "Commander",
     contactUs: "Nous contacter",
     loadError: 'Impossible de charger les informations de facturation.',
     title: 'Facturation & crédits',
@@ -1023,15 +1032,24 @@ const dashboard = {
     unlimitedCredits: 'Crédits illimités',
     creditsPerMonth: '{count} crédits/mois',
     pricePerMonthAnnual: '{price} €/mois (annuel)',
+    pricePerMonth: '{price} €/mois',
+    nextRefill: '+{count} crédits ajoutés à votre solde le',
+    rolloverHelp:
+      "Plan annuel : les crédits que vous n'utilisez pas sont reportés d'un mois sur l'autre. Le solde repart de zéro au renouvellement de votre abonnement, le {date}.",
     remainingCredits: 'Crédits restants',
     unlimitedAccess: '✓ Votre compte a un accès illimité.',
 
     autoReset: 'Réinitialisation automatique le',
 
-    createJob: 'Créer une offre',
+    createJob: 'Créer une simulation',
     createJobHelp:
-      "Extraction de l'annonce, choix des compétences, génération de la simulation, régénérations et publication. Tout est compris : une fois l'offre créée, la configurer ne coûte plus rien.",
-    perJobUnit: 'par offre',
+      "Débités chaque fois que l'agent IA crée la simulation d'une offre : la première fois, et à chaque régénération complète. L'analyse de l'annonce, l'édition manuelle et la publication ne coûtent rien — et une génération qui échoue non plus.",
+    perJobUnit: 'par génération',
+
+    regenerateStep: 'Régénérer une étape',
+    regenerateStepHelp:
+      "Chaque étape réécrite par l'agent IA à votre demande, depuis le bouton ou le chat. Modifier une étape vous-même ne coûte rien.",
+    perStepUnit: 'par étape',
 
     candidateRun: 'Faire passer un candidat',
     candidateRunHelp:
@@ -1040,10 +1058,6 @@ const dashboard = {
 
     nothingElse: "Rien d'autre ne consomme de crédits.",
 
-    extraCredits: 'Crédits supplémentaires',
-    extraCreditsHelp: 'Besoin de plus de crédits ce mois-ci ? Rechargez à tout moment.',
-    pricePerExtraCredit: 'Prix par crédit supplémentaire',
-    onQuote: 'Sur devis',
     needMore: "Besoin de plus de crédits ou d'un upgrade ?",
     needMoreHelp: 'Contactez-nous, nous gérons votre compte manuellement.',
   },
@@ -1176,6 +1190,14 @@ const dashboard = {
     noTokens: "Aucun lien généré pour l'instant.",
     copyLink: 'Copier le lien',
     delete: 'Supprimer',
+    // Cycle de facturation d'un compte (/admin/billing).
+    cycles: {
+      monthly: 'Mensuel',
+      annual: 'Annuel',
+      since: "Début de l'année",
+      renewal: 'Renouv. {date}',
+      updated: 'Cycle mis à jour',
+    },
     columns: {
       token: 'Token',
       plan: 'Plan',

@@ -5,6 +5,7 @@ import {
   PLANS_ATTRIBUABLES,
   CREDIT_COSTS,
   CREDITS_ILLIMITES,
+  CYCLES,
   planVisible,
 } from "../constants/plans";
 
@@ -20,8 +21,9 @@ import {
  * lit désormais sur le COMPTE FACTURÉ (estExonere ci-dessous).
  *
  * ── Ce qui débite ────────────────────────────────────────────────────────────
- * Trois points d'appel, pas un de plus (barème dans constants/plans.js) :
- *   factureCreationOffre()      6 cr — actions/job.js, au lancement de l'extraction
+ * Quatre points d'appel, pas un de plus (barème dans constants/plans.js) :
+ *   factureGenerationSimulation() 6 cr — experienceGeneration.js, à chaque génération complète
+ *   factureRegenerationEtape()    1 cr — experienceGeneration.js, à chaque réécriture d'étape
  *   factureDemarrageCandidat()  1 cr — actions/run.js, à la création du run
  *   factureNotationCandidat()   2 cr — runScoring.js, quand le run passe « scored »
  */
@@ -112,27 +114,87 @@ function usageVirtuel(userId, planId) {
   };
 }
 
-/** Recharge mensuelle : au changement de mois, le solde repart à l'allocation. */
-async function checkAndResetMonthly(adminSupabase, usage) {
-  if (usage?._virtuel) return usage;
+// ── La recharge mensuelle ────────────────────────────────────────────────────
+// Paresseuse : elle s'applique au premier accès du mois, pas par un cron. Un
+// compte resté trois mois sans se connecter reçoit donc ses trois mois d'un
+// coup — ce qui, en annuel, veut dire trois allocations reportées (sauf
+// renouvellement entre-temps). D'où la boucle mois par mois ci-dessous.
+//
+// `credits_allocated` ne veut plus dire « allocation du plan » mais « crédits
+// disponibles au début de la période » : allocation + report. Tous les
+// affichages divisent le solde par ce nombre (« 650 / 800 », jauge, crédits
+// utilisés ce mois-ci) ; en mensuel les deux sens coïncident, en annuel c'est
+// le seul qui garde ces affichages justes. L'allocation du plan, elle, se lit
+// dans PLANS[plan].creditsPerMonth.
 
-  const dernierReset = new Date(usage.last_reset_date);
-  const maintenant = new Date();
-  if (
-    dernierReset.getMonth() === maintenant.getMonth() &&
-    dernierReset.getFullYear() === maintenant.getFullYear()
-  ) {
-    return usage;
-  }
+/** Rang d'un mois dans le calendrier : deux dates du même mois ont le même. */
+function rangMois(date) {
+  return date.getFullYear() * 12 + date.getMonth();
+}
+
+/** Premier jour du mois de rang `rang`. */
+function debutDuMois(rang) {
+  return new Date(Math.floor(rang / 12), rang % 12, 1);
+}
+
+function estAnnuel(usage, plan) {
+  return usage?.billing_cycle === "annual" && !!usage?.cycle_start && !plan?.illimite;
+}
+
+/**
+ * Ce que devient une ligne user_usage au changement de mois. Fonction PURE :
+ * aucune écriture, pour pouvoir la vérifier mois par mois sans base.
+ *
+ * @returns {null | { credits_balance: number, credits_allocated: number, last_reset_date: string }}
+ *   null s'il n'y a rien à recharger (même mois).
+ */
+export function calculerRecharge(usage, maintenant = new Date()) {
+  const depuis = rangMois(new Date(usage.last_reset_date));
+  const cible = rangMois(maintenant);
+  if (!(cible > depuis)) return null;
 
   const plan = PLANS[usage.plan] || PLANS[PLAN_DEFAUT];
+  const allocation = plan.creditsPerMonth;
+  let solde = allocation;
+
+  if (estAnnuel(usage, plan)) {
+    const debutCycle = rangMois(new Date(usage.cycle_start));
+    solde = Math.max(0, usage.credits_balance ?? 0);
+    for (let mois = depuis + 1; mois <= cible; mois++) {
+      const avantLAnnee = mois <= debutCycle;
+      const renouvellement = mois > debutCycle && (mois - debutCycle) % 12 === 0;
+      // Avant le début de l'année (compte passé à l'annuel entre-temps) ou au
+      // renouvellement : pas de report, on repart de l'allocation seule.
+      solde = avantLAnnee || renouvellement ? allocation : solde + allocation;
+    }
+  }
+
+  return {
+    credits_balance: solde,
+    credits_allocated: solde,
+    last_reset_date: maintenant.toISOString(),
+  };
+}
+
+/** Date du prochain renouvellement d'un abonnement annuel, ou null. */
+export function prochainRenouvellement(usage, maintenant = new Date()) {
+  const plan = PLANS[usage?.plan] || PLANS[PLAN_DEFAUT];
+  if (!estAnnuel(usage, plan)) return null;
+  const debutCycle = rangMois(new Date(usage.cycle_start));
+  const courant = rangMois(maintenant);
+  const annees = Math.max(1, Math.floor((courant - debutCycle) / 12) + 1);
+  return debutDuMois(debutCycle + 12 * annees);
+}
+
+/** Applique la recharge du mois si elle est due. */
+async function checkAndResetMonthly(adminSupabase, usage) {
+  if (usage?._virtuel) return usage;
+  const recharge = calculerRecharge(usage);
+  if (!recharge) return usage;
+
   const { data } = await adminSupabase
     .from("user_usage")
-    .update({
-      credits_balance: plan.creditsPerMonth,
-      credits_allocated: plan.creditsPerMonth,
-      last_reset_date: maintenant.toISOString(),
-    })
+    .update(recharge)
     .eq("user_id", usage.user_id)
     .select()
     .single();
@@ -208,13 +270,77 @@ export async function chargeCredits(userId, cost) {
   }
 }
 
+// ── La simulation : 6 crédits par génération complète ────────────────────────
+// Chaque génération complète réussie débite 6 crédits — la première comme les
+// régénérations complètes. Une seule exception, transitoire : les offres
+// analysées sous l'ancien barème (débit à l'extraction) et jamais générées ont
+// déjà payé leur première simulation. La migration 031 les inscrit dans
+// `simulations_prepayees` ; leur première génération CONSOMME cette ligne au
+// lieu de débiter.
+//
+// Cette table ne peut pas vivre sur `jobs` : le recruteur écrit sa propre ligne
+// d'offre avec la clé anon (RLS), il pourrait s'offrir des générations. RLS
+// activée, AUCUNE policy : seul service_role la lit et l'écrit.
+//
+// La consommation est un DELETE … RETURNING : deux générations simultanées ne
+// peuvent pas supprimer la même ligne deux fois, donc une seule est offerte.
+//
+// Table absente (code déployé avant la migration) : pas de prépaiement, on
+// débite normalement.
+const TABLE_ABSENTE = "42P01";
+
+/** La prochaine génération de cette offre est-elle déjà payée (ancien barème) ? */
+export async function simulationPrepayee(jobId) {
+  const adminSupabase = createAdminClient();
+  const { data, error } = await adminSupabase
+    .from("simulations_prepayees")
+    .select("job_id")
+    .eq("job_id", jobId)
+    .maybeSingle();
+  if (error) {
+    if (error.code !== TABLE_ABSENTE) console.error("simulationPrepayee:", error.message);
+    return false;
+  }
+  return !!data;
+}
+
+/** Consomme le prépaiement d'une offre. true si c'était bien la sienne à consommer. */
+async function consommerPrepaiement(jobId) {
+  const adminSupabase = createAdminClient();
+  const { data, error } = await adminSupabase
+    .from("simulations_prepayees")
+    .delete()
+    .eq("job_id", jobId)
+    .select("job_id");
+  if (error) {
+    if (error.code !== TABLE_ABSENTE) console.error("consommerPrepaiement:", error.message);
+    return false;
+  }
+  return (data || []).length > 0;
+}
+
 /**
- * 6 crédits — création d'une offre, au lancement de l'extraction.
- * L'appelant BLOQUE sur un refus : il doit tomber AVANT le premier appel au
- * modèle, sinon on aurait dépensé l'IA pour rien.
+ * 6 crédits — l'agent a créé (ou recréé) la simulation d'une offre.
+ * Appelée APRÈS l'enregistrement de la nouvelle version : on facture ce que le
+ * recruteur a obtenu. Le contrôle de solde, lui, se fait AVANT de lancer le
+ * modèle (checkCredits), pour ne pas faire tourner l'IA sur un compte à sec.
+ *
+ * @returns {Promise<{ success: boolean, deducted: boolean, prepayee?: boolean, remaining?: number, error?: string }>}
  */
-export async function factureCreationOffre(userId) {
-  return chargeCredits(userId, CREDIT_COSTS.job_creation);
+export async function factureGenerationSimulation(userId, jobId) {
+  if (!userId || !jobId) return { success: false, deducted: false, error: "Offre ou compte inconnu" };
+  if (await consommerPrepaiement(jobId)) return { success: true, deducted: false, prepayee: true };
+  return chargeCredits(userId, CREDIT_COSTS.simulation_generation);
+}
+
+/**
+ * 1 crédit — l'agent a réécrit une étape à la demande du recruteur.
+ * Appelée après l'écriture de l'étape, comme la génération. La relecture
+ * automatique (passe de critique) ne passe PAS par ici : elle est comprise
+ * dans les 6 crédits de la génération.
+ */
+export async function factureRegenerationEtape(userId) {
+  return chargeCredits(userId, CREDIT_COSTS.step_regeneration);
 }
 
 /**
@@ -269,6 +395,8 @@ export async function getCreditInfo(userId) {
   const maintenant = new Date();
   const prochainReset = new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 1);
 
+  const renouvellement = prochainRenouvellement(usage, maintenant);
+
   return {
     plan: idVisible,
     planLabel: plan.label,
@@ -276,6 +404,10 @@ export async function getCreditInfo(userId) {
     credits_allocated: usage.credits_allocated,
     illimite: false,
     nextResetDate: prochainReset.toISOString(),
+    // Un compte dont le cycle n'a pas de date de début est traité en mensuel
+    // par calculerRecharge : on l'affiche comme tel, pour ne rien promettre.
+    cycle: renouvellement ? "annual" : "monthly",
+    renewalDate: renouvellement ? renouvellement.toISOString() : null,
   };
 }
 
@@ -284,14 +416,64 @@ export async function addCredits(userId, amount) {
   const adminSupabase = createAdminClient();
   const usage = await getOrCreateUsage(adminSupabase, userId);
 
+  // `credits_allocated` suit : il compte les crédits disponibles sur la
+  // période. Sans ça, un ajout affichait « 550 / 500 » et une jauge à 110 %.
   const { data } = await adminSupabase
     .from("user_usage")
-    .update({ credits_balance: (usage.credits_balance || 0) + amount })
+    .update({
+      credits_balance: (usage.credits_balance || 0) + amount,
+      credits_allocated: (usage.credits_allocated || 0) + amount,
+    })
     .eq("user_id", userId)
-    .select("credits_balance")
+    .select("credits_balance, credits_allocated")
     .single();
 
-  return { success: true, newBalance: data?.credits_balance };
+  return { success: true, newBalance: data?.credits_balance, newAllocated: data?.credits_allocated };
+}
+
+/**
+ * Passe un compte en facturation mensuelle ou annuelle (outil d'administration).
+ * Ne touche pas au solde : le report commence à la prochaine recharge.
+ *
+ * @param {string} userId
+ * @param {"monthly"|"annual"} cycle
+ * @param {string} [debut] mois de souscription « AAAA-MM » (annuel seulement).
+ *   Par défaut, le mois en cours. Sert à reprendre un client qui a signé à
+ *   l'année avant que l'application ne le sache.
+ */
+export async function changeCycle(userId, cycle, debut) {
+  if (!CYCLES.includes(cycle)) return { success: false, error: "Cycle inconnu" };
+
+  let cycleStart = null;
+  if (cycle === "annual") {
+    const m = /^(\d{4})-(\d{2})$/.exec(debut || "");
+    const maintenant = new Date();
+    // Le 1er du mois à MIDI UTC : minuit local deviendrait la veille en UTC
+    // (1er janvier 00:00 à Bruxelles = 31 décembre 23:00 UTC), donc le mauvais
+    // mois une fois relu. Midi reste le bon mois dans tous les fuseaux usuels.
+    cycleStart = m
+      ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1, 12))
+      : new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), 1, 12));
+    if (Number.isNaN(cycleStart.getTime()) || Number(m?.[2] ?? 1) > 12 || rangMois(cycleStart) > rangMois(maintenant)) {
+      return { success: false, error: "Mois de début invalide (pas dans le futur)" };
+    }
+  }
+
+  const adminSupabase = createAdminClient();
+  await getOrCreateUsage(adminSupabase, userId);
+  const { data, error } = await adminSupabase
+    .from("user_usage")
+    .update({ billing_cycle: cycle, cycle_start: cycleStart ? cycleStart.toISOString() : null })
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    // 42703 : colonne absente — le code est déployé, la migration 031 pas encore.
+    if (error.code === "42703") return { success: false, error: "Migration 031 non appliquée : cycle indisponible" };
+    return { success: false, error: error.message };
+  }
+  return { success: true, usage: data, renewalDate: prochainRenouvellement(data)?.toISOString() || null };
 }
 
 /**
