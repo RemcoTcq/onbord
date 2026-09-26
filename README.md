@@ -1,34 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Onbord
 
-## Getting Started
+Recruter sur ce que les gens savent faire, pas sur ce qu'ils écrivent dans un CV.
 
-First, run the development server:
+Ce dépôt contient **deux applications Next.js indépendantes**.
+
+## Le produit — `app.onbord.be`
+
+Dans ce dossier (`./`). Offres, candidats, évaluations, résultats. Supabase, IA,
+e-mails.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+📖 `docs/application.md` — 🌍 `docs/i18n.md`
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+> ⚠️ Le projet Supabase configuré est la **production**. Il n'y a pas
+> d'environnement de développement séparé.
 
-## Learn More
+## Le site public — `onbord.be`
 
-To learn more about Next.js, take a look at the following resources:
+Dans `site/`. La vitrine commerciale, en français, néerlandais et anglais. Aucune
+base de données, entièrement statique.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cd site
+npm install
+npm run dev      # http://localhost:3001
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+📖 `site/README.md` — 🤖 `site/AGENTS.md`
 
-## Deploy on Vercel
+## Mettre en ligne
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+📖 `docs/deploiement-domaines.md` — deux projets Vercel sur ce dépôt, la bascule
+des domaines, et la sortie de Framer.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Le seul lien entre les deux
+
+L'application ouvre `onbord.be/legal/terms`, `/legal/privacy` et
+`/legal/ai-transparency` depuis l'écran de consentement du candidat. Ces adresses
+sont un contrat : voir `AGENTS.md`.

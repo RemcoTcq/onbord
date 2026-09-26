@@ -21,6 +21,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Le SITE public est un projet à part (voir AGENTS.md) : il a sa propre
+    // configuration ESLint et son propre `npm run lint`. Sans cette ligne, le
+    // lint de l'application irait juger un code qui ne suit pas ses règles.
+    "site/**",
   ]),
 ]);
 
