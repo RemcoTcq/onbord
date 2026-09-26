@@ -287,7 +287,10 @@ export async function chargeCredits(userId, cost) {
 //
 // Table absente (code déployé avant la migration) : pas de prépaiement, on
 // débite normalement.
-const TABLE_ABSENTE = "42P01";
+// PostgREST répond PGRST205 pour une table inconnue de son cache de schéma
+// (constaté en production avant la migration) ; 42P01 est le code Postgres.
+const TABLES_ABSENTES = ["PGRST205", "42P01"];
+const tableAbsente = (error) => TABLES_ABSENTES.includes(error?.code);
 
 /** La prochaine génération de cette offre est-elle déjà payée (ancien barème) ? */
 export async function simulationPrepayee(jobId) {
@@ -298,7 +301,7 @@ export async function simulationPrepayee(jobId) {
     .eq("job_id", jobId)
     .maybeSingle();
   if (error) {
-    if (error.code !== TABLE_ABSENTE) console.error("simulationPrepayee:", error.message);
+    if (!tableAbsente(error)) console.error("simulationPrepayee:", error.message);
     return false;
   }
   return !!data;
@@ -313,7 +316,7 @@ async function consommerPrepaiement(jobId) {
     .eq("job_id", jobId)
     .select("job_id");
   if (error) {
-    if (error.code !== TABLE_ABSENTE) console.error("consommerPrepaiement:", error.message);
+    if (!tableAbsente(error)) console.error("consommerPrepaiement:", error.message);
     return false;
   }
   return (data || []).length > 0;

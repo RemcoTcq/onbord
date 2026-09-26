@@ -8,10 +8,17 @@ import { runExperienceGeneration } from "@/lib/experienceGeneration";
 // minutes de modèle payées pour rien — et une simulation que le recruteur n'a
 // pas (les 6 crédits, eux, ne tombent qu'une fois la simulation enregistrée).
 //
-// 600 : le double de la mesure la plus longue. Ce n'est pas une cible, c'est une
-// marge : le flux NDJSON pousse déjà chaque étape au client, donc l'attente est
-// visible et non silencieuse.
-export const maxDuration = 600;
+// 300 : le PLAFOND du plan Vercel « hobby ». 600 avait été posé ici (le double
+// de la mesure la plus longue) et Vercel a refusé EN SILENCE tous les
+// déploiements suivants — « invalid_max_duration », à l'étape patchBuild, après
+// un build pourtant réussi. La production est restée figée trois commits sans
+// que rien ne le signale. Ne pas remonter cette valeur sans passer le projet
+// Vercel sur un plan qui l'accepte (Pro : jusqu'à 800).
+//
+// Conséquence à connaître : une génération qui dépasse 300 s est coupée. Le
+// recruteur voit une erreur, et rien n'est facturé (le débit tombe après
+// l'enregistrement).
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 // Génération d'expérience en STREAMING (NDJSON, une ligne JSON par événement).
