@@ -1,0 +1,39 @@
+[
+  {"id": "hook", "lines": [
+    {"text": "Un poste ouvert."},
+    {"text": "Deux cent cinquante CV."},
+    {"text": "Et une seule question : qui sait vraiment faire le travail ?"}]},
+  {"id": "cv", "lines": [
+    {"text": "Un CV, c'est ce que quelqu'un a écrit sur lui-même."},
+    {"text": "Des mots-clés, pas des compétences."}]},
+  {"id": "interview", "lines": [
+    {"text": "Un entretien, c'est ce qu'il en dit sous pression."},
+    {"text": "Et l'aisance se confond avec le talent."}]},
+  {"id": "cost", "lines": [
+    {"text": "Ni l'un ni l'autre n'est le travail."},
+    {"text": "Alors on trie à l'intuition, et les meilleurs profils passent à travers."}]},
+  {"id": "reveal", "lines": [
+    {"text": "Onbord change la question."},
+    {"text": "On ne lit plus ce que les candidats disent."},
+    {"text": "On regarde ce qu'ils font."}]},
+  {"id": "paste", "lines": [
+    {"text": "Collez votre offre d'emploi."},
+    {"text": "Onbord en tire les compétences qui comptent, et vous validez."}]},
+  {"id": "build", "lines": [
+    {"text": "Il construit une simulation : vingt minutes du métier."},
+    {"text": "Un client à convaincre, un appel face caméra, une fiche à remplir."}]},
+  {"id": "send", "lines": [
+    {"text": "Vous envoyez un simple lien."},
+    {"text": "Les candidats font le vrai travail, avec l'assistant IA à côté, comme au bureau.",
+     "say": "Les candidats font le vrai travail, avec l'assistant I A à côté, comme au bureau."}]},
+  {"id": "results", "lines": [
+    {"text": "Vous les recevez classés sur vos critères,"},
+    {"text": "avec la preuve derrière chaque note."}]},
+  {"id": "answer", "lines": [
+    {"text": "Et chaque candidat reçoit une réponse."},
+    {"text": "Même ceux que vous écartez."}]},
+  {"id": "outro", "lines": [
+    {"text": "Onbord."},
+    {"text": "Recrutez sur les compétences."},
+    {"text": "Pas sur le CV."}]}
+]

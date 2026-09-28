@@ -25,6 +25,8 @@ const eslintConfig = defineConfig([
     // configuration ESLint et son propre `npm run lint`. Sans cette ligne, le
     // lint de l'application irait juger un code qui ne suit pas ses règles.
     "site/**",
+    // Le film de présentation (video/) : scripts de fabrication hors application.
+    "video/**",
   ]),
 ]);
 

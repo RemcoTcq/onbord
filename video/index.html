@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Onbord — film</title>
+<style>
+@font-face { font-family: Geist; src: url(fonts/Geist-Variable.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: GeistMono; src: url(fonts/GeistMono-Variable.woff2) format("woff2"); font-weight: 100 900; }
+
+:root {
+  --navy: #07294b;
+  --ink: #070d1a;
+  --text-2: #3d4a63;
+  --text-3: #5d6b85;
+  --blue: #1b45c4;
+  --blue-200: #dbe7fe;
+  --bg-2: #f5f7fb;
+  --border: rgba(7, 41, 75, 0.12);
+  --ok: #15803d;
+  --bad: #dc2626;
+  --night: #061a31;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: #fff; }
+body { font-family: Geist, system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+#stage { position: absolute; inset: 0; overflow: hidden; }
+.layer { position: absolute; inset: 0; }
+.abs { position: absolute; }
+.center { position: absolute; left: 50%; top: 50%; }
+.scene { position: absolute; inset: 0; visibility: hidden; }
+
+/* Fond : la trame du site, en nuit pour le problème, en jour pour la solution. */
+#bg-night { background: radial-gradient(1200px 800px at 50% 40%, #0b3561 0%, var(--night) 70%); }
+#bg-day { background: linear-gradient(180deg, #fff 0%, #f6f9ff 60%, #eef4ff 100%); }
+.grid { position: absolute; inset: -90px; background-size: 90px 90px; }
+#grid-night { background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); }
+#grid-day { background-image: linear-gradient(rgba(7,41,75,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(7,41,75,.055) 1px, transparent 1px); }
+.rule { position: absolute; top: 0; bottom: 0; width: 1px; }
+#wipe { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%) scale(0); }
+
+/* Typographie */
+.h1 { font-size: 118px; font-weight: 650; letter-spacing: -0.045em; line-height: 0.98; }
+.h2 { font-size: 84px; font-weight: 620; letter-spacing: -0.04em; line-height: 1.02; }
+.h3 { font-size: 52px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; }
+.eyebrow { font-family: GeistMono, monospace; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; }
+.mono { font-family: GeistMono, monospace; }
+.on-night { color: #fff; }
+.em { color: var(--blue); }
+.em-n { color: #8fb1ff; }
+.bad { color: var(--bad); }
+.nowrap { white-space: nowrap; }
+
+/* Cartes */
+.card { position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(7,41,75,.06), 0 30px 60px -30px rgba(7,41,75,.35); }
+.card-n { position: absolute; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 6px; }
+.bar { height: 12px; border-radius: 6px; background: rgba(7,41,75,.1); margin: 12px 0; }
+.chip { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; font-size: 26px; font-weight: 550;
+        background: var(--blue-200); color: var(--blue); white-space: nowrap; }
+.tag { font-family: GeistMono, monospace; font-size: 18px; padding: 6px 12px; border-radius: 4px; background: var(--bg-2); color: var(--text-3); letter-spacing: .04em; }
+.btn { display: inline-flex; align-items: center; gap: 12px; padding: 22px 34px; border-radius: 4px; background: var(--blue); color: #fff; font-size: 30px; font-weight: 600; }
+.check { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--ok); color: #fff; font-size: 22px; font-weight: 700; }
+
+/* Sous-titres */
+#caption { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%); max-width: 1500px; text-align: center;
+           font-size: 34px; font-weight: 500; letter-spacing: -0.01em; padding: 14px 28px; border-radius: 6px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer" id="bg-day"><div class="grid" id="grid-day"></div></div>
+  <div class="layer" id="bg-night"><div class="grid" id="grid-night"></div></div>
+  <div id="wipe"></div>
+  <div class="rule" id="rule-l" style="left:300px"></div>
+  <div class="rule" id="rule-r" style="right:300px"></div>
+
+  <!-- 1. HOOK ------------------------------------------------------------- -->
+  <section class="scene" id="hook">
+    <div id="cv-rain" class="layer"></div>
+    <div class="card-n" id="job" style="left:660px; top:330px; width:600px; height:250px; padding:40px 48px;">
+      <div class="eyebrow" style="color:#8fb1ff">Offre d'emploi</div>
+      <div style="font-size:54px; font-weight:620; letter-spacing:-.03em; color:#fff; margin-top:18px">Business developer</div>
+      <div style="font-size:28px; color:rgba(255,255,255,.6); margin-top:12px">Gand · CDI · 1 poste</div>
+    </div>
+    <div class="center on-night" id="count" style="text-align:center">
+      <div class="mono" id="count-n" style="font-size:250px; font-weight:600; letter-spacing:-.06em; line-height:1">0</div>
+      <div class="eyebrow" style="color:#8fb1ff; margin-top:6px">CV reçus</div>
+    </div>
+    <div class="center h1 on-night" id="question" style="text-align:center; width:1500px">
+      Qui sait <span class="em-n">vraiment</span><br>faire le travail ?
+    </div>
+  </section>
+
+  <!-- 2. CV --------------------------------------------------------------- -->
+  <section class="scene" id="cv">
+    <div class="card" id="cv-card" style="left:250px; top:190px; width:560px; height:700px; padding:48px">
+      <div style="display:flex; gap:24px; align-items:center">
+        <div style="width:96px; height:96px; border-radius:50%; background:#d7e0ef"></div>
+        <div style="flex:1"><div class="bar" style="width:70%; height:18px; background:rgba(7,41,75,.35)"></div><div class="bar" style="width:45%"></div></div>
+      </div>
+      <div style="margin-top:44px">
+        <div class="bar" style="width:92%"></div><div class="bar" style="width:84%"></div><div class="bar" style="width:88%"></div>
+      </div>
+      <div id="kw" style="display:flex; flex-wrap:wrap; gap:14px; margin-top:34px">
+        <span class="chip kw">Leadership</span><span class="chip kw">Orienté résultats</span>
+        <span class="chip kw">Excel avancé</span><span class="chip kw">Team player</span><span class="chip kw">Autonome</span>
+      </div>
+      <div style="margin-top:34px"><div class="bar" style="width:80%"></div><div class="bar" style="width:60%"></div></div>
+      <div id="stamp" class="abs mono" style="left:120px; top:300px; padding:14px 26px; border:5px solid var(--bad); color:var(--bad); font-size:46px; font-weight:700; letter-spacing:.08em; border-radius:6px; background:rgba(255,255,255,.85)">NON VÉRIFIÉ</div>
+    </div>
+    <div class="abs on-night" style="left:930px; top:300px; width:820px">
+      <div class="eyebrow" id="cv-eyebrow" style="color:#8fb1ff">Le CV</div>
+      <div class="h2" id="cv-title" style="margin-top:26px">Ce que quelqu'un a écrit <span class="em-n">sur lui-même.</span></div>
+      <div class="h3" id="cv-sub" style="margin-top:48px; color:rgba(255,255,255,.75)">Des mots-clés,<br><span style="color:#ff8a8a">pas des compétences.</span></div>
+    </div>
+  </section>
+
+  <!-- 3. ENTRETIEN -------------------------------------------------------- -->
+  <section class="scene" id="interview">
+    <div class="abs on-night" style="left:250px; top:300px; width:820px">
+      <div class="eyebrow" id="iv-eyebrow" style="color:#8fb1ff">L'entretien</div>
+      <div class="h2" id="iv-title" style="margin-top:26px">Ce qu'il en dit <span class="em-n">sous pression.</span></div>
+      <div class="h3" id="iv-sub" style="margin-top:48px; color:rgba(255,255,255,.75)">L'aisance se confond<br><span style="color:#ff8a8a">avec le talent.</span></div>
+    </div>
+    <svg class="abs" id="timer" style="left:1200px; top:150px" width="520" height="520" viewBox="0 0 520 520">
+      <circle cx="260" cy="260" r="220" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="18"/>
+      <circle id="timer-arc" cx="260" cy="260" r="220" fill="none" stroke="#ff8a8a" stroke-width="18" stroke-linecap="round"
+              stroke-dasharray="1382.3" stroke-dashoffset="0" transform="rotate(-90 260 260)"/>
+      <text id="timer-t" x="260" y="290" text-anchor="middle" fill="#fff" font-family="GeistMono" font-size="96" font-weight="600">45:00</text>
+    </svg>
+    <div class="card-n bubble" id="b1" style="left:1000px; top:720px; white-space:nowrap; padding:24px 30px; font-size:30px; color:#fff; border-radius:24px 24px 24px 4px">« Je suis très orienté résultats. »</div>
+    <div class="card-n bubble" id="b2" style="right:200px; top:850px; white-space:nowrap; padding:24px 30px; font-size:30px; color:#fff; border-radius:24px 24px 4px 24px">« Mon défaut ? Le perfectionnisme. »</div>
+  </section>
+
+  <!-- 4. LE COÛT ---------------------------------------------------------- -->
+  <section class="scene" id="cost">
+    <div class="center h1 on-night" id="neither" style="text-align:center; width:1600px">Ni l'un ni l'autre<br><span class="em-n">n'est le travail.</span></div>
+    <div id="sieve" class="layer"></div>
+    <div class="abs on-night h3" id="miss" style="left:0; width:1920px; text-align:center; top:180px">Les meilleurs profils <span style="color:#ffd27a">passent à travers.</span></div>
+  </section>
+
+  <!-- 5. RÉVÉLATION ------------------------------------------------------- -->
+  <section class="scene" id="reveal">
+    <div class="center" id="logo-wrap" style="width:1px; height:1px">
+      <svg id="logo" viewBox="0 0 370 617" width="222" height="370" style="position:absolute; left:-111px; top:-185px; overflow:visible">
+        <path id="logo-top" fill="#07294b" d="m0 1h150c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150-82.84 0-150-67.16-150-150z"/>
+        <path id="logo-bot" fill="#1b45c4" d="m0 501c0-102.17 82.83-185 185-185h35c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150h-220z"/>
+      </svg>
+    </div>
+    <div class="center" id="wordmark" style="font-size:150px; font-weight:680; letter-spacing:-.055em; color:var(--navy)">onbord</div>
+    <div class="abs" id="rv-say" style="left:0; width:1920px; text-align:center; top:470px">
+      <span class="h2" style="color:var(--text-3); position:relative">Ce qu'ils disent<span id="strike" style="position:absolute; left:-10px; right:-10px; top:52%; height:8px; background:var(--bad); transform-origin:left"></span></span>
+    </div>
+    <div class="abs h1" id="rv-do" style="left:0; width:1920px; text-align:center; top:640px">Ce qu'ils <span class="em">font.</span></div>
+  </section>
+
+  <!-- 6. COLLER L'OFFRE --------------------------------------------------- -->
+  <section class="scene" id="paste">
+    <div class="abs" style="left:250px; top:210px; width:700px">
+      <div class="eyebrow em" id="p-eyebrow">Étape 01</div>
+      <div class="h2" id="p-title" style="margin-top:22px">Collez <span class="em">l'offre.</span></div>
+      <div id="p-sub" style="margin-top:30px; font-size:34px; color:var(--text-2); line-height:1.35">Onbord en tire les compétences qui comptent. <b style="color:var(--ink)">Vous validez.</b></div>
+    </div>
+    <div class="card" id="drop" style="left:1030px; top:190px; width:640px; height:250px; border:3px dashed rgba(27,69,196,.35); background:rgba(219,231,254,.35); box-shadow:none"></div>
+    <div class="card" id="file" style="left:1085px; top:250px; width:530px; height:130px; padding:26px 30px; display:flex; gap:24px; align-items:center">
+      <div style="width:64px; height:80px; border-radius:6px; background:var(--bad); color:#fff; display:grid; place-items:center; font-weight:700; font-size:20px" class="mono">PDF</div>
+      <div><div style="font-size:28px; font-weight:600">Business-developer.pdf</div><div class="mono" style="font-size:20px; color:var(--text-3); margin-top:6px">142 Ko</div></div>
+    </div>
+    <div id="skills" class="abs" style="left:1030px; top:500px; width:700px"></div>
+  </section>
+
+  <!-- 7. LA SIMULATION ---------------------------------------------------- -->
+  <section class="scene" id="build">
+    <div class="abs" style="left:250px; top:210px; width:620px">
+      <div class="eyebrow em" id="bd-eyebrow">Étape 02</div>
+      <div class="h2" id="bd-title" style="margin-top:22px">Vingt minutes <span class="em">du métier.</span></div>
+      <div id="bd-sub" style="margin-top:30px; font-size:34px; color:var(--text-2); line-height:1.35">Pas un questionnaire. Une simulation, et sa grille de notation.</div>
+      <div id="bd-steps" class="mono" style="margin-top:50px; font-size:22px; color:var(--text-3); line-height:2"></div>
+    </div>
+    <div class="card" id="sim" style="left:960px; top:170px; width:760px; padding:40px 44px">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <div><div class="eyebrow" style="color:var(--text-3); font-size:18px">Expérience candidat</div><div style="font-size:40px; font-weight:640; letter-spacing:-.03em; margin-top:8px">Business developer</div></div>
+        <span class="tag" style="font-size:20px">~20 min</span>
+      </div>
+      <div id="sim-rows" style="margin-top:34px"></div>
+      <div id="rubric" style="margin-top:26px; padding-top:26px; border-top:1px solid var(--border); display:flex; gap:14px; align-items:center">
+        <span class="check">✓</span><span class="nowrap" style="font-size:26px; font-weight:560">Grille de notation écrite</span><span class="tag nowrap" style="margin-left:auto">4 compétences · 12 critères</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. ENVOYER UN LIEN -------------------------------------------------- -->
+  <section class="scene" id="send">
+    <div class="abs" style="left:250px; top:210px; width:620px">
+      <div class="eyebrow em" id="s-eyebrow">Étape 03</div>
+      <div class="h2" id="s-title" style="margin-top:22px">Envoyez <span class="em">un lien.</span></div>
+      <div id="s-sub" style="margin-top:30px; font-size:34px; color:var(--text-2); line-height:1.35">Les candidats font le vrai travail, avec l'assistant IA à côté. <b style="color:var(--ink)">Comme au bureau.</b></div>
+    </div>
+    <div class="card" id="link" style="left:960px; top:170px; width:760px; height:130px; padding:0 20px 0 36px; display:flex; align-items:center; gap:20px">
+      <div class="mono" style="font-size:32px; flex:1">onbord.be/s/<b>bd-gand</b></div>
+      <div class="btn" id="copy" style="padding:18px 26px; font-size:26px; min-width:180px; justify-content:center">Copier</div>
+    </div>
+    <svg id="cursor" class="abs" width="44" height="56" viewBox="0 0 22 28" style="left:0; top:0"><path d="M1 1l0 22 6-6 4 9 4-2-4-9 8 0z" fill="#070d1a" stroke="#fff" stroke-width="1.5"/></svg>
+    <div class="card" id="work" style="left:960px; top:350px; width:760px; height:520px; display:flex; overflow:hidden">
+      <div style="flex:1.45; padding:32px 34px; border-right:1px solid var(--border)">
+        <div class="tag">E-mail · Répondre au client</div>
+        <div style="font-size:22px; color:var(--text-3); margin-top:22px">À : M. Peeters</div>
+        <div style="font-size:22px; color:var(--text-3); margin-top:6px">Objet : Re: votre devis</div>
+        <div id="typed" style="font-size:25px; line-height:1.45; margin-top:22px; min-height:200px"></div>
+      </div>
+      <div style="flex:1; padding:32px 26px; background:var(--bg-2)">
+        <div class="tag" style="background:#fff">Assistant IA</div>
+        <div id="ai-q" style="margin-top:22px; font-size:21px; background:var(--blue); color:#fff; padding:14px 18px; border-radius:14px 14px 4px 14px; margin-left:30px">Des arguments sur la valeur ?</div>
+        <div id="ai-a" style="margin-top:14px; font-size:21px; background:#fff; border:1px solid var(--border); padding:14px 18px; border-radius:14px 14px 14px 4px; margin-right:20px">Mettez en avant le support inclus et le coût d'un changement de fournisseur.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. RÉSULTATS -------------------------------------------------------- -->
+  <section class="scene" id="results">
+    <div class="abs" style="left:250px; top:210px; width:620px">
+      <div class="eyebrow em" id="r-eyebrow">Résultats</div>
+      <div class="h2" id="r-title" style="margin-top:22px">Classés sur <span class="em">vos critères.</span></div>
+      <div id="r-sub" style="margin-top:30px; font-size:34px; color:var(--text-2); line-height:1.35">Et la preuve derrière <b style="color:var(--ink)">chaque note.</b></div>
+    </div>
+    <div class="card" id="rank" style="left:960px; top:150px; width:760px; padding:30px 40px"></div>
+    <div class="card" id="proof" style="left:1010px; top:640px; width:700px; padding:30px 34px; border-left:6px solid var(--ok)">
+      <div style="display:flex; justify-content:space-between; align-items:center"><span class="eyebrow" style="color:var(--ok); font-size:18px">Preuve · Négociation</span><span class="mono" style="font-size:22px; font-weight:600">4 / 5</span></div>
+      <div style="font-size:27px; line-height:1.4; margin-top:14px">« Je comprends que notre prix soit plus élevé. Voici ce qu'il vous évite de payer plus tard… »</div>
+    </div>
+  </section>
+
+  <!-- 10. UNE RÉPONSE POUR TOUS ------------------------------------------- -->
+  <section class="scene" id="answer">
+    <div class="abs h2" id="a-title" style="left:0; width:1920px; text-align:center; top:190px">Chaque candidat reçoit <span class="em">une réponse.</span></div>
+    <div class="abs h3" id="a-sub" style="left:0; width:1920px; text-align:center; top:320px; color:var(--text-3)">Même ceux que vous écartez.</div>
+    <div id="inbox" class="layer"></div>
+  </section>
+
+  <!-- 11. FIN ------------------------------------------------------------- -->
+  <section class="scene" id="outro">
+    <div class="center" id="o-logo" style="width:1px; height:1px">
+      <svg viewBox="0 0 370 617" width="84" height="140" style="position:absolute; left:-42px; top:-70px">
+        <path fill="#07294b" d="m0 1h150c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150-82.84 0-150-67.16-150-150z"/>
+        <path fill="#1b45c4" d="m0 501c0-102.17 82.83-185 185-185h35c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150h-220z"/>
+      </svg>
+    </div>
+    <div class="abs h1" id="o-a" style="left:0; width:1920px; text-align:center; top:400px">Recrutez sur <span class="em">les compétences.</span></div>
+    <div class="abs h1" id="o-b" style="left:0; width:1920px; text-align:center; top:530px">Pas sur le CV.</div>
+    <div class="abs" id="o-cta" style="left:0; width:1920px; top:760px; display:flex; justify-content:center; align-items:center; gap:40px">
+      <span class="btn">Réserver une démo →</span><span class="mono" style="font-size:34px; font-weight:600; color:var(--navy)">onbord.be</span>
+    </div>
+  </section>
+
+  <div id="caption"></div>
+  <div class="layer" id="fade" style="background:#fff; opacity:0"></div>
+  <div class="layer" id="intro" style="background:#000"></div>
+</div>
+
+<script>
+// ------------------------------------------------------------------ outils
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const E = {
+  out: (k) => 1 - Math.pow(1 - k, 3),
+  inOut: (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2),
+  back: (k) => { const c = 1.7; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); },
+  in: (k) => k * k * k,
+};
+// Progression entre a et a+d, avec courbe.
+const P = (u, a, d, ease = E.out) => ease(clamp((u - a) / d));
+// Pose une transformation complète sur un élément.
+function A(el, { o = 1, x = 0, y = 0, s = 1, r = 0, blur = 0, base = "" } = {}) {
+  el.style.opacity = o;
+  el.style.transform = `${base} translate(${x}px, ${y}px) scale(${s}) rotate(${r}deg)`;
+  el.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
+}
+// Entrée standard : monte de 40px en apparaissant.
+const rise = (el, k, extra = {}) => A(el, { o: k, y: (1 - k) * 40, ...extra });
+// Pseudo-aléatoire déterministe : même image à chaque rendu.
+function rand(seed) { let s = seed; return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646; }
+
+let TL = window.TL; // injecté par render.mjs
+const scenes = {};
+
+// ------------------------------------------------------------------ construction du DOM
+function buildDom() {
+  // Pluie de CV
+  const rain = $("cv-rain"), r = rand(11);
+  for (let i = 0; i < 70; i++) {
+    const d = document.createElement("div");
+    d.className = "card-n";
+    d.style.cssText = `width:120px;height:160px;left:${-60 + r() * 1920}px;top:0;padding:16px;background:rgba(255,255,255,.08)`;
+    d.innerHTML = `<div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.25)"></div>` +
+      [0.9, 0.7, 0.8, 0.5].map((w) => `<div style="height:7px;border-radius:4px;background:rgba(255,255,255,.2);margin-top:12px;width:${w * 100}%"></div>`).join("");
+    d.dataset.x = r(); d.dataset.delay = r(); d.dataset.speed = 0.7 + r() * 0.6; d.dataset.rot = (r() - 0.5) * 40; d.dataset.z = 0.5 + r() * 0.8;
+    rain.appendChild(d);
+  }
+  // Tamis : des points, dont quelques-uns dorés qui passent à travers.
+  const sieve = $("sieve"), r2 = rand(5);
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement("div");
+    const gold = i % 11 === 3;
+    d.className = "abs dot";
+    d.style.cssText = `width:${gold ? 26 : 20}px;height:${gold ? 26 : 20}px;border-radius:50%;left:0;top:0;background:${gold ? "#ffd27a" : "rgba(255,255,255,.55)"};${gold ? "box-shadow:0 0 24px #ffd27a" : ""}`;
+    d.dataset.gold = gold ? 1 : 0; d.dataset.x = 360 + r2() * 1200; d.dataset.delay = r2() * 2.2; d.dataset.stop = 520 + r2() * 60;
+    sieve.appendChild(d);
+  }
+  const filter = document.createElement("div");
+  filter.id = "filter"; filter.className = "abs";
+  filter.style.cssText = "left:330px;top:560px;width:1260px;height:6px;border-radius:3px;background:rgba(255,255,255,.35)";
+  sieve.appendChild(filter);
+
+  // Compétences
+  const skills = ["Négociation", "Rédaction client", "Prospection", "Gestion du CRM", "Esprit d'analyse"];
+  $("skills").innerHTML = `<div class="eyebrow" style="color:var(--text-3); font-size:18px; margin-bottom:22px" id="sk-label">Compétences extraites</div>` +
+    skills.map((s) => `<div class="card sk" style="position:relative; display:flex; align-items:center; gap:18px; padding:16px 24px; margin-bottom:14px; box-shadow:none">
+      <span class="check sk-check">✓</span><span style="font-size:28px; font-weight:560">${s}</span><span class="tag sk-v" style="margin-left:auto; background:#e7f5ec; color:var(--ok)">validé</span></div>`).join("");
+
+  // Étapes de construction + lignes de la simulation
+  const build = ["Compréhension du poste", "Choix des compétences", "Construction de la simulation", "Grille de notation", "Relecture"];
+  $("bd-steps").innerHTML = build.map((s) => `<div class="bstep"><span class="bdot">○</span> ${s}</div>`).join("");
+  const rows = [
+    ["Répondre à une objection sur le prix", "E-mail", "6 min"],
+    ["Passer l'appel face caméra", "Direct", "5 min"],
+    ["Remplir la fiche client", "CRM", "4 min"],
+    ["Nettoyer une liste de leads", "Tableur", "5 min"],
+  ];
+  $("sim-rows").innerHTML = rows.map(([t, f, m], i) => `<div class="simrow" style="display:flex; align-items:center; gap:22px; padding:20px 0; border-bottom:1px solid var(--border)">
+      <span class="mono" style="width:44px; height:44px; border-radius:50%; background:var(--blue-200); color:var(--blue); display:grid; place-items:center; font-size:20px; font-weight:600">${i + 1}</span>
+      <span style="font-size:28px; font-weight:540; flex:1">${t}</span><span class="tag">${f}</span><span class="mono" style="font-size:20px; color:var(--text-3); width:70px; text-align:right">${m}</span></div>`).join("");
+
+  // Classement
+  const people = [["Léa Martens", 87], ["Tom Verbeke", 81], ["Sarah Dubois", 74], ["Yanis El Amrani", 68], ["Julie Claes", 59]];
+  $("rank").innerHTML = `<div style="display:flex; justify-content:space-between"><span class="eyebrow" style="color:var(--text-3); font-size:18px">Business developer · 23 candidats</span><span class="eyebrow" style="color:var(--text-3); font-size:18px">Score</span></div>` +
+    people.map(([n, s], i) => `<div class="rrow" style="display:flex; align-items:center; gap:20px; padding:15px 0; border-bottom:1px solid var(--border)">
+      <span class="mono" style="width:30px; font-size:22px; color:var(--text-3)">${i + 1}</span>
+      <span style="width:52px; height:52px; border-radius:50%; background:${["#1b45c4", "#07294b", "#5d6b85", "#8fa3c4", "#b9c6dc"][i]}; color:#fff; display:grid; place-items:center; font-weight:600; font-size:20px">${n.split(" ").map((w) => w[0]).join("").slice(0, 2)}</span>
+      <span style="font-size:27px; font-weight:560; width:250px">${n}</span>
+      <span style="flex:1; height:12px; border-radius:6px; background:var(--bg-2); overflow:hidden"><span class="rbar" data-v="${s}" style="display:block; height:100%; width:0; background:${i === 0 ? "var(--blue)" : "rgba(27,69,196,.45)"}"></span></span>
+      <span class="mono rnum" data-v="${s}" style="width:60px; text-align:right; font-size:26px; font-weight:600">0</span></div>`).join("");
+
+  // Boîte de réception : cinq candidats, cinq réponses
+  const inbox = $("inbox");
+  const names = [["Léa M.", "Retenue pour l'entretien", true], ["Tom V.", "Retenu pour l'entretien", true], ["Sarah D.", "Réponse argumentée", false], ["Yanis E.", "Réponse argumentée", false], ["Julie C.", "Réponse argumentée", false]];
+  names.forEach(([n, st, ok], i) => {
+    const d = document.createElement("div");
+    d.className = "card mail";
+    d.style.cssText = `left:${170 + i * 324}px; top:480px; width:290px; height:330px; padding:28px; display:flex; flex-direction:column; align-items:center; text-align:center`;
+    d.innerHTML = `<div style="width:92px;height:92px;border-radius:50%;background:${ok ? "var(--blue)" : "#8fa3c4"};color:#fff;display:grid;place-items:center;font-size:32px;font-weight:600">${n[0]}${n.split(" ")[1][0]}</div>
+      <div style="font-size:28px;font-weight:600;margin-top:18px">${n}</div>
+      <div class="env" style="margin-top:26px;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:6px;background:${ok ? "#e7f5ec" : "var(--blue-200)"};color:${ok ? "var(--ok)" : "var(--blue)"};font-size:20px;font-weight:560">✉ ${st}</div>
+      <div class="mono" style="font-size:17px;color:var(--text-3);margin-top:14px">150 mots · sur son travail</div>`;
+    inbox.appendChild(d);
+  });
+
+  document.querySelectorAll(".scene").forEach((el) => (scenes[el.id] = el));
+}
+
+// ------------------------------------------------------------------ scènes
+// Chaque fonction reçoit u (secondes depuis le début de la scène), la durée
+// de la scène, et les débuts de ses phrases (relatifs) : l'image suit la voix.
+const draw = {
+  hook(u, D, L) {
+    A($("job"), { o: P(u, 0.1, 0.6) * (1 - P(u, L[1] - 0.2, 0.4)), y: (1 - P(u, 0.1, 0.8)) * 60, s: 1 - 0.1 * P(u, L[1] - 0.2, 0.4) });
+    // Les CV tombent pendant la deuxième phrase, puis s'estompent.
+    const t0 = L[1] - 0.3;
+    document.querySelectorAll("#cv-rain > div").forEach((d) => {
+      const k = clamp((u - t0 - d.dataset.delay * 1.2) * d.dataset.speed);
+      const y = -220 + E.out(k) * (500 + d.dataset.z * 520);
+      const fade = 1 - P(u, L[2] - 0.2, 0.6) * 0.8;
+      A(d, { o: (k > 0 ? 1 : 0) * fade * d.dataset.z, x: 0, y, r: d.dataset.rot * k, s: d.dataset.z, blur: P(u, L[2] - 0.2, 0.6) * 6 });
+    });
+    const kc = P(u, t0, 1.6, E.inOut);
+    $("count-n").textContent = Math.round(250 * kc);
+    A($("count"), { o: P(u, t0, 0.3) * (1 - P(u, L[2] - 0.3, 0.3)), s: 0.9 + 0.1 * P(u, t0, 0.5, E.back), base: "translate(-50%,-50%)" });
+    A($("question"), { o: P(u, L[2], 0.5), y: (1 - P(u, L[2], 0.7)) * 50, blur: (1 - P(u, L[2], 0.5)) * 12, base: "translate(-50%,-50%)" });
+  },
+
+  cv(u, D, L) {
+    A($("cv-card"), { o: P(u, 0, 0.5), x: (1 - P(u, 0, 0.8)) * -120, r: -2 * P(u, 0, 0.8) });
+    rise($("cv-eyebrow"), P(u, 0.1, 0.5));
+    rise($("cv-title"), P(u, 0.25, 0.6));
+    rise($("cv-sub"), P(u, L[1] - 0.1, 0.6));
+    document.querySelectorAll("#cv .kw").forEach((c, i) => {
+      const k = P(u, 0.6 + i * 0.12, 0.4, E.back);
+      const strike = P(u, L[1] + 0.2 + i * 0.08, 0.3);
+      A(c, { o: k * (1 - 0.55 * strike), s: 0.6 + 0.4 * k });
+      c.style.textDecoration = strike > 0.5 ? "line-through" : "none";
+    });
+    const ks = P(u, L[1] + 0.3, 0.35, E.back);
+    A($("stamp"), { o: P(u, L[1] + 0.3, 0.12), s: lerp(2.2, 1, ks), r: -12 });
+  },
+
+  interview(u, D, L) {
+    rise($("iv-eyebrow"), P(u, 0.1, 0.5));
+    rise($("iv-title"), P(u, 0.25, 0.6));
+    rise($("iv-sub"), P(u, L[1] - 0.1, 0.6));
+    const kt = P(u, 0, 0.6);
+    A($("timer"), { o: kt, s: 0.85 + 0.15 * kt });
+    // Le chrono s'emballe : 45 minutes qui fondent en quelques secondes.
+    const left = 45 * 60 * (1 - P(u, 0.3, D - 0.6, E.in) * 0.93);
+    $("timer-t").textContent = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
+    $("timer-arc").setAttribute("stroke-dashoffset", 1382.3 * (1 - left / 2700));
+    const shake = Math.sin(u * 60) * 3 * P(u, D - 2, 1.5);
+    $("timer").style.marginLeft = shake + "px";
+    A($("b1"), { o: P(u, 0.9, 0.4), s: 0.8 + 0.2 * P(u, 0.9, 0.5, E.back) });
+    A($("b2"), { o: P(u, L[1] - 0.2, 0.4), s: 0.8 + 0.2 * P(u, L[1] - 0.2, 0.5, E.back) });
+  },
+
+  cost(u, D, L) {
+    const kn = P(u, 0.05, 0.6);
+    A($("neither"), { o: kn * (1 - P(u, L[1] - 0.4, 0.4)), s: 1 + 0.04 * u, blur: (1 - kn) * 10, base: "translate(-50%,-50%)" });
+    const t0 = L[1] - 0.3;
+    rise($("miss"), P(u, t0 + 0.4, 0.6));
+    A($("filter"), { o: P(u, t0, 0.4), s: 1 });
+    document.querySelectorAll("#sieve .dot").forEach((d) => {
+      const k = clamp((u - t0 - d.dataset.delay) / 1.4);
+      const gold = d.dataset.gold === "1";
+      let y = 250 + E.in(k) * 700;
+      if (!gold) y = Math.min(y, +d.dataset.stop);
+      A(d, { o: k > 0 ? (gold ? 1 : 0.8) : 0, x: +d.dataset.x, y, s: 1 });
+    });
+    // Fin de scène : tout se contracte vers le centre, avant la bascule.
+    const z = P(u, D - 0.7, 0.7, E.in);
+    scenes.cost.style.transform = `scale(${1 - 0.25 * z})`;
+    scenes.cost.style.filter = z > 0.02 ? `blur(${z * 14}px)` : "none";
+  },
+
+  reveal(u, D, L) {
+    // Le logo s'assemble : les deux formes arrivent de part et d'autre.
+    const k1 = P(u, 0, 0.7, E.back), k2 = P(u, 0.12, 0.7, E.back);
+    A($("logo-top"), { o: P(u, 0, 0.2), y: (1 - k1) * -500, r: 0 });
+    A($("logo-bot"), { o: P(u, 0.12, 0.2), y: (1 - k2) * 500 });
+    // Puis le logo se range à gauche du mot « onbord ».
+    const side = P(u, 1.0, 0.7, E.inOut);
+    const up = P(u, L[1] - 0.5, 0.6, E.inOut);
+    A($("logo-wrap"), { x: -290 * side * (1 - up), y: -250 * up, s: 1 - 0.55 * side - 0.1 * up });
+    A($("wordmark"), { o: P(u, 1.2, 0.5) * (1 - up), x: 90 + 30 * (1 - P(u, 1.2, 0.6)), y: -250 * up, s: 1, base: "translate(-50%,-50%)" });
+    const ks = P(u, L[1], 0.5);
+    rise($("rv-say"), ks);
+    $("strike").style.transform = `scaleX(${P(u, L[1] + 1.4, 0.4, E.inOut)})`;
+    A($("rv-say"), { o: ks * (1 - 0.5 * P(u, L[2], 0.5)), y: (1 - ks) * 40 });
+    const kd = P(u, L[2], 0.5, E.back);
+    A($("rv-do"), { o: P(u, L[2], 0.3), s: 0.85 + 0.15 * kd });
+  },
+
+  paste(u, D, L) {
+    rise($("p-eyebrow"), P(u, 0.05, 0.5));
+    rise($("p-title"), P(u, 0.15, 0.6));
+    rise($("p-sub"), P(u, L[1] - 0.2, 0.6));
+    A($("drop"), { o: P(u, 0, 0.5) });
+    const kf = P(u, 0.35, 0.8, E.back);
+    A($("file"), { o: P(u, 0.35, 0.2), y: (1 - kf) * -260, r: (1 - kf) * -8, s: 1 + 0.06 * (1 - kf) });
+    rise($("sk-label"), P(u, L[1] - 0.1, 0.4));
+    document.querySelectorAll("#paste .sk").forEach((c, i) => {
+      const k = P(u, L[1] + i * 0.2, 0.45, E.back);
+      A(c, { o: P(u, L[1] + i * 0.2, 0.25), x: (1 - k) * 60 });
+      const v = P(u, L[1] + 2.2 + i * 0.15, 0.3, E.back);
+      A(c.querySelector(".sk-check"), { o: v, s: 0.4 + 0.6 * v });
+      A(c.querySelector(".sk-v"), { o: v });
+    });
+  },
+
+  build(u, D, L) {
+    rise($("bd-eyebrow"), P(u, 0.05, 0.5));
+    rise($("bd-title"), P(u, 0.15, 0.6));
+    rise($("bd-sub"), P(u, 0.6, 0.6));
+    const steps = document.querySelectorAll("#bd-steps .bstep");
+    steps.forEach((s, i) => {
+      const k = P(u, 0.8 + i * 0.35, 0.3);
+      A(s, { o: 0.25 + 0.75 * k });
+      const dot = s.querySelector(".bdot");
+      dot.textContent = k >= 1 ? "●" : "○";
+      dot.style.color = k >= 1 ? "var(--ok)" : "inherit";
+    });
+    A($("sim"), { o: P(u, 0.2, 0.5), y: (1 - P(u, 0.2, 0.8)) * 60 });
+    // Les tâches arrivent quand la voix les nomme.
+    const cue = [L[0] + 0.8, L[1] + 0.2, L[1] + 1.5, L[1] + 2.9];
+    document.querySelectorAll("#build .simrow").forEach((r, i) => A(r, { o: P(u, cue[i], 0.4), x: (1 - P(u, cue[i], 0.5)) * 50 }));
+    const kr = P(u, L[1] + 3.6, 0.5, E.back);
+    A($("rubric"), { o: P(u, L[1] + 3.6, 0.3), s: 0.95 + 0.05 * kr });
+  },
+
+  send(u, D, L) {
+    rise($("s-eyebrow"), P(u, 0.05, 0.5));
+    rise($("s-title"), P(u, 0.15, 0.6));
+    rise($("s-sub"), P(u, L[1] - 0.1, 0.6));
+    A($("link"), { o: P(u, 0.1, 0.4), y: (1 - P(u, 0.1, 0.6)) * 40 });
+    // Le curseur vient cliquer « Copier » à 1,35 s (le clic sonore est au même endroit dans music.py).
+    const kc = P(u, 0.4, 0.9, E.inOut);
+    const press = u > 1.35 && u < 1.5 ? 0.9 : 1;
+    A($("cursor"), { o: P(u, 0.4, 0.2) * (1 - P(u, 2.4, 0.3)), x: lerp(1900, 1610, kc), y: lerp(560, 235, kc), s: press });
+    const copied = u >= 1.35;
+    $("copy").textContent = copied ? "✓ Copié" : "Copier";
+    $("copy").style.background = copied ? "var(--ok)" : "var(--blue)";
+    A($("copy"), { s: u > 1.35 && u < 1.55 ? 0.94 : 1 });
+    const kw = P(u, L[1] - 0.2, 0.6);
+    A($("work"), { o: kw, y: (1 - kw) * 60 });
+    const text = "Bonjour Monsieur Peeters, je comprends que notre devis vous paraisse plus élevé. Ce qu'il comprend, en revanche…";
+    const n = Math.floor(clamp((u - L[1]) / 3.2) * text.length);
+    $("typed").innerHTML = text.slice(0, n) + (n < text.length && u > L[1] - 0.2 ? '<span style="color:var(--blue)">▍</span>' : "");
+    A($("ai-q"), { o: P(u, L[1] + 1.2, 0.3), y: (1 - P(u, L[1] + 1.2, 0.4)) * 20 });
+    A($("ai-a"), { o: P(u, L[1] + 2.0, 0.3), y: (1 - P(u, L[1] + 2.0, 0.4)) * 20 });
+  },
+
+  results(u, D, L) {
+    rise($("r-eyebrow"), P(u, 0.05, 0.5));
+    rise($("r-title"), P(u, 0.15, 0.6));
+    rise($("r-sub"), P(u, L[1] - 0.1, 0.6));
+    A($("rank"), { o: P(u, 0.1, 0.5), y: (1 - P(u, 0.1, 0.7)) * 50 });
+    document.querySelectorAll("#rank .rrow").forEach((r, i) => {
+      const k = P(u, 0.4 + i * 0.12, 0.4);
+      A(r, { o: k, y: (1 - k) * 20 });
+      const kb = P(u, 0.6 + i * 0.12, 1.1, E.inOut);
+      r.querySelector(".rbar").style.width = r.querySelector(".rbar").dataset.v * kb + "%";
+      r.querySelector(".rnum").textContent = Math.round(r.querySelector(".rnum").dataset.v * kb);
+    });
+    const kp = P(u, L[1], 0.5, E.back);
+    A($("proof"), { o: P(u, L[1], 0.3), y: (1 - kp) * 60, s: 0.96 + 0.04 * kp });
+  },
+
+  answer(u, D, L) {
+    rise($("a-title"), P(u, 0.05, 0.6));
+    rise($("a-sub"), P(u, L[1] - 0.1, 0.6));
+    document.querySelectorAll("#inbox .mail").forEach((m, i) => {
+      const k = P(u, 0.2 + i * 0.1, 0.5, E.back);
+      A(m, { o: P(u, 0.2 + i * 0.1, 0.3), y: (1 - k) * 80 });
+      // Les enveloppes arrivent avec les « ding » (0,6 s puis toutes les 0,2 s).
+      const ke = P(u, 0.6 + 0.2 * i, 0.35, E.back);
+      A(m.querySelector(".env"), { o: P(u, 0.6 + 0.2 * i, 0.15), s: 0.5 + 0.5 * ke });
+      // Ceux qu'on écarte ressortent aussi, sur la seconde phrase.
+      const hi = i >= 2 ? P(u, L[1] + 0.2 + (i - 2) * 0.12, 0.4) : 0;
+      m.style.boxShadow = hi > 0 ? `0 0 0 ${3 * hi}px rgba(27,69,196,${0.5 * hi}), 0 30px 60px -30px rgba(7,41,75,.35)` : "";
+    });
+  },
+
+  outro(u, D, L) {
+    const kl = P(u, 0, 0.6, E.back);
+    A($("o-logo"), { o: P(u, 0, 0.3), y: -260, s: 0.6 + 0.4 * kl });
+    rise($("o-a"), P(u, L[1] - 0.1, 0.6));
+    rise($("o-b"), P(u, L[2] - 0.1, 0.6));
+    rise($("o-cta"), P(u, L[2] + 1.2, 0.6));
+  },
+};
+
+// ------------------------------------------------------------------ image
+function renderAt(t) {
+  const sc = TL.scenes;
+  const drop = sc.find((s) => s.id === "reveal").start;
+
+  // Fond : la nuit du problème s'efface derrière un cercle blanc à la bascule.
+  const w = P(t, drop - 0.05, 0.9, E.out);
+  $("bg-night").style.opacity = t < drop - 0.05 ? 1 : 1 - P(t, drop + 0.5, 0.4);
+  $("wipe").style.transform = `translate(-50%,-50%) scale(${w * 260})`;
+  $("wipe").style.opacity = t < drop + 0.9 ? 1 : 0;
+  $("wipe").style.background = "#f6f9ff";
+  $("grid-night").style.transform = `translate(${(t * 12) % 90}px, ${(t * 18) % 90}px)`;
+  $("grid-day").style.transform = `translate(${(-t * 10) % 90}px, ${(t * 6) % 90}px)`;
+  const night = t < drop;
+  ["rule-l", "rule-r"].forEach((id) => ($(id).style.background = night ? "rgba(255,255,255,.08)" : "rgba(7,41,75,.1)"));
+
+  for (const s of sc) {
+    const el = scenes[s.id];
+    const D = s.end - s.start;
+    const u = t - s.start;
+    // Chaque scène déborde de 0,35 s sur la suivante pour un fondu enchaîné.
+    const visible = u >= -0.01 && u < D + 0.35;
+    el.style.visibility = visible ? "visible" : "hidden";
+    if (!visible) continue;
+    const L = s.lines.map((l) => l.start - s.start);
+    const exit = s.id === "outro" ? 0 : P(u, D - 0.1, 0.45, E.in);
+    el.style.opacity = 1 - exit;
+    if (s.id !== "cost") el.style.transform = `translateY(${-50 * exit}px)`;
+    draw[s.id](u, D, L);
+  }
+
+  // Sous-titres, synchronisés sur la voix off.
+  const cap = $("caption");
+  let line = null;
+  for (const s of sc) for (const l of s.lines) if (t >= l.start - 0.08 && t < l.end + 0.3) line = l;
+  cap.textContent = line ? line.text : "";
+  cap.style.opacity = line ? clamp((t - line.start + 0.08) / 0.12) * clamp((line.end + 0.3 - t) / 0.12) : 0;
+  cap.style.background = night ? "rgba(0,0,0,.45)" : "rgba(7,13,26,.82)";
+  cap.style.color = "#fff";
+  cap.style.visibility = line ? "visible" : "hidden";
+
+  // Ouverture depuis le noir, fondu final au blanc.
+  $("intro").style.opacity = 1 - P(t, 0.1, 1.8, E.inOut);
+  $("fade").style.opacity = P(t, TL.duration - 0.8, 0.8, E.inOut);
+}
+
+window.setup = (tl) => { TL = tl; buildDom(); };
+window.renderAt = renderAt;
+</script>
+</body>
+</html>
