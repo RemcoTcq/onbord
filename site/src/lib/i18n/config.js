@@ -82,3 +82,8 @@ export const APP_URL = (
 // la main depuis /admin), donc aucun bouton du site ne doit mener à un
 // formulaire d'inscription — il ne marcherait pas.
 export const CONTACT_EMAIL = "hello@onbord.be";
+
+// Ou arrivent les demandes de demo laissees sur /demo. Une adresse a part de
+// CONTACT_EMAIL, sur demande directe : les prospects y sont tries a part.
+// Lue par la route /api/demo, jamais envoyee au navigateur.
+export const LEADS_EMAIL = "info@onbord.be";

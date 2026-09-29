@@ -121,6 +121,6 @@ export const config = {
   matcher: [
     // Tout, sauf les fichiers internes de Next et ceux servis tels quels depuis
     // public/ — un logo n'a pas de langue.
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
   ],
 };

@@ -619,6 +619,17 @@ par e-mail », et la lui retirer la ferait sonner faux. Le titre d'onglet
 
 ### 3. Aucun bouton ne mène à une inscription
 
+⚠️ **« Book a demo » mène désormais à la page `/demo`, plus à un `mailto:`.**
+`demoHref()` renvoie l'adresse de cette page (avec `?plan=core|pro` depuis
+les cartes de tarif). La page demande prénom, nom, entreprise et e-mail
+professionnel, les envoie à `LEADS_EMAIL` (info@onbord.be) par la route
+`/api/demo` AVANT d'ouvrir le calendrier Calendly, pré-rempli avec le nom
+et l'e-mail. C'est le but de l'ordre : quelqu'un qui ferme le calendrier
+sans réserver a quand même laissé ses coordonnées. Si l'envoi échoue, le
+visiteur passe quand même au calendrier (`DemoForm.js`). `talkHref`
+(Custom, « Talk to sales ») et `postingHref` (bac à sable) restent des
+`mailto:`.
+
 L'inscription publique de l'application est **fermée** : les comptes sont créés
 à la main depuis `/admin`. Tous les appels à l'action passent donc par
 `src/lib/contact.js`, qui produit un `mailto:`. Un bouton « Choisir Core » qui
@@ -1192,6 +1203,15 @@ Les étapes sont une **animation**, pas une génération. Le site est statique
   une fonctionnalité d'application dans la vitrine. Voir la règle 6.
 
 ### 6. Pas de base de données, pas de session, pas de secret
+
+⚠️ **Une exception, une seule : `src/app/api/demo/route.js`.** Elle relaie
+la demande de démo en e-mail via l'API de Resend, et lit donc un secret,
+`RESEND_API_KEY`, à poser dans les variables d'environnement du projet
+Vercel du site (et dans `site/.env.local` pour tester en local). Elle ne
+stocke rien. Sans la clé, elle répond 503 et le visiteur passe quand même
+au calendrier : la demande est alors perdue, d'où les `console.error`, à
+lire dans les journaux Vercel. `/api/` est exclu du proxy des langues
+(`proxy.js`, `matcher`), sinon il serait redirigé vers `/en/api/...`.
 
 Le site est entièrement **statique** (`next build` prérend les 29 pages). S'il
 lui faut un jour un appel serveur, c'est le signe qu'on est en train de

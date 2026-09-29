@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL, coerceLocale } from "@/lib/i18n/config";
-import { ArrowLeft, Alert } from "@/components/Icons";
+import { ArrowLeft } from "@/components/Icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les trois pages légales, servies par une seule route.
@@ -25,10 +25,18 @@ const DOCS = {
   "ai-transparency": "ai",
 };
 
-// Passe à `false` quand un juriste a relu les trois textes : l'encart orange
-// « document de travail » disparaît alors des trois pages, dans les trois
-// langues, d'un seul endroit.
-const BROUILLON = true;
+// Les textes definitifs ont ete fournis en septembre 2026 : plus de bandeau
+// « document de travail », et les pages sont indexables. Le mecanisme de
+// brouillon (encart orange, paragraphes « todo: ») a ete retire avec eux.
+
+/** Rend cliquables les adresses e-mail et les liens http d'un texte. */
+function avecLiens(texte) {
+  return texte.split(/(https?:\/\/[^\s]+|[\w.+-]+@[\w-]+\.[a-z]{2,})/gi).map((bout, i) => {
+    if (/^https?:\/\//i.test(bout)) return <a key={i} href={bout}>{bout}</a>;
+    if (/^[\w.+-]+@[\w-]+\.[a-z]{2,}$/i.test(bout)) return <a key={i} href={`mailto:${bout}`}>{bout}</a>;
+    return bout;
+  });
+}
 
 export function generateStaticParams() {
   return LOCALES.flatMap((lang) => Object.keys(DOCS).map((doc) => ({ lang, doc })));
@@ -45,8 +53,8 @@ export async function generateMetadata({ params }) {
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: `${page.title} — Onbord`,
-    description: page.intro,
+    title: `${page.title}: Onbord`,
+    description: page.description,
     alternates: {
       canonical: `/${locale}/legal/${doc}`,
       languages: {
@@ -54,9 +62,6 @@ export async function generateMetadata({ params }) {
         "x-default": `/${DEFAULT_LOCALE}/legal/${doc}`,
       },
     },
-    // Une page de conditions n'a rien à faire dans les résultats de recherche
-    // avant d'exister vraiment. À retirer en même temps que BROUILLON.
-    robots: BROUILLON ? { index: false, follow: true } : undefined,
   };
 }
 
@@ -78,32 +83,22 @@ export default async function PageLegale({ params }) {
 
       <header className="legal__head">
         <h1>{page.title}</h1>
-        <p className="legal__updated">{legal.updatedLabel} : {page.updated}</p>
-        <p className="lede legal__intro">{page.intro}</p>
-
-        {BROUILLON && (
-          <p className="legal__draft">
-            <Alert size={16} />
-            <span>{legal.draftNotice}</span>
-          </p>
-        )}
+        <p className="legal__updated">{legal.updatedLabel}: {page.updated}</p>
       </header>
 
       <div className="legal__body">
         {page.sections.map((section) => (
           <section className="legal__section" key={section.h}>
             <h2>{section.h}</h2>
-            {section.p.map((paragraphe, i) =>
-              // Convention du dictionnaire : un paragraphe préfixé « todo: »
-              // s'affiche comme un encart « à compléter » au lieu d'un texte
-              // ordinaire. Voir l'en-tête de dictionaries/fr/legal.js.
-              paragraphe.startsWith("todo:") ? (
-                <p className="legal__todo" key={i}>
-                  <b>{legal.todoLabel}</b>
-                  <span>{paragraphe.slice(5)}</span>
-                </p>
+            {/* Convention du dictionnaire : une chaine est un paragraphe, un
+                TABLEAU de chaines est une liste a puces. */}
+            {section.p.map((bloc, i) =>
+              Array.isArray(bloc) ? (
+                <ul key={i}>
+                  {bloc.map((item) => <li key={item}>{avecLiens(item)}</li>)}
+                </ul>
               ) : (
-                <p key={i}>{paragraphe}</p>
+                <p key={i}>{avecLiens(bloc)}</p>
               )
             )}
           </section>

@@ -1,199 +1,359 @@
-// English legal pages. Same shape as fr/legal.js — read the comment there
-// first: these three URLs are opened by the APPLICATION from the candidate's
-// consent screen, so renaming a path here breaks links over there.
+// The three legal pages. Texts supplied by Onbord (September 2026), set here
+// as written, with two exceptions: company details split onto separate lines,
+// and the two em dashes replaced (site rule 2 bis, no em dash in copy).
+//
+// ⚠️ These three URLs (/legal/terms, /legal/privacy, /legal/ai-transparency)
+// are opened by the APPLICATION from the candidate's consent screen
+// (src/lib/constants/legal.js at the repo root). Renaming a path breaks the
+// consent step in production.
+//
+// Shape: each section has a heading `h` and a list `p`. A string is a
+// paragraph; an ARRAY of strings is a bulleted list.
+//
+// The French and Dutch files re-export this one: the site is published in
+// English only for now, and these texts only exist in English.
+
+const COMPANY = [
+  "Onbord",
+  "Antwerpsesteenweg 70, 9000 Gent, Belgium",
+  "Company number: 1014.936.437",
+  "Email: info@onbord.be",
+];
 
 const legal = {
-  draftNotice:
-    "Working draft. The text below describes the service accurately, but it has not yet been reviewed by a lawyer and some details are still missing.",
-  todoLabel: "To be completed",
   updatedLabel: "Last updated",
   backToHome: "Back to home",
-  tocLabel: "On this page",
 
   terms: {
-    title: "Terms of service",
-    updated: "15 September 2026",
-    intro:
-      "These terms govern the use of Onbord, a platform that assesses candidates through work simulations. They apply both to the client who subscribes and to the candidate invited to take an assessment.",
+    title: "Terms and Conditions",
+    updated: "29 September 2026",
+    description: "The terms governing the use of Onbord's recruitment platform.",
     sections: [
       {
-        h: "1. Who operates the service",
+        h: "Purpose",
         p: [
-          "todo:Legal name, legal form, registered office, company number and VAT number of the operating company.",
-          "For any question about these terms: hello@onbord.be.",
+          "These terms and conditions govern the use of the services provided by Onbord via:",
+          ["https://www.onbord.be", "https://app.onbord.be"],
+        ],
+      },
+      { h: "Company information", p: [COMPANY.join("\n")] },
+      {
+        h: "Services",
+        p: [
+          "Onbord provides a SaaS platform enabling, among other things:",
+          [
+            "candidate application screening",
+            "skills assessments through realistic job simulations",
+            "AI-assisted interviews",
+            "candidate shortlisting",
+          ],
         ],
       },
       {
-        h: "2. What the service does",
+        h: "User accounts",
         p: [
-          "Onbord turns a job posting into an assessment: it extracts the expected skills, generates a matching work simulation, then scores candidate answers against criteria the client has reviewed and approved.",
-          "The client remains solely responsible for the hiring decision. Onbord provides an assessment and the evidence behind it; it does not hire on the client's behalf and guarantees no hiring outcome.",
+          "Users are responsible for:",
+          [
+            "the confidentiality of their login credentials",
+            "activity carried out from their account",
+            "information submitted through the platform",
+          ],
         ],
       },
       {
-        h: "3. Accounts",
+        h: "Payments and subscriptions",
         p: [
-          "Access to the application is by named account. Accounts are created by Onbord at the client's request; there is no open self-service sign-up.",
-          "The client is responsible for keeping its team's credentials confidential and for actions taken from its accounts. Any suspicious use must be reported without delay.",
+          "Subscriptions are billed:",
+          ["monthly, or", "annually"],
+          "Payments are processed via Stripe. Subscriptions renew automatically unless cancelled.",
         ],
       },
       {
-        h: "4. Subscription and credits",
+        h: "Credits",
         p: [
-          "A subscription grants a number of credits per period. A credit is consumed at four moments: generating a simulation (the first time and on every full regeneration), regenerating one step of that simulation, a candidate completing that simulation, and correcting it. All other features are unlimited.",
-          "todo:Length of the period, rollover or expiry rule for unused credits, renewal, plan change and cancellation terms, notice period.",
-          "todo:Billing and payment terms: due date, payment method, late payment interest, refund policy.",
+          "Certain platform features operate on a credit system. Credits may be used for, among other things:",
+          [
+            "generating a job simulation experience",
+            "assessing a candidate",
+            "AI-assisted interviews",
+            "automated analysis",
+          ],
+          "Unused credits may expire according to the terms of the subscribed plan.",
         ],
       },
       {
-        h: "5. Acceptable use",
+        h: "Artificial intelligence",
         p: [
-          "The client undertakes to use Onbord only to assess real applications for real openings, and not to discriminate against a candidate on any ground protected by law.",
-          "Prohibited: reselling the service, bulk automated extraction of its content, attempts to circumvent subscription limits, and uploading unlawful content in job postings or company profiles.",
+          "Onbord uses artificial intelligence solely as a recruitment assistance tool.",
+          "Scores and analyses generated by the platform:",
+          [
+            "do not constitute a final, fully automated hiring decision",
+            "are provided for guidance",
+            "must be interpreted by the client company",
+          ],
+          "Onbord never automatically rejects a candidate. Before an assessment is published, the client company defines and approves a short set of qualifying requirements; a candidate who does not meet them does not proceed to the full assessment, but this is not a rejection decision. See AI Transparency for details. The final decision always belongs to the recruiter or client company.",
         ],
       },
       {
-        h: "6. Intellectual property",
+        h: "Prohibited uses",
         p: [
-          "The platform, its code, its assessment models and its interface remain the property of Onbord. A subscription grants a right of use, not a transfer of ownership.",
-          "Job postings, company content and candidate data uploaded by the client remain the client's property. Onbord uses them only to deliver the service, within the limits set by the privacy policy.",
+          "It is prohibited to:",
+          [
+            "scrape the platform",
+            "resell the services",
+            "share accounts",
+            "reverse engineer the platform",
+            "use Onbord for unlawful purposes",
+            "attempt to access systems without authorization",
+          ],
         ],
       },
       {
-        h: "7. Availability and liability",
+        h: "Service availability",
         p: [
-          "Onbord uses reasonable means to keep the service available, without guaranteeing uninterrupted operation. Maintenance windows may be required.",
-          "todo:Liability cap, exclusions (indirect damages, loss of opportunity) and any service level commitment.",
+          "Onbord makes reasonable efforts to ensure continuous platform availability but does not guarantee the absence of temporary interruptions.",
         ],
       },
       {
-        h: "8. Governing law",
+        h: "Limitation of liability",
         p: [
-          "These terms are governed by Belgian law.",
-          "todo:Competent court in the event of a dispute, and the prior amicable resolution step.",
+          "Onbord cannot be held liable for:",
+          [
+            "hiring decisions made by client companies",
+            "human error",
+            "indirect losses",
+            "damages resulting from use of the platform",
+          ],
         ],
       },
+      {
+        h: "Intellectual property",
+        p: [
+          "All elements of the Onbord platform remain the exclusive property of Onbord:",
+          ["design", "code", "branding", "algorithms", "content", "technology"],
+        ],
+      },
+      {
+        h: "Termination",
+        p: [
+          "Onbord may suspend or delete an account in the event of:",
+          ["breach of these terms", "abusive use", "fraud", "unlawful activity"],
+        ],
+      },
+      { h: "Governing law", p: ["These terms are governed by Belgian law."] },
+      { h: "Contact", p: ["For any question: info@onbord.be"] },
     ],
   },
 
   privacy: {
-    title: "Privacy policy",
-    updated: "15 September 2026",
-    intro:
-      "This page explains which personal data Onbord processes, why, for how long, and what you can require. It concerns two very different audiences: the recruiter using the platform, and the candidate taking an assessment.",
+    title: "Privacy Policy",
+    updated: "29 September 2026",
+    description: "How Onbord collects, uses, stores and protects personal data.",
     sections: [
       {
-        h: "1. Data controller",
+        h: "Introduction",
         p: [
-          "todo:Full identity and contact details of the data controller and, where applicable, of the data protection officer.",
-          "For any question, or to exercise your rights: hello@onbord.be.",
-          "One distinction that matters: when a client company assesses its candidates with Onbord, that company is the controller for those applications. Onbord then acts as a processor, on its behalf and on its instructions.",
+          "This privacy policy describes how Onbord collects, uses, stores, and protects the personal data of users of the platform accessible via:",
+          ["https://www.onbord.be", "https://app.onbord.be"],
+          "By using Onbord's services, you agree to the practices described in this policy.",
+        ],
+      },
+      { h: "Company information", p: [[...COMPANY, "Website: https://www.onbord.be"].join("\n")] },
+      {
+        h: "Data collected",
+        p: [
+          "Client company data. Onbord may collect:",
+          [
+            "first and last name",
+            "email address",
+            "phone number",
+            "company name",
+            "job postings",
+            "internal comments",
+            "HR notes",
+            "recruitment-related information",
+          ],
+          "Candidate data. Onbord may collect:",
+          [
+            "first and last name",
+            "email address",
+            "phone number",
+            "CV",
+            "LinkedIn profile",
+            "responses to job simulation exercises",
+            "responses to AI-assisted interviews",
+            "interview videos and audio recordings",
+            "detected skills",
+            "AI-generated score",
+            "application history",
+          ],
         ],
       },
       {
-        h: "2. Data processed",
+        h: "Purpose of processing",
         p: [
-          "Recruiter side: name, work email address, company, interface preferences, service usage logs and billing data.",
-          "Candidate side: name, email address, CV and uploaded files, answers written during the simulation, audio or video recordings where an exercise calls for them, transcripts of those recordings, scores and the reasoning attached to them.",
-          "No special category data within the meaning of the GDPR is requested. A candidate who spontaneously includes such data in a CV shares it of their own accord; it plays no part in the assessment.",
+          "Data is used to:",
+          [
+            "enable use of the platform",
+            "manage recruitment processes",
+            "analyze applications",
+            "generate AI-assisted scores and recommendations",
+            "facilitate candidate shortlisting",
+            "manage payments and subscriptions",
+            "ensure platform security",
+            "provide user support",
+          ],
         ],
       },
       {
-        h: "3. Purposes and legal bases",
+        h: "Artificial intelligence",
         p: [
-          "Delivering the service — generating the assessment, running it, correcting it, returning results to the recruiter: performance of the contract with the client company, and that company's legitimate interest in assessing its applicants.",
-          "Sending messages tied to the process (invitation, reminder, candidate feedback): performance of the contract.",
-          "Improving service quality and preventing abuse: legitimate interest, on data kept to the strict minimum.",
+          "Onbord uses artificial intelligence technology provided by, among others:",
+          ["Anthropic", "AssemblyAI"],
+          "Data sent to these providers is not used to train their underlying models.",
+          "The AI used by Onbord acts solely as a recruitment assistance tool.",
+          "Onbord never automatically rejects a candidate. Before an assessment is published, the client company defines and approves a short set of qualifying requirements (such as language, minimum experience, or location); a candidate who does not meet these pre-approved requirements does not proceed to the full assessment. This is not treated as a rejection decision, since the criteria were validated by a human at the client company in advance. Beyond this initial step, the AI does not make the final decision to accept or reject a candidate: that decision always belongs to the client company.",
         ],
       },
       {
-        h: "4. What is never done with your data",
+        h: "Hosting and data storage",
         p: [
-          "Candidate data is not sold, rented, or passed to third parties for advertising purposes.",
-          "It is not used to train artificial intelligence models: the providers Onbord relies on are bound by contractual commitments excluding training on content submitted through their business interface.",
+          "The platform is hosted on:",
+          ["Vercel"],
+          "Data is stored on:",
+          ["Supabase (servers located in Paris, European Union)"],
+          "Interview-related videos and files are also stored via Supabase.",
         ],
       },
       {
-        h: "5. Processors",
+        h: "Payments",
         p: [
-          "Onbord relies on a small number of technical providers, each under a data processing agreement: hosting of the application and the website (Vercel), database and authentication (Supabase), AI-assisted generation and correction (Anthropic), transactional email delivery (Resend).",
-          "todo:Processing locations and, for transfers outside the European Economic Area, the legal mechanism relied upon (standard contractual clauses, adequacy decision).",
+          "Payments are processed via:",
+          ["Stripe"],
+          "Onbord does not directly store users' complete banking information.",
         ],
       },
       {
-        h: "6. Retention",
+        h: "Emails and communications",
+        p: ["Transactional emails and notifications are sent via:", ["Resend"]],
+      },
+      {
+        h: "Data retention",
         p: [
-          "A candidate's data is kept for the duration of the hiring process concerned, then deleted or anonymised. An automatic purge runs every night on items that have reached their term.",
-          "todo:Exact retention period after a hiring process closes, and retention period for inactive recruiter accounts.",
+          "Candidate data. Candidate data is retained:",
+          ["for a maximum of 12 months, or", "until deletion by the client company"],
+          "Interview videos. Interview videos are retained for as long as the associated job posting exists. When a client company deletes a job posting, the interview videos of its candidates are deleted along with it.",
         ],
       },
       {
-        h: "7. Your rights",
+        h: "Data deletion",
         p: [
-          "You have the right to access, rectify, erase, restrict, object to and port your data, as well as the right not to be subject to a decision based solely on automated processing (see the AI transparency page).",
-          "A candidate should address their request to the company running the assessment, or directly to hello@onbord.be, and we will pass it on.",
-          "You may lodge a complaint with the Belgian Data Protection Authority (dataprotectionauthority.be).",
+          "Users and candidates may request:",
+          ["access to their data", "correction of their data", "deletion of their data"],
+          "Requests should be sent to: info@onbord.be",
+          "When a client company deletes an application or candidate data, it is deleted immediately.",
         ],
       },
       {
-        h: "8. Cookies",
+        h: "Cookies",
         p: [
-          "The public website uses a single cookie, which remembers the language chosen in the switcher. It is strictly necessary for the site to work and serves no advertising tracking.",
-          "todo:To be completed if analytics or marketing tools are added to the site — their presence would make a consent banner mandatory.",
+          "Onbord does not currently use any advertising or analytics tracking cookies.",
+          "Strictly necessary technical cookies required for the platform to function may be used.",
         ],
       },
+      {
+        h: "Security",
+        p: [
+          "Onbord implements reasonable measures to protect data, including:",
+          ["HTTPS", "secure authentication", "access control", "secure cloud infrastructure"],
+        ],
+      },
+      { h: "Age restriction", p: ["Onbord's services are reserved for users aged 18 and above."] },
+      {
+        h: "Users' rights",
+        p: [
+          "Onbord may modify this privacy policy at any time. The most recent version will always be available at: https://www.onbord.be",
+        ],
+      },
+      { h: "Contact", p: ["For any question related to data protection: info@onbord.be"] },
     ],
   },
 
   ai: {
-    title: "AI transparency",
-    updated: "15 September 2026",
-    intro:
-      "Onbord uses artificial intelligence at several points. This page says which ones, what the machine decides, what it does not decide, and what you can require if an assessment strikes you as unfair.",
+    title: "AI Transparency",
+    updated: "29 September 2026",
+    description: "How Onbord's AI works, what it analyzes, and who makes the decision.",
     sections: [
       {
-        h: "1. Where AI is involved",
+        h: "How does Onbord's AI work?",
         p: [
-          "Reading the job posting: a language model extracts the expected skills, the level required and the context of the role.",
-          "Building the assessment: the same kind of model writes the scenarios, the instructions and the scoring criteria that follow from it.",
-          "Correction: candidate answers are compared against those criteria and produce a score with written reasoning, tied to specific extracts of the answer.",
+          "Onbord helps recruiters evaluate and screen candidates using artificial intelligence.",
+          "Onbord's AI:",
+          [
+            "reads job postings and identifies the skills that matter for the role",
+            "generates realistic job simulations based on those skills",
+            "analyzes candidate responses",
+            "produces scores and recommendations, with supporting evidence",
+            "helps organize and rank applications",
+          ],
         ],
       },
       {
-        h: "2. What AI does not decide",
+        h: "Automated screening, human decision",
         p: [
-          "No candidate is ever automatically rejected by Onbord. Onbord only builds a shortlist: the recruiter always makes the final call. The assessment produces the score and the supporting evidence behind that decision, nothing more.",
-          "Scoring criteria are reviewed and approved by the recruiter before the first candidate takes the assessment. An assessment never goes live on the model's choices alone.",
+          "Onbord's qualifying screening (a short set of pass/fail questions on baseline requirements such as language, experience, or location) is applied automatically before a candidate proceeds to the full assessment. Beyond this initial screening, Onbord never makes a final hiring decision.",
+          "Results generated by the AI are used only as:",
+          ["screening assistance", "shortlisting support", "an analysis tool"],
+          "The final decision on any candidate always belongs to the recruiter or client company.",
         ],
       },
       {
-        h: "3. Candidates using AI",
+        h: "Data analyzed",
         p: [
-          "Simulations allow the use of AI tools, because real work allows them. Trying to ban them would mean assessing a situation that no longer exists.",
-          "How well those tools are used is part of what is assessed: knowing what to ask, checking what comes back and fixing what is wrong is a professional skill, treated as one.",
+          "Depending on the client company's choices, Onbord may analyze:",
+          [
+            "responses to job simulation exercises",
+            "responses to AI-assisted interviews",
+            "detected skills",
+            "criteria defined by the client company",
+          ],
         ],
       },
       {
-        h: "4. Known limits",
+        h: "Score transparency",
         p: [
-          "A language model can get things wrong: misread an answer written in an unusual style, mistranscribe an audio recording, or apply a criterion too literally.",
-          "That is exactly why every score comes with its reasoning and the extract it rests on: a score you cannot trace back to its source should never weigh on a decision.",
+          "Scores generated by Onbord come with explanations to help recruiters understand:",
+          [
+            "which criteria were assessed",
+            "which skills were detected",
+            "what evidence was taken into account",
+          ],
         ],
       },
       {
-        h: "5. Requesting human review",
+        h: "Bias mitigation",
         p: [
-          "Any candidate may ask for a person to review their assessment, obtain the reasons behind the score, and put their point of view.",
-          "The request goes to the company running the hiring process, or to hello@onbord.be, which will pass it on.",
+          "Onbord works to limit algorithmic bias by:",
+          [
+            "keeping a human at the center of the decision",
+            "avoiding fully automated hiring decisions",
+            "enabling human oversight at every stage",
+            "explaining generated scores with supporting evidence",
+          ],
         ],
       },
       {
-        h: "6. Model providers",
+        h: "Data protection",
         p: [
-          "The models used are Anthropic's (the Claude family), called through their business interface.",
-          "Content submitted is not used to train those models. See the privacy policy for the full list of processors.",
+          "Data used by the AI:",
+          [
+            "is not used to train the underlying models",
+            "remains protected in accordance with GDPR",
+            "is stored within the European Union",
+          ],
         ],
       },
+      { h: "Contact", p: ["For any question related to AI or data: info@onbord.be"] },
     ],
   },
 };

@@ -124,9 +124,9 @@ celles que l'application ouvre depuis l'écran de consentement du candidat
 1. **Les tarifs** de `site/src/lib/pricing.js` sont recopiés du barème réel de
    l'application (`src/lib/constants/plans.js`). Vérifier qu'ils sont toujours
    à jour — c'est la seule recopie entre les deux projets.
-2. **Les pages légales** : compléter les mentions « à compléter » (identité de
-   la société, durées de conservation, tribunal compétent…), faire relire, puis
-   passer `BROUILLON` à `false`.
+2. ~~**Les pages légales**~~ : fait le 29 septembre 2026. Les trois textes
+   définitifs sont en ligne (anglais seulement), indexables, sans bandeau de
+   brouillon. Le mécanisme `BROUILLON` a été retiré avec eux.
 3. **La demande de démo** ouvre un `mailto:`. Si un formulaire est préféré,
    un seul fichier à changer : `site/src/lib/contact.js`.
 4. **Une image de partage** (OpenGraph) : aujourd'hui un lien partagé sur

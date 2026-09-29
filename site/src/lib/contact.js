@@ -1,4 +1,5 @@
 import { CONTACT_EMAIL } from "./i18n/config";
+import { href } from "./i18n/routes";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tous les appels à l'action du site aboutissent ICI, et c'est une décision,
@@ -45,9 +46,11 @@ const SUJETS = {
  *                         regardait.
  */
 export function demoHref(locale, plan) {
-  const s = SUJETS[locale] || SUJETS.fr;
-  const sujet = plan ? `${s.plan} ${plan}` : s.demo;
-  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(sujet)}`;
+  // ⚠️ Ce n'est plus un mailto : la demande passe par la page /demo, qui
+  // recueille les coordonnees AVANT d'ouvrir le calendrier (voir
+  // DemoForm.js). Le plan suit en parametre, et part avec la demande.
+  const base = href("/demo", locale);
+  return plan ? `${base}?plan=${encodeURIComponent(plan)}` : base;
 }
 
 /**

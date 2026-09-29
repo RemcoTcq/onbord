@@ -124,7 +124,7 @@ export default function PlanTable({ dict, locale, demoHref, talkHref }) {
                   sur les boutons des deux autres plans. */}
               <a
                 className={`btn btn--block ${plan.featured ? "btn--blue" : "btn--line"}`}
-                href={plan.id === "custom" ? talkHref : demoHref}
+                href={plan.id === "custom" ? talkHref : `${demoHref}?plan=${plan.id}`}
               >
                 {t.cta}
                 <ArrowRight size={14} />

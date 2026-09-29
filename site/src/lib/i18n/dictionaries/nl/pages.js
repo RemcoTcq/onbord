@@ -406,6 +406,34 @@ const pages = {
       cta: "Demo boeken",
     },
   },
+
+  // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  demo: {
+    meta: {
+      title: "Demo boeken: Onbord",
+      description: "Laat uw gegevens achter en kies een moment. We tonen u een echte simulatie, gebouwd op een van uw vacatures."
+    },
+    eyebrow: "30 seconden",
+    title: "Boek een demo.",
+    lede: "Zeg ons wie u bent en kies daarna een moment dat u past.",
+    firstName: "Voornaam",
+    lastName: "Achternaam",
+    company: "Bedrijf",
+    email: "Zakelijk e-mailadres",
+    firstNamePh: "Lotte",
+    lastNamePh: "Peeters",
+    companyPh: "Acme NV",
+    emailPh: "lotte@acme.be",
+    submit: "Kies een moment",
+    sending: "Even geduld",
+    missing: "Vul alle velden in.",
+    badEmail: "Geef een geldig e-mailadres op.",
+    privacy: "We gebruiken deze gegevens alleen om uw demo voor te bereiden.",
+    pickEyebrow: "Stap 2 van 2",
+    pickTitle: "Kies een moment.",
+    pickLede: "Bedankt, {name}. Kies een moment, de bevestiging gaat naar {email}.",
+    edit: "Mijn gegevens aanpassen"
+  },
 };
 
 export default pages;

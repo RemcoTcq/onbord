@@ -3308,42 +3308,14 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .legal__back:hover { color: var(--text); }
 .legal h1 { font-size: clamp(2rem, 4vw, 2.875rem); letter-spacing: -0.035em; line-height: 1.06; font-weight: 600; }
 .legal__updated { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.6875rem; color: var(--text-4); margin-top: 14px; }
-.legal__intro { margin-top: 22px; }
-.legal__draft {
-  display: flex;
-  gap: 11px;
-  align-items: flex-start;
-  margin-top: 26px;
-  padding: 14px 16px;
-  border: 1px solid rgba(180, 83, 9, 0.28);
-  background: rgba(180, 83, 9, 0.06);
-  border-radius: var(--r-sm);
-  font-size: 0.8125rem;
-  color: #8a4a08;
-  line-height: 1.55;
-  max-width: 70ch;
-}
-.legal__draft svg { flex: none; margin-top: 2px; }
 .legal__body { max-width: 70ch; margin-top: 44px; }
 .legal__section { padding-top: 30px; border-top: 1px solid var(--border); margin-top: 30px; }
 .legal__section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
 .legal__section h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; }
-.legal__section p { color: var(--text-2); font-size: 0.9375rem; line-height: 1.72; }
-.legal__section p + p { margin-top: 12px; }
-.legal__todo {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px dashed var(--border-2);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  color: var(--text-3);
-  font-size: 0.875rem;
-  line-height: 1.6;
-}
-.legal__todo b { flex: none; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-4); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 8px; margin-top: 2px; font-weight: 500; }
+.legal__section p { color: var(--text-2); font-size: 0.9375rem; line-height: 1.72; white-space: pre-line; }
+.legal__section p + p, .legal__section ul + p, .legal__section p + ul { margin-top: 12px; }
+.legal__section ul { list-style: disc; padding-left: 20px; display: grid; gap: 5px; color: var(--text-2); font-size: 0.9375rem; line-height: 1.6; }
+.legal__section a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ─── 13. ANIMATIONS ─────────────────────────────────────────────────────── */
 
@@ -3458,4 +3430,69 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   .step { grid-template-columns: minmax(0, 1fr); gap: 26px; }
   .format { grid-template-columns: minmax(0, 1fr); gap: 34px; }
   .format:nth-child(even) .format__text { order: 0; }
+}
+
+/* ─── 15. PAGE « BOOK A DEMO » ───────────────────────────────────────────── */
+
+/* Le ciel du hero RETOURNÉ, et sans la trame : blanc en haut, bleu en bas.
+   Mêmes teintes que .home::before (le ciel de l'accueil), posées à l'envers,
+   avec un appui plus soutenu en bas à gauche : c'est ce coin qui donne le
+   mouvement de la référence envoyée (la page de démo de Spott). */
+.demo {
+  position: relative;
+  min-height: calc(100svh - var(--header-h));
+  padding: clamp(40px, 8vh, 96px) 0 clamp(64px, 12vh, 140px);
+  background:
+    radial-gradient(1100px 520px at 12% 108%, rgba(27, 69, 196, 0.26), transparent 70%),
+    radial-gradient(1000px 500px at 18% 98%, rgba(120, 172, 246, 0.46), transparent 68%),
+    radial-gradient(900px 500px at 82% 100%, rgba(158, 197, 251, 0.5), transparent 66%),
+    radial-gradient(1200px 460px at 50% 0%, #fff, transparent 74%),
+    linear-gradient(0deg, #d2e2fb 0%, #e8f0fe 40%, #fff 88%);
+}
+.demo__head { display: grid; justify-items: center; text-align: center; gap: 14px; }
+.demo__head .lede { margin-inline: auto; }
+.demo__eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.demo__box { max-width: 460px; margin-inline: auto; }
+.demo__form { display: grid; gap: 16px; margin-top: 36px; }
+.demo__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.demo__field { display: grid; gap: 7px; font-size: 0.8125rem; font-weight: 500; color: var(--text); }
+.demo__field input {
+  width: 100%;
+  padding: 11px 13px;
+  font: inherit;
+  font-weight: 400;
+  font-size: 0.9375rem;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.demo__field input::placeholder { color: var(--text-4); }
+.demo__field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 69, 196, 0.15); }
+.demo__form .btn { justify-content: center; margin-top: 6px; padding-block: 14px; }
+.demo__form .btn:disabled { opacity: 0.7; cursor: progress; }
+.demo__error { font-size: 0.8125rem; color: var(--bad); text-align: center; }
+.demo__privacy { font-size: 0.75rem; color: var(--text-3); text-align: center; }
+/* Le piège à robots : sorti de l'écran, pas `display: none`, que certains
+   robots savent repérer et ignorer. */
+.demo__trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.demo__pick { max-width: 1060px; margin-inline: auto; }
+.demo__edit { font-size: 0.8125rem; color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
+.demo__edit:hover { color: var(--text); }
+/* 700px : la hauteur que donne le code d'intégration de Calendly. Réservée
+   avant son chargement, sinon la page tressaute sous le visiteur. */
+.demo__calendar { min-width: 320px; height: 700px; margin-top: 28px; }
+
+@media (max-width: 620px) {
+  .demo__row { grid-template-columns: minmax(0, 1fr); }
+  .demo__calendar { height: 1000px; }
 }

@@ -406,6 +406,34 @@ const pages = {
       cta: "Réserver une démo",
     },
   },
+
+  // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  demo: {
+    meta: {
+      title: "Réserver une démo : Onbord",
+      description: "Laissez vos coordonnées et choisissez un créneau. Nous vous montrons une vraie simulation construite à partir de l'une de vos offres."
+    },
+    eyebrow: "30 secondes",
+    title: "Réserver une démo.",
+    lede: "Dites-nous qui vous êtes, puis choisissez le créneau qui vous convient.",
+    firstName: "Prénom",
+    lastName: "Nom",
+    company: "Entreprise",
+    email: "E-mail professionnel",
+    firstNamePh: "Marie",
+    lastNamePh: "Dubois",
+    companyPh: "Acme SA",
+    emailPh: "marie@acme.be",
+    submit: "Choisir un créneau",
+    sending: "Un instant",
+    missing: "Merci de remplir tous les champs.",
+    badEmail: "Merci d'indiquer une adresse e-mail valide.",
+    privacy: "Ces informations servent uniquement à préparer votre démo.",
+    pickEyebrow: "Étape 2 sur 2",
+    pickTitle: "Choisissez un créneau.",
+    pickLede: "Merci, {name}. Choisissez un créneau, la confirmation partira à {email}.",
+    edit: "Modifier mes informations"
+  },
 };
 
 export default pages;

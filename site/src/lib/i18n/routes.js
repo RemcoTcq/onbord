@@ -23,6 +23,13 @@ import { DEFAULT_LOCALE } from "./config";
 // pages n existent pas — ils alimentent le sitemap, donc les remettre
 // declarerait a Google des URL qui repondent 404.
 const SEGMENTS = {
+  // Meme chemin dans toutes les langues : c'est une page de formulaire, pas
+  // une page a referencer, et un mot traduit n'y apporterait rien.
+  "/demo": {
+    en: "/demo",
+    fr: "/demo",
+    nl: "/demo",
+  },
   "/pricing": {
     en: "/pricing",
     fr: "/tarifs",

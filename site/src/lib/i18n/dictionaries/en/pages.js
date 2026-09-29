@@ -427,6 +427,34 @@ const pages = {
       cta: "Book a demo",
     },
   },
+
+  // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  demo: {
+    meta: {
+      title: "Book a demo: Onbord",
+      description: "Leave your details and pick a time. We walk you through a real simulation built from one of your job postings."
+    },
+    eyebrow: "Takes 30 seconds",
+    title: "Book a demo.",
+    lede: "Tell us who you are, then pick a time that suits you.",
+    firstName: "First name",
+    lastName: "Last name",
+    company: "Company name",
+    email: "Work email",
+    firstNamePh: "Jane",
+    lastNamePh: "Smith",
+    companyPh: "Acme Inc.",
+    emailPh: "jane@acme.com",
+    submit: "Continue to pick a time",
+    sending: "One moment",
+    missing: "Please fill in every field.",
+    badEmail: "Please enter a valid email address.",
+    privacy: "We only use these details to prepare your demo.",
+    pickEyebrow: "Step 2 of 2",
+    pickTitle: "Pick a time.",
+    pickLede: "Thanks, {name}. Choose a slot, and the confirmation goes to {email}.",
+    edit: "Edit my details"
+  },
 };
 
 export default pages;
