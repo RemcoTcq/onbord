@@ -123,6 +123,8 @@ const candidate = {
 
     submitting: "Validation…",
     continue: "Continuer",
+    // Le bouton de l'écran de consentement : on n'y « continue » pas, on accepte.
+    accept: "J'accepte",
   },
 
   // ── Assistant IA disponible pendant certaines étapes ──────────────────────

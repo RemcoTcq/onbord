@@ -376,7 +376,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
                   className="btn-hover-effect"
                   style={isSubmitting ? disabledButtonStyle : { ...buttonStyle, padding: "0.875rem 2.5rem", borderRadius: "100px" }}
                 >
-                  {isSubmitting ? <><Loader2 size={18} className="spin" /> {t("candidate.onboarding.submitting")}</> : t("candidate.onboarding.continue")}
+                  {isSubmitting ? <><Loader2 size={18} className="spin" /> {t("candidate.onboarding.submitting")}</> : t("candidate.onboarding.accept")}
                 </button>
               ) : (
                 <button onClick={handleBack} style={{ background: "none", border: "none", color: "var(--muted-foreground)", fontSize: "0.95rem", cursor: "pointer", textDecoration: "underline", padding: "0.5rem", marginTop: "0.5rem" }}>

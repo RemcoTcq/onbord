@@ -110,6 +110,8 @@ const candidate = {
 
     submitting: "Bevestigen…",
     continue: "Doorgaan",
+    // De knop van het toestemmingsscherm: de kandidaat gaat niet verder, hij stemt in.
+    accept: "Ik ga akkoord",
   },
 
   assistant: {

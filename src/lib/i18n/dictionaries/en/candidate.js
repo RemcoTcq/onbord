@@ -102,6 +102,8 @@ const candidate = {
 
     submitting: "Confirming…",
     continue: "Continue",
+    // The consent screen's button: the candidate does not "continue", they accept.
+    accept: "I accept",
   },
 
   assistant: {
