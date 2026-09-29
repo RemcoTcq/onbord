@@ -6,6 +6,10 @@ import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 import { factureNotationCandidat } from "@/lib/utils/limits";
+import {
+  listerCompetences, resoudreIds, tierDesIds, estCritereCheckpoints,
+  pourcentageCheckpoints, moyennePonderee,
+} from "@/lib/competences";
 
 const SCORING_MODEL = "claude-sonnet-4-6";
 
@@ -42,6 +46,9 @@ const JUSTIFICATIONS_AUTO = {
     empty: "vide",
     recopiageCap: (pct) =>
       ` Note plafonnée : ${pct} % de la réponse est reprise mot pour mot des messages de l'assistant IA. Ce qui est évalué ici est ce que le candidat a produit.`,
+    recopiageCapCheckpoints: (pct) =>
+      ` Checkpoints plafonnés à « présent mais faible » : ${pct} % de la réponse est reprise mot pour mot des messages de l'assistant IA. Ce qui est évalué ici est ce que le candidat a produit.`,
+    checkpointNotScored: "Non évalué par le correcteur.",
   },
   en: {
     qcmDimension: "Multiple choice — correct answer",
@@ -70,6 +77,9 @@ const JUSTIFICATIONS_AUTO = {
     empty: "empty",
     recopiageCap: (pct) =>
       ` Score capped: ${pct}% of the answer is copied word for word from the AI assistant's messages. What is assessed here is what the candidate produced.`,
+    recopiageCapCheckpoints: (pct) =>
+      ` Checkpoints capped at "present but weak": ${pct}% of the answer is copied word for word from the AI assistant's messages. What is assessed here is what the candidate produced.`,
+    checkpointNotScored: "Not assessed by the grader.",
   },
 };
 
@@ -198,11 +208,15 @@ export async function scoreRun(runId) {
   // français pour tout le monde, sans erreur visible.
   const { data: exp } = await admin
     .from("experiences")
-    .select("jobs!inner(experience_locale, user_id)")
+    .select("jobs!inner(experience_locale, user_id, extracted_criteria)")
     .eq("id", run.experience_id)
     .single();
 
   const contentLocale = coerceExperienceLocale(exp?.jobs?.experience_locale);
+
+  // La liste validée de l'offre, avec le tier de chaque compétence : c'est ce
+  // qui fait peser un critère must-have double dans le score final.
+  const competences = listerCompetences(exp?.jobs?.extracted_criteria || {});
 
   let reportLocale = DEFAULT_UI_LOCALE;
   if (exp?.jobs?.user_id) {
@@ -236,6 +250,18 @@ export async function scoreRun(runId) {
   // de targets_skills, puis sur rien du tout (affichage à plat côté rapport).
   const skillOf = (s) => s.skill_assessed || (s.config?.targets_skills || [])[0] || "";
 
+  // Compétences d'une étape et de ses critères, et le tier qui en découle.
+  // Une étape antérieure aux identifiants n'a que des NOMS : on tente de les
+  // retrouver dans la liste, et à défaut le tier reste inconnu (null) — le
+  // critère pèse alors comme un must-have (moyennePonderee), donc comme avant.
+  // Il n'est pas écrit « must-have » pour autant : le rapport n'affiche pas un
+  // tier que personne n'a décidé.
+  const idsEtape = (s) => {
+    const ids = resoudreIds(s.config?.skills_tested || [], competences);
+    return ids.length ? ids : resoudreIds([s.skill_assessed, ...(s.config?.targets_skills || [])].filter(Boolean), competences);
+  };
+  const tierDe = (ids) => tierDesIds(ids, competences);
+
   // ── QCM : scoring direct (bonne/mauvaise réponse) ──
   const qcmSteps = (steps || []).filter((s) => s.kind === "classic_qcm");
   const qcmScores = qcmSteps.map((s) => {
@@ -248,6 +274,8 @@ export async function scoreRun(runId) {
       // Le QCM est regroupé sous la compétence qu'il teste, pas sous un libellé
       // générique : le rapport recruteur le range avec le reste de la compétence.
       skill_name: skillOf(s),
+      skill_ids: idsEtape(s),
+      tier: tierDe(idsEtape(s)),
       sub_dimension_name: L.qcmDimension,
       bars_level: isCorrect ? 5 : 1,
       score: isCorrect ? 100 : 0,
@@ -263,7 +291,7 @@ export async function scoreRun(runId) {
 
   // ── Sandbox CRM : correction déterministe des champs FACTUELS ──
   // Même principe que le QCM : une vérité vérifiable ne passe pas par un LLM.
-  // Les champs de JUGEMENT de la même fiche partent, eux, au scoring BARS
+  // Les champs de JUGEMENT de la même fiche partent, eux, au scoring par grille
   // ci-dessous (le step a ses critères, il est donc aussi dans `scored`).
   const crmSteps = (steps || []).filter((s) => s.sandbox_kind === "crm" && s.config?.crm);
   const crmScores = [];
@@ -275,8 +303,11 @@ export async function scoreRun(runId) {
     crmScores.push({
       step_id: s.id,
       // Même compétence que la sous-dimension "Croisement des sources" posée à la
-      // génération : les deux signaux de la fiche s'affichent groupés.
-      skill_name: crmSkillName(reportLocale),
+      // génération : les deux signaux de la fiche s'affichent groupés. Le
+      // libellé fixe ne sert plus que de repli, pour une étape sans compétence.
+      skill_name: skillOf(s) || crmSkillName(reportLocale),
+      skill_ids: idsEtape(s),
+      tier: tierDe(idsEtape(s)),
       sub_dimension_name: L.crmDimension,
       bars_level: crmBarsLevel(ev.score),
       score: ev.score,
@@ -308,6 +339,8 @@ export async function scoreRun(runId) {
     codeScores.push({
       step_id: s.id,
       skill_name: skillOf(s),
+      skill_ids: idsEtape(s),
+      tier: tierDe(idsEtape(s)),
       sub_dimension_name: L.codeDimension,
       bars_level: run.never_run ? 1 : testsBarsLevel(score),
       score: run.never_run ? 0 : score,
@@ -326,9 +359,16 @@ export async function scoreRun(runId) {
   const traj = scored.map((s, i) => {
     const resp = respByStep[s.id];
     const answer = candidateAnswerText(s, resp);
+    // Deux formats cohabitent : les checkpoints (générations récentes) et les
+    // niveaux BARS (expériences publiées avant, qui restent notables). Le
+    // format est annoncé sur chaque sous-dimension, et le JSON attendu suit.
     const subDims = (s.criteria || []).map((c) => {
+      if (estCritereCheckpoints(c)) {
+        const cps = c.checkpoints.map((cp) => `      [${cp.id}] ${cp.description}`).join("\n");
+        return `    • ${c.name} — CHECKPOINTS (note chacun 0, 1 ou 2)\n${cps}`;
+      }
       const grid = (c.bars_levels || []).map((b) => `      N${b.level} (${b.label}) : ${b.description}`).join("\n");
-      return `    • ${c.name}\n${grid}`;
+      return `    • ${c.name} — NIVEAUX (place le candidat de 1 à 5)\n${grid}`;
     }).join("\n");
     const skill = skillOf(s);
     const ai = (aiByStep[s.id] || []).map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n");
@@ -367,13 +407,23 @@ ${subDims}${ai ? `\n  Échanges avec l'assistant IA :\n${ai}` : ""}`;
 
   const system = `${consigneLangueRapport(reportLocale, contentLocale)}
 
-Tu es un évaluateur de recrutement rigoureux. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles BARS DÉFINIES À L'AVANCE. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
+Tu es un évaluateur de recrutement rigoureux ET juste. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles DÉFINIES À L'AVANCE et validées par le recruteur. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
+
+DEUX FORMATS DE GRILLE — chaque sous-dimension annonce le sien :
+- CHECKPOINTS : chaque checkpoint est UN comportement observable, noté SÉPARÉMENT :
+    0 = absent, ou contredit par la réponse ;
+    1 = présent mais faible (esquissé, partiel, maladroit) ;
+    2 = présent et bien fait.
+  Les checkpoints sont indépendants : en rater un n'en fait pas rater un autre, et un candidat qui en réussit deux sur trois est crédité pour ces deux-là. Écris d'abord "observations" — ce que la réponse fait et ne fait pas, en une à trois phrases —, PUIS note chaque checkpoint.
+- NIVEAUX : place le candidat sur un niveau de 1 à 5 en comparant son comportement OBSERVÉ aux ancres (grille des parcours publiés avant les checkpoints).
 
 RÈGLES ABSOLUES :
-- Pour chaque sous-dimension, positionne le candidat sur un niveau BARS de 1 à 5 en comparant son comportement OBSERVÉ aux ancres.
+- PREUVE : un checkpoint noté 1 ou 2 cite un VERBATIM — un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle), qui montre le comportement. Pour un checkpoint qui porte sur la réponse entière (longueur, ton général), cite le passage le plus représentatif. Aucun extrait possible = aucun point : note 0. Même exigence pour une sous-dimension à niveaux : un verbatim exact, ou "" et une note basse.
 - MISE EN SITUATION : quand une étape porte une « Mise en situation remise au candidat », juge la réponse AU REGARD de cette scène — une réponse client sur ce qu'elle répond au message reçu, un e-mail de prospection sur ce qu'il fait de ce qu'on savait du prospect. Le candidat l'avait sous les yeux : un détail de la scène qu'il ignore compte, un détail qu'il invente aussi. Si l'énoncé lui demandait de répondre dans une langue donnée, une réponse dans cette langue est la réponse attendue, jamais un écart.
-- Justifie chaque note et cite un VERBATIM : un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle). Si rien de pertinent, verbatim = "" et note basse.
-- RECOPIAGE : quand une étape porte la ligne « RECOPIAGE MESURÉ », la réponse n'est pas le travail du candidat, c'est celui de l'assistant, collé. Note alors les sous-dimensions sur CE QUE LE CANDIDAT A PRODUIT — c'est-à-dire rien, ou presque : niveau 1 ou 2, jamais plus, quelle que soit la qualité apparente du texte. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le explicitement dans la justification, sans détour.
+- PORTÉE : le candidat ne connaît de l'entreprise que ce que l'énoncé et la scène lui ont dit. Ne le pénalise JAMAIS de ne pas citer un fait qui n'y figurait pas — un chiffre, un délai, une référence client, une fonctionnalité du produit. Si un checkpoint ou une ancre semble l'exiger, juge la démarche (a-t-il cherché à chiffrer, à rassurer, à s'appuyer sur un exemple ?), pas le fait. Un fait qu'il INVENTE, en revanche, compte contre lui.
+- LA FONCTION, PAS LA FORME : une réponse courte qui fait ce que le checkpoint décrit le valide ; une réponse longue et bien tournée qui ne le fait pas ne le valide pas. Les fautes de frappe ne comptent que si une sous-dimension porte explicitement sur la qualité de l'écrit.
+- ÉCHANGES AVEC L'ASSISTANT IA : ils ne servent QU'À la note d'usage de l'IA. Ne t'en sers JAMAIS pour noter la tâche : ne compare pas la réponse aux brouillons de l'assistant, ne reproche pas au candidat de ne pas avoir repris une formulation de l'assistant, et n'invoque aucun « recopiage » en l'absence de la ligne « RECOPIAGE MESURÉ ». Un candidat qui a consulté l'assistant puis écrit sa propre réponse est noté sur cette réponse, exactement comme les autres.
+- RECOPIAGE : quand, et SEULEMENT quand, une étape porte la ligne « RECOPIAGE MESURÉ », la réponse est en partie le travail de l'assistant, collé. Note alors ce que le CANDIDAT a produit : un checkpoint ne vaut 2 que si l'extrait cité est un passage qu'il a écrit lui-même (absent des messages de l'assistant), sinon 1 au plus ; sur une grille à niveaux, 1 ou 2, jamais plus. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le dans la justification, sans détour.
 - La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.
 - Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes (cadrage, itération, regard critique), dis pour chacun ce que le candidat a fait ou n'a pas fait, et appuie-toi sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
@@ -387,27 +437,35 @@ L'assistant IA a-t-il été utilisé sur ce run : ${aiUsed ? "OUI" : "NON"}.
 Réponds avec ce JSON exact :
 {
   "sub_dimension_scores": [
-    { "step_id": "id exact", "skill_name": "nom exact de la compétence évaluée à cette étape", "sub_dimension_name": "nom exact de la sous-dimension", "bars_level": 1-5, "justification": "…", "verbatim": "extrait exact de la réponse" }
+    { "step_id": "id exact", "sub_dimension_name": "nom exact d'une sous-dimension à CHECKPOINTS", "observations": "…", "checkpoints": [ { "id": "cp1", "score": 0, "verbatim": "extrait exact (vide si score 0)", "justification": "une phrase" } ], "justification": "synthèse d'une phrase" },
+    { "step_id": "id exact", "sub_dimension_name": "nom exact d'une sous-dimension à NIVEAUX", "bars_level": 1, "justification": "…", "verbatim": "extrait exact de la réponse" }
   ],
   "ai_usage": { "used": ${aiUsed}, "score": 0-100, "justification": "…" },
   "summary": "Synthèse de 2-3 phrases, factuelle."
 }
-Une entrée par sous-dimension listée, sans exception. Le champ score sera calculé automatiquement à partir du bars_level ; ne le fournis pas. Si used=false, mets ai_usage.score à null.`;
-
+Une entrée par sous-dimension listée, sans exception, au format qu'elle annonce : "checkpoints" (une ligne par checkpoint, avec son id exact entre crochets) pour une sous-dimension à CHECKPOINTS, "bars_level" pour une sous-dimension à NIVEAUX. Les pourcentages sont calculés automatiquement ; ne les fournis pas. Si used=false, mets ai_usage.score à null.`;
   let critScores = [];
   let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
   let usage = {};
 
-  // Le budget de sortie se dimensionne sur le nombre de SOUS-DIMENSIONS, pas de
-  // steps : le modèle rend une entrée JSON par sous-dimension (justification +
-  // verbatim), ~250 tokens mesurés. Compter les steps sous-évaluait le besoin
-  // d'un facteur 3 et tronquait la réponse au milieu du JSON.
+  // Le budget de sortie se dimensionne sur ce que le modèle rend réellement :
+  // une entrée par SOUS-DIMENSION (~250 tokens mesurés, observations et
+  // justification comprises), plus une ligne par CHECKPOINT (score, verbatim,
+  // une phrase). Compter les steps sous-évaluait le besoin d'un facteur 3 et
+  // tronquait la réponse au milieu du JSON. 16000 reste le plafond : au-delà,
+  // un appel non streamé est refusé par le SDK.
   const subDimCount = scored.reduce((n, s) => n + (s.criteria || []).length, 0);
+  const checkpointCount = scored.reduce(
+    (n, s) => n + (s.criteria || []).reduce((m, c) => m + (estCritereCheckpoints(c) ? c.checkpoints.length : 0), 0),
+    0
+  );
 
-  // Appeler Claude seulement s'il y a des steps BARS à évaluer
+  // Appeler Claude seulement s'il y a des sous-dimensions à évaluer
   if (scored.length > 0) {
     const response = await anthropic.messages.create({
-      model: SCORING_MODEL, max_tokens: Math.min(16000, 1000 + subDimCount * 400), temperature: 0.1,
+      model: SCORING_MODEL,
+      max_tokens: Math.min(16000, 1000 + subDimCount * 400 + checkpointCount * 150),
+      temperature: 0.1,
       system, messages: [{ role: "user", content: user }],
     });
     usage = computeAiCost(SCORING_MODEL, response.usage);
@@ -417,7 +475,7 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
     // de fonction sort immédiatement sur status === "scored", donc plus aucune
     // relance ne pourrait aboutir.
     if (response.stop_reason === "max_tokens") {
-      console.error(`scoreRun ${runId} : réponse tronquée (max_tokens) sur ${subDimCount} sous-dimensions`);
+      console.error(`scoreRun ${runId} : réponse tronquée (max_tokens) sur ${subDimCount} sous-dimensions, ${checkpointCount} checkpoints`);
       return { success: false, error: "Scoring : réponse tronquée" };
     }
     const match = response.content[0].text.match(/\{[\s\S]*\}/);
@@ -434,41 +492,100 @@ Une entrée par sous-dimension listée, sans exception. Le champ score sera calc
       return { success: false, error: "Scoring : JSON illisible" };
     }
 
-    // Post-traitement : score dérivé du niveau BARS + vérification verbatim
+    const normNom = (s) => String(s || "").trim().toLowerCase();
+    const apparies = new Set();
+
+    // Post-traitement : la GRILLE fait foi, pas la réponse du modèle. Chaque
+    // entrée est rattachée à un critère défini — par son nom, ou à défaut au
+    // premier critère du même format que le modèle n'a pas encore noté (un nom
+    // reformulé ne doit pas faire tomber un critère à 0). Un id de checkpoint
+    // inventé, lui, ne crée aucune note.
     critScores = (parsed.sub_dimension_scores || []).map((c) => {
       const step = scored.find((s) => s.id === c.step_id);
+      if (!step) return null;
+      const libres = (step.criteria || []).filter((k) => !apparies.has(k));
+      const critere =
+        libres.find((k) => normNom(k.name) === normNom(c.sub_dimension_name)) ||
+        libres.find((k) => estCritereCheckpoints(k) === Array.isArray(c.checkpoints));
+      if (critere) apparies.add(critere);
+      const src = candidateAnswerText(step, respByStep[step.id]);
       // Au-delà du seuil, le plafond ne se négocie pas : le modèle a pour
-      // consigne de descendre à 1 ou 2, mais il lui arrive de se laisser
-      // impressionner par un texte bien tourné. Ce cas-là est trop net pour
-      // dépendre d'un jugement — et c'est exactement celui qu'on veut sanctionner.
+      // consigne de ne pas créditer ce que le candidat n'a pas écrit, mais il
+      // lui arrive de se laisser impressionner par un texte bien tourné. Ce
+      // cas-là est trop net pour dépendre d'un jugement.
       const taux = copieParStep[c.step_id] || 0;
       const plafonne = taux >= SEUIL_PLAFOND;
-      let level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
-      if (plafonne) level = Math.min(level, 2);
-      const score = (level - 1) * 25;
-      const src = step ? candidateAnswerText(step, respByStep[step.id]) : "";
-      return {
+      const skillIds = critere?.skill_ids?.length ? critere.skill_ids : idsEtape(step);
+
+      const commun = {
         step_id: c.step_id,
         // La compétence vient du step, pas du modèle : elle sert de clé de
         // regroupement à l'affichage et ne doit pas dériver d'une reformulation.
-        skill_name: step ? skillOf(step) : (c.skill_name || ""),
-        sub_dimension_name: c.sub_dimension_name || "",
+        skill_name: skillOf(step),
+        skill_ids: skillIds,
+        tier: tierDe(skillIds),
+        sub_dimension_name: critere?.name || c.sub_dimension_name || "",
+      };
+
+      // ── Critère à checkpoints ──────────────────────────────────────────────
+      if (critere && estCritereCheckpoints(critere)) {
+        const rendus = Array.isArray(c.checkpoints) ? c.checkpoints : [];
+        const checkpoints = critere.checkpoints.map((cp) => {
+          const r = rendus.find((x) => String(x?.id) === String(cp.id));
+          // Un checkpoint que le modèle a sauté compte 0, et le dit : ne pas le
+          // compter du tout gonflerait le pourcentage sur ce qu'on n'a pas vu.
+          if (!r) {
+            return { id: cp.id, description: cp.description, score: 0, justification: L.checkpointNotScored, verbatim: "", verbatim_verified: false, not_scored: true };
+          }
+          let score = Math.max(0, Math.min(2, Math.round(Number(r.score) || 0)));
+          if (plafonne) score = Math.min(score, 1);
+          const verbatim = score > 0 ? String(r.verbatim || "") : "";
+          return {
+            id: cp.id,
+            description: cp.description,
+            ...(cp.skill_id ? { skill_id: cp.skill_id } : {}),
+            score,
+            justification: String(r.justification || ""),
+            verbatim,
+            verbatim_verified: verifyVerbatim(verbatim, src),
+          };
+        });
+        return {
+          ...commun,
+          format: "checkpoints",
+          checkpoints,
+          observations: String(c.observations || ""),
+          bars_level: null,
+          score: pourcentageCheckpoints(checkpoints.map((cp) => cp.score)),
+          justification: (c.justification || "") + (plafonne ? L.recopiageCapCheckpoints(Math.round(taux * 100)) : ""),
+          verbatim: "",
+          verbatim_verified: false,
+        };
+      }
+
+      // ── Critère à niveaux (ancienne grille) ────────────────────────────────
+      let level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
+      if (plafonne) level = Math.min(level, 2);
+      return {
+        ...commun,
         bars_level: level,
-        score,
+        score: (level - 1) * 25,
         justification: (c.justification || "") + (plafonne ? L.recopiageCap(Math.round(taux * 100)) : ""),
         verbatim: c.verbatim || "",
         verbatim_verified: verifyVerbatim(c.verbatim, src),
       };
-    });
+    }).filter(Boolean);
   }
 
-  // Fusionne les scores BARS (Claude) et les scores déterministes
+  // Fusionne les scores notés par le modèle et les scores déterministes
   // (QCM + champs factuels du CRM + tests exécutés du sandbox code)
   const allScores = [...critScores, ...qcmScores, ...crmScores, ...codeScores];
 
-  const overall = allScores.length
-    ? Math.round(allScores.reduce((s, c) => s + c.score, 0) / allScores.length)
-    : null;
+  // Moyenne des critères, pondérée par le tier de leur compétence : un critère
+  // must-have compte double (décision du 29/09/2026). Un critère sans tier
+  // connu pèse comme un must-have — sur un parcours antérieur aux tiers, tous
+  // pèsent pareil, et le score reste la moyenne qu'il était.
+  const overall = moyennePonderee(allScores);
   const rawAi = parsed.ai_usage?.used ? parsed.ai_usage?.score : null;
   const aiUsageScore = rawAi == null ? null : Math.round(Math.max(0, Math.min(100, Number(rawAi))));
   // Le modèle produisait déjà cette justification, mais elle n'était pas

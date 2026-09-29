@@ -155,7 +155,8 @@ for (const [champ, variable] of CHAMPS_MARQUES) {
 // plateforme, ce que voit le candidat suit la langue choisie avant l'import.
 // Une étape générée porte les deux, et le partage n'est pas discutable — il est
 // déjà fait par sanitizeStepForCandidate, qui retire skill_assessed et les
-// grilles BARS de ce qui part vers le navigateur du candidat.
+// grilles de correction (sous-dimensions et leurs checkpoints) de ce qui part
+// vers le navigateur du candidat.
 //
 // On vérifie que la consigne à deux langues nomme bien chaque champ. En oublier
 // un le fait basculer du côté du candidat par défaut, et le recruteur récupère
@@ -175,7 +176,7 @@ if (!blocEtapes) {
     ['"config"', "champ candidat"],
     ['"skill_assessed"', "champ recruteur"],
     ["sous-dimension", "champ recruteur"],
-    ["BARS", "champ recruteur"],
+    ["checkpoint", "champ recruteur"],
   ];
   for (const [marque, role] of ATTENDUS) {
     if (!blocEtapes.includes(marque)) {

@@ -301,6 +301,16 @@ const dashboard = {
     trap: "trap",
     verbatimVerified: "✓ Excerpt verified in the answer",
     verbatimNotFound: "⚠ Excerpt not found verbatim",
+    checkpointPoints: "{points}/{max} pts · {score}%",
+    checkpointLevel: {
+      0: "missing",
+      1: "present but weak",
+      2: "present and done well",
+    },
+    tier: {
+      must_have: "Must-have",
+      nice_to_have: "Nice-to-have",
+    },
 
     expKind: {
       qualifying: "Screening",
@@ -379,7 +389,9 @@ const dashboard = {
     regenerate: "Regenerate",
     backToJob: "Back to the job",
     lockedWarning:
-      "⚠️ At least one candidate has already started this experience. Your changes will only apply to {next} candidates.",
+      "⚠️ At least one candidate has already started this version. Your next change will create a new one, taken only by {next} candidates: those already in progress keep theirs and are scored on its rubric.",
+    forkedNotice:
+      "New version v{version} created: candidates already in progress keep the previous one, new candidates will take this one.",
     lockedWarningNext: "future",
     designWithAssistant: "Design the experience with the assistant",
     publishedNotice:
@@ -399,10 +411,49 @@ const dashboard = {
     messageCap: "Message cap",
     skillAssessed: "Skill assessed",
     skillAssessedHint: "Main skill targeted by this step",
-    subDimensions: "Sub-dimensions (BARS)",
+    subDimensions: "Sub-dimensions",
     addSubDimension: "Sub-dimension",
     subDimensionName: "Sub-dimension name",
     newSubDimension: "New sub-dimension",
+    addCheckpoint: "Checkpoint",
+    checkpointPlaceholder: "One observable behaviour in the answer",
+    checkpointsHelp:
+      "Each checkpoint is scored on its own — missing, present but weak, present and done well — and the checkpoints add up. A checkpoint describes a single behaviour, achievable with what the prompt and the scene give the candidate.",
+    legacyGrid:
+      "Legacy level-based rubric — still scored as is. Having the assistant rewrite the step converts it to checkpoints.",
+    criterionSkills: "Skills scored:",
+    addSkill: "+ skill",
+    noSkill: "No skill linked",
+    addedForCoverage: "Added to cover the skill \"{skill}\"",
+    qcmSkill: "Skill checked by this multiple-choice question",
+    coverage: {
+      title: "Skill coverage",
+      must: "Must-have",
+      nice: "Nice-to-have",
+      missing_one: "{count} must-have skill tested nowhere",
+      missing_other: "{count} must-have skills tested nowhere",
+      allCovered: "Every must-have skill is tested",
+      uncovered: "No checkpoint tests this skill: a candidate would be shortlisted or rejected without it ever being observed.",
+      uncoveredNice: "not tested (no consequence)",
+      testedIn: "Step {n} \"{title}\"",
+      checkpointCount_one: "{count} checkpoint",
+      checkpointCount_other: "{count} checkpoints",
+      automatic: "auto-graded",
+      addedTag: "added for coverage",
+      cover: "Cover this skill",
+      coverHelp:
+        "Adds a sub-dimension to the step that fits best, or creates a dedicated exercise if none does. 1 credit.",
+      covering: "Looking for a step…",
+      coveredAttached: "Skill added to the rubric of step {n}",
+      coveredNewStep: "New exercise created for this skill (step {n})",
+      overDuration:
+        "This simulation has {steps} exercises, above the target of {max}, to cover {count} must-have skills. To shorten it, move a skill to nice-to-have or remove it from the job's list.",
+      noSkills:
+        "No validated skills on this job: the simulation's coverage cannot be checked.",
+      offList: "{id} (not in the list)",
+      publishWithGaps:
+        "These must-have skills are not tested by any checkpoint:\n{skills}\n\nPublish anyway?",
+    },
     addStep: "Add a step",
     addOption: "Add an option",
     promptPlaceholder: "Instructions / scenario",
@@ -479,7 +530,7 @@ const dashboard = {
       tabLabelPlaceholder: "Tab label (e.g. Call — Tuesday 9:10)",
       sourceBodyPlaceholder: "Source content, exactly as the candidate will read it…",
       natureFactual: "Factual (auto-marked)",
-      natureJudgment: "Judgment (BARS-scored)",
+      natureJudgment: "Judgment (rubric-scored)",
       optionsPlaceholder: "Options separated by commas",
       unitPlaceholder: "Unit (€, d, …)",
       expectedLabel: "Expected value — check it actually appears in the sources",
@@ -1167,6 +1218,7 @@ const dashboard = {
     reflexion: "Thinking through skill coverage and overall coherence…",
     designStart: "Designing the practical exercises…",
     critiqueStart: "Reviewing the journey with a critical eye…",
+    critiqueSkipped: "Critical review skipped to stay within the generation time limit — review the journey before publishing",
     critiqueOk: "Review: the journey holds up, nothing to rework",
     critiqueFix: "Review: step {n} “{label}” is being rewritten",
     designDone_one: "Full pipeline: {count} step",
@@ -1194,6 +1246,10 @@ const dashboard = {
     sourceLine: "Brief source: {label}",
     fieldLine: "Record field: {label}",
     trapLine: "Deliberate inconsistency: {label}",
+    coverageOk_one: "Coverage: the must-have skill is tested",
+    coverageOk_other: "Coverage: all {count} must-have skills are tested",
+    coverageFix: "Coverage: \"{label}\" added to the rubric of step {n}",
+    coverageGap: "Coverage: no step tests \"{label}\" — to decide at review",
     sourceKinds: {
       email: "email",
       call_transcript: "call transcript",

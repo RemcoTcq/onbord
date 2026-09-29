@@ -1,8 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { runExperienceGeneration, runStepRegeneration } from "@/lib/experienceGeneration";
+import { runExperienceGeneration, runStepRegeneration, runCouvertureCompetence } from "@/lib/experienceGeneration";
 import { chargerExperienceCourante } from "@/lib/experienceChat";
+import { versionModifiable } from "@/lib/experienceVersion";
 
 // ─── Génération ───────────────────────────────────────────────────────────────
 // Le pipeline (prompts, appels Claude, versionnage, insertion) vit dans
@@ -28,6 +29,14 @@ export async function generateExperience(jobId, additionalContext = "") {
 // d'une consigne, là où updateStep reçoit les champs déjà saisis.
 export async function regenerateStep(stepId, instruction) {
   return runStepRegeneration(stepId, instruction);
+}
+
+// ─── Couverture d'une compétence must-have ────────────────────────────────────
+// Le bouton du panneau « Couverture des compétences ». Session, propriété de
+// l'offre et crédits sont vérifiés dans runCouvertureCompetence : tout export
+// de ce module est un point d'entrée HTTP public.
+export async function couvrirCompetence(experienceId, skillId) {
+  return runCouvertureCompetence(experienceId, skillId);
 }
 
 /**
@@ -117,7 +126,13 @@ export async function updateStep(stepId, updates) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
-    if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
+    const possede = await assertStepOwnership(supabase, user.id, stepId);
+    if (!possede) return { success: false, error: "Accès refusé" };
+
+    // Une version déjà commencée par un candidat ne se modifie plus : la
+    // retouche porte sur une copie (lib/experienceVersion.js).
+    const v = await versionModifiable(supabase, possede.experience_id);
+    const cible = v.forked ? v.correspondance.get(stepId) : stepId;
 
     // Champs éditables uniquement (dont response_format, choisi par step)
     // `criteria` : colonne historique, contient les sous-dimensions de skill_assessed.
@@ -126,9 +141,9 @@ export async function updateStep(stepId, updates) {
     for (const k of allowed) if (updates[k] !== undefined) safe[k] = updates[k];
     safe.updated_at = new Date().toISOString();
 
-    const { error } = await supabase.from("experience_steps").update(safe).eq("id", stepId);
+    const { error } = await supabase.from("experience_steps").update(safe).eq("id", cible);
     if (error) throw error;
-    return { success: true };
+    return { success: true, forked: v.forked, version: v.version };
   } catch (err) {
     console.error("updateStep error:", err);
     return { success: false, error: err.message };
@@ -186,19 +201,21 @@ export async function addStep(experienceId) {
       .from("experiences").select("id, jobs!inner(user_id)").eq("id", experienceId).single();
     if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
 
+    const v = await versionModifiable(supabase, experienceId);
+
     const { data: last } = await supabase
       .from("experience_steps").select("order_index")
-      .eq("experience_id", experienceId).order("order_index", { ascending: false }).limit(1).maybeSingle();
+      .eq("experience_id", v.experienceId).order("order_index", { ascending: false }).limit(1).maybeSingle();
     const nextIndex = (last?.order_index ?? -1) + 1;
 
     const { data: step, error } = await supabase.from("experience_steps").insert({
-      experience_id: experienceId, order_index: nextIndex,
+      experience_id: v.experienceId, order_index: nextIndex,
       kind: "question", response_format: "text", title: "Nouvelle étape",
       prompt: "", sandbox_kind: "none", ai_assistant_allowed: false,
       skill_assessed: "", criteria: [], config: {},
     }).select().single();
     if (error) throw error;
-    return { success: true, step };
+    return { success: true, step, forked: v.forked, version: v.version };
   } catch (err) {
     console.error("addStep error:", err);
     return { success: false, error: err.message };
@@ -211,11 +228,18 @@ export async function deleteStep(stepId) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
-    if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
+    const possede = await assertStepOwnership(supabase, user.id, stepId);
+    if (!possede) return { success: false, error: "Accès refusé" };
 
-    const { error } = await supabase.from("experience_steps").delete().eq("id", stepId);
+    // Sur une version commencée, supprimer l'étape effaçait en cascade les
+    // réponses que les candidats y avaient déjà données (run_step_responses,
+    // ON DELETE CASCADE). La suppression porte désormais sur la copie.
+    const v = await versionModifiable(supabase, possede.experience_id);
+    const cible = v.forked ? v.correspondance.get(stepId) : stepId;
+
+    const { error } = await supabase.from("experience_steps").delete().eq("id", cible);
     if (error) throw error;
-    return { success: true };
+    return { success: true, forked: v.forked, version: v.version };
   } catch (err) {
     console.error("deleteStep error:", err);
     return { success: false, error: err.message };
@@ -232,10 +256,14 @@ export async function moveStep(stepId, direction) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
-    if (!(await assertStepOwnership(supabase, user.id, stepId))) return { success: false, error: "Accès refusé" };
+    const possede = await assertStepOwnership(supabase, user.id, stepId);
+    if (!possede) return { success: false, error: "Accès refusé" };
+
+    const v = await versionModifiable(supabase, possede.experience_id);
+    const cible = v.forked ? v.correspondance.get(stepId) : stepId;
 
     const { data: current } = await supabase
-      .from("experience_steps").select("id, order_index, experience_id").eq("id", stepId).single();
+      .from("experience_steps").select("id, order_index, experience_id").eq("id", cible).single();
 
     let neighborQuery = supabase
       .from("experience_steps").select("id, order_index").eq("experience_id", current.experience_id);
@@ -243,11 +271,11 @@ export async function moveStep(stepId, direction) {
       ? neighborQuery.lt("order_index", current.order_index).order("order_index", { ascending: false })
       : neighborQuery.gt("order_index", current.order_index).order("order_index", { ascending: true });
     const { data: neighbor } = await neighborQuery.limit(1).maybeSingle();
-    if (!neighbor) return { success: true }; // déjà en bout de liste
+    if (!neighbor) return { success: true, forked: v.forked, version: v.version }; // déjà en bout de liste
 
     await supabase.from("experience_steps").update({ order_index: neighbor.order_index }).eq("id", current.id);
     await supabase.from("experience_steps").update({ order_index: current.order_index }).eq("id", neighbor.id);
-    return { success: true };
+    return { success: true, forked: v.forked, version: v.version };
   } catch (err) {
     console.error("moveStep error:", err);
     return { success: false, error: err.message };

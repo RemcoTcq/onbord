@@ -967,6 +967,37 @@ export async function sendCandidateEmail(candidateId, jobId, mailType, toEmail, 
   }
 }
 
+// Ce que la mise en situation a montré, checkpoint par checkpoint : la matière
+// la plus précise d'un retour au candidat. Le feedback ne lisait jusqu'ici que
+// les champs de l'ancien parcours (analyse du CV, drapeaux), vides sur un
+// parcours d'expérience — il se retrouvait sans rien de concret à dire.
+// Lecture en service_role : candidate_runs et run_scores sont en RLS deny-all.
+// L'appelant a déjà vérifié, par la RLS de `candidates`, que le recruteur
+// possède ce candidat.
+async function observationsExperience(candidateId) {
+  const admin = createAdminClient();
+  const { data: run } = await admin
+    .from('candidate_runs')
+    .select('id, run_scores(summary, criterion_scores)')
+    .eq('candidate_id', candidateId)
+    .maybeSingle();
+  const rs = Array.isArray(run?.run_scores) ? run.run_scores[0] : run?.run_scores;
+  if (!rs) return null;
+
+  const reussis = [];
+  const manques = [];
+  for (const c of rs.criterion_scores || []) {
+    if (c.format !== 'checkpoints') continue;
+    for (const cp of c.checkpoints || []) {
+      if (cp.not_scored) continue;
+      if (cp.score === 2) reussis.push(`${c.sub_dimension_name} — ${cp.description}`);
+      else if (cp.score === 0) manques.push(`${c.sub_dimension_name} — ${cp.description}`);
+    }
+  }
+  if (!rs.summary && !reussis.length && !manques.length) return null;
+  return { summary: rs.summary || '', reussis, manques };
+}
+
 export async function generateConstructiveFeedback(candidateId) {
   try {
     const supabase = await createClient();
@@ -982,8 +1013,10 @@ export async function generateConstructiveFeedback(candidateId) {
 
     if (error || !candidate) throw new Error("Candidat introuvable");
 
-    // Garde-fou données insuffisantes
-    if (!candidate.score_global && !candidate.ai_summary) {
+    // Garde-fou données insuffisantes. `== null` et non `!` : un score de 0 est
+    // une évaluation terminée, pas une absence d'évaluation.
+    const observations = await observationsExperience(candidateId);
+    if (candidate.score_global == null && !candidate.ai_summary && !observations) {
       return { success: false, error: "Données d'évaluation insuffisantes pour générer un feedback (l'évaluation n'est pas terminée)." };
     }
 
@@ -1003,6 +1036,10 @@ CONTEXTE FOURNI :
 - Points forts observés : ${(candidate.green_flags || []).join(', ')}
 - Axes plus faibles observés : ${(candidate.red_flags || []).concat(candidate.yellow_flags || []).join(', ')}
 - Compétences évaluées et observations : ${JSON.stringify(candidate.cv_score_breakdown || [])}
+- Synthèse de la mise en situation : ${observations?.summary || 'N/A'}
+- Ce que le candidat a réussi dans la mise en situation : ${observations?.reussis.length ? observations.reussis.join(' ; ') : 'N/A'}
+- Ce qui a manqué dans la mise en situation : ${observations?.manques.length ? observations.manques.join(' ; ') : 'N/A'}
+(Ces deux dernières lignes sont des observations de correction : reformule-les en langage naturel, ne les recopie pas comme une liste de critères.)
 
 TA MISSION :
 Rédige un feedback constructif, humain et respectueux, adressé au candidat ("vous"), en français, de 120 à 180 mots.

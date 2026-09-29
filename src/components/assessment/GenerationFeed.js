@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal, Brain, Eye, PencilLine } from "lucide-react";
+import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal, Brain, Eye, PencilLine, ShieldCheck } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { LOCALE_LABELS } from "@/lib/i18n/config";
 
@@ -89,8 +89,12 @@ function feedIcon(kind, size = 13) {
     case 'design_start': return <Sparkles size={size} />;
     case 'reflexion': return <Brain size={size} />;
     case 'critique_start':
-    case 'critique_ok': return <Eye size={size} />;
+    case 'critique_ok':
+    case 'critique_skipped': return <Eye size={size} />;
     case 'critique_fix': return <PencilLine size={size} />;
+    case 'coverage_ok':
+    case 'coverage_fix': return <ShieldCheck size={size} />;
+    case 'coverage_gap': return <AlertTriangle size={size} />;
     case 'step': return <ListChecks size={size} />;
     case 'skill': return <Target size={size} />;
     case 'crm_start': return <Contact size={size} />;
@@ -145,6 +149,7 @@ function feedText(t, e) {
     case 'design_start': return t('dashboard.generationFeed.designStart');
     case 'critique_start': return t('dashboard.generationFeed.critiqueStart');
     case 'critique_ok': return t('dashboard.generationFeed.critiqueOk');
+    case 'critique_skipped': return t('dashboard.generationFeed.critiqueSkipped');
     case 'critique_fix':
       return t('dashboard.generationFeed.critiqueFix', { n: e.n, label: e.label || t('dashboard.generationFeed.thisStep') });
     case 'design_done':
@@ -154,6 +159,11 @@ function feedText(t, e) {
       return t('dashboard.generationFeed.codeStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
     case 'crm_start':
       return t('dashboard.generationFeed.crmStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
+    // Passe de couverture : le libellé est le NOM d'une compétence de l'offre,
+    // tel que le recruteur l'a validé — comme les autres labels, non traduit.
+    case 'coverage_ok': return t('dashboard.generationFeed.coverageOk', { count: e.count });
+    case 'coverage_fix': return t('dashboard.generationFeed.coverageFix', { n: e.n, label: e.label });
+    case 'coverage_gap': return t('dashboard.generationFeed.coverageGap', { label: e.label });
     case 'code_test':
       return t('dashboard.generationFeed.codeTest', { count: e.nbTests, hidden: e.nbCaches });
     case 'retry': return t('dashboard.generationFeed.retry');

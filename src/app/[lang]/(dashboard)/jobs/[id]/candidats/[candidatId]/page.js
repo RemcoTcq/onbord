@@ -110,6 +110,47 @@ function BarsScale({ levels, attributed }) {
   );
 }
 
+// Détail d'un critère à checkpoints : ce qui est réussi, esquissé ou manqué,
+// chacun avec sa justification et l'extrait qui le prouve. C'est la matière
+// même du feedback — un score seul ne dit pas quoi retravailler.
+const CHECKPOINT_MARQUES = {
+  2: { mark: "✓", color: "#166534", bg: "#f0fdf4" },
+  1: { mark: "◐", color: "#92400e", bg: "#fffbeb" },
+  0: { mark: "✗", color: "#991b1b", bg: "transparent" },
+};
+
+function CheckpointList({ checkpoints }) {
+  const { t } = useI18n();
+  if (!checkpoints?.length) return null;
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden", marginTop: "6px" }}>
+      {checkpoints.map((cp, i) => {
+        const m = CHECKPOINT_MARQUES[cp.score] || CHECKPOINT_MARQUES[0];
+        return (
+          <div key={cp.id || i} style={{ display: "flex", gap: "8px", padding: "7px 10px", fontSize: "12px", lineHeight: 1.45, borderTop: i === 0 ? "none" : "1px solid var(--border)", background: m.bg }}>
+            <span style={{ flexShrink: 0, fontWeight: 800, width: 14, color: m.color }} title={t(`dashboard.candidateDetail.checkpointLevel.${cp.score ?? 0}`)}>{m.mark}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                {cp.description}
+                <span style={{ marginLeft: 6, fontWeight: 500, fontSize: "11px", color: m.color }}>{t(`dashboard.candidateDetail.checkpointLevel.${cp.score ?? 0}`)}</span>
+              </div>
+              {cp.justification && <div style={{ color: "var(--muted-foreground)", marginTop: 2 }}>{cp.justification}</div>}
+              {cp.verbatim && (
+                <div style={{ marginTop: 4, fontStyle: "italic", color: "var(--foreground)", borderLeft: `3px solid ${cp.verbatim_verified ? "#22c55e" : "#f59e0b"}`, paddingLeft: 8 }}>
+                  « {cp.verbatim} »
+                  {!cp.verbatim_verified && (
+                    <span style={{ fontStyle: "normal", fontSize: "10.5px", color: "#b45309", marginLeft: 6 }}>{t("dashboard.candidateDetail.verbatimNotFound")}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Corrigé QCM : les propositions telles que le candidat les a vues, avec son
 // choix et la bonne réponse. Sans ça, un « 0% » sur un QCM est illisible.
 function QcmCorrection({ step }) {
@@ -624,10 +665,30 @@ export default function CandidateDetailPage() {
                             {group.items.map((cs, ci) => (
                               <div key={ci} style={{ background: "var(--background)", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", gap: 8 }}>
-                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>{cs.sub_dimension_name || cs.criterion_name}</span>
-                                  <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(t, cs.score).color, whiteSpace: "nowrap" }}>N{cs.bars_level} · {cs.score}%</span>
+                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>
+                                    {cs.sub_dimension_name || cs.criterion_name}
+                                    {/* Le tier pèse dans le score final : il se lit ici. Absent sur
+                                        un critère dont la compétence n'est pas dans la liste de l'offre. */}
+                                    {cs.tier && (
+                                      <span style={{ marginLeft: 8, fontSize: "10px", fontWeight: 700, textTransform: "uppercase", color: cs.tier === "must_have" ? "#3730a3" : "var(--muted-foreground)", border: `1px solid ${cs.tier === "must_have" ? "#c7d2fe" : "var(--border)"}`, borderRadius: "99px", padding: "1px 6px" }}>
+                                        {t(`dashboard.candidateDetail.tier.${cs.tier}`)}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(t, cs.score).color, whiteSpace: "nowrap" }}>
+                                    {cs.format === "checkpoints"
+                                      ? t("dashboard.candidateDetail.checkpointPoints", {
+                                          points: cs.checkpoints.reduce((s, cp) => s + (cp.score || 0), 0),
+                                          max: cs.checkpoints.length * 2,
+                                          score: cs.score,
+                                        })
+                                      : `N${cs.bars_level} · ${cs.score}%`}
+                                  </span>
                                 </div>
-                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+                                {cs.observations && <p style={{ fontSize: "12px", color: "var(--foreground)", lineHeight: "1.5", marginBottom: "4px" }}>{cs.observations}</p>}
+                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details || cs.checkpoints ? "6px" : 0 }}>🧠 {cs.justification}</p>}
+
+                                {cs.format === "checkpoints" && <CheckpointList checkpoints={cs.checkpoints} />}
 
                                 {/* L'échelle sur laquelle cette note a été posée.
                                     Absente pour le QCM et les champs factuels CRM,

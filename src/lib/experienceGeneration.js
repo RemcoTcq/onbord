@@ -12,6 +12,11 @@ import { chargerDecouverte } from "@/lib/experienceChat";
 import { construireBriefDecouverte } from "@/lib/experienceDecouverte";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { crmSkillName } from "@/lib/crmScoring";
+import { versionModifiable } from "@/lib/experienceVersion";
+import {
+  listerCompetences, resoudreIds, normaliserCritere, estCritereCheckpoints,
+  calculerCouverture, blocCompetencesPrompt, MUST,
+} from "@/lib/competences";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { consigneLangueContenu, consigneLangueEtapes } from "@/lib/i18n/prompt";
 import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
@@ -48,6 +53,19 @@ const REFLEXION = { type: "adaptive", display: "omitted" };
 // n'a pas l'usage.
 const EFFORT_REFLEXION = "medium";
 
+// ── Sauf pour la passe de CONCEPTION : pas de réflexion du tout ─────────────
+// Mesuré au banc le 29/09/2026 (offre Spott) : en "medium", 209 s de réflexion
+// AVANT la première étape écrite, 43 s pour écrire tout le JSON, puis 52 s de
+// critique — 304 s, au-delà des 300 s que la route peut durer (maxDuration,
+// plafond du plan Vercel). En "low", encore 137 s de réflexion : le budget ne
+// laissait plus la place d'un second essai quand le JSON sortait invalide, et
+// la génération était perdue.
+// Ce que cette réflexion arbitrait — répartir les compétences, dimensionner le
+// parcours — est désormais écrit en toutes lettres dans le prompt (règles 1 et
+// 6), vérifié par le code (couverture), et relu par la passe de critique, qui
+// garde sa réflexion : c'est elle, le second regard.
+const REFLEXION_CONCEPTION = false;
+
 // Interrupteur d'exploitation : la réflexion se coupe par variable
 // d'environnement, sans toucher au code. Elle change le comportement de TOUTES
 // les passes à la fois — c'est précisément ce qu'on veut pouvoir annuler d'un
@@ -71,6 +89,17 @@ const CRITIQUE_ACTIVE = process.env.ONBORD_CRITIQUE !== "0";
 // prompt de régénération, qui l'introduit par un titre explicite ; un modèle
 // n'en a que faire, un relecteur humain a besoin de savoir pourquoi ça commence
 // à 3.
+// Ce qu'est un bon checkpoint. Sorti de REGLES_ETAPE parce qu'un troisième
+// prompt en a besoin tel quel : la passe de couverture, qui écrit une
+// sous-dimension pour une compétence must-have restée sans checkpoint. Recopiées,
+// ces règles divergeraient à la première retouche — et c'est la règle de PORTÉE
+// (e) qui porte l'équité de la grille.
+const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CHECKPOINTS INDÉPENDANTS. Un checkpoint = UN SEUL comportement observable dans la réponse. Chacun est noté à part (absent / présent mais faible / présent et bien fait), puis les checkpoints s'additionnent : un candidat qui en réussit deux sur trois est crédité pour ces deux-là. N'écris donc JAMAIS un checkpoint qui combine plusieurs comportements — « valide l'objection, la reformule puis argumente », ce sont trois checkpoints. Et jamais moins de 3 : une sous-dimension qui n'en trouve que deux est trop étroite — fusionne-la avec sa voisine plutôt que de la laisser à deux.
+   d) Range-les dans l'ordre logique de la réponse quand il en existe un (reconnaître avant de reformuler, reformuler avant d'argumenter).
+   e) PORTÉE — la règle qui rend la grille juste : chaque checkpoint doit être atteignable par un bon professionnel qui découvre l'entreprise aujourd'hui, avec la SEULE information remise dans l'énoncé et la scène. N'exige jamais un chiffre, un délai, une référence client, une fonctionnalité du produit ou un fait interne qui n'y figure pas. Si un fait doit être utilisé, mets-le dans la scène. Sinon, écris le checkpoint sur la démarche (« propose de chiffrer le gain avec le prospect »), jamais sur le fait (« cite un gain de 30 % »).
+   f) Un checkpoint décrit ce que la réponse FAIT, pas comment elle est tournée : pas de phrase modèle à reconnaître, pas de verbatim à reproduire. Deux bons candidats qui s'y prennent différemment doivent pouvoir valider le même checkpoint. Jamais de formulation vague (« bonne qualité », « réponse adéquate »).
+   g) Au plus UN checkpoint par sous-dimension décrit un geste au-delà de l'attendu (ex. : retourner l'objection en levier). Les autres décrivent ce qu'une réponse correcte doit accomplir.`;
+
 const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
 4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
 5. Pour CHAQUE étape, propose "response_format" par défaut :
@@ -79,13 +108,12 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
    - "qcm" pour un QCM,
    - "code" uniquement si le poste est technique et qu'une tâche de code est pertinente.
    Le recruteur pourra changer ce défaut ; propose le plus pertinent.
-6. Pour CHAQUE étape de type "question" ou "task", identifie la compétence principale ciblée (reprise des COMPÉTENCES TECHNIQUES ou du SAVOIR-ÊTRE ci-dessus) dans "skill_assessed", et décompose-la en 2 à 3 SOUS-DIMENSIONS observables — pas une liste de critères plats, une vraie décomposition de ce que "bien réussir cette compétence" veut dire concrètement dans ce contexte. Chaque sous-dimension reçoit sa propre grille à 3 niveaux (1 Insuffisant, 3 Attendu, 5 Excellent), avec des descriptions COMPORTEMENTALES et OBSERVABLES.
-   Exemple de décomposition : la compétence "Travail d'équipe" se décompose en sous-dimensions "Collaboration", "Soutien aux collègues", "Communication" — chacune notée séparément, pas fondue en un seul critère générique "travail d'équipe".
-   IMPORTANT pour les niveaux de chaque sous-dimension :
-   - Chaque description DOIT inclure un exemple concret de ce que le candidat fait ou écrit (un mini-verbatim fictif illustratif entre guillemets).
-   - Exemple pour la sous-dimension "Clarté de communication" niveau 3 : "Le candidat structure sa réponse avec des paragraphes logiques, ex. : « Je propose de procéder en 3 étapes : d'abord…, ensuite…, enfin… »"
-   - Ne JAMAIS écrire de descriptions vagues comme "bonne qualité" ou "réponse adéquate".
-   Une étape de type "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement, pas par grille).
+6. COMPÉTENCES ET GRILLE DE CHAQUE ÉTAPE.
+   a) "skills_tested" : les IDENTIFIANTS (entre crochets dans la liste des compétences validées) des compétences que l'étape teste — une ou plusieurs, de tiers différents quand un même geste s'y prête. Recopie-les TELS QUELS. Jamais une compétence hors de cette liste. "skill_assessed" : le NOM de la compétence principale (celle du premier identifiant).
+   b) Pour CHAQUE étape "question" ou "task", décompose ce que « bien réussir » veut dire ici en 2 à 3 SOUS-DIMENSIONS observables — une vraie décomposition, pas une liste de critères plats. Ex. : une réponse à une objection en visio se décompose en "Gestion de l'objection", "Clarté du pitch sous pression", "Orientation vers la suite". Chaque sous-dimension porte "skill_ids" : le ou les identifiants, pris dans "skills_tested", de la compétence qu'elle note.
+${REGLES_CHECKPOINTS}
+   h) Un checkpoint peut porter son propre "skill_id" quand il note une AUTRE compétence de "skills_tested" que sa sous-dimension (ex. : un checkpoint de ton commercial dans un e-mail adressé à un coéquipier).
+   Une étape "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement), mais elle porte ses "skills_tested".
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
 8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" pour les tâches, sinon "none".
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
@@ -150,6 +178,11 @@ Les compétences listées disent CE QU'IL FAUT MESURER. L'offre dit DANS QUEL MO
 NE RETOMBE JAMAIS SUR LA VERSION GÉNÉRIQUE DU MÉTIER. Un poste de vente peut viser des PARTENAIRES et non des clients ; un poste de support peut être interne ; un poste marketing peut ne jamais toucher au grand public ; un poste de recrutement peut ne sourcer que des profils techniques. Si l'offre parle de partenariats, les mises en situation mettent en scène des partenaires à convaincre de collaborer — jamais des prospects à qui vendre.
 Avant d'écrire la première étape, repère dans l'offre : à qui le candidat parle, DANS QUELLE LANGUE il leur parle, ce qu'il attend d'eux, et ce qui rend CE poste différent d'un autre portant le même intitulé. Si une étape que tu viens d'écrire resterait vraie pour n'importe quelle offre du même intitulé, elle est à refaire.`;
 
+// Le défaut de JSON le plus fréquent, constaté au banc : un énoncé qui cite
+// l'objection d'un prospect entre guillemets droits non échappés. Le JSON
+// entier devient illisible, et toute la conception est à refaire.
+const REGLE_GUILLEMETS = `GUILLEMETS : dans les VALEURS du JSON (énoncés, messages, checkpoints), n'écris JAMAIS de guillemet droit " — pour citer une parole, utilise « … » en français, “…” en anglais ou en néerlandais. Un seul guillemet droit oublié rend tout le JSON illisible.`;
+
 const REGLES_QCM = `RÈGLES QCM ANTI-BIAIS :
 - TOUTES les options doivent avoir une longueur SIMILAIRE (±20% de caractères). Ne mets JAMAIS une option correcte significativement plus longue ou plus détaillée que les distracteurs.
 - Chaque distracteur doit être PLAUSIBLE pour quelqu'un qui connaît partiellement le sujet. Pas de réponses absurdes.
@@ -166,14 +199,14 @@ const SCHEMA_STEP = `    {
       "response_format": "text|video|qcm|choice",
       "sandbox_kind": "none|email|client_reply|document|code|crm",
       "ai_assistant_allowed": true,
-      "targets_skills": ["Compétence ciblée"],
       "config": {},
+      "skills_tested": ["h:identifiant-recopie-de-la-liste"],
       "skill_assessed": "Nom de la compétence principale ciblée par cette étape — RENDU DANS LA LANGUE DU RECRUTEUR (voir la consigne de langue en tête), en TRADUISANT le nom repris de la liste des compétences si celle-ci est dans une autre langue",
       "sub_dimensions": [
-        { "name": "Nom de la sous-dimension", "bars_levels": [
-          { "level": 1, "label": "Insuffisant", "description": "..." },
-          { "level": 3, "label": "Attendu", "description": "..." },
-          { "level": 5, "label": "Excellent", "description": "..." }
+        { "name": "Nom de la sous-dimension", "skill_ids": ["h:identifiant-recopie-de-la-liste"], "checkpoints": [
+          { "description": "Un seul comportement observable" },
+          { "description": "Un autre comportement, noté séparément" },
+          { "description": "Un comportement qui note une autre compétence de skills_tested", "skill_id": "s:identifiant-recopie-de-la-liste" }
         ] }
       ]
     }`;
@@ -186,8 +219,7 @@ const SCHEMA_STEP_CHAMPS = SCHEMA_STEP.split("\n").slice(1, -1).join("\n");
 // Interne : dans un module "use server", seuls des exports async sont permis.
 // La démo hors repo garde une copie identique de ce prompt.
 function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext, locale, uiLocale }) {
-  const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}${s.priority ? ` (${s.priority})` : ""}`).join("\n");
-  const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
+  const competences = listerCompetences(criteria);
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -205,11 +237,7 @@ Tu es un concepteur d'évaluations de recrutement par compétences. À partir d'
 
 ${blocOffre({ title, description, criteria })}
 
-COMPÉTENCES TECHNIQUES À MESURER :
-${hard || "Non précisées"}
-
-SAVOIR-ÊTRE À MESURER :
-${soft || "Non précisés"}
+${blocCompetencesPrompt(competences)}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
@@ -224,12 +252,15 @@ CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind"
 Ne génère jamais d'étape de filtre qualificatif (langue, expérience minimale, diplôme, localisation) — ce filtre existe déjà ailleurs dans le parcours, avant cette expérience. Toutes les étapes que tu génères ici évaluent une compétence, aucune n'élimine sur un critère administratif.
 
 RÈGLES :
-1. 3 à 6 étapes au total, durée cumulée 5–20 min.
+1. DIMENSIONNE LE PARCOURS SUR LES MUST-HAVE. Chaque compétence MUST-HAVE doit être notée par au moins un checkpoint quelque part dans le parcours. Regroupe plusieurs must-have dans un même exercice quand c'est cohérent (une réponse à une objection peut noter à la fois la gestion de l'objection, la clarté et l'orientation vers la suite) : c'est ce qui garde le parcours court. Vise 3 à 5 étapes, 5 à 20 minutes. Si les must-have distincts, regroupés au mieux, imposent davantage d'étapes, génère-les quand même : ne sacrifie JAMAIS la couverture d'un must-have pour tenir la durée — le recruteur en sera prévenu et tranchera.
+   Les NICE-TO-HAVE n'ont JAMAIS d'étape dédiée. Ajoute-les en sous-dimension ou en checkpoint secondaire seulement s'ils s'intègrent naturellement à une étape déjà prévue pour un must-have. Sinon, ne les teste pas : ce n'est pas un défaut.
 2. Inclus AU MOINS DEUX "task" réalistes ancrées dans le métier et le contexte entreprise. C'est le cœur de la preuve.
 ${REGLES_ETAPE}
 9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
 
 ${REGLES_QCM}
+
+${REGLE_GUILLEMETS}
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
@@ -238,7 +269,7 @@ Réponds UNIQUEMENT avec un JSON valide :
 ${SCHEMA_STEP}
   ]
 }
-Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "skill_assessed" et "sub_dimensions" restent vides ([] et "").`;
+Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "sub_dimensions" reste vide ([]) et "skill_assessed" aussi (""), mais "skills_tested" porte la compétence que le QCM vérifie.`;
 }
 
 // ─── Prompt de la 2e passe : scénario complet d'un step "crm" ─────────────────
@@ -423,35 +454,47 @@ async function generateCodeExercise({ title, description, criteria, companyConte
 // distinct — un candidat peut avoir juste par chance. Les deux signaux comptent.
 //
 // Ce critère est ajouté EN DUR aux steps CRM, il ne sort pas du modèle : il
-// doit donc être traduit ici, sans quoi une expérience néerlandaise se
-// retrouverait avec une grille BARS française au milieu — visible par le
-// recruteur dans l'éditeur, et injectée telle quelle dans le prompt de scoring.
+// doit donc être traduit ici, sans quoi une expérience anglaise se retrouverait
+// avec une grille française au milieu — visible par le recruteur dans
+// l'éditeur, et injectée telle quelle dans le prompt de scoring.
+//
+// Trois checkpoints et non plus trois niveaux : l'ancien niveau 5 exigeait de
+// retenir la bonne valeur ET de signaler l'écart ET de dire laquelle fait foi.
+// Un candidat qui retenait la bonne valeur et signalait l'écart sans trancher
+// n'avait aucun niveau qui lui ressemble ; il est maintenant crédité de ce qu'il
+// a fait.
 const CRM_CROSS_CHECK_CRITERION = {
   fr: {
     name: "Croisement des sources",
-    bars_levels: [
-      { level: 1, label: "Insuffisant", description: "Recopie une valeur d'une seule source sans voir qu'une autre la contredit, et ne mentionne aucun écart, ex. : notes vides ou « RAS, fiche complétée »." },
-      { level: 3, label: "Attendu", description: "Retient la bonne valeur (celle qui fait foi) : il a lu les deux sources et tranché, même sans l'expliciter, ex. : le budget saisi correspond à l'information la plus récente." },
-      { level: 5, label: "Excellent", description: "Retient la bonne valeur ET signale l'écart en indiquant laquelle fait foi, ex. : « Attention : 45 k€ annoncés par mail le 12, ramenés à 30 k€ lors de l'appel du 14 — je retiens 30 k€ »." },
+    checkpoints: [
+      "Retient, pour le champ contredit, la valeur qui fait foi (la plus récente, ou celle explicitement corrigée dans une source).",
+      "Signale l'écart entre les deux sources, dans les notes ou dans un champ de la fiche.",
+      "Dit laquelle des deux valeurs fait foi, et pourquoi.",
     ],
   },
   en: {
     name: "Cross-checking sources",
-    bars_levels: [
-      { level: 1, label: "Below expectations", description: "Copies a value from a single source without noticing that another contradicts it, and flags no discrepancy — e.g. empty notes, or \"nothing to report, record completed\"." },
-      { level: 3, label: "Meets expectations", description: "Records the correct value (the one that stands): they read both sources and made a call, even without saying so — e.g. the budget entered matches the more recent information." },
-      { level: 5, label: "Excellent", description: "Records the correct value AND flags the discrepancy, stating which one stands — e.g. \"Note: €45k quoted by email on the 12th, revised down to €30k on the call of the 14th — going with €30k\"." },
-    ],
-  },
-  nl: {
-    name: "Bronnen kruislings controleren",
-    bars_levels: [
-      { level: 1, label: "Onvoldoende", description: "Neemt een waarde uit één bron over zonder te zien dat een andere bron die tegenspreekt, en meldt geen enkel verschil — bijv. lege notities of \"niets te melden, fiche ingevuld\"." },
-      { level: 3, label: "Zoals verwacht", description: "Noteert de juiste waarde (die welke geldt): heeft beide bronnen gelezen en een keuze gemaakt, ook al wordt dat niet expliciet gezegd — bijv. het ingevulde budget komt overeen met de meest recente informatie." },
-      { level: 5, label: "Uitstekend", description: "Noteert de juiste waarde ÉN signaleert het verschil met vermelding van wat geldt — bijv. \"Let op: €45k aangekondigd per mail op de 12e, bijgesteld naar €30k tijdens het gesprek van de 14e — ik hou €30k aan\"." },
+    checkpoints: [
+      "Records, for the contradicted field, the value that stands (the most recent one, or the one explicitly corrected in a source).",
+      "Flags the discrepancy between the two sources, in the notes or in a field of the record.",
+      "States which of the two values stands, and why.",
     ],
   },
 };
+
+/** Le critère de croisement des sources, rattaché aux compétences de l'étape CRM. */
+function critereCroisementSources(uiLocale, skillIds) {
+  const modele = CRM_CROSS_CHECK_CRITERION[coerceUiLocale(uiLocale)];
+  return {
+    name: modele.name,
+    skill_ids: [...(skillIds || [])],
+    checkpoints: modele.checkpoints.map((description, i) => ({ id: `cp${i + 1}`, description })),
+  };
+}
+
+// La détection couvre plusieurs langues : en néerlandais le modèle écrit
+// "bronnen", pas "sources", et le critère serait ajouté en double.
+const RE_CROISEMENT = /crois|source|cross.?check|bronn/i;
 
 // Génère le scénario complet d'un step "crm" (2e passe).
 async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, onEvent }) {
@@ -513,13 +556,13 @@ function mergeUsage(usages) {
 //     qui active la réflexion doit relever son plafond, sinon le modèle
 //     consomme son budget à réfléchir et rend un JSON tronqué — la panne que
 //     `stop_reason === "max_tokens"` rattrape, au prix d'un appel entier.
-async function streamCompletion({ system, prompt, maxTokens, temperature, onText, reflexion = false }) {
+async function streamCompletion({ system, prompt, maxTokens, temperature, onText, reflexion = false, effort = EFFORT_REFLEXION }) {
   const reflechit = reflexion && REFLEXION_ACTIVE;
   const stream = anthropic.messages.stream({
     model: GENERATION_MODEL,
     max_tokens: maxTokens,
     ...(reflechit
-      ? { thinking: REFLEXION, output_config: { effort: EFFORT_REFLEXION } }
+      ? { thinking: REFLEXION, output_config: { effort } }
       : { temperature }),
     system,
     messages: [{ role: "user", content: prompt }],
@@ -655,8 +698,10 @@ const CRITIQUE_MAX_REECRITURES = 2;
 function rendreEtapesPourCritique(steps) {
   return steps.map((s, i) => {
     const sousDims = (s.sub_dimensions || s.criteria || []).map((c) => {
-      const niveaux = (c?.bars_levels || []).map((n) => `      [${n.level}] ${n.description || ""}`).join("\n");
-      return `    • ${c?.name || "sans nom"}\n${niveaux}`;
+      const lignes = estCritereCheckpoints(c)
+        ? c.checkpoints.map((cp) => `      – ${cp?.description || cp || ""}`).join("\n")
+        : (c?.bars_levels || []).map((n) => `      [${n.level}] ${n.description || ""}`).join("\n");
+      return `    • ${c?.name || "sans nom"}\n${lignes}`;
     }).join("\n");
 
     return [
@@ -670,7 +715,7 @@ function rendreEtapesPourCritique(steps) {
       sceneEnTexte(s.config, "  ") || null,
       s.config?.crm_brief ? `  Situation CRM prévue : ${s.config.crm_brief}` : null,
       s.config?.code_brief ? `  Tâche de code prévue : ${s.config.code_brief}` : null,
-      sousDims ? `  Sous-dimensions :\n${sousDims}` : null,
+      sousDims ? `  Sous-dimensions et leurs checkpoints :\n${sousDims}` : null,
     ].filter(Boolean).join("\n");
   }).join("\n\n");
 }
@@ -713,8 +758,9 @@ CE QUI EST BLOQUANT — et rien d'autre :
 2. SCÈNE JOUÉE DANS LA MAUVAISE LANGUE : l'offre dit que le candidat parlera à ses interlocuteurs dans une autre langue que celle du parcours — une entreprise anglophone qui recrute pour attaquer le marché francophone, par exemple — et l'étape fait pourtant parler ces interlocuteurs dans la langue du parcours : l'objection citée, le message client, la fiche du prospect à contacter (le contexte d'un e-mail à écrire), les sources. Ou elle ne dit pas au candidat de leur répondre dans leur langue. L'énoncé, lui, peut rester dans la langue du parcours : c'est la SCÈNE qui doit changer de langue. Ne le signale PAS si l'offre ne dit rien de tel.
 3. SCÉNARIO FADE : la mise en situation pourrait être recopiée telle quelle sur n'importe quelle offre du même intitulé. Aucun détail qui vienne de CE poste, de CETTE entreprise, de CE marché.
 4. SCÉNARIO INVRAISEMBLABLE : la situation ne se produit pas dans ce métier, ou pas comme ça. Un professionnel du secteur froncerait les sourcils.
-${additionalContext ? `5. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `5. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}6. GRILLE INDISTINCTE : les niveaux 3 et 5 d'une sous-dimension décrivent la même chose en d'autres mots, ou restent si vagues ("bonne qualité", "réponse adéquate") qu'ils ne permettent de trancher aucun cas réel.
+${additionalContext ? `5. MATÉRIAU IGNORÉ : le recruteur a donné une situation vécue, des noms de produits, une objection dans ses mots — et rien de tout cela n'apparaît dans le parcours. Il reconnaîtra son métier ou il ne le reconnaîtra pas.\n` : `5. ÉNONCÉ CREUX : la tâche est posée si vaguement que le candidat ne sait pas ce qu'on attend de lui.\n`}6. GRILLE INDISTINCTE : deux checkpoints d'une sous-dimension disent la même chose en d'autres mots, un checkpoint combine plusieurs comportements, ou il reste si vague ("bonne qualité", "réponse adéquate") qu'il ne permet de trancher aucun cas réel.
 7. QUESTION QUI NE PROUVE RIEN : la réponse est devinable, ou récite une définition, sans rien montrer de ce que le candidat sait FAIRE.
+8. CHECKPOINT HORS DE PORTÉE — le défaut qui rend une grille injuste : un checkpoint exige un fait que le candidat ne peut pas connaître, parce qu'il ne figure ni dans l'énoncé ni dans la scène — un chiffre, un délai, une référence client, une fonctionnalité du produit, une information interne. Un candidat extérieur à l'entreprise est alors noté sur ce qu'on ne lui a pas dit. Consigne attendue : réécrire le checkpoint sur la démarche, ou ajouter le fait à la scène.
 
 CE QUI N'EST PAS BLOQUANT : une tournure perfectible, une longueur, une préférence de ton, un choix de format discutable, une orthographe. Ne les signale pas.
 
@@ -746,6 +792,7 @@ function texteEtape(step) {
   const dims = (step.sub_dimensions || step.criteria || []).flatMap((c) => [
     c?.name,
     ...(c?.bars_levels || []).map((n) => n?.description),
+    ...(Array.isArray(c?.checkpoints) ? c.checkpoints : []).map((cp) => cp?.description || cp),
   ]);
   return normaliserPourCitation([
     step.title, step.prompt,
@@ -826,7 +873,9 @@ function fusionnerEtapeReecrite(ancienne, nouvelle) {
     sandbox_kind: nouvelle.sandbox_kind || ancienne.sandbox_kind || "none",
     ai_assistant_allowed: nouvelle.ai_assistant_allowed ?? ancienne.ai_assistant_allowed,
     skill_assessed: nouvelle.skill_assessed || ancienne.skill_assessed,
-    targets_skills: nouvelle.targets_skills || ancienne.targets_skills,
+    skills_tested: Array.isArray(nouvelle.skills_tested) && nouvelle.skills_tested.length
+      ? nouvelle.skills_tested
+      : ancienne.skills_tested,
     sub_dimensions: Array.isArray(nouvelle.sub_dimensions) && nouvelle.sub_dimensions.length
       ? nouvelle.sub_dimensions
       : (ancienne.sub_dimensions || []),
@@ -856,24 +905,30 @@ async function relireEtCorriger({ title, description, criteria, companyContext, 
   }
 
   const corrigees = steps.slice();
-  for (const pb of problemes) {
-    const etape = corrigees[pb.index];
+  // Les réécritures partent EN PARALLÈLE : elles portent sur des étapes
+  // différentes et ne lisent que le parcours d'origine. En série, deux
+  // réécritures ajoutaient deux appels bout à bout à une génération qui frôle
+  // déjà le plafond de durée de la route (300 s).
+  const fixes = await Promise.all(problemes.map((pb) => {
+    const etape = steps[pb.index];
     onEvent?.({ kind: "critique_fix", n: pb.index + 1, label: etape.title || null });
-
-    const fix = await regenererEtapeContenu({
+    return regenererEtapeContenu({
       title, description, criteria, companyContext,
       // Forme attendue par le prompt de régénération : il lit les
       // sous-dimensions sous le nom de colonne `criteria` (celui de la base).
       step: { ...etape, criteria: etape.sub_dimensions || etape.criteria || [] },
       position: pb.index + 1,
-      total: corrigees.length,
-      autresEtapes: corrigees
+      total: steps.length,
+      autresEtapes: steps
         .map((e, i) => ({ position: i + 1, kind: e.kind, title: e.title, skill_assessed: e.skill_assessed }))
         .filter((_, i) => i !== pb.index),
       instruction: pb.consigne,
       locale, uiLocale,
-    });
+    }).catch((e) => ({ success: false, error: e.message }));
+  }));
 
+  problemes.forEach((pb, k) => {
+    const fix = fixes[k];
     // L'usage est comptabilisé même quand la réécriture échoue : l'appel a bien
     // été payé, et la page Coûts doit le voir.
     if (fix.usage) usages.push(fix.usage);
@@ -882,41 +937,225 @@ async function relireEtCorriger({ title, description, criteria, companyContext, 
     // dégrade le résultat serait pire que pas de passe du tout.
     if (!fix.success) {
       console.error("critique — réécriture échouée:", fix.error);
-      continue;
+      return;
     }
-    corrigees[pb.index] = fusionnerEtapeReecrite(etape, fix.step);
-  }
+    corrigees[pb.index] = fusionnerEtapeReecrite(steps[pb.index], fix.step);
+  });
 
   return { steps: corrigees, usages };
 }
 
+// ─── Compétences : normalisation et couverture ────────────────────────────────
+// Le modèle rend des identifiants de compétence et des checkpoints ; rien de ce
+// qu'il rend n'est cru sur parole. Les identifiants sont résolus contre la liste
+// validée (un identifiant inventé disparaît), les checkpoints reçoivent des
+// identifiants posés par le code, et les compétences notées par les critères
+// rejoignent `skills_tested` — l'étape ne peut pas tester moins que ce que sa
+// grille note.
+
+/** Une étape générée, remise dans sa forme stockable. Forme « génération » : `sub_dimensions`. */
+function normaliserEtape(s, competences) {
+  const declares = resoudreIds(s.skills_tested, competences);
+  // Repli sur le nom : une étape réécrite par un prompt plus ancien, ou un
+  // modèle qui a recopié le libellé au lieu de l'identifiant.
+  const ids = declares.length
+    ? declares
+    : resoudreIds([...(s.targets_skills || []), s.skill_assessed].filter(Boolean), competences);
+
+  const sub_dimensions = (s.sub_dimensions || s.criteria || [])
+    .map((c) => normaliserCritere(c, ids, competences))
+    .filter(Boolean);
+
+  const skills_tested = [...ids];
+  for (const c of sub_dimensions) {
+    if (!estCritereCheckpoints(c)) continue;
+    for (const id of [...(c.skill_ids || []), ...c.checkpoints.map((cp) => cp.skill_id).filter(Boolean)]) {
+      if (!skills_tested.includes(id)) skills_tested.push(id);
+    }
+  }
+  return { ...s, skills_tested, sub_dimensions };
+}
+
+/** Vue « base » d'une étape en mémoire, pour calculerCouverture. */
+function formeBase(s) {
+  return { ...s, criteria: s.sub_dimensions || s.criteria || [], config: { ...(s.config || {}), skills_tested: s.skills_tested || [] } };
+}
+
+// Le prompt de la passe de couverture. Même principe que la passe de critique :
+// une correction CIBLÉE — une sous-dimension ajoutée à une étape existante —,
+// jamais une régénération du parcours. Et le droit de répondre « aucune étape
+// ne s'y prête » : un rattachement artificiel noterait le candidat sur ce que
+// sa réponse ne pouvait pas montrer.
+function buildCouverturePrompt({ title, description, criteria, companyContext, steps, manquantes, locale, uiLocale }) {
+  const ctx = companyContext || {};
+  const companyBlock = [
+    ctx.description && `Description : ${ctx.description}`,
+    ctx.industry && `Secteur : ${ctx.industry}`,
+  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+
+  return `${consigneLangueEtapes(locale, uiLocale)}
+
+Tu es un concepteur d'évaluations de recrutement par compétences. Un parcours de présélection vient d'être conçu pour l'offre ci-dessous, mais des compétences MUST-HAVE, validées par le recruteur, n'y sont notées par AUCUN checkpoint. Un candidat serait donc retenu ou écarté sans que ces compétences aient été observées.
+
+${blocOffre({ title, description, criteria })}
+
+CONTEXTE ENTREPRISE :
+${companyBlock}
+
+LE PARCOURS, TEL QU'IL EST :
+${rendreEtapesPourCritique(steps)}
+
+COMPÉTENCES MUST-HAVE SANS AUCUN CHECKPOINT :
+${manquantes.map((c) => `- [${c.id}] ${c.name}`).join("\n")}
+
+TA TÂCHE, pour CHACUNE de ces compétences :
+- Trouve l'étape EXISTANTE dont la réponse permet DÉJÀ d'observer cette compétence, telle que l'énoncé et la scène sont écrits. Tu ne modifies ni l'énoncé ni la scène : tu ajoutes seulement une sous-dimension à sa grille.
+- Écris cette sous-dimension : un nom, et 3 à 5 checkpoints qui notent cette compétence dans CETTE réponse-là.
+- Si AUCUNE étape ne s'y prête honnêtement — la réponse attendue ne montrera jamais cette compétence —, réponds "etape": null. N'invente pas un rattachement artificiel : c'est le recruteur qui décidera d'ajouter un exercice.
+
+RÈGLES DES CHECKPOINTS — identiques à celles de la génération :
+${REGLES_CHECKPOINTS}
+
+Le "name" de la sous-dimension et la "description" des checkpoints sont lus par le recruteur seul : ils suivent la langue du recruteur (voir la consigne en tête).
+
+Réponds UNIQUEMENT avec un JSON valide :
+{
+  "rattachements": [
+    { "skill_id": "identifiant recopié tel quel", "etape": 2, "sub_dimension": { "name": "…", "checkpoints": [ { "description": "…" } ] } },
+    { "skill_id": "…", "etape": null }
+  ]
+}`;
+}
+
+/**
+ * Cherche, pour des compétences must-have sans checkpoint, une étape existante
+ * où les noter. Ne touche à rien : renvoie les rattachements proposés, déjà
+ * validés (étape existante, compétence demandée, critère non vide).
+ *
+ * @returns {Promise<{rattachements: Array<{skillId:string, index:number|null, critere:object|null}>, usage: object|null}>}
+ */
+async function rattacherCompetences({ title, description, criteria, companyContext, steps, manquantes, competences, locale, uiLocale }) {
+  const prompt = buildCouverturePrompt({ title, description, criteria, companyContext, steps, manquantes, locale, uiLocale });
+  const response = await streamCompletion({
+    system: "Tu conçois des grilles d'évaluation de recrutement. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
+    prompt,
+    maxTokens: 4000,
+    temperature: 0.3,
+  });
+
+  const vide = manquantes.map((c) => ({ skillId: c.id, index: null, critere: null }));
+  if (response.stop_reason === "max_tokens") return { rattachements: vide, usage: response.usage };
+  const match = (response.text || "").match(/\{[\s\S]*\}/);
+  let parsed = null;
+  try { parsed = match ? JSON.parse(match[0]) : null; } catch { parsed = null; }
+  if (!parsed) return { rattachements: vide, usage: response.usage };
+
+  const proposes = Array.isArray(parsed.rattachements) ? parsed.rattachements : [];
+  const rattachements = manquantes.map((c) => {
+    const p = proposes.find((r) => resoudreIds([r?.skill_id], competences)[0] === c.id);
+    const index = Number(p?.etape) - 1;
+    if (!p || !Number.isInteger(index) || index < 0 || index >= steps.length) {
+      return { skillId: c.id, index: null, critere: null };
+    }
+    const critere = normaliserCritere(
+      { ...(p.sub_dimension || {}), skill_ids: [c.id], added_for_coverage: c.id },
+      [c.id],
+      competences
+    );
+    return critere ? { skillId: c.id, index, critere } : { skillId: c.id, index: null, critere: null };
+  });
+  return { rattachements, usage: response.usage };
+}
+
+/**
+ * Passe de couverture sur un parcours EN MÉMOIRE (génération complète).
+ * Enveloppée par l'appelant : comme la critique, elle ne peut qu'ajouter, et son
+ * échec laisse le parcours tel quel — l'écart s'affichera au recruteur.
+ */
+async function assurerCouverture({ title, description, criteria, companyContext, steps, competences, locale, uiLocale, onEvent }) {
+  const { manquantes } = calculerCouverture(steps.map(formeBase), competences);
+  const nbMust = competences.filter((c) => c.tier === MUST).length;
+  if (!manquantes.length) {
+    onEvent?.({ kind: "coverage_ok", count: nbMust });
+    return { steps, usages: [] };
+  }
+
+  const { rattachements, usage } = await rattacherCompetences({
+    title, description, criteria, companyContext, steps, manquantes, competences, locale, uiLocale,
+  });
+
+  const corrigees = steps.slice();
+  for (const r of rattachements) {
+    const nom = competences.find((c) => c.id === r.skillId)?.name || r.skillId;
+    if (r.index == null) {
+      onEvent?.({ kind: "coverage_gap", label: nom });
+      continue;
+    }
+    const etape = corrigees[r.index];
+    corrigees[r.index] = {
+      ...etape,
+      sub_dimensions: [...(etape.sub_dimensions || []), r.critere],
+      skills_tested: [...new Set([...(etape.skills_tested || []), r.skillId])],
+    };
+    onEvent?.({ kind: "coverage_fix", n: r.index + 1, label: nom });
+  }
+  return { steps: corrigees, usages: usage ? [usage] : [] };
+}
+
+// ─── Budget de temps de la génération ─────────────────────────────────────────
+// La route qui la sert est coupée à 300 s (maxDuration, plafond du plan Vercel
+// « hobby »). Une génération coupée, c'est plusieurs minutes de modèle payées
+// pour rien, et aucune simulation. Les passes FACULTATIVES — relecture critique,
+// couverture — cèdent donc la place quand le temps manque : mieux vaut un
+// parcours enregistré sans deuxième regard, que le recruteur relit et dont le
+// panneau de couverture montre les trous, qu'un parcours perdu.
+//
+// Les passes CRM et code, elles, ne sont jamais sautées : sans elles l'étape
+// n'a pas de scène. Elles partent en parallèle.
+//
+// 270 s : l'enregistrement qui suit (version, étapes) et la marge réseau
+// tiennent dans les 30 dernières secondes. Les marges ci-dessous sont les
+// durées mesurées au banc, arrondies au-dessus.
+export const BUDGET_GENERATION_MS = 270_000;
+const MARGE_NOUVEL_ESSAI_MS = 100_000;  // une conception complète, sans réflexion
+const MARGE_CRITIQUE_MS = 110_000;      // critique ~50 s + réécritures + passes CRM/code
+const MARGE_COUVERTURE_MS = 40_000;     // un appel sans réflexion
+
 // ─── Génération pure (appelable hors DB pour tests/démo) ──────────────────────
-export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, uiLocale, onEvent }) {
+// `echeance` : horodatage (ms) au-delà duquel la génération doit avoir rendu
+// la main. Absente, aucune passe n'est jamais sautée.
+export async function generateExperienceContent({ title, description, criteria, companyContext, additionalContext, locale, uiLocale, onEvent, echeance = null }) {
   const prompt = buildExperienceGenerationPrompt({ title, description, criteria: criteria || {}, companyContext, additionalContext, locale, uiLocale });
+  const competences = listerCompetences(criteria || {});
+  const reste = () => (echeance ? echeance - Date.now() : Infinity);
 
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
-    if (attempt > 1) onEvent?.({ kind: "retry" });
+    if (attempt > 1) {
+      // Un second essai qui ne peut pas finir ne ferait que payer une coupure.
+      if (reste() < MARGE_NOUVEL_ESSAI_MS) break;
+      onEvent?.({ kind: "retry" });
+    }
     const scan = onEvent ? makeExperienceScanner(onEvent) : null;
     // La réflexion se voit dans le feed : sans cette ligne, le recruteur regarde
     // un curseur immobile pendant les dizaines de secondes où le modèle répartit
     // les compétences — et le feed a justement pour raison d'être de montrer le
     // travail réel plutôt qu'une barre de progression fictive.
-    if (REFLEXION_ACTIVE) onEvent?.({ kind: "reflexion" });
+    if (REFLEXION_ACTIVE && REFLEXION_CONCEPTION) onEvent?.({ kind: "reflexion" });
     const response = await streamCompletion({
       system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       prompt,
       // 24000 : c'était 8000, déjà relevé une fois parce qu'une expérience
-      // complète (3-6 étapes + grilles BARS avec exemples) se faisait tronquer.
+      // complète (3-6 étapes + grilles détaillées) se faisait tronquer.
       // La réflexion se sert dans le MÊME budget, et le banc l'a montré sans
       // douceur : à 16000, effort par défaut, les DEUX tentatives sont sorties
       // tronquées et la génération était perdue. Le plafond monte, et l'effort
-      // est borné plus haut (EFFORT_REFLEXION) — les deux ensemble, parce que
-      // relever le plafond seul ne fait que payer plus longtemps.
+      // est borné (REFLEXION_CONCEPTION) — les deux ensemble, parce que relever
+      // le plafond seul ne fait que payer plus longtemps.
       // On est en streaming : un plafond haut ne coûte que ce qui sort.
       maxTokens: 24000,
       temperature: 0.4,
-      reflexion: true,
+      reflexion: REFLEXION_CONCEPTION,
       onText: scan || undefined,
     });
     const text = response.text || "";
@@ -932,8 +1171,7 @@ export async function generateExperienceContent({ title, description, criteria, 
     if (match) {
       try {
         const parsed = JSON.parse(match[0]);
-        // 2e passe : les steps "crm" n'ont qu'un brief d'une phrase ; on génère
-        // maintenant leur scénario complet (sources, champs, piège).
+        parsed.steps = (parsed.steps || []).map((s) => normaliserEtape(s, competences));
         onEvent?.({
           kind: "design_done",
           nbEtapes: (parsed.steps || []).length,
@@ -944,32 +1182,45 @@ export async function generateExperienceContent({ title, description, criteria, 
 
         // ── 2e regard, AVANT les passes CRM/code ────────────────────────────
         // Enveloppé : une critique qui échoue laisse passer le parcours tel
-        // quel. C'est un supplément de qualité, jamais un point de panne.
+        // quel. C'est un supplément de qualité, jamais un point de panne — et
+        // c'est la première passe sacrifiée quand le temps manque.
         if (CRITIQUE_ACTIVE && (parsed.steps || []).length) {
-          try {
-            const relu = await relireEtCorriger({
-              title, description, criteria: criteria || {}, companyContext, additionalContext,
-              steps: parsed.steps, locale, uiLocale, onEvent,
-            });
-            parsed.steps = relu.steps;
-            extraUsages.push(...relu.usages);
-          } catch (e) {
-            console.error("relireEtCorriger failed:", e.message);
+          if (reste() < MARGE_CRITIQUE_MS) {
+            onEvent?.({ kind: "critique_skipped" });
+          } else {
+            try {
+              const relu = await relireEtCorriger({
+                title, description, criteria: criteria || {}, companyContext, additionalContext,
+                steps: parsed.steps, locale, uiLocale, onEvent,
+              });
+              // Une étape réécrite sort du prompt de régénération : même
+              // normalisation que le premier jet, sinon ses identifiants de
+              // compétence et de checkpoint ne seraient pas contrôlés.
+              parsed.steps = relu.steps.map((s) => normaliserEtape(s, competences));
+              extraUsages.push(...relu.usages);
+            } catch (e) {
+              console.error("relireEtCorriger failed:", e.message);
+            }
           }
         }
 
-        for (const s of parsed.steps || []) {
+        // ── 2es passes : scénario CRM, exercice de code — EN PARALLÈLE ───────
+        // Les steps "crm" et "code" n'ont qu'un brief d'une phrase ; on écrit
+        // maintenant leur contenu complet. Chaque passe ne touche que son étape :
+        // rien ne les oblige à attendre l'une après l'autre.
+        await Promise.all((parsed.steps || []).map(async (s) => {
           // Sandbox code : 2e passe elle aussi, pour la même raison que le CRM.
           if (s.sandbox_kind === "code") {
             onEvent?.({ kind: "code_start", label: s.title || null });
-            const exercice = await generateCodeExercise({ title, description, criteria, companyContext, step: s, locale, onEvent });
+            const exercice = await generateCodeExercise({ title, description, criteria, companyContext, step: s, locale, onEvent })
+              .catch((e) => ({ success: false, error: e.message }));
             if (!exercice.success) {
               // Pas d'exercice exécutable = pas de sandbox code. L'étape retombe
               // en tâche texte plutôt que d'afficher un éditeur sans tests.
               console.error("generateCodeExercise failed:", exercice.error);
               s.sandbox_kind = "none";
               s.response_format = "text";
-              continue;
+              return;
             }
             extraUsages.push(exercice.usage);
             s.response_format = "code";
@@ -979,17 +1230,18 @@ export async function generateExperienceContent({ title, description, criteria, 
             if (step_prompt) s.prompt = step_prompt;
             s.config = { ...(s.config || {}), code: codeConfig };
             delete s.config.code_brief;
-            continue;
+            return;
           }
-          if (s.sandbox_kind !== "crm") continue;
+          if (s.sandbox_kind !== "crm") return;
           onEvent?.({ kind: "crm_start", label: s.title || null });
-          const scenario = await generateCrmScenario({ title, description, criteria, companyContext, step: s, locale, onEvent });
+          const scenario = await generateCrmScenario({ title, description, criteria, companyContext, step: s, locale, onEvent })
+            .catch((e) => ({ success: false, error: e.message }));
           if (!scenario.success) {
             // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
             // simple plutôt que d'exposer une fiche vide au candidat.
             console.error("generateCrmScenario failed:", scenario.error);
             s.sandbox_kind = "none";
-            continue;
+            return;
           }
           extraUsages.push(scenario.usage);
           s.response_format = "text";
@@ -1000,19 +1252,41 @@ export async function generateExperienceContent({ title, description, criteria, 
           if (step_prompt) s.prompt = step_prompt;
           s.config = { ...(s.config || {}), crm: crmConfig };
           delete s.config.crm_brief;
-          // La fiche CRM est structurée sous une compétence fixe : c'est elle qui
-          // regroupe à la fois la correction déterministe des champs factuels et
-          // la sous-dimension "Croisement des sources" ci-dessous (décision D).
-          s.skill_assessed = crmSkillName(uiLocale);
-          // La détection se fait sur les trois langues : en néerlandais le
-          // modèle écrit "bronnen", pas "sources", et le critère serait ajouté
-          // en double.
-          const hasCrossCheck = (s.sub_dimensions || []).some((c) =>
-            /crois|source|cross.?check|bronn/i.test(c.name || "")
-          );
+          // La fiche CRM se range sous la compétence que le modèle a choisie DANS
+          // la liste validée — la correction des champs factuels comme la
+          // sous-dimension "Croisement des sources" ci-dessous. Elle se rangeait
+          // sous une compétence fixe, « Extraction d'information », qu'aucun
+          // recruteur n'avait validée : la couverture ne pouvait pas la compter.
+          // Le libellé fixe ne sert plus que de repli, pour une étape sans
+          // compétence reconnue.
+          if (!s.skill_assessed) s.skill_assessed = crmSkillName(uiLocale);
+          const hasCrossCheck = (s.sub_dimensions || []).some((c) => RE_CROISEMENT.test(c.name || ""));
           if (!hasCrossCheck) {
-            const critere = CRM_CROSS_CHECK_CRITERION[coerceUiLocale(uiLocale)];
-            s.sub_dimensions = [...(s.sub_dimensions || []), critere];
+            s.sub_dimensions = [...(s.sub_dimensions || []), critereCroisementSources(uiLocale, s.skills_tested)];
+          }
+        }));
+
+        // ── Couverture des must-have, APRÈS les 2e passes ────────────────────
+        // Placée en dernier pour juger le parcours complet : une sous-dimension
+        // ajoutée à une étape CRM ou code doit être écrite sur la scène réelle,
+        // pas sur le brief d'une phrase qui la précédait. Sans le temps de
+        // l'appel, les trous sont annoncés tels quels : le panneau de couverture
+        // les montrera au recruteur, avec de quoi les combler.
+        if (competences.length) {
+          if (reste() < MARGE_COUVERTURE_MS) {
+            const { manquantes } = calculerCouverture(parsed.steps.map(formeBase), competences);
+            for (const c of manquantes) onEvent?.({ kind: "coverage_gap", label: c.name });
+          } else {
+            try {
+              const couvert = await assurerCouverture({
+                title, description, criteria: criteria || {}, companyContext,
+                steps: parsed.steps, competences, locale, uiLocale, onEvent,
+              });
+              parsed.steps = couvert.steps;
+              extraUsages.push(...couvert.usages);
+            } catch (e) {
+              console.error("assurerCouverture failed:", e.message);
+            }
           }
         }
         return { success: true, experience: parsed, usage: mergeUsage([usage, ...extraUsages]) };
@@ -1030,6 +1304,7 @@ export async function generateExperienceContent({ title, description, criteria, 
 // `additionalContext` : précisions libres issues du chat-first (ton souhaité,
 // type de client, spécificités du poste non couvertes par l'offre).
 export async function runExperienceGeneration(jobId, additionalContext = "", onEvent = null) {
+  const debut = Date.now();
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1110,6 +1385,9 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       locale,
       uiLocale,
       onEvent,
+      // Compté depuis l'entrée dans la fonction, lectures en base comprises :
+      // c'est le chronomètre de la route qui compte, pas celui du modèle.
+      echeance: debut + BUDGET_GENERATION_MS,
     });
     if (!gen.success) return gen;
 
@@ -1161,6 +1439,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     if (expErr) throw expErr;
 
     // Insère les steps (le format de réponse est bien une colonne par step)
+    const nomsCompetences = new Map(listerCompetences(crit).map((c) => [c.id, c.name]));
     const rows = steps.map((s, i) => ({
       experience_id: experience.id,
       order_index: i,
@@ -1175,7 +1454,15 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       // skill_assessed. `|| s.criteria` : tolérance si le modèle retombe sur
       // l'ancienne clé malgré le schéma demandé.
       criteria: s.sub_dimensions || s.criteria || [],
-      config: { ...(s.config || {}), targets_skills: s.targets_skills || [] },
+      // `skills_tested` : identifiants de la liste validée, la clé de la
+      // couverture et du tier. `targets_skills` : les mêmes, en noms — lu en
+      // repli par le scoring des étapes qui n'ont pas de skill_assessed (QCM).
+      // Aucun des deux ne part chez le candidat (sanitizeStepForCandidate).
+      config: {
+        ...(s.config || {}),
+        skills_tested: s.skills_tested || [],
+        targets_skills: (s.skills_tested || []).map((id) => nomsCompetences.get(id)).filter(Boolean),
+      },
     }));
     if (rows.length > 0) {
       const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
@@ -1214,8 +1501,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 // version. La régénération d'étape écrit EN PLACE, exactement comme l'édition
 // manuelle de l'écran de relecture — dont elle n'est que la variante assistée.
 function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale }) {
-  const hard = (criteria.hard_skills || []).map((sk) => `- ${sk.name}${sk.priority ? ` (${sk.priority})` : ""}`).join("\n");
-  const soft = (criteria.soft_skills || []).map((sk) => `- ${sk.name}`).join("\n");
+  const competences = listerCompetences(criteria);
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -1232,6 +1518,13 @@ function buildStepRegenerationPrompt({ title, description, criteria, companyCont
   if (configAffichee.crm) {
     configAffichee.crm = "<scénario CRM complet déjà généré (sources, champs, incohérence volontaire) — non reproduit ici>";
   }
+  // Rangés à part dans la config en base, mais ce sont des champs de l'étape
+  // pour le modèle : ils sortent de "config" pour apparaître à leur place.
+  // `step.skills_tested` d'abord : la passe de critique réécrit des étapes
+  // encore en mémoire, qui le portent à la racine.
+  const skillsTested = step.skills_tested || configAffichee.skills_tested || [];
+  delete configAffichee.skills_tested;
+  delete configAffichee.targets_skills;
 
   const etapeActuelle = JSON.stringify({
     kind: step.kind,
@@ -1240,6 +1533,7 @@ function buildStepRegenerationPrompt({ title, description, criteria, companyCont
     response_format: step.response_format,
     sandbox_kind: step.sandbox_kind,
     ai_assistant_allowed: step.ai_assistant_allowed,
+    skills_tested: skillsTested,
     skill_assessed: step.skill_assessed,
     sub_dimensions: step.criteria || [],
     config: configAffichee,
@@ -1261,11 +1555,7 @@ Tu ne produis QUE cette étape. Les autres ne sont là que pour te situer : n'y 
 
 ${blocOffre({ title, description, criteria })}
 
-COMPÉTENCES TECHNIQUES À MESURER :
-${hard || "Non précisées"}
-
-SAVOIR-ÊTRE À MESURER :
-${soft || "Non précisés"}
+${blocCompetencesPrompt(competences)}
 
 CONTEXTE ENTREPRISE :
 ${companyBlock}
@@ -1283,7 +1573,8 @@ ${instruction}
 
 COMMENT RÉÉCRIRE :
 - Applique la consigne, et RIEN QUE la consigne. Tout ce qu'elle ne demande pas de changer doit être conservé à l'identique : le recruteur a déjà relu cette étape, chaque modification non demandée est une régression pour lui.
-- Si la consigne ne porte que sur l'énoncé, ne retouche ni la compétence évaluée ni les sous-dimensions. Si elle change la nature de l'exercice, alors la compétence et les sous-dimensions doivent suivre.
+- Si la consigne ne porte que sur l'énoncé, ne retouche ni les compétences testées ni les sous-dimensions. Si elle change la nature de l'exercice, alors "skills_tested", la compétence et les sous-dimensions doivent suivre.
+- Une grille encore à l'ancien format (des "bars_levels" à trois niveaux) que tu dois modifier se réécrit au format checkpoints décrit à la règle 6 — jamais l'inverse.
 - Tu peux changer "kind", "response_format" et "sandbox_kind" si la consigne l'implique — jamais de ta propre initiative.
 - L'étape garde sa place dans le parcours : tu ne la déplaces pas.
 
@@ -1297,13 +1588,15 @@ CAS PARTICULIER DU SANDBOX "crm" :
 - Mets "regenerate_crm_scenario": true UNIQUEMENT si la consigne impose de refaire ce scénario (changer la situation mise en scène, les sources, les champs de la fiche). C'est un second appel au modèle : ne le demande pas pour une simple retouche d'énoncé.
 - Si tu fais PASSER l'étape en sandbox "crm" alors qu'elle ne l'était pas, mets "config": { "crm_brief": "…une phrase…" } et "regenerate_crm_scenario": true.
 
+${REGLE_GUILLEMETS}
+
 Réponds UNIQUEMENT avec un JSON valide décrivant CETTE SEULE étape, sans texte avant ni après :
 {
   "summary": "Une phrase, à la 1re personne, disant au recruteur ce que tu as changé.",
   "regenerate_crm_scenario": false,
 ${SCHEMA_STEP_CHAMPS}
 }
-Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "skill_assessed" et "sub_dimensions" restent vides ([] et "").`;
+Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "sub_dimensions" reste vide ([]) et "skill_assessed" aussi (""), mais "skills_tested" porte la compétence que le QCM vérifie.`;
 }
 
 // Cumule un usage dans un compteur existant. mergeUsage() ne convient pas ici :
@@ -1371,10 +1664,11 @@ async function regenererEtapeContenu({ title, description, criteria, companyCont
 /**
  * Réécrit une étape EN PLACE, à partir d'une consigne en langage libre.
  *
- * Volontairement SANS versionnage : c'est une édition, au même titre que celle
- * de l'écran de relecture. Le recruteur qui corrige une tournure n'attend pas
- * une v3 de son parcours, et les runs candidat déjà commencés restent sur la
- * même expérience — avec l'avertissement `locked_at` déjà affiché à l'écran.
+ * Sans nouvelle version tant qu'aucun candidat n'a commencé : c'est une
+ * édition, au même titre que celle de l'écran de relecture, et le recruteur qui
+ * corrige une tournure n'attend pas une v3 de son parcours. Sur une version
+ * déjà commencée, la réécriture porte sur une copie (versionModifiable) : les
+ * candidats engagés gardent l'énoncé qu'ils ont lu et la grille qui les note.
  *
  * @param {string} stepId
  * @param {string} instruction consigne du recruteur, telle que le chat l'a comprise
@@ -1404,6 +1698,14 @@ export async function runStepRegeneration(stepId, instruction) {
     // avant le modèle, débité une fois l'étape écrite.
     const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
+
+    // Version déjà commencée par un candidat : la réécriture porte sur une
+    // copie. Tout ce qui suit (voisines, écriture, coût) vise alors la copie.
+    const v = await versionModifiable(supabase, step.experience_id);
+    if (v.forked) {
+      step.id = v.correspondance.get(step.id);
+      step.experience_id = v.experienceId;
+    }
 
     // DEUX langues, et elles ne se déduisent pas l'une de l'autre :
     //   • le parcours appartient à l'OFFRE — un recruteur en interface anglaise
@@ -1449,7 +1751,25 @@ export async function runStepRegeneration(stepId, instruction) {
     });
     let usage = regen.usage || null;
     if (!regen.success) return { success: false, error: regen.error };
-    const nouveau = regen.step;
+    const regenere = regen.step;
+
+    // ── Même contrôle que la génération complète ─────────────────────────────
+    // Compétences résolues contre la liste validée, checkpoints renumérotés.
+    // Une grille ABSENTE de la réponse veut dire « je n'y touche pas » : c'est
+    // la grille existante qui est reprise — jamais une grille vide, qui
+    // effacerait ce que le recruteur a relu parce que la consigne ne portait
+    // que sur l'énoncé.
+    const competences = listerCompetences(job.extracted_criteria || {});
+    const grilleFournie = Array.isArray(regenere.sub_dimensions) || Array.isArray(regenere.criteria);
+    const nouveau = normaliserEtape({
+      ...regenere,
+      skills_tested: Array.isArray(regenere.skills_tested) && regenere.skills_tested.length
+        ? regenere.skills_tested
+        : (step.config?.skills_tested || []),
+      skill_assessed: regenere.skill_assessed || step.skill_assessed,
+      sub_dimensions: grilleFournie ? (regenere.sub_dimensions || regenere.criteria) : (step.criteria || []),
+    }, competences);
+    const nomsCompetences = new Map(competences.map((c) => [c.id, c.name]));
 
     // ── config : on FUSIONNE, on ne remplace pas ─────────────────────────────
     // Le modèle ne renvoie que ce qu'il a l'intention de changer, et il a toutes
@@ -1463,7 +1783,8 @@ export async function runStepRegeneration(stepId, instruction) {
     const config = {
       ...(memeSandbox ? (step.config || {}) : {}),
       ...(nouveau.config || {}),
-      targets_skills: nouveau.targets_skills || step.config?.targets_skills || [],
+      skills_tested: nouveau.skills_tested,
+      targets_skills: nouveau.skills_tested.map((id) => nomsCompetences.get(id)).filter(Boolean),
     };
 
     // ── Sandbox CRM : la 2e passe n'est repayée que si elle est demandée ──────
@@ -1506,10 +1827,12 @@ export async function runStepRegeneration(stepId, instruction) {
 
       if (nouveau.sandbox_kind === "crm") {
         nouveau.response_format = "text";
-        nouveau.skill_assessed = crmSkillName(uiLocale);
+        // Même règle qu'à la génération : la compétence choisie dans la liste
+        // validée, le libellé fixe seulement en repli.
+        if (!nouveau.skill_assessed) nouveau.skill_assessed = crmSkillName(uiLocale);
         const dims = nouveau.sub_dimensions || [];
-        if (!dims.some((c) => /crois|source|cross.?check|bronn/i.test(c?.name || ""))) {
-          nouveau.sub_dimensions = [...dims, CRM_CROSS_CHECK_CRITERION[coerceUiLocale(uiLocale)]];
+        if (!dims.some((c) => RE_CROISEMENT.test(c?.name || ""))) {
+          nouveau.sub_dimensions = [...dims, critereCroisementSources(uiLocale, nouveau.skills_tested)];
         }
       }
     }
@@ -1525,17 +1848,14 @@ export async function runStepRegeneration(stepId, instruction) {
       ai_assistant_allowed: !!nouveau.ai_assistant_allowed,
       // Un QCM n'a ni compétence ni grille : c'est la règle 6, et le modèle
       // renvoie alors "" et [] volontairement — il faut les écrire tels quels.
-      // Partout ailleurs, une valeur absente veut dire « je n'y touche pas » :
-      // on garde l'existante plutôt que d'effacer une grille BARS que le
-      // recruteur a relue parce que la consigne ne portait que sur l'énoncé.
+      // Partout ailleurs, une valeur absente veut dire « je n'y touche pas ».
       skill_assessed: nouveau.kind === "classic_qcm"
         ? null
         : (nouveau.skill_assessed || step.skill_assessed || null),
       // Nom de colonne historique : contient les sous-dimensions (cf. insertion
-      // de la génération complète).
-      criteria: Array.isArray(nouveau.sub_dimensions)
-        ? nouveau.sub_dimensions
-        : (Array.isArray(nouveau.criteria) ? nouveau.criteria : (step.criteria || [])),
+      // de la génération complète). Déjà résolue plus haut : la nouvelle grille
+      // si le modèle en a rendu une, l'existante sinon.
+      criteria: nouveau.sub_dimensions,
       config,
       updated_at: new Date().toISOString(),
     };
@@ -1564,9 +1884,143 @@ export async function runStepRegeneration(stepId, instruction) {
       position,
       resume: nouveau.summary || `Étape ${position} réécrite.`,
       usage,
+      forked: v.forked,
+      version: v.version,
     };
   } catch (err) {
     console.error("runStepRegeneration error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Couvrir UNE compétence must-have, à la demande du recruteur ─────────────
+// Le geste du panneau « Couverture des compétences », sur une expérience déjà
+// enregistrée. D'abord la voie légère : une sous-dimension ajoutée à une étape
+// existante dont la réponse montre déjà la compétence — même passe que celle de
+// la génération complète. Si aucune ne s'y prête, un exercice dédié est créé,
+// par la régénération d'étape : mêmes règles que tout le reste, et c'est elle
+// qui facture son crédit.
+//
+// 1 crédit dans les deux cas (CREDIT_COSTS.step_regeneration) : c'est une
+// retouche assistée d'une étape, au même titre qu'une réécriture.
+export async function runCouvertureCompetence(experienceId, skillId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: exp } = await supabase
+      .from("experiences")
+      .select("id, regeneration_usage, jobs!inner(id, user_id, title, description, extracted_criteria, experience_locale)")
+      .eq("id", experienceId)
+      .single();
+    const job = exp?.jobs;
+    if (!exp || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const competences = listerCompetences(job.extracted_criteria || {});
+    const cible = competences.find((c) => c.id === skillId);
+    if (!cible) return { success: false, error: "Compétence introuvable dans la liste validée de l'offre." };
+
+    const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
+    if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
+
+    // Version déjà commencée : la couverture s'ajoute à une copie. La copie
+    // n'est pas verrouillée — la réécriture d'étape appelée plus bas ne
+    // recopiera donc pas une seconde fois.
+    const v = await versionModifiable(supabase, experienceId);
+    experienceId = v.experienceId;
+    const regenerationUsage = v.forked ? null : exp.regeneration_usage;
+
+    const { data: profile } = await supabase
+      .from("users").select("company_ai_context, ui_locale").eq("id", user.id).single();
+    const uiLocale = coerceUiLocale(profile?.ui_locale);
+    const locale = coerceExperienceLocale(job.experience_locale);
+
+    const { data: steps } = await supabase
+      .from("experience_steps").select("*").eq("experience_id", experienceId).order("order_index");
+    const liste = steps || [];
+    const nomsCompetences = new Map(competences.map((c) => [c.id, c.name]));
+
+    let usage = null;
+    if (liste.length) {
+      const essai = await rattacherCompetences({
+        title: job.title,
+        description: job.description,
+        criteria: job.extracted_criteria || {},
+        companyContext: profile?.company_ai_context || {},
+        steps: liste,
+        manquantes: [cible],
+        competences,
+        locale,
+        uiLocale,
+      });
+      usage = cumulerUsage(usage, essai.usage);
+      const r = essai.rattachements[0];
+
+      if (r?.index != null) {
+        const etape = liste[r.index];
+        const skills = [...new Set([...(etape.config?.skills_tested || []), cible.id])];
+        const { error } = await supabase
+          .from("experience_steps")
+          .update({
+            criteria: [...(etape.criteria || []), r.critere],
+            config: {
+              ...(etape.config || {}),
+              skills_tested: skills,
+              targets_skills: skills.map((id) => nomsCompetences.get(id)).filter(Boolean),
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", etape.id);
+        if (error) throw error;
+
+        const facture = await factureRegenerationEtape(user.id);
+        if (!facture.success) console.error("factureRegenerationEtape (couverture):", etape.id, facture.error);
+        await supabase
+          .from("experiences")
+          .update({ regeneration_usage: cumulerUsage(regenerationUsage, usage), updated_at: new Date().toISOString() })
+          .eq("id", experienceId);
+
+        return { success: true, mode: "attached", position: r.index + 1, forked: v.forked, version: v.version };
+      }
+    }
+
+    // ── Aucune étape ne s'y prête : un exercice dédié ────────────────────────
+    // L'essai de rattachement a été payé : son coût est consigné avant que la
+    // régénération n'ajoute le sien au même compteur.
+    if (usage) {
+      await supabase
+        .from("experiences")
+        .update({ regeneration_usage: cumulerUsage(regenerationUsage, usage), updated_at: new Date().toISOString() })
+        .eq("id", experienceId);
+    }
+
+    const dernier = liste.length ? liste[liste.length - 1].order_index : -1;
+    const { data: vide, error: insErr } = await supabase
+      .from("experience_steps")
+      .insert({
+        experience_id: experienceId, order_index: (dernier ?? -1) + 1,
+        kind: "task", response_format: "text", title: cible.name,
+        prompt: "", sandbox_kind: "none", ai_assistant_allowed: false,
+        skill_assessed: cible.name, criteria: [], config: { skills_tested: [cible.id], targets_skills: [cible.name] },
+      })
+      .select()
+      .single();
+    if (insErr) throw insErr;
+
+    const regen = await runStepRegeneration(
+      vide.id,
+      `Cette étape vient d'être créée, VIDE, pour une raison précise : la compétence MUST-HAVE « ${cible.name} » [${cible.id}] n'est notée par aucune autre étape du parcours. Conçois-la entièrement : une tâche courte et réaliste, ancrée dans le poste et dans la même scène que le reste du parcours, qui fait la preuve de cette compétence, sans doublon avec les autres étapes. "skills_tested" commence par ${cible.id}, et au moins une sous-dimension à checkpoints note cette compétence.`
+    );
+    if (!regen.success) {
+      // Pas d'étape vide laissée derrière : le recruteur la verrait sans
+      // comprendre d'où elle vient.
+      await supabase.from("experience_steps").delete().eq("id", vide.id);
+      return { success: false, error: regen.error };
+    }
+    return { success: true, mode: "new_step", position: regen.position, forked: v.forked, version: v.version };
+  } catch (err) {
+    console.error("runCouvertureCompetence error:", err);
     return { success: false, error: err.message };
   }
 }

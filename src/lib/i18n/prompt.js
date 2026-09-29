@@ -13,7 +13,7 @@
 //
 // ── Les deux langues ne sortent pas au même endroit ─────────────────────────
 //   • CONTENU DE L'EXPÉRIENCE (titres d'étapes, énoncés, options de QCM,
-//     ancres BARS, scénarios CRM) → langue du CANDIDAT (jobs.experience_locale).
+//     scénarios CRM) → langue du CANDIDAT (jobs.experience_locale).
 //   • RAPPORT DE SCORING (justifications, synthèse) → langue du RECRUTEUR
 //     (users.ui_locale). C'est un outil de décision interne : un recruteur
 //     anglophone doit pouvoir lire le rapport d'un candidat néerlandophone.
@@ -97,11 +97,11 @@ export function consigneLangueContenu(locale, { scene = true } = {}) {
 
   return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nom}.
 
-Tout le texte destiné au candidat est rédigé en ${nom} : titres d'étapes, énoncés, briefs de tâche, options de QCM, libellés et descriptions des ancres BARS, contenu des sources et des champs dans les mises en situation${scene ? " — à l'exception de la langue de la scène, décrite plus bas" : ""}.
+Tout le texte destiné au candidat est rédigé en ${nom} : titres d'étapes, énoncés, briefs de tâche, options de QCM, contenu des sources et des champs dans les mises en situation${scene ? " — à l'exception de la langue de la scène, décrite plus bas" : ""}.
 
 Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les, et rends le résultat en ${nom}.
 
-Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — seules les VALEURS textuelles sont en ${nom}. Les identifiants techniques (kind, response_format, sandbox_kind, step_id) ne sont jamais traduits.
+Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — seules les VALEURS textuelles sont en ${nom}. Les identifiants techniques (kind, response_format, sandbox_kind, step_id, identifiants de compétence entre crochets) ne sont jamais traduits.
 
 Rédige en ${nom} naturel et idiomatique, pas en traduction mot à mot depuis le français : le candidat doit lire un texte écrit dans sa langue, pas un texte traduit.
 
@@ -120,7 +120,7 @@ REGISTRE : ${REGISTRE[loc]} Si le schéma JSON plus bas mentionne « vouvoiement
  * Et le partage n'est pas une question d'appréciation : il est déjà tranché
  * dans le code. `sanitizeStepForCandidate` (lib/actions/run.js) ne laisse
  * partir vers le navigateur du candidat que `title`, `prompt` et `config`.
- * `skill_assessed` et `criteria` (les sous-dimensions et leurs ancres BARS)
+ * `skill_assessed` et `criteria` (les sous-dimensions et leurs checkpoints)
  * sont RETIRÉS : ce sont des outils de correction, lus dans le tableau de bord
  * et nulle part ailleurs. Ils suivent donc le recruteur.
  *
@@ -148,12 +148,12 @@ export function consigneLangueEtapes(experienceLocale, uiLocale) {
   if (candidat === recruteur) {
     // L'exception de la scène vient APRÈS le paragraphe sur le recruteur : lu
     // juste derrière elle, « cela vaut aussi pour… » l'aurait étendue aux
-    // grilles BARS, qui restent dans la langue du recruteur quoi qu'il arrive.
+    // grilles de correction, qui restent dans la langue du recruteur quoi qu'il arrive.
     const base = candidat === "fr"
-      ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "label" et "description" des niveaux BARS) — à l'exception décrite ci-dessous près. ${REGISTRE.fr}`
+      ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "description" des checkpoints) — à l'exception décrite ci-dessous près. ${REGISTRE.fr}`
       : `${consigneLangueContenu(candidat, { scene: false })}
 
-Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, les "label" et "description" des niveaux BARS. Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
+Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, la "description" des checkpoints. Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
 
     return `${base}
 
@@ -169,14 +169,14 @@ ${competences}`;
    REGISTRE : ${REGISTRE[candidat]}
 
 2. CE QUE LIT LE RECRUTEUR SEUL → ${nomRecruteur}.
-   Le champ "skill_assessed", le "name" de chaque sous-dimension, et les "label" et "description" de chaque niveau BARS. Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
-   L'exemple de verbatim glissé dans une description de niveau BARS illustre ce qu'on cherche à observer : il est lu par le recruteur, donc lui aussi en ${nomRecruteur}.
+   Le champ "skill_assessed", le "name" de chaque sous-dimension, et la "description" de chaque checkpoint. Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
+   Un checkpoint décrit ce que la réponse du candidat doit faire : il est lu par le recruteur, donc lui aussi en ${nomRecruteur}, même quand la scène est jouée dans une autre langue.
 
 3. ${consigneLangueScene(nomCandidat)}
 
 Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes. Ne traduis PAS les instructions : applique-les.
 
-Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — seules les VALEURS textuelles suivent ces deux langues. Les identifiants techniques (kind, response_format, sandbox_kind, step_id) ne sont jamais traduits.
+Les clés du JSON restent en anglais, telles qu'indiquées dans le schéma — seules les VALEURS textuelles suivent ces deux langues. Les identifiants techniques (kind, response_format, sandbox_kind, step_id, identifiants de compétence entre crochets) ne sont jamais traduits.
 
 ${competences}`;
 }
@@ -208,7 +208,7 @@ ${verbatim}`;
 
   return `LANGUE DU RAPPORT — CONSIGNE PRIORITAIRE : ${nomRapport}.
 
-Les champs "justification" et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. Ce rapport est lu par un recruteur, pas par le candidat.
+Les champs "observations", "justification" (y compris celle de chaque checkpoint) et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. Ce rapport est lu par un recruteur, pas par le candidat.
 
 ${verbatim}`;
 }

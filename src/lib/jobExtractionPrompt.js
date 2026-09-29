@@ -76,6 +76,7 @@ Structure JSON attendue :
 }
 Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
 Pour le champ "priority" des skills, utilisez UNIQUEMENT "must_have", "nice_to_have", ou "ambiguous" (si l'offre ne permet pas de déterminer l'importance de la compétence).
+"nice_to_have" UNIQUEMENT quand l'offre présente explicitement la compétence comme un atout (« un plus », « souhaité », « idéalement », « apprécié », « nice to have », « is a plus », « bij voorkeur »…). En cas de doute, "ambiguous" — jamais "nice_to_have" par défaut : une compétence secondaire testée en trop coûte moins cher qu'une compétence critique jamais testée.
 
 RÈGLE ABSOLUE POUR LES SKILLS ET LES LANGUES — LISEZ ATTENTIVEMENT :
 1. Si l'utilisateur a fourni une description courte avec des mots-clés de compétences (ex: React, SQL, Python), vous DEVEZ ABSOLUMENT les extraire dans hard_skills. Ne les ignorez jamais.

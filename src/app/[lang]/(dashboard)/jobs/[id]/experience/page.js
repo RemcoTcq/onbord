@@ -6,11 +6,16 @@ import { useRouter } from "@/lib/i18n/navigation";
 import {
   Loader2, Sparkles, ChevronUp, ChevronDown, Trash2, Plus, Check,
   ArrowLeft, Bot, Video, Type, ListChecks, Code2, CircleHelp, ClipboardList,
+  ShieldCheck, AlertTriangle, X,
 } from "lucide-react";
 import {
   getExperienceForJob, updateStep,
-  addStep, deleteStep, moveStep, publishExperience,
+  addStep, deleteStep, moveStep, publishExperience, couvrirCompetence,
 } from "@/lib/actions/experience";
+import {
+  listerCompetences, calculerCouverture, estCritereCheckpoints, etapeNoteeSansGrille,
+  EXERCICES_CIBLE_MAX, CHECKPOINTS_MAX, MUST,
+} from "@/lib/competences";
 import { getJobDetail } from "@/lib/actions/candidate";
 import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
 import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "@/components/assessment/GenerationFeed";
@@ -71,6 +76,13 @@ export default function ExperienceReviewPage() {
   const [job, setJob] = useState(null);
   const [chatOpen, setChatOpen] = useState(false); // panneau chat d'ajustement (expérience existante)
   const [chatStarted, setChatStarted] = useState(false); // ≥1 échange → cache la génération directe
+  const [covering, setCovering] = useState(null); // id de la compétence en cours de couverture
+
+  // La liste validée de l'offre, et ce que la simulation en teste. Recalculée
+  // à chaque rendu : elle doit suivre une étape enregistrée ou supprimée sans
+  // attendre un rechargement.
+  const competences = listerCompetences(job?.extracted_criteria || {});
+  const couverture = calculerCouverture(steps, competences);
 
   useEffect(() => { load(); }, [jobId]);
 
@@ -87,6 +99,14 @@ export default function ExperienceReviewPage() {
     setLoading(false);
   }
 
+  // Une retouche sur une version déjà commencée par un candidat en crée une
+  // nouvelle (lib/experienceVersion.js) : les identifiants d'étape changent, il
+  // faut recharger — et le dire, puisque la version affichée n'est plus celle
+  // que les candidats engagés sont en train de passer.
+  function annoncerVersion(res) {
+    if (res?.forked) toast(t("dashboard.experienceEditor.forkedNotice", { version: res.version }));
+  }
+
   // Le chat a généré l'expérience → on recharge : l'écran de relecture s'ouvre
   // automatiquement (flow chat-first, étape C).
   async function handleChatGenerated() {
@@ -97,8 +117,9 @@ export default function ExperienceReviewPage() {
   // Le chat a réécrit UNE étape, en place. Rechargement identique, message
   // différent : rien d'autre n'a bougé, et le recruteur doit le savoir — c'est
   // toute la différence avec une régénération complète.
-  async function handleStepRegenerated() {
+  async function handleStepRegenerated(res) {
     toast(t("dashboard.experienceEditor.stepRewritten"));
+    annoncerVersion(res);
     await load();
   }
 
@@ -122,6 +143,12 @@ export default function ExperienceReviewPage() {
   }
 
   async function handlePublish() {
+    // Le recruteur garde la décision — mais il ne doit jamais découvrir après
+    // coup qu'une compétence indispensable n'était testée nulle part.
+    if (couverture.manquantes.length) {
+      const liste = couverture.manquantes.map((c) => `• ${c.name}`).join("\n");
+      if (!confirm(t("dashboard.experienceEditor.coverage.publishWithGaps", { skills: liste }))) return;
+    }
     setPublishing(true);
     const res = await publishExperience(experience.id);
     if (res.success) {
@@ -133,20 +160,44 @@ export default function ExperienceReviewPage() {
     setPublishing(false);
   }
 
+  async function handleCover(skillId) {
+    setCovering(skillId);
+    const res = await couvrirCompetence(experience.id, skillId);
+    if (res.success) {
+      toast(t(
+        res.mode === "new_step"
+          ? "dashboard.experienceEditor.coverage.coveredNewStep"
+          : "dashboard.experienceEditor.coverage.coveredAttached",
+        { n: res.position }
+      ));
+      annoncerVersion(res);
+      await load();
+    } else {
+      toast(res.error || t("dashboard.experienceEditor.error"), "error");
+    }
+    setCovering(null);
+  }
+
+  // Une étape enregistrée remonte ici : sans ça, le panneau de couverture
+  // continuerait de lire la version d'avant l'enregistrement.
+  function handleStepSaved(saved) {
+    setSteps((prev) => prev.map((s) => (s.id === saved.id ? { ...s, ...saved } : s)));
+  }
+
   async function handleAddStep() {
     const res = await addStep(experience.id);
-    if (res.success) { await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
+    if (res.success) { annoncerVersion(res); await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
   }
 
   async function handleMove(stepId, direction) {
     const res = await moveStep(stepId, direction);
-    if (res.success) { await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
+    if (res.success) { annoncerVersion(res); await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
   }
 
   async function handleDelete(stepId) {
     if (!confirm(t("dashboard.experienceEditor.deleteStepConfirm"))) return;
     const res = await deleteStep(stepId);
-    if (res.success) { await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
+    if (res.success) { annoncerVersion(res); await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
   }
 
   if (loading) {
@@ -260,6 +311,13 @@ export default function ExperienceReviewPage() {
             </div>
           )}
 
+          <CoveragePanel
+            couverture={couverture}
+            competences={competences}
+            covering={covering}
+            onCover={handleCover}
+          />
+
           {/* Steps */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {steps.map((step, i) => (
@@ -268,8 +326,11 @@ export default function ExperienceReviewPage() {
                 step={step}
                 index={i}
                 total={steps.length}
+                competences={competences}
                 onMove={handleMove}
                 onDelete={handleDelete}
+                onSaved={handleStepSaved}
+                onForked={async (res) => { annoncerVersion(res); await load(); }}
                 toast={toast}
               />
             ))}
@@ -301,7 +362,26 @@ function StatusBadge({ status }) {
   );
 }
 
-function StepCard({ step, index, total, onMove, onDelete, toast }) {
+// Identifiant du prochain checkpoint d'un critère : jamais réutilisé, pour que
+// l'id d'un checkpoint supprimé ne désigne pas, plus tard, un autre comportement.
+function nouvelIdCheckpoint(checkpoints) {
+  const max = (checkpoints || []).reduce((m, cp) => Math.max(m, Number(String(cp?.id || "").replace(/\D/g, "")) || 0), 0);
+  return `cp${max + 1}`;
+}
+
+// Compétences que la grille d'une étape note, checkpoint par checkpoint.
+function competencesDeLaGrille(criteria) {
+  const ids = [];
+  for (const c of criteria || []) {
+    if (!estCritereCheckpoints(c)) continue;
+    for (const id of [...(c.skill_ids || []), ...c.checkpoints.map((cp) => cp.skill_id).filter(Boolean)]) {
+      if (!ids.includes(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
+
+function StepCard({ step, index, total, competences, onMove, onDelete, onSaved, onForked, toast }) {
   const { t } = useI18n();
   const [local, setLocal] = useState(step);
   const [saving, setSaving] = useState(false);
@@ -330,16 +410,15 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
     });
     setDirty(true);
   }
+  // Une nouvelle sous-dimension naît au format checkpoints, rattachée aux
+  // compétences que l'étape teste déjà.
   function addSubDimension() {
     setLocal((p) => ({
       ...p,
       criteria: [...(p.criteria || []), {
         name: t("dashboard.experienceEditor.newSubDimension"),
-        bars_levels: [
-          { level: 1, label: t("dashboard.experienceEditor.barsLevels.insufficient"), description: "" },
-          { level: 3, label: t("dashboard.experienceEditor.barsLevels.expected"), description: "" },
-          { level: 5, label: t("dashboard.experienceEditor.barsLevels.excellent"), description: "" },
-        ],
+        skill_ids: [...(p.config?.skills_tested || [])],
+        checkpoints: [1, 2, 3].map((n) => ({ id: `cp${n}`, description: "" })),
       }],
     }));
     setDirty(true);
@@ -348,17 +427,73 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
     setLocal((p) => ({ ...p, criteria: (p.criteria || []).filter((_, i) => i !== ci) }));
     setDirty(true);
   }
+  function updateCheckpoints(ci, transform) {
+    setLocal((p) => {
+      const criteria = [...(p.criteria || [])];
+      criteria[ci] = { ...criteria[ci], checkpoints: transform([...(criteria[ci].checkpoints || [])]) };
+      return { ...p, criteria };
+    });
+    setDirty(true);
+  }
+  function setCheckpoint(ci, ki, description) {
+    updateCheckpoints(ci, (cps) => cps.map((cp, i) => (i === ki ? { ...cp, description } : cp)));
+  }
+  function addCheckpoint(ci) {
+    updateCheckpoints(ci, (cps) => [...cps, { id: nouvelIdCheckpoint(cps), description: "" }]);
+  }
+  function removeCheckpoint(ci, ki) {
+    updateCheckpoints(ci, (cps) => cps.filter((_, i) => i !== ki));
+  }
+  function setCriterionSkills(ci, skill_ids) {
+    setSubDimension(ci, "skill_ids", skill_ids);
+  }
+  function setQcmSkill(id) {
+    setLocal((p) => ({ ...p, config: { ...(p.config || {}), skills_tested: id ? [id] : [] } }));
+    setDirty(true);
+  }
 
   async function save() {
+    // Un checkpoint vide n'est pas un comportement : il partirait au correcteur
+    // comme une ligne à noter sans rien à observer. Un critère qui n'a plus de
+    // checkpoint disparaît avec eux, plutôt que de se faire passer pour une
+    // grille à niveaux vide.
+    const criteria = (local.criteria || [])
+      .map((c) => (Array.isArray(c.checkpoints)
+        ? { ...c, checkpoints: c.checkpoints.filter((cp) => (cp.description || "").trim()) }
+        : c))
+      .filter((c) => !Array.isArray(c.checkpoints) || c.checkpoints.length);
+
+    // Ce que l'étape teste suit sa grille. Seule une étape corrigée sans grille
+    // (QCM, tests, champs factuels) garde ses compétences déclarées — c'est
+    // par elle-même qu'elle les teste.
+    const grille = competencesDeLaGrille(criteria);
+    const aGrilleCheckpoints = criteria.some(estCritereCheckpoints);
+    const declarees = etapeNoteeSansGrille(local) || !aGrilleCheckpoints ? (local.config?.skills_tested || []) : [];
+    const skills_tested = [...new Set([...declarees, ...grille])];
+    const noms = new Map((competences || []).map((c) => [c.id, c.name]));
+    const config = {
+      ...(local.config || {}),
+      skills_tested,
+      targets_skills: skills_tested.map((id) => noms.get(id)).filter(Boolean),
+    };
+
     setSaving(true);
     const res = await updateStep(step.id, {
       title: local.title, prompt: local.prompt,
       response_format: local.response_format, sandbox_kind: local.sandbox_kind,
       ai_assistant_allowed: local.ai_assistant_allowed,
-      skill_assessed: local.skill_assessed, criteria: local.criteria,
-      config: local.config,
+      skill_assessed: local.skill_assessed, criteria,
+      config,
     });
-    if (res.success) { setDirty(false); toast(t("dashboard.experienceEditor.stepSaved")); }
+    if (res.success) {
+      setLocal((p) => ({ ...p, criteria, config }));
+      setDirty(false);
+      toast(t("dashboard.experienceEditor.stepSaved"));
+      // Nouvelle version : cette carte désigne une étape de l'ancienne, qui
+      // n'est plus modifiable. Rechargement complet.
+      if (res.forked) onForked?.(res);
+      else onSaved?.({ ...local, criteria, config });
+    }
     else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
     setSaving(false);
   }
@@ -439,9 +574,11 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
         )}
       </div>
 
-      {/* Compétence évaluée + ses sous-dimensions BARS (ni qualifying, ni QCM).
+      {/* Compétence évaluée + ses sous-dimensions (ni qualifying, ni QCM).
           Les sous-dimensions décomposent UNE compétence : elles sont donc
-          présentées à l'intérieur de son cadre, pas en liste plate. */}
+          présentées à l'intérieur de son cadre, pas en liste plate. Deux
+          formats cohabitent : les checkpoints (générations récentes) et les
+          niveaux BARS des expériences publiées avant, toujours notés tels quels. */}
       {!isQualifying && !isQcm && (
         <div style={{ marginTop: "1.25rem" }}>
           <label style={labelStyle}>{t("dashboard.experienceEditor.skillAssessed")}</label>
@@ -468,15 +605,61 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
                     <input value={c.name || ""} onChange={(e) => setSubDimension(ci, "name", e.target.value)} placeholder={t("dashboard.experienceEditor.subDimensionName")} style={{ ...inputStyle, fontWeight: 700, marginBottom: 0 }} />
                     <button className="btn btn-ghost btn-sm" onClick={() => removeSubDimension(ci)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
                   </div>
-                  {(c.bars_levels || []).map((b, li) => (
-                    <div key={li} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "70px", flexShrink: 0, paddingTop: "8px" }}>N{b.level} {b.label}</span>
-                      <AutoTextarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", lineHeight: 1.5 }} />
-                    </div>
-                  ))}
+
+                  {Array.isArray(c.checkpoints) ? (
+                    <>
+                      <SkillPicker
+                        ids={c.skill_ids || []}
+                        competences={competences}
+                        onChange={(ids) => setCriterionSkills(ci, ids)}
+                      />
+                      {c.added_for_coverage && (
+                        <p style={{ fontSize: "11px", color: "#0369a1", margin: "0 0 6px" }}>
+                          {t("dashboard.experienceEditor.addedForCoverage", {
+                            skill: competences.find((k) => k.id === c.added_for_coverage)?.name || c.added_for_coverage,
+                          })}
+                        </p>
+                      )}
+                      {c.checkpoints.map((cp, ki) => (
+                        <div key={cp.id || ki} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "22px", flexShrink: 0, paddingTop: "8px", textAlign: "right" }}>{ki + 1}.</span>
+                          <AutoTextarea
+                            value={cp.description || ""}
+                            onChange={(e) => setCheckpoint(ci, ki, e.target.value)}
+                            rows={1}
+                            placeholder={t("dashboard.experienceEditor.checkpointPlaceholder")}
+                            style={{ ...inputStyle, marginBottom: 0, fontSize: "12.5px", lineHeight: 1.5 }}
+                          />
+                          <button className="btn btn-ghost btn-sm" onClick={() => removeCheckpoint(ci, ki)} style={{ padding: "4px", color: "var(--muted-foreground)", marginTop: "4px" }}><X size={13} /></button>
+                        </div>
+                      ))}
+                      {c.checkpoints.length < CHECKPOINTS_MAX && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => addCheckpoint(ci)} style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", marginLeft: "22px" }}>
+                          <Plus size={13} /> {t("dashboard.experienceEditor.addCheckpoint")}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic", margin: "0 0 6px" }}>
+                        {t("dashboard.experienceEditor.legacyGrid")}
+                      </p>
+                      {(c.bars_levels || []).map((b, li) => (
+                        <div key={li} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", width: "70px", flexShrink: 0, paddingTop: "8px" }}>N{b.level} {b.label}</span>
+                          <AutoTextarea value={b.description || ""} onChange={(e) => setLevel(ci, li, e.target.value)} rows={2} style={{ ...inputStyle, marginBottom: 0, fontSize: "12px", lineHeight: 1.5 }} />
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
+            {(local.criteria || []).some((c) => Array.isArray(c.checkpoints)) && (
+              <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.5rem", lineHeight: 1.5 }}>
+                {t("dashboard.experienceEditor.checkpointsHelp")}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -484,6 +667,21 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
       {/* QCM Editor */}
       {isQcm && (
         <div style={{ marginTop: "1.25rem" }}>
+          {/* La compétence que le QCM vérifie : c'est ainsi qu'il compte dans la
+              couverture et dans le tier du score final. */}
+          {competences.length > 0 && (
+            <>
+              <label style={{ ...labelStyle, margin: "0 0 0.35rem" }}>{t("dashboard.experienceEditor.qcmSkill")}</label>
+              <select
+                value={(local.config?.skills_tested || [])[0] || ""}
+                onChange={(e) => setQcmSkill(e.target.value)}
+                style={{ ...selectStyle, marginBottom: "0.75rem" }}
+              >
+                <option value="">{t("dashboard.experienceEditor.noSkill")}</option>
+                {competences.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              </select>
+            </>
+          )}
           <label style={{ ...labelStyle, margin: "0 0 0.5rem" }}>{t("dashboard.experienceEditor.qcmOptions")}</label>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {(local.config?.options || []).map((opt, oi) => (
@@ -578,6 +776,170 @@ function StepCard({ step, index, total, onMove, onDelete, toast }) {
           {dirty ? t("dashboard.experienceEditor.save") : t("dashboard.experienceEditor.saved")}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Pastille d'une compétence, colorée par son tier. Un identifiant qui n'est plus
+// dans la liste de l'offre (compétence renommée ou retirée depuis la
+// génération) reste affiché, signalé : le cacher ferait croire qu'il n'existe pas.
+function SkillChip({ id, competence, onRemove }) {
+  const { t } = useI18n();
+  const must = competence?.tier === MUST;
+  const style = !competence
+    ? { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }
+    : must
+      ? { background: "#eef2ff", color: "#3730a3", border: "1px solid #c7d2fe" }
+      : { background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" };
+  return (
+    <span style={{ ...style, display: "inline-flex", alignItems: "center", gap: 4, fontSize: "11px", fontWeight: 600, borderRadius: "99px", padding: "2px 8px" }}>
+      {competence ? competence.name : t("dashboard.experienceEditor.coverage.offList", { id })}
+      {competence && <span style={{ fontWeight: 500, opacity: 0.75 }}>· {t(must ? "dashboard.experienceEditor.coverage.must" : "dashboard.experienceEditor.coverage.nice")}</span>}
+      {onRemove && (
+        <button type="button" onClick={onRemove} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+          <X size={11} />
+        </button>
+      )}
+    </span>
+  );
+}
+
+// Compétences notées par un critère : choisies dans la liste validée de l'offre,
+// jamais saisies librement — une compétence hors liste ne compterait nulle part.
+function SkillPicker({ ids, competences, onChange }) {
+  const { t } = useI18n();
+  const parId = new Map((competences || []).map((c) => [c.id, c]));
+  const disponibles = (competences || []).filter((c) => !ids.includes(c.id));
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", margin: "0 0 8px" }}>
+      <span style={{ fontSize: "11px", color: "var(--muted-foreground)", fontWeight: 600 }}>{t("dashboard.experienceEditor.criterionSkills")}</span>
+      {ids.length === 0 && (
+        <span style={{ fontSize: "11px", color: "#b45309" }}>{t("dashboard.experienceEditor.noSkill")}</span>
+      )}
+      {ids.map((id) => (
+        <SkillChip key={id} id={id} competence={parId.get(id)} onRemove={() => onChange(ids.filter((x) => x !== id))} />
+      ))}
+      {disponibles.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => e.target.value && onChange([...ids, e.target.value])}
+          style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "99px", border: "1px dashed var(--border)", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer" }}
+        >
+          <option value="">{t("dashboard.experienceEditor.addSkill")}</option>
+          {disponibles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      )}
+    </div>
+  );
+}
+
+// ─── Couverture des compétences ──────────────────────────────────────────────
+// Le contrôle est CALCULÉ, pas demandé au modèle (lib/competences.js) : chaque
+// compétence must-have validée à la création de l'offre doit être notée par au
+// moins un checkpoint quelque part. Deux sections volontairement dissemblables :
+// un must-have non testé est une alerte, un nice-to-have non testé n'en est pas
+// une et ne doit jamais en avoir l'air.
+function CoveragePanel({ couverture, competences, covering, onCover }) {
+  const { t } = useI18n();
+
+  if (!competences.length) {
+    return (
+      <div className="card" style={{ padding: "0.9rem 1.25rem", marginBottom: "1.5rem", fontSize: "12.5px", color: "var(--muted-foreground)" }}>
+        {t("dashboard.experienceEditor.coverage.noSkills")}
+      </div>
+    );
+  }
+
+  const manquantes = couverture.manquantes.length;
+
+  const lignesRefs = (refs) => refs.map((r, i) => (
+    <div key={i} style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+      {t("dashboard.experienceEditor.coverage.testedIn", { n: r.stepIndex + 1, title: r.stepTitle || "—" })}
+      {r.criterion ? ` · ${r.criterion}` : ""}
+      {r.checkpoints.length > 0 && ` · ${t("dashboard.experienceEditor.coverage.checkpointCount", { count: r.checkpoints.length })}`}
+      {r.automatic && ` · ${t("dashboard.experienceEditor.coverage.automatic")}`}
+      {r.addedForCoverage && (
+        <span style={{ marginLeft: 6, fontSize: "10.5px", color: "#0369a1" }}>{t("dashboard.experienceEditor.coverage.addedTag")}</span>
+      )}
+    </div>
+  ));
+
+  return (
+    <div className="card" style={{ padding: "1.1rem 1.4rem", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+        <h2 style={{ fontSize: "14px", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldCheck size={16} style={{ color: "var(--primary)" }} /> {t("dashboard.experienceEditor.coverage.title")}
+        </h2>
+        <span style={{
+          fontSize: "11.5px", fontWeight: 700, borderRadius: "99px", padding: "3px 10px",
+          background: manquantes ? "#fee2e2" : "#dcfce7", color: manquantes ? "#991b1b" : "#166534",
+        }}>
+          {manquantes
+            ? t("dashboard.experienceEditor.coverage.missing", { count: manquantes })
+            : t("dashboard.experienceEditor.coverage.allCovered")}
+        </span>
+      </div>
+
+      {couverture.depasseDuree && (
+        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: "8px", padding: "8px 12px", fontSize: "12.5px", lineHeight: 1.5, marginBottom: "0.75rem" }}>
+          {t("dashboard.experienceEditor.coverage.overDuration", {
+            steps: couverture.nbEtapes, max: EXERCICES_CIBLE_MAX, count: couverture.must.length,
+          })}
+        </div>
+      )}
+
+      {/* Must-have : chaque manque est une alerte, avec de quoi le combler. */}
+      <div style={{ ...labelStyle, margin: "0 0 6px" }}>{t("dashboard.experienceEditor.coverage.must")}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "1rem" }}>
+        {couverture.must.map((c) => (
+          <div key={c.id} style={{
+            border: `1px solid ${c.refs.length ? "var(--border)" : "#fecaca"}`,
+            background: c.refs.length ? "transparent" : "#fef2f2",
+            borderRadius: "8px", padding: "8px 12px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                {c.refs.length
+                  ? <Check size={14} style={{ color: "#166534" }} />
+                  : <AlertTriangle size={14} style={{ color: "#dc2626" }} />}
+                {c.name}
+              </span>
+              {!c.refs.length && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => onCover(c.id)}
+                  disabled={!!covering}
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "12px", whiteSpace: "nowrap" }}
+                  title={t("dashboard.experienceEditor.coverage.coverHelp")}
+                >
+                  {covering === c.id ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
+                  {covering === c.id ? t("dashboard.experienceEditor.coverage.covering") : t("dashboard.experienceEditor.coverage.cover")}
+                </button>
+              )}
+            </div>
+            {c.refs.length
+              ? <div style={{ marginTop: 4, paddingLeft: 20 }}>{lignesRefs(c.refs)}</div>
+              : <div style={{ marginTop: 2, paddingLeft: 20, fontSize: "12px", color: "#991b1b" }}>{t("dashboard.experienceEditor.coverage.uncovered")}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Nice-to-have : information neutre, jamais une alerte. */}
+      {couverture.nice.length > 0 && (
+        <>
+          <div style={{ ...labelStyle, margin: "0 0 6px" }}>{t("dashboard.experienceEditor.coverage.nice")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            {couverture.nice.map((c) => (
+              <div key={c.id} style={{ fontSize: "12.5px", color: "var(--muted-foreground)", padding: "4px 12px" }}>
+                <span style={{ fontWeight: 600 }}>{c.name}</span>
+                {c.refs.length
+                  ? <div style={{ paddingLeft: 0 }}>{lignesRefs(c.refs)}</div>
+                  : <span> — {t("dashboard.experienceEditor.coverage.uncoveredNice")}</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -884,8 +1246,8 @@ function CrmEditor({ crm, onChange }) {
       </div>
 
       <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-        Les champs <strong>factuels</strong> sont corrigés automatiquement (sans IA) et regroupés en un critère « Extraction d&apos;information ».
-        Les champs de <strong>jugement</strong> sont notés par les critères BARS ci-dessus. Le candidat ne voit aucune différence entre les deux.
+        Les champs <strong>factuels</strong> sont corrigés automatiquement (sans IA) et regroupés en un critère, sous la compétence de l&apos;étape.
+        Les champs de <strong>jugement</strong> sont notés par les checkpoints ci-dessus. Le candidat ne voit aucune différence entre les deux.
       </p>
     </div>
   );

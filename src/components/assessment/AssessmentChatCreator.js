@@ -198,8 +198,9 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       setRegenFaites((prev) => [...prev, { n: res.position ?? pending.stepNumber, titre: res.step?.title, resume: res.resume }]);
       // Même rappel que la génération : l'écran de relecture doit montrer
       // l'étape réécrite, pas celle d'avant. Repli sur onGenerated pour les
-      // appelants qui n'ont qu'un seul rechargement à proposer.
-      (onStepRegenerated || onGenerated)?.();
+      // appelants qui n'ont qu'un seul rechargement à proposer. Le résultat
+      // est transmis : il dit si la réécriture a créé une nouvelle version.
+      (onStepRegenerated || onGenerated)?.(res);
     } else {
       toast(res.error || t("dashboard.chatCreator.rewriteFailed"), "error");
     }

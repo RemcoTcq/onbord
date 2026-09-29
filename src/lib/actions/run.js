@@ -20,6 +20,10 @@ function sanitizeStepForCandidate(step) {
   const config = { ...(step.config || {}) };
   delete config.correct_index;
   delete config.expected_answer;
+  // Les compétences que l'étape note : de la grille de correction, comme les
+  // critères. Le candidat n'a pas à savoir ce qui est mesuré où.
+  delete config.skills_tested;
+  delete config.targets_skills;
   // Sandbox CRM : le corrigé des champs factuels et la description du piège ne
   // doivent JAMAIS partir dans le HTML du candidat. On retire aussi `nature`,
   // qui révélerait quels champs sont corrigés automatiquement.
@@ -102,15 +106,31 @@ async function resolveCandidateAndRun(admin, token) {
   const { data: recruiter } = await admin
     .from("users").select("company_name, brand_primary_color, company_logo_url").eq("id", job.user_id).single();
 
-  const { data: exp } = await admin
-    .from("experiences").select("*")
-    .eq("job_id", candidate.job_id).eq("status", "published")
-    .order("published_at", { ascending: false }).limit(1).maybeSingle();
-  if (!exp) return { error: "Aucune expérience publiée pour cette offre." };
-
-  let { data: run } = await admin
+  // Un candidat qui a commencé reste sur SA version jusqu'au bout, même si le
+  // recruteur en a publié une autre depuis (retouche d'une version commencée,
+  // lib/experienceVersion.js, ou régénération complète). On le cherchait sur la
+  // dernière version publiée : son run introuvable, il repartait de zéro sur un
+  // parcours neuf, et ses réponses restaient orphelines sur l'ancien.
+  const { data: runs } = await admin
     .from("candidate_runs").select("*")
-    .eq("candidate_id", candidate.id).eq("experience_id", exp.id).maybeSingle();
+    .eq("candidate_id", candidate.id)
+    .order("started_at", { ascending: false }).limit(1);
+  let run = runs?.[0] || null;
+
+  let exp = null;
+  if (run) {
+    const { data } = await admin.from("experiences").select("*").eq("id", run.experience_id).maybeSingle();
+    exp = data;
+  }
+  if (!exp) {
+    run = null;
+    const { data } = await admin
+      .from("experiences").select("*")
+      .eq("job_id", candidate.job_id).eq("status", "published")
+      .order("published_at", { ascending: false }).limit(1).maybeSingle();
+    exp = data;
+  }
+  if (!exp) return { error: "Aucune expérience publiée pour cette offre." };
 
   return { candidate, job, recruiter, exp, run };
 }

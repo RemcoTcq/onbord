@@ -333,6 +333,16 @@ const dashboard = {
     trap: "piège",
     verbatimVerified: "✓ Extrait vérifié dans la réponse",
     verbatimNotFound: "⚠ Extrait non retrouvé tel quel",
+    checkpointPoints: "{points}/{max} pts · {score}%",
+    checkpointLevel: {
+      0: "absent",
+      1: "présent mais faible",
+      2: "présent et bien fait",
+    },
+    tier: {
+      must_have: "Must-have",
+      nice_to_have: "Nice-to-have",
+    },
 
     expKind: {
       qualifying: "Qualificative",
@@ -420,7 +430,9 @@ const dashboard = {
     regenerate: "Regénérer",
     backToJob: "Retour à l'offre",
     lockedWarning:
-      "⚠️ Au moins un candidat a déjà commencé cette expérience. Vos modifications seront prises en compte pour les {next} candidats uniquement.",
+      "⚠️ Au moins un candidat a déjà commencé cette version. Votre prochaine modification en créera une nouvelle, que seuls les {next} candidats passeront : ceux déjà engagés gardent la leur et sont notés sur sa grille.",
+    forkedNotice:
+      "Nouvelle version v{version} créée : les candidats déjà engagés gardent la précédente, les suivants passeront celle-ci.",
     lockedWarningNext: "prochains",
     designWithAssistant: "Concevez l'expérience avec l'assistant",
     publishedNotice:
@@ -441,10 +453,49 @@ const dashboard = {
     messageCap: "Plafond d'échanges",
     skillAssessed: "Compétence évaluée",
     skillAssessedHint: "Compétence principale ciblée par cette étape",
-    subDimensions: "Sous-dimensions (BARS)",
+    subDimensions: "Sous-dimensions",
     addSubDimension: "Sous-dimension",
     subDimensionName: "Nom de la sous-dimension",
     newSubDimension: "Nouvelle sous-dimension",
+    addCheckpoint: "Checkpoint",
+    checkpointPlaceholder: "Un seul comportement observable dans la réponse",
+    checkpointsHelp:
+      "Chaque checkpoint est noté à part — absent, présent mais faible, présent et bien fait — puis les checkpoints s'additionnent. Un checkpoint décrit un seul comportement, atteignable avec ce que l'énoncé et la scène donnent au candidat.",
+    legacyGrid:
+      "Ancienne grille à niveaux — toujours notée telle quelle. Une réécriture de l'étape par l'assistant la convertit en checkpoints.",
+    criterionSkills: "Compétences notées :",
+    addSkill: "+ compétence",
+    noSkill: "Aucune compétence rattachée",
+    addedForCoverage: "Ajoutée pour couvrir la compétence « {skill} »",
+    qcmSkill: "Compétence vérifiée par ce QCM",
+    coverage: {
+      title: "Couverture des compétences",
+      must: "Must-have",
+      nice: "Nice-to-have",
+      missing_one: "{count} compétence must-have testée nulle part",
+      missing_other: "{count} compétences must-have testées nulle part",
+      allCovered: "Toutes les compétences must-have sont testées",
+      uncovered: "Aucun checkpoint ne teste cette compétence : un candidat serait retenu ou écarté sans qu'elle ait été observée.",
+      uncoveredNice: "non testée (sans conséquence)",
+      testedIn: "Étape {n} « {title} »",
+      checkpointCount_one: "{count} checkpoint",
+      checkpointCount_other: "{count} checkpoints",
+      automatic: "corrigée automatiquement",
+      addedTag: "ajoutée pour la couverture",
+      cover: "Couvrir cette compétence",
+      coverHelp:
+        "Ajoute une sous-dimension à l'étape qui s'y prête le mieux, ou crée un exercice dédié si aucune ne convient. 1 crédit.",
+      covering: "Recherche d'une étape…",
+      coveredAttached: "Compétence ajoutée à la grille de l'étape {n}",
+      coveredNewStep: "Nouvel exercice créé pour cette compétence (étape {n})",
+      overDuration:
+        "Cette simulation compte {steps} exercices, au-delà de la cible de {max}, pour couvrir {count} compétences must-have. Pour la raccourcir, passez une compétence en nice-to-have ou retirez-la de la liste de l'offre.",
+      noSkills:
+        "Aucune compétence validée sur cette offre : la couverture de la simulation ne peut pas être vérifiée.",
+      offList: "{id} (hors liste)",
+      publishWithGaps:
+        "Ces compétences must-have ne sont testées par aucun checkpoint :\n{skills}\n\nPublier quand même ?",
+    },
     addStep: "Ajouter une étape",
     addOption: "Ajouter une option",
     promptPlaceholder: "Consigne / mise en situation",
@@ -523,7 +574,7 @@ const dashboard = {
       tabLabelPlaceholder: "Libellé de l'onglet (ex. Appel — mardi 9h10)",
       sourceBodyPlaceholder: "Contenu de la source, tel que le candidat le lira…",
       natureFactual: "Factuel (corrigé auto)",
-      natureJudgment: "Jugement (noté BARS)",
+      natureJudgment: "Jugement (noté par la grille)",
       optionsPlaceholder: "Options séparées par des virgules",
       unitPlaceholder: "Unité (€, j, …)",
       expectedLabel:
@@ -1259,6 +1310,7 @@ const dashboard = {
     designStart: "Conception des mises en situation…",
     critiqueStart: "Relecture critique du parcours…",
     critiqueOk: "Relecture : le parcours passe la barre, rien à reprendre",
+    critiqueSkipped: "Relecture critique sautée pour tenir le temps de génération — relisez le parcours avant publication",
     critiqueFix: "Relecture : l'étape {n} « {label} » est réécrite",
     designDone_one: "Parcours complet : {count} étape",
     designDone_other: "Parcours complet : {count} étapes",
@@ -1285,6 +1337,10 @@ const dashboard = {
     sourceLine: 'Source du brief : {label}',
     fieldLine: 'Champ de la fiche : {label}',
     trapLine: 'Incohérence volontaire : {label}',
+    coverageOk_one: "Couverture : la compétence must-have est testée",
+    coverageOk_other: "Couverture : les {count} compétences must-have sont testées",
+    coverageFix: "Couverture : « {label} » ajoutée à la grille de l'étape {n}",
+    coverageGap: "Couverture : aucune étape ne teste « {label} » — à trancher à la relecture",
     sourceKinds: {
       email: 'email',
       call_transcript: "retranscription d'appel",
