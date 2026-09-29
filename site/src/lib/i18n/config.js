@@ -81,7 +81,7 @@ export const APP_URL = (
 // l'inscription publique est FERMÉE côté application (les comptes sont créés à
 // la main depuis /admin), donc aucun bouton du site ne doit mener à un
 // formulaire d'inscription — il ne marcherait pas.
-export const CONTACT_EMAIL = "hello@onbord.be";
+export const CONTACT_EMAIL = "info@onbord.be";
 
 // Ou arrivent les demandes de demo laissees sur /demo. Une adresse a part de
 // CONTACT_EMAIL, sur demande directe : les prospects y sont tries a part.

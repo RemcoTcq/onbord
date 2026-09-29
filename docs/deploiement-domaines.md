@@ -78,7 +78,7 @@ Fait côté Vercel : `onbord.be` et `www.onbord.be` sont rattachés au projet
 
 ⚠️ **Ne changez PAS les serveurs de noms**, même si Vercel le propose : la
 zone Hostinger porte aussi `app.onbord.be` (l'application) et les MX
-`mx1/mx2.hostinger.com` (la boîte `hello@onbord.be`, vers laquelle pointent
+`mx1/mx2.hostinger.com` (la boîte `info@onbord.be`, vers laquelle pointent
 TOUS les boutons du site). Basculer les serveurs de noms les ferait tomber.
 Ne touchez qu'aux trois lignes du tableau.
 
