@@ -33,14 +33,22 @@ export async function sendEmail({
   }
 
   try {
-    const data = await resend.emails.send({
+    // Le SDK v6 attend `replyTo` : l'ancien `reply_to` était ignoré sans
+    // erreur, et les réponses du candidat repartaient vers Onbord.
+    // Il ne lève pas non plus sur un refus de l'API : il renvoie { error }.
+    // Sans ce test, un envoi refusé était rapporté comme réussi.
+    const { data, error } = await resend.emails.send({
       from,
       to,
       subject,
       html,
       text,
-      reply_to: replyTo,
+      ...(replyTo ? { replyTo } : {}),
     });
+    if (error) {
+      console.error('Envoi Resend refusé :', error);
+      return { success: false, error };
+    }
 
     return { success: true, data };
   } catch (error) {
