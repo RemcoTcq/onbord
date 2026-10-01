@@ -1,7 +1,7 @@
 "use client";
 
 import { useT } from "@/lib/i18n/I18nProvider";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Send, Bot, User, Loader2, X, PlusCircle, Check, Sparkles } from "lucide-react";
 import { addTestToMyAssessments, selectQuestionsForJob } from "@/lib/actions/assessment";
 import { getExperienceChat, resetExperienceChat } from "@/lib/actions/experienceChat";
@@ -31,6 +31,41 @@ function accueilAjustement(t, etat, titrePoste) {
     published: etat.statut === "published" ? t("dashboard.chatCreator.publishedSuffix") : "",
   });
   return `${entete}\n\n${liste}\n\n${t("dashboard.chatCreator.adjustHint")}`;
+}
+
+// Zone de saisie qui grandit avec le texte, jusqu'à `maxHeight`, puis défile.
+// Un <input> sur une ligne obligeait le recruteur à naviguer de gauche à
+// droite dans un message long. Entrée envoie, Maj+Entrée va à la ligne — et
+// une frappe en cours de composition (IME) n'envoie rien.
+function ChatTextarea({ value, onChange, onSubmit, maxHeight = 200, style, ...props }) {
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    // scrollHeight ignore la bordure, que border-box compte dans la hauteur.
+    const bordure = el.offsetHeight - el.clientHeight;
+    el.style.height = `${Math.min(el.scrollHeight + bordure, maxHeight)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [value, maxHeight]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={onChange}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
+      style={{ resize: "none", fontFamily: "inherit", lineHeight: 1.5, ...style }}
+      {...props}
+    />
+  );
 }
 
 export default function AssessmentChatCreator({ onClose, context = "global", jobId = null, jobData = null, standalone = false, initialPrompt = "", onTestCreated, onGenerated, onStepRegenerated, onUserMessage }) {
@@ -576,9 +611,9 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
         <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'linear-gradient(to top, var(--background) 80%, transparent)' }}>
           <form onSubmit={handleSubmit} style={{
-            display: 'flex', gap: '12px', alignItems: 'center',
+            display: 'flex', gap: '12px', alignItems: 'flex-end',
             width: '100%', maxWidth: '720px',
-            background: 'white', border: '1px solid var(--border)', 
+            background: 'white', border: '1px solid var(--border)',
             borderRadius: '24px', padding: '8px 12px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
           }} className="focus-ring">
@@ -586,12 +621,13 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
             flex: 1, display: 'flex', alignItems: 'center', background: 'transparent',
             padding: '4px 8px'
           }}>
-            <input
+            <ChatTextarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onSubmit={handleSubmit}
               placeholder={pendingToolUse ? t("dashboard.chatCreator.confirmFirst") : t("dashboard.chatCreator.placeholder")}
               style={{
-                flex: 1, padding: '8px 4px', border: 'none', background: 'transparent',
+                flex: 1, padding: '4px 4px', border: 'none', background: 'transparent',
                 outline: 'none', fontSize: '15px', color: 'var(--foreground)',
                 opacity: pendingToolUse ? 0.5 : 1
               }}
@@ -600,7 +636,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           </div>
           <button type="submit" disabled={loading || !input.trim() || !!pendingToolUse} style={{
             background: 'var(--foreground)', color: 'white', border: 'none',
-            borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '50%', width: '36px', height: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: (loading || !input.trim() || !!pendingToolUse) ? 'not-allowed' : 'pointer', 
             opacity: (loading || !input.trim() || !!pendingToolUse) ? 0.5 : 1,
             transition: 'all 200ms ease'
@@ -667,11 +703,13 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
 
         <form onSubmit={handleSubmit} style={{
           padding: '16px', borderTop: '1px solid var(--border)', background: 'white',
-          display: 'flex', gap: '12px'
+          display: 'flex', gap: '12px', alignItems: 'flex-end'
         }}>
-          <input
+          <ChatTextarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onSubmit={handleSubmit}
+            maxHeight={140}
             placeholder={pendingToolUse
               ? t("dashboard.chatCreator.confirmFirstShort")
               : t("dashboard.chatCreator.placeholderShort")}
@@ -684,7 +722,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           />
           <button type="submit" disabled={loading || !input.trim() || !!pendingToolUse} style={{
             background: 'var(--foreground)', color: 'white', border: 'none',
-            borderRadius: '8px', width: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '8px', width: '40px', height: '43px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: (loading || !input.trim() || !!pendingToolUse) ? 'not-allowed' : 'pointer', 
             opacity: (loading || !input.trim() || !!pendingToolUse) ? 0.5 : 1
           }}>
