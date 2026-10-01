@@ -332,7 +332,6 @@ const pages = {
         for: "For continuous hiring across several roles.",
         includes: "Everything in Core, plus:",
         features: [
-          "Automated candidate emails",
           "Dedicated Slack channel",
           "Priority support",
         ],

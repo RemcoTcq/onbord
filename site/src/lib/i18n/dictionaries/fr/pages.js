@@ -311,7 +311,6 @@ const pages = {
         for: "Pour un recrutement continu sur plusieurs postes.",
         includes: "Tout Core, plus :",
         features: [
-          "E-mails automatiques aux candidats",
           "Canal Slack dédié",
           "Support prioritaire",
         ],

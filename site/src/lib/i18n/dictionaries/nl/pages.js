@@ -311,7 +311,6 @@ const pages = {
         for: "Voor doorlopende aanwerving over meerdere functies.",
         includes: "Alles uit Core, plus:",
         features: [
-          "Automatische e-mails aan kandidaten",
           "Eigen Slack-kanaal",
           "Prioritaire ondersteuning",
         ],
