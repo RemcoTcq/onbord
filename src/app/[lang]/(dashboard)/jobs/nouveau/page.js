@@ -6,21 +6,18 @@ import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle
 import { analyzeJobDescription } from "@/lib/actions/job";
 import { parseFile } from "@/lib/actions/parse-file";
 import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
-import { scoreCandidate } from "@/lib/actions/candidate";
 import { createClient } from "@/lib/supabase/client";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import JobLocaleSelector from "@/components/jobs/JobLocaleSelector";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale } from "@/lib/i18n/config";
-import AiInterviewConfig from "@/components/jobs/AiInterviewConfig";
 
 import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
 import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
-import VideoInterviewConfig from "@/components/jobs/VideoInterviewConfig";
 import { useToast } from "@/components/ui/Toast";
-import { updateJobAiConfig, generateInterviewQuestions } from "@/lib/actions/job";
-import { saveAssessmentConfig, saveVideoInterviewConfig, generateVideoQuestions } from "@/lib/actions/assessment";
+import { updateJobAiConfig } from "@/lib/actions/job";
+import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
 import { generateRecommendation } from "@/lib/recommendationEngine";
 
 export default function NouvelleDemandePage() {

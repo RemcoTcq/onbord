@@ -5,8 +5,6 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import QualifyingQuestionsConfig from "./QualifyingQuestionsConfig";
 
-import VideoInterviewConfig from "./VideoInterviewConfig";
-import AiInterviewConfig from "./AiInterviewConfig";
 import CvScoringCriteria from "./CvScoringCriteria";
 import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 

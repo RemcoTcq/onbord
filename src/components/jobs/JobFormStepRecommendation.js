@@ -11,8 +11,6 @@ import { CSS } from '@dnd-kit/utilities';
 
 import QualifyingQuestionsConfig from "./QualifyingQuestionsConfig";
 
-import VideoInterviewConfig from "./VideoInterviewConfig";
-import AiInterviewConfig from "./AiInterviewConfig";
 import CvScoringCriteria from "./CvScoringCriteria";
 import EmployerBrandingForm from "@/components/settings/EmployerBrandingForm";
 import PipelineVisualEditor from "./PipelineVisualEditor";
