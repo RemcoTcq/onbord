@@ -1,5 +1,6 @@
 import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { nomLangue, nomDiplome } from "@/lib/i18n/languages";
+import { nomLieu, avecPrepositionFr } from "@/lib/i18n/lieux";
 
 // Temps estimés par défaut (en minutes)
 const ESTIMATED_TIMES = {
@@ -122,7 +123,8 @@ const QUESTIONS = {
     langue: (l) => `Maîtrisez-vous ${/^[aeiouéèêh]/i.test(l) ? "l'" : "le "}${l} à un niveau professionnel ?`,
     experience: (n) => `Disposez-vous d'au moins ${n} ans d'expérience dans un poste similaire ?`,
     diplome: (d) => `Possédez-vous un diplôme de niveau ${d} ou équivalent ?`,
-    localisation: (v) => `Êtes-vous disponible pour travailler à ${v} ?`,
+    // « à Gand », mais « en Wallonie », « dans le Hainaut » : voir lib/i18n/lieux.js.
+    localisation: (v) => `Êtes-vous disponible pour travailler ${avecPrepositionFr(v)} ?`,
   },
   en: {
     langue: (l) => `Do you speak ${l} at a professional level?`,
@@ -164,7 +166,9 @@ export function generateQualifyingQuestions(jobData, locale = "fr") {
   }
 
   if (jobData.location && jobData.location.toLowerCase() !== "remote") {
-    ajoute(T.localisation(jobData.location));
+    // Le lieu est stocké dans la langue de l'annonce : « Gent » sur une offre
+    // flamande. Le candidat d'un parcours anglais doit lire « Ghent ».
+    ajoute(T.localisation(nomLieu(jobData.location, loc)));
   }
 
   return questions;
