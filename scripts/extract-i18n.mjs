@@ -100,14 +100,31 @@ export function extract(file) {
     // même ligne, « seul sur sa ligne » refuse toute balise, et « avant-expr »
     // coupe au premier < — qui est ici en position 0. Motif rencontré quatre
     // fois entre le 23 et le 31/08/2026, signalé par un humain à chaque fois.
+    //
+    // L'apostrophe n'est PAS exclue : elle l'était, et c'est elle qui a caché
+    //     <span>⚠️</span> Zone d'incertitude
+    // en français sur l'interface anglaise jusqu'au 01/10/2026. Le français en
+    // met partout (d'incertitude, l'offre, n'a pas) ; un fragment de code entre
+    // apostrophes finit, lui, par une ponctuation que le test ci-dessous rejette.
     {
-      const apres = seul.match(/>[ ]*([^<>{}`"']+)$/);
+      const apres = seul.match(/(?<!=)>[ ]*([^<>{}`"]+)$/);
       if (apres) {
         const texte = apres[1].trim();
-        if (/[A-Za-zÀ-ÿ]{2}/.test(texte) && !/[=;:,]$/.test(texte)) {
+        if (/[A-Za-zÀ-ÿ]{2}/.test(texte) && !/[=;:,)]$/.test(texte)) {
           add(texte, n, "jsx-apres-balise");
         }
       }
+    }
+
+    // Texte JSX ENTRE une balise et une expression, sur la même ligne :
+    //     <span …>Aucune compétence {priority.replace('_', ' ')}</span>
+    // JSX_RE veut un « < » derrière le texte, « avant-expr » veut que la ligne
+    // COMMENCE par le texte, « après-balise » veut qu'il finisse la ligne :
+    // aucune des trois ne le voit. Caché jusqu'au 01/10/2026, au même endroit
+    // que « Zone d'incertitude ». Le (?<!=) écarte la flèche « => » ; les
+    // parenthèses et le point écartent les appels (« => foo({ »).
+    for (const m of ln.matchAll(/(?<!=)>([^<>{}()`"=;.]*[A-Za-zÀ-ÿ]{2}[^<>{}()`"=;.]*)\{/g)) {
+      add(m[1], n, "jsx-avant-expr-apres-balise");
     }
   });
   return out;

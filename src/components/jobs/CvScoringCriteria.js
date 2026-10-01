@@ -45,7 +45,9 @@ export default function CvScoringCriteria({ criteria, onChange }) {
       <div style={{ background: "var(--primary-light)", padding: "1rem", borderRadius: "var(--radius)", border: "1px dashed var(--primary)", display: "flex", gap: "12px" }}>
         <Info size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
         <p style={{ fontSize: "13px", color: "var(--primary-dark)", lineHeight: "1.5" }}>
-          L'IA a identifié ces 5 critères basés sur votre offre. Ils seront utilisés pour calculer le <strong>score de correspondance</strong> de chaque CV importé. Vous pouvez ajuster les intitulés et leur importance (poids).
+          {tNodes(t("dashboard.cvCriteria.intro"), {
+            score: <strong>{t("dashboard.cvCriteria.introScore")}</strong>,
+          })}
         </p>
       </div>
 

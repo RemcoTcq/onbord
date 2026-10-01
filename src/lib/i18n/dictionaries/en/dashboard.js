@@ -214,6 +214,9 @@ const dashboard = {
   },
 
   candidateDetail: {
+    integrityTracking: "Integrity tracking",
+    manualReview: "Needs manual review",
+    criteriaDetail: "Breakdown by criterion",
     taxonomyId: "Taxonomy ID",
     backToCandidates: "Back to candidates",
     contact: "Contact",
@@ -519,6 +522,9 @@ const dashboard = {
       document_context: "Document context — shown to the candidate",
     },
     crm: {
+      fieldsHelp: "{factual} fields are marked automatically (no AI) and grouped into one criterion, under the step's skill. {judgment} fields are scored by the checkpoints above. The candidate sees no difference between the two.",
+      fieldsHelpFactual: "Factual",
+      fieldsHelpJudgment: "Judgment",
       recordTitle: "CRM record — title",
       recordTitlePlaceholder: "Prospect record — new opportunity",
       sourceTypes: {
@@ -695,6 +701,10 @@ const dashboard = {
   },
 
   videoInterview: {
+    levelShort: "Lvl {level}",
+    levelPlaceholder: "Describe the level {level} behaviour ({label})...",
+    addBarsCriterion: "Add a BARS criterion",
+    maxReached: " (limit reached)",
     customQuestion: "Custom question",
     categories: { motivation: "Motivation", experience: "Experience", softSkills: "Soft skills", technical: "Technical", cultureFit: "Culture fit", custom: "Custom" },
     loadLibraryError: "Couldn't load the library",
@@ -800,6 +810,8 @@ const dashboard = {
     manuallySelected: "Selected manually",
     changePriority: "Change priority",
     remove: "Remove",
+    uncertaintyZone: "Priority unclear",
+    noSkillsIn: "No “{label}” skills",
     confirmPriority:
       "The AI couldn't determine how important these skills are. Please confirm their priority:",
     mustHave: "Must have",
@@ -900,6 +912,9 @@ const dashboard = {
   },
 
   chatCreator: {
+    stepRewritten: "Step {n} rewritten",
+    stepRewrittenTitle: " — “{title}”",
+    stepRewrittenSummary: ": {summary}",
     title: 'Assessment expert',
     greeting: "Hello! Let's design the screening experience together. Describe what you need, in your own words.",
     // The FIRST question, deliberately written here rather than left to the
@@ -1359,6 +1374,7 @@ const dashboard = {
   },
 
   assessmentCreation: {
+    closeAssistant: "Close the assistant",
     hello: "Hello {name}",
     whichType: "What kind of assessment do you want to build?",
     addContext: "Add context",
@@ -1407,6 +1423,8 @@ const dashboard = {
   },
 
   cvCriteria: {
+    intro: "The AI picked these 5 criteria from your job posting. They will be used to compute the {score} of every CV you import. You can adjust their labels and their weight.",
+    introScore: "match score",
     weightWarning: "The weights add up to {total}. They should total 100% for accurate scoring.",
     addCriterion: "Add a criterion",
     placeholder: "e.g. experience managing a team",

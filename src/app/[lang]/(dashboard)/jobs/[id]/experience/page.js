@@ -1246,8 +1246,10 @@ function CrmEditor({ crm, onChange }) {
       </div>
 
       <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-        Les champs <strong>factuels</strong> sont corrigés automatiquement (sans IA) et regroupés en un critère, sous la compétence de l&apos;étape.
-        Les champs de <strong>jugement</strong> sont notés par les checkpoints ci-dessus. Le candidat ne voit aucune différence entre les deux.
+        {tNodes(t("dashboard.experienceEditor.crm.fieldsHelp"), {
+          factual: <strong>{t("dashboard.experienceEditor.crm.fieldsHelpFactual")}</strong>,
+          judgment: <strong>{t("dashboard.experienceEditor.crm.fieldsHelpJudgment")}</strong>,
+        })}
       </p>
     </div>
   );

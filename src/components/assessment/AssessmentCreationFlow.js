@@ -54,7 +54,7 @@ export default function AssessmentCreationFlow({ jobData, onTestCreated, onCance
               fontSize: "13px", fontWeight: "500"
             }}
           >
-            <X size={16} /> Fermer l'assistant
+            <X size={16} /> {t("dashboard.assessmentCreation.closeAssistant")}
           </button>
         </div>
         <AssessmentChatCreator 

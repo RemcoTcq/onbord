@@ -132,7 +132,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
               )}
             </div>
           ))}
-          {skills.length === 0 && <span style={{ color: 'var(--muted-foreground)', fontSize: '13px', fontStyle: 'italic' }}>Aucune compétence {priority.replace('_', ' ')}</span>}
+          {skills.length === 0 && <span style={{ color: 'var(--muted-foreground)', fontSize: '13px', fontStyle: 'italic' }}>{t("dashboard.jobForm.noSkillsIn", { label: title })}</span>}
         </div>
       </div>
     );
@@ -145,7 +145,7 @@ export default function JobFormStep2({ jobData, setJobData }) {
     return (
       <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
         <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '16px' }}>⚠️</span> Zone d'incertitude
+          <span style={{ fontSize: '16px' }}>⚠️</span> {t("dashboard.jobForm.uncertaintyZone")}
         </h4>
         <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>{t("dashboard.jobForm.confirmPriority")}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

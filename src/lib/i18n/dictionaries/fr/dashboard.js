@@ -241,6 +241,9 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    integrityTracking: "Suivi de l'intégrité",
+    manualReview: "À revoir manuellement",
+    criteriaDetail: "Détail par critère",
     taxonomyId: "ID taxonomie",
     backToCandidates: "Retour aux candidats",
     contact: "Contacter",
@@ -563,6 +566,9 @@ const dashboard = {
       document_context: "Contexte du document — montré au candidat",
     },
     crm: {
+      fieldsHelp: "Les champs {factual} sont corrigés automatiquement (sans IA) et regroupés en un critère, sous la compétence de l'étape. Les champs de {judgment} sont notés par les checkpoints ci-dessus. Le candidat ne voit aucune différence entre les deux.",
+      fieldsHelpFactual: "factuels",
+      fieldsHelpJudgment: "jugement",
       recordTitle: "Fiche CRM — titre de l'enregistrement",
       recordTitlePlaceholder: "Fiche prospect — nouvelle opportunité",
       sourceTypes: {
@@ -758,6 +764,10 @@ const dashboard = {
 
   // ── Configuration de l'entretien vidéo ────────────────────────────────────
   videoInterview: {
+    levelShort: "Niv. {level}",
+    levelPlaceholder: "Décrivez le comportement de niveau {level} ({label})...",
+    addBarsCriterion: "Ajouter un critère BARS",
+    maxReached: " (max atteint)",
     customQuestion: "Question personnalisée",
     categories: { motivation: "Motivation", experience: "Expérience", softSkills: "Soft skills", technical: "Technique", cultureFit: "Culture fit", custom: "Sur-mesure" },
     loadLibraryError: "Erreur lors du chargement de la bibliothèque",
@@ -866,6 +876,8 @@ const dashboard = {
     manuallySelected: 'Sélectionné manuellement',
     changePriority: 'Changer de priorité',
     remove: 'Supprimer',
+    uncertaintyZone: "Zone d'incertitude",
+    noSkillsIn: "Aucune compétence « {label} »",
     confirmPriority:
       "L'IA n'a pas pu déterminer l'importance de ces compétences. Veuillez confirmer leur priorité :",
     mustHave: 'Must have',
@@ -974,6 +986,9 @@ const dashboard = {
   // de l'assistant, elles, sont produites par le modèle et sortent dans la
   // langue du prompt (cf. lib/experienceChat.js).
   chatCreator: {
+    stepRewritten: "Étape {n} réécrite",
+    stepRewrittenTitle: " — « {title} »",
+    stepRewrittenSummary: " : {summary}",
     title: 'Expert Assessment',
     greeting: "Bonjour ! On conçoit ensemble l'expérience de présélection. Décrivez votre besoin en langage libre.",
     // La PREMIÈRE question, et elle n'est pas dans le prompt : elle est écrite
@@ -1460,6 +1475,7 @@ const dashboard = {
 
   // ── Création d'une évaluation ─────────────────────────────────────────────
   assessmentCreation: {
+    closeAssistant: "Fermer l'assistant",
     hello: "Bonjour {name}",
     whichType: "Quel type d'évaluation souhaitez-vous créer ?",
     addContext: 'Ajouter du contexte',
@@ -1512,6 +1528,8 @@ const dashboard = {
 
   // ── Critères de scoring CV ────────────────────────────────────────────────
   cvCriteria: {
+    intro: "L'IA a identifié ces 5 critères basés sur votre offre. Ils seront utilisés pour calculer le {score} de chaque CV importé. Vous pouvez ajuster les intitulés et leur importance (poids).",
+    introScore: "score de correspondance",
     weightWarning: "Le total des poids est de {total}. Il devrait être de 100 % pour un scoring précis.",
     addCriterion: "Ajouter un critère",
     placeholder: "Ex : expérience en management d'équipe",

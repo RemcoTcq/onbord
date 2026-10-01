@@ -545,7 +545,13 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
                 {regenFaites.map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
                     <Check size={13} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
-                    <span>Étape {r.n} réécrite{r.titre ? ` — « ${r.titre} »` : ''}{r.resume ? ` : ${r.resume}` : ''}</span>
+                    {/* Trois morceaux traduits séparément : la ponctuation (« » et l'espace
+                        avant les deux-points) n'est pas la même d'une langue à l'autre. */}
+                    <span>
+                      {t("dashboard.chatCreator.stepRewritten", { n: r.n })}
+                      {r.titre ? t("dashboard.chatCreator.stepRewrittenTitle", { title: r.titre }) : ''}
+                      {r.resume ? t("dashboard.chatCreator.stepRewrittenSummary", { summary: r.resume }) : ''}
+                    </span>
                   </div>
                 ))}
                 {regenActive !== null && (

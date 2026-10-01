@@ -532,7 +532,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                                   <div style={{ display: "flex", alignItems: "center", gap: "5px", minWidth: "90px", paddingTop: "4px" }}>
                                     <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: colors.dot, flexShrink: 0 }} />
                                     <span style={{ fontSize: "11px", fontWeight: "700", color: colors.dot }}>
-                                      Niv. {bl.level} — {colors.label}
+                                      {t("dashboard.videoInterview.levelShort", { level: bl.level })} — {colors.label}
                                     </span>
                                   </div>
                                   <textarea
@@ -540,7 +540,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                                     rows={2}
                                     value={bl.description}
                                     onChange={e => updateBarsLevel(idx, cIdx, blIdx, e.target.value)}
-                                    placeholder={`Décrivez le comportement de niveau ${bl.level} (${colors.label})...`}
+                                    placeholder={t("dashboard.videoInterview.levelPlaceholder", { level: bl.level, label: colors.label })}
                                     style={{ fontSize: "11px", padding: "4px 8px", resize: "vertical", flex: 1, background: "white" }}
                                   />
                                 </div>
@@ -568,7 +568,7 @@ export default function VideoInterviewConfig({ jobId, config, onChange }) {
                       display: "flex", alignItems: "center", gap: "5px", width: "100%", justifyContent: "center"
                     }}
                   >
-                    <Plus size={13} /> Ajouter un critère BARS{(q.criteria || []).length >= MAX_CRITERIA ? " (max atteint)" : ""}
+                    <Plus size={13} /> {t("dashboard.videoInterview.addBarsCriterion")}{(q.criteria || []).length >= MAX_CRITERIA ? t("dashboard.videoInterview.maxReached") : ""}
                   </button>
                 </div>
                 )}

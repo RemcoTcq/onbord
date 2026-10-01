@@ -418,7 +418,7 @@ export default function CandidateDetailPage() {
 
           <div className="card" style={{ padding: "1.5rem" }}>
             <h3 style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <Shield size={14} /> Suivi de l'intégrité
+              <Shield size={14} /> {t("dashboard.candidateDetail.integrityTracking")}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
@@ -1068,7 +1068,7 @@ export default function CandidateDetailPage() {
                           {resp.status === "manual_review" && (
                             <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "1rem" }}>
                               <h4 style={{ fontSize: "13px", fontWeight: "700", color: "#991b1b", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                <AlertTriangle size={16} /> À revoir manuellement
+                                <AlertTriangle size={16} /> {t("dashboard.candidateDetail.manualReview")}
                               </h4>
                               <p style={{ fontSize: "13px", color: "#7f1d1d", lineHeight: "1.5" }}>
                                 {resp.ai_feedback || t("dashboard.candidateDetail.transcriptTooShort")}
@@ -1080,7 +1080,7 @@ export default function CandidateDetailPage() {
                           {resp.status === "evaluated" && resp.ai_criteria_scores && resp.ai_criteria_scores.length > 0 && (
                             <div>
                               <p style={{ fontSize: "11px", fontWeight: "700", color: "#6d28d9", textTransform: "uppercase", marginBottom: "10px", display: "flex", alignItems: "center", gap: "5px" }}>
-                                <Sparkles size={12} /> Détail par critère
+                                <Sparkles size={12} /> {t("dashboard.candidateDetail.criteriaDetail")}
                               </p>
                               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                                 {resp.ai_criteria_scores.map((crit, cIdx) => (
