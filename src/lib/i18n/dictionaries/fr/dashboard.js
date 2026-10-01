@@ -90,6 +90,7 @@ const dashboard = {
     soumis: "Soumis",
     scored: "Évalué",
     shortlisted: "Validé",
+    next_step: "Étape suivante",
     rejected: "Rejeté",
     disqualified: "Disqualifié",
   },
@@ -246,7 +247,8 @@ const dashboard = {
     criteriaDetail: "Détail par critère",
     taxonomyId: "ID taxonomie",
     backToCandidates: "Retour aux candidats",
-    contact: "Contacter",
+    feedback: "Feedback",
+    feedbackSentOn: "Feedback envoyé le {date}",
     viewOriginalCv: "Voir le CV original",
     delete: "Supprimer",
     gdpr: "RGPD",
@@ -276,11 +278,13 @@ const dashboard = {
       invitation: "Invitation",
       validation: "Validation",
       rejection: "Refus",
+      feedback: "Feedback",
     },
 
     // ── Actions de statut (verbes, pas états) ───────────────────────────
     actions: {
       shortlist: "Valider",
+      nextStep: "Passer à l'étape suivante",
       reject: "Rejeter",
       disqualify: "Disqualifier",
     },
@@ -654,30 +658,6 @@ const dashboard = {
     newPasswordHint: "Laissez vide pour conserver le mot de passe actuel",
     updateSecurity: "Mettre à jour la sécurité",
     securityUpdated: "Paramètres de sécurité mis à jour !",
-  },
-
-  // ── Fenêtre de rédaction d'e-mail ─────────────────────────────────────────
-  // Seule L'INTERFACE de la fenêtre est ici. Le CORPS du message vit dans
-  // lib/emails/templates.js : il suit la langue de l'offre, pas celle du
-  // recruteur, parce qu'il est lu par le candidat.
-  emails: {
-    title: "Générer un mail",
-    forCandidate: "Pour {name}",
-    subject: "Objet",
-    recruiterFallback: "Recruteur",
-    copied: "Mail copié dans le presse-papier !",
-    copyError: "Erreur lors de la copie.",
-    noEmail: "Ce candidat n'a pas d'adresse e-mail renseignée.",
-    sent: "E-mail envoyé avec succès !",
-    sendError: "Erreur lors de l'envoi de l'e-mail.",
-    genericSendError: "Erreur lors de l'envoi.",
-    proRequired: "Plan Pro requis",
-    proUpsell: "Passez au plan Pro pour envoyer des e-mails directement.",
-    sentBadge: "Envoyé !",
-    alreadySent: "Mail déjà envoyé",
-    send: "Envoyer l'e-mail",
-    localeNotice:
-      "Rédigé en {locale} — la langue de cette offre, celle que le candidat connaît.",
   },
 
   // ── Configuration de l'entretien IA ───────────────────────────────────────
@@ -1370,22 +1350,54 @@ const dashboard = {
     },
   },
 
-  // ── Feedback constructif au candidat ──────────────────────────────────────
-  // Le TEXTE du feedback est rédigé par l'IA dans la langue de l'offre ; ce
-  // sont les libellés de la fenêtre qui sont ici, en langue du recruteur.
+  // ── Feedback au candidat ──────────────────────────────────────────────────
+  // Le TEXTE du feedback est rédigé dans la langue de l'offre, celle du
+  // candidat (lib/candidateFeedback.js) ; ce sont les libellés de la fenêtre
+  // qui sont ici, en langue du recruteur.
   feedback: {
-    generationError: 'Une erreur est survenue lors de la génération du feedback.',
-    saveError: 'Erreur lors de la sauvegarde.',
-    generating: "Génération du feedback par l'IA…",
-    explanation:
-      "Ce brouillon a été généré en se basant sur les points forts, les axes d'amélioration et le statut actuel du candidat.",
-    editable:
-      "Vous pouvez l'éditer librement avant de le copier. N'oubliez pas de sauvegarder si vous souhaitez conserver vos modifications !",
-    placeholder: 'Rédigez ou modifiez le feedback ici…',
-    save: 'Sauvegarder',
-    close: 'Fermer',
-    copied: 'Copié !',
-    copy: 'Copier',
+    title: "Feedback : {name}",
+    loading: "Préparation du feedback…",
+    loadError: "Impossible de charger le feedback. Réessayez dans un instant.",
+    needsDecision:
+      "Veuillez d'abord valider, faire passer un candidat à la prochaine étape ou rejeter le candidat.",
+    notScored:
+      "La simulation de ce candidat n'est pas encore notée. Le feedback se rédige dès que la notation est terminée.",
+    noMaterial:
+      "Aucun point de la simulation n'est noté avec un extrait de la réponse du candidat. Sans preuve, aucun feedback n'est rédigé : rien n'est inventé.",
+    version: {
+      negative: "Version : candidat rejeté",
+      positive: "Version : candidat retenu",
+    },
+    localeNotice: "Rédigé en {locale}, la langue de l'offre",
+    to: "À",
+    from: "De",
+    replyTo: "Réponses à",
+    subject: "Objet",
+    message: "Message",
+    words_one: "{count} mot",
+    words_other: "{count} mots",
+    send: "Envoyer",
+    sending: "Envoi…",
+    close: "Fermer",
+    sentOn: "Envoyé le {date} à {email}",
+    warnings: {
+      noStrength:
+        "Aucun point fort n'est étayé par un extrait de la réponse : le brouillon n'en invente pas. Relisez le ton avant d'envoyer.",
+      noReason:
+        "Aucun point manqué n'a été relevé : le brouillon ne peut pas expliquer le refus par la simulation.",
+      noImprovement:
+        "Tous les points ont été réussis : aucun axe d'amélioration réel à citer, le brouillon n'en invente pas.",
+      unverifiedQuote:
+        "Une citation du brouillon n'a pas été retrouvée telle quelle dans la réponse du candidat. Vérifiez-la ou retirez-la avant d'envoyer.",
+    },
+    errors: {
+      noEmail: "Ce candidat n'a pas d'adresse e-mail renseignée.",
+      needsDecision: "Aucune décision n'est enregistrée pour ce candidat.",
+      alreadySent: "Ce feedback a déjà été envoyé.",
+      empty: "L'objet et le message ne peuvent pas être vides.",
+      tooLong: "Le message est trop long.",
+      send: "L'e-mail n'a pas pu partir. Rien n'a été envoyé, vous pouvez réessayer.",
+    },
   },
 
   // ── Panneau de configuration d'une étape de pipeline ──────────────────────

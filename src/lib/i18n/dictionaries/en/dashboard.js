@@ -79,6 +79,7 @@ const dashboard = {
     soumis: "Submitted",
     scored: "Scored",
     shortlisted: "Shortlisted",
+    next_step: "Next stage",
     rejected: "Rejected",
     disqualified: "Disqualified",
   },
@@ -219,7 +220,8 @@ const dashboard = {
     criteriaDetail: "Breakdown by criterion",
     taxonomyId: "Taxonomy ID",
     backToCandidates: "Back to candidates",
-    contact: "Contact",
+    feedback: "Feedback",
+    feedbackSentOn: "Feedback sent on {date}",
     viewOriginalCv: "View original CV",
     delete: "Delete",
     gdpr: "GDPR",
@@ -248,10 +250,12 @@ const dashboard = {
       invitation: "Invitation",
       validation: "Shortlisted",
       rejection: "Rejection",
+      feedback: "Feedback",
     },
 
     actions: {
       shortlist: "Shortlist",
+      nextStep: "Move to the next stage",
       reject: "Reject",
       disqualify: "Disqualify",
     },
@@ -602,26 +606,6 @@ const dashboard = {
     newPasswordHint: "Leave empty to keep your current password",
     updateSecurity: "Update security settings",
     securityUpdated: "Security settings updated!",
-  },
-
-  emails: {
-    title: "Draft an email",
-    forCandidate: "To {name}",
-    subject: "Subject",
-    recruiterFallback: "Recruiter",
-    copied: "Email copied to the clipboard!",
-    copyError: "Couldn't copy.",
-    noEmail: "This candidate has no email address on file.",
-    sent: "Email sent successfully!",
-    sendError: "Something went wrong while sending the email.",
-    genericSendError: "Something went wrong while sending.",
-    proRequired: "Pro plan required",
-    proUpsell: "Upgrade to the Pro plan to send emails directly.",
-    sentBadge: "Sent!",
-    alreadySent: "Email already sent",
-    send: "Send the email",
-    localeNotice:
-      "Written in {locale} — the language of this job, the one the candidate knows.",
   },
 
   aiInterview: {
@@ -1280,18 +1264,49 @@ const dashboard = {
   },
 
   feedback: {
-    generationError: "Something went wrong while generating the feedback.",
-    saveError: "Something went wrong while saving.",
-    generating: "The AI is writing the feedback…",
-    explanation:
-      "This draft was generated from the candidate's strengths, areas for improvement and current status.",
-    editable:
-      "You can edit it freely before copying. Remember to save if you want to keep your changes!",
-    placeholder: "Write or edit the feedback here…",
-    save: "Save",
+    title: "Feedback: {name}",
+    loading: "Preparing the feedback…",
+    loadError: "Couldn't load the feedback. Please try again in a moment.",
+    needsDecision:
+      "Please shortlist this candidate, move them to the next stage or reject them first.",
+    notScored:
+      "This candidate's simulation hasn't been scored yet. The feedback is written as soon as scoring finishes.",
+    noMaterial:
+      "No point in the simulation was scored with a quote from the candidate's answer. Without evidence, no feedback is written: nothing is made up.",
+    version: {
+      negative: "Version: candidate rejected",
+      positive: "Version: candidate moving forward",
+    },
+    localeNotice: "Written in {locale}, the language of the job",
+    to: "To",
+    from: "From",
+    replyTo: "Replies to",
+    subject: "Subject",
+    message: "Message",
+    words_one: "{count} word",
+    words_other: "{count} words",
+    send: "Send",
+    sending: "Sending…",
     close: "Close",
-    copied: "Copied!",
-    copy: "Copy",
+    sentOn: "Sent on {date} to {email}",
+    warnings: {
+      noStrength:
+        "No strength is backed by a quote from the answer, so the draft doesn't invent one. Check the tone before sending.",
+      noReason:
+        "No missed point was found, so the draft can't explain the rejection from the simulation.",
+      noImprovement:
+        "Every point was achieved: there is no real area for improvement to quote, so the draft doesn't invent one.",
+      unverifiedQuote:
+        "A quote in the draft couldn't be found word for word in the candidate's answer. Check it or remove it before sending.",
+    },
+    errors: {
+      noEmail: "This candidate has no email address on file.",
+      needsDecision: "No decision has been recorded for this candidate.",
+      alreadySent: "This feedback has already been sent.",
+      empty: "The subject and message can't be empty.",
+      tooLong: "The message is too long.",
+      send: "The email couldn't be sent. Nothing went out, you can try again.",
+    },
   },
 
   nodeConfig: {

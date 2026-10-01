@@ -19,12 +19,11 @@ const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
 const categoryLabel = (t, code) =>
   t(`dashboard.candidateDetail.aiCategories.${code}`);
 import {
-  getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs, generateConstructiveFeedback
+  getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
 } from "@/lib/actions/candidate";
+import { getFeedbackSentAt } from "@/lib/actions/candidateFeedback";
 import { submitManualVideoScore } from "@/lib/actions/assessment";
-import EmailModal from "@/components/candidates/EmailModal";
 import FeedbackModal from "@/components/candidates/FeedbackModal";
-import { createClient } from "@/lib/supabase/client";
 import { resolveEnabledModules } from "@/lib/scoring";
 
 function getScoreColor(t, score) {
@@ -222,13 +221,25 @@ function getStatusBadge(t, status) {
     interview_completed: "badge-outline",
     termine: "badge-outline",
     soumis: "badge-success",
+    scored: "badge-success",
     shortlisted: "badge-success",
+    next_step: "badge-success",
     rejected: "badge-destructive",
     disqualified: "badge-destructive",
   };
   if (!classNames[status]) return { label: status, className: "badge-muted" };
   return { label: t(`dashboard.candidateStatus.${status}`), className: classNames[status] };
 }
+
+// Libellé de l'historique des mails, par type enregistré dans mail_logs.
+// `selected` / `rejected` restent lisibles : ce sont les envois de l'ancien
+// système de modèles, déjà en base.
+const MAIL_LABEL = {
+  interview_invitation: "invitation",
+  selected: "validation",
+  rejected: "rejection",
+  feedback: "feedback",
+};
 
 export default function CandidateDetailPage() {
   const { t, locale } = useI18n();
@@ -241,10 +252,9 @@ export default function CandidateDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const [mailLogs, setMailLogs] = useState([]);
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [openAiFeedback, setOpenAiFeedback] = useState({});
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackSentAt, setFeedbackSentAt] = useState(null);
   const [manualScores, setManualScores] = useState({});
   const [submittingScore, setSubmittingScore] = useState(false);
 
@@ -254,13 +264,11 @@ export default function CandidateDetailPage() {
 
   async function loadCandidate() {
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setCurrentUser(user);
 
-    const [candRes, logsRes] = await Promise.all([
+    const [candRes, logsRes, fbRes] = await Promise.all([
       getCandidateDetail(candidatId),
-      getMailLogs(jobId)
+      getMailLogs(jobId),
+      getFeedbackSentAt(candidatId),
     ]);
 
     if (candRes.success) {
@@ -269,19 +277,24 @@ export default function CandidateDetailPage() {
     if (logsRes.success) {
       setMailLogs(logsRes.logs.filter(l => l.candidate_id === candidatId));
     }
+    if (fbRes.success) setFeedbackSentAt(fbRes.sentAt);
     setLoading(false);
   }
 
+  // La décision ne déclenche AUCUN envoi : elle choisit seulement quelle
+  // version du brouillon de feedback la fenêtre affichera.
   async function handleStatusChange(status) {
     setActionLoading(true);
     const res = await updateCandidateStatus(candidatId, status);
     if (res.success) {
       setCandidate(prev => ({ ...prev, status }));
-      if (status === 'shortlisted' || status === 'rejected') {
-        generateConstructiveFeedback(candidatId); // fire & forget
-      }
     }
     setActionLoading(false);
+  }
+
+  function handleFeedbackSent(sentAt) {
+    setFeedbackSentAt(sentAt);
+    getMailLogs(jobId).then(res => res.success && setMailLogs(res.logs.filter(l => l.candidate_id === candidatId)));
   }
 
   async function handleDelete() {
@@ -346,8 +359,14 @@ export default function CandidateDetailPage() {
           <ArrowLeft size={18} /> {t("dashboard.candidateDetail.backToCandidates")}
         </button>
         <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setEmailModalOpen(true)}>
-            <Mail size={16} /> {t("dashboard.candidateDetail.contact")}
+          <button
+            className={feedbackSentAt ? "btn btn-outline btn-sm" : "btn btn-primary btn-sm"}
+            onClick={() => setFeedbackModalOpen(true)}
+          >
+            {feedbackSentAt ? <CheckCircle2 size={16} /> : <Mail size={16} />}
+            {feedbackSentAt
+              ? t("dashboard.candidateDetail.feedbackSentOn", { date: formatDateNumeric(feedbackSentAt, locale) })
+              : t("dashboard.candidateDetail.feedback")}
           </button>
         </div>
       </div>
@@ -406,6 +425,9 @@ export default function CandidateDetailPage() {
               <button className="btn btn-primary btn-sm" onClick={() => handleStatusChange("shortlisted")} disabled={actionLoading} style={{ width: "100%" }}>
                 {t("dashboard.candidateDetail.validateProfile")}
               </button>
+              <button className="btn btn-outline btn-sm" onClick={() => handleStatusChange("next_step")} disabled={actionLoading} style={{ width: "100%" }}>
+                {t("dashboard.candidateDetail.actions.nextStep")}
+              </button>
               <button className="btn btn-outline btn-sm" onClick={() => handleStatusChange("rejected")} disabled={actionLoading} style={{ width: "100%" }}>
                 {t("dashboard.candidateDetail.actions.reject")}
               </button>
@@ -446,7 +468,7 @@ export default function CandidateDetailPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {mailLogs.slice(0, 3).map(log => (
                   <div key={log.id} style={{ fontSize: "12px" }}>
-                    <div style={{ fontWeight: "600" }}>{log.mail_type === 'interview_invitation' ? t("dashboard.candidateDetail.mail.invitation") : log.mail_type === 'selected' ? t("dashboard.candidateDetail.mail.validation") : t("dashboard.candidateDetail.mail.rejection")}</div>
+                    <div style={{ fontWeight: "600" }}>{t(`dashboard.candidateDetail.mail.${MAIL_LABEL[log.mail_type] || "rejection"}`)}</div>
                     <div style={{ color: "var(--muted-foreground)" }}>{formatDateNumeric(log.sent_at, locale)}</div>
                   </div>
                 ))}
@@ -1212,24 +1234,13 @@ export default function CandidateDetailPage() {
         </div>
       </div>
 
-      {emailModalOpen && candidate && (
-        <EmailModal
-          isOpen={emailModalOpen}
-          onClose={() => setEmailModalOpen(false)}
-          candidate={candidate}
-          job={candidate.jobs}
-          currentUser={currentUser}
-          existingLogs={mailLogs}
-          onLogged={() => getMailLogs(jobId).then(res => res.success && setMailLogs(res.logs.filter(l => l.candidate_id === candidatId)))}
-        />
-      )}
-
       {feedbackModalOpen && candidate && (
         <FeedbackModal
           isOpen={feedbackModalOpen}
           onClose={() => setFeedbackModalOpen(false)}
           candidateId={candidatId}
           candidateName={`${candidate.first_name} ${candidate.last_name}`}
+          onSent={handleFeedbackSent}
         />
       )}
       

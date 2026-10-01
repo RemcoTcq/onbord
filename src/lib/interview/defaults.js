@@ -1,6 +1,6 @@
 // Messages d'ouverture et de clôture de l'entretien mené par l'IA.
 //
-// ── Même règle que lib/emails/templates.js ─────────────────────────────────
+// ── Langue du candidat, pas du dashboard ───────────────────────────────────
 // Ces textes sont DITS AU CANDIDAT. Ils suivent donc jobs.experience_locale et
 // non la langue du dashboard — d'où leur présence ici plutôt que dans les
 // dictionnaires i18n, qui rendent dans la langue de l'interface.

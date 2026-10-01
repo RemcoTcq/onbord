@@ -39,7 +39,6 @@ const FEATURES_COMPLETES = {
   videoInterview: true,
   companyBranding: true,
   advancedAnalytics: true,
-  automatedEmails: true,
   historyMonths: 12,
 };
 
@@ -52,7 +51,6 @@ const CORE = {
     videoInterview: true,
     companyBranding: true,
     advancedAnalytics: false,
-    automatedEmails: false,
     historyMonths: 3,
   },
 };

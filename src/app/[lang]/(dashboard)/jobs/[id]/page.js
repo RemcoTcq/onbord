@@ -52,6 +52,7 @@ function getStatusBadge(t, status) {
     soumis: "badge-success",
     scored: "badge-success",
     shortlisted: "badge-success",
+    next_step: "badge-success",
     rejected: "badge-destructive",
     disqualified: "badge-destructive",
   };
