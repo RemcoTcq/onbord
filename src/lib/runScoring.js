@@ -11,7 +11,7 @@ import {
   pourcentageCheckpoints, moyennePonderee,
 } from "@/lib/competences";
 
-const SCORING_MODEL = "claude-sonnet-4-6";
+const SCORING_MODEL = "claude-sonnet-5-5";
 
 // Libellés et justifications calculés en dur, pas par le modèle : QCM corrigé
 // par comparaison d'index, champs factuels du CRM corrigés par comparaison de
@@ -452,8 +452,12 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
   // une entrée par SOUS-DIMENSION (~250 tokens mesurés, observations et
   // justification comprises), plus une ligne par CHECKPOINT (score, verbatim,
   // une phrase). Compter les steps sous-évaluait le besoin d'un facteur 3 et
-  // tronquait la réponse au milieu du JSON. 16000 reste le plafond : au-delà,
-  // un appel non streamé est refusé par le SDK.
+  // tronquait la réponse au milieu du JSON.
+  //
+  // Depuis Sonnet 5.5, la réflexion se sert dans ce même budget : on ajoute
+  // une marge fixe pour elle, et l'appel passe en streaming, sans quoi le SDK
+  // refuse un plafond au-delà de 16000. En streaming, un plafond haut ne coûte
+  // que ce qui sort.
   const subDimCount = scored.reduce((n, s) => n + (s.criteria || []).length, 0);
   const checkpointCount = scored.reduce(
     (n, s) => n + (s.criteria || []).reduce((m, c) => m + (estCritereCheckpoints(c) ? c.checkpoints.length : 0), 0),
@@ -462,12 +466,14 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
 
   // Appeler Claude seulement s'il y a des sous-dimensions à évaluer
   if (scored.length > 0) {
-    const response = await anthropic.messages.create({
+    // Effort "medium" : noter, c'est juger chaque checkpoint contre la
+    // réponse, pas extraire. Pas de `temperature` (400 sur Sonnet 5.5).
+    const response = await anthropic.messages.stream({
       model: SCORING_MODEL,
-      max_tokens: Math.min(16000, 1000 + subDimCount * 400 + checkpointCount * 150),
-      temperature: 0.1,
+      max_tokens: Math.min(48000, 9000 + subDimCount * 400 + checkpointCount * 150),
+      output_config: { effort: "medium" },
       system, messages: [{ role: "user", content: user }],
-    });
+    }).finalMessage();
     usage = computeAiCost(SCORING_MODEL, response.usage);
 
     // Sur échec, le run RESTE en "submitted". Le passer à "scored" sans ligne
@@ -478,7 +484,9 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
       console.error(`scoreRun ${runId} : réponse tronquée (max_tokens) sur ${subDimCount} sous-dimensions, ${checkpointCount} checkpoints`);
       return { success: false, error: "Scoring : réponse tronquée" };
     }
-    const match = response.content[0].text.match(/\{[\s\S]*\}/);
+    // Le premier bloc peut être un bloc de réflexion : on lit les blocs `text`.
+    const texte = response.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    const match = texte.match(/\{[\s\S]*\}/);
     if (!match) {
       console.error(`scoreRun ${runId} : aucun JSON dans la réponse du modèle`);
       return { success: false, error: "Scoring : JSON invalide" };

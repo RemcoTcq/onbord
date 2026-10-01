@@ -4,7 +4,7 @@
 // le coût est dérivé de ces tarifs et donc ajustable a posteriori.
 export const AI_PRICING = {
   "claude-opus-5-5": { input: 4.0, output: 20.0 },
-  "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
+  "claude-sonnet-5-5": { input: 2.0, output: 10.0 },
   "claude-haiku-4-5": { input: 1.0, output: 5.0 },
 };
 

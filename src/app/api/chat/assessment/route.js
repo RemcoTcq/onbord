@@ -113,26 +113,37 @@ export async function POST(req) {
     // son offre, il n'est pas chronométré. Il coûte quand même une dizaine de
     // secondes par tour, d'où l'interrupteur.
     //
-    // DEUX contraintes d'API, vérifiées sur l'API réelle et non déduites :
-    //   • `thinking` et `temperature` sont exclusifs (400 : « temperature may
-    //     only be set to 1 when thinking is enabled ») — la température saute ;
-    //   • les tokens de réflexion se prélèvent sur `max_tokens` : à 1200, le
-    //     modèle pouvait dépenser son budget à réfléchir et rendre un message
-    //     vide. D'où 4000.
     // `display: "omitted"` : le client ne rend que les blocs `text`
     // (extractText), donc un résumé de raisonnement serait stocké dans le fil et
     // REPAYÉ en entrée à chaque tour suivant, sans que personne ne le lise.
+    //
+    // Sonnet 5.5 ne coupe plus la réflexion (`disabled` = 400) et refuse
+    // `temperature`. L'interrupteur ne choisit donc plus entre réfléchir ou
+    // non, mais entre "medium" et "low" : au plus bas, le modèle saute la
+    // réflexion sur la plupart des messages simples.
+    //
+    // `block_binding: drop_block` : depuis Sonnet 5.5, un bloc de réflexion
+    // n'est valide que si tout ce qui le précède (system, outils, messages)
+    // est resté identique octet pour octet. Ici rien ne l'est : le prompt
+    // système réinjecte la fiche et les étapes à chaque tour, et bornerFil
+    // coupe le début du fil. Sans ce réglage, l'API peut refuser (400) chaque
+    // tour qui renvoie un ancien bloc ; avec, elle écarte ces blocs et répond.
     const reflechit = process.env.ONBORD_REFLEXION_CHAT !== "0";
-    const currentResponse = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: reflechit ? 4000 : 1200,
-      // `effort: "medium"` borne la réflexion. Au niveau par défaut ("high"),
-      // elle a fait dépasser 16 000 tokens à la génération et tronqué sa
-      // réponse ; un message de chat n'a pas plus besoin de délibérer, et
-      // chaque token de réflexion se prend sur les 4000 du budget.
-      ...(reflechit
-        ? { thinking: { type: "adaptive", display: "omitted" }, output_config: { effort: "medium" } }
-        : { temperature: 0.3 }),
+    const currentResponse = await anthropic.beta.messages.create({
+      model: "claude-sonnet-5-5",
+      betas: ["thinking-binding-controls-2026-08-01"],
+      // La réflexion se prend sur ce plafond : à 1200, le modèle pouvait
+      // dépenser son budget à réfléchir et rendre un message vide.
+      max_tokens: 4000,
+      thinking: {
+        type: "adaptive",
+        display: "omitted",
+        block_binding: { prefix_mismatch_behavior: "drop_block" },
+      },
+      // `effort: "medium"` borne la réflexion. Au niveau "high", elle a fait
+      // dépasser 16 000 tokens à la génération et tronqué sa réponse ; un
+      // message de chat n'a pas plus besoin de délibérer.
+      output_config: { effort: reflechit ? "medium" : "low" },
       system,
       // Le fil complet est conservé en base, mais seul son extrémité est
       // renvoyée au modèle : c'est ce qui est facturé à chaque tour, et l'état

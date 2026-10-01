@@ -5,8 +5,10 @@ import { isAdmin } from "@/lib/utils/admin";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 
 // Modèle utilisé par l'assistant candidat (run_ai_messages ne stocke que les
-// tokens) — sert à recalculer le coût des échanges.
-const ASSISTANT_MODEL = "claude-sonnet-4-6";
+// tokens) — sert à recalculer le coût des échanges. Les messages d'avant le
+// passage à Sonnet 5.5 (01/10/2026) sont donc comptés à son tarif, plus bas
+// d'un tiers que celui du modèle qui les a réellement produits.
+const ASSISTANT_MODEL = "claude-sonnet-5-5";
 
 // Statistiques de coût API agrégées (admin uniquement). Lit les usages déjà
 // tracké : experiences.generation_usage, run_scores.scoring_usage, tokens de

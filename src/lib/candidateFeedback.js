@@ -40,7 +40,10 @@ import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { MUST, NICE } from "@/lib/competences";
 
-const FEEDBACK_MODEL = "claude-opus-5-5";
+// Sonnet : le choix de quoi dire est fait en code, plus haut ; le modèle ne
+// fait que l'écrire. Si le contrôle après coup (citations, formules
+// interdites) se met à échouer plus souvent, c'est ici qu'on revient à Opus.
+const FEEDBACK_MODEL = "claude-sonnet-5-5";
 
 // La décision du recruteur → la version du brouillon. Tout autre statut
 // (invité, soumis, évalué…) n'est pas une décision : pas de feedback.

@@ -79,7 +79,9 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      // Opus : tout le reste dépend de cette liste. Une compétence oubliée ici
+      // n'est ni testée par la simulation ni notée, et rien ne le signale.
+      model: "claude-opus-5-5",
       // 2500 était trop juste et coupait la réponse en plein JSON. Mesuré sur
       // une offre tech dense de 2,7 ko : 2 400 tokens de sortie, soit 100 de
       // marge. Le prompt réclame TOUTES les compétences avec une citation pour
@@ -87,8 +89,13 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
       // à peine plus fournie dépassait le plafond, le JSON arrivait tronqué, et
       // JSON.parse levait. Le recruteur voyait un écran d'erreur, sans rien qui
       // dise pourquoi.
-      max_tokens: 8000,
-      temperature: 0.1, // Low temperature for consistent extraction
+      // 16000 depuis Opus 5.5 : sa réflexion ne se coupe pas et se prend sur
+      // ce même plafond. 16000 est le maximum d'un appel non streamé.
+      max_tokens: 16000,
+      // Pas de `temperature` : Opus 5.5 la refuse (400). L'effort règle la
+      // profondeur de la réflexion ; "medium" est son défaut, écrit ici pour
+      // qu'il ne change pas en silence avec le modèle.
+      output_config: { effort: "medium" },
       system: SYSTEME_EXTRACTION,
       messages: [
         {

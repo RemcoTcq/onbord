@@ -22,7 +22,9 @@ import { sceneEnTexte } from "@/lib/sceneEtape";
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
-const MODEL = "claude-sonnet-4-6";
+// Si ce modèle change, changer aussi ASSISTANT_MODEL dans lib/actions/costs.js :
+// run_ai_messages ne stocke que les tokens, le coût est recalculé là-bas.
+const MODEL = "claude-sonnet-5-5";
 
 // Contrôles communs au GET (historique) et au POST (envoi) : le client ne
 // fournit qu'un token et un stepId, tout le reste est résolu serveur.
@@ -185,13 +187,20 @@ LANGUE — CONSIGNE PRIORITAIRE : tu réponds en ${nomLangue}, et en ${nomLangue
 
         let reply = "";
         try {
+          // Effort "low" : c'est du chat, et le candidat attend chaque réponse
+          // en direct. À ce niveau, Sonnet 5.5 saute la réflexion sur la
+          // plupart des questions simples. Pas de `temperature` (400 sur 5.5).
+          // 4000 et non plus 2000 : la réflexion se prend sur ce plafond.
           const claude = anthropic.messages.stream({
-            model: MODEL, max_tokens: 2000, temperature: 0.7, system, messages,
+            model: MODEL, max_tokens: 4000, output_config: { effort: "low" }, system, messages,
           });
           claude.on("text", (delta) => { reply += delta; send({ type: "delta", text: delta }); });
 
           const final = await claude.finalMessage();
-          reply = final.content[0]?.text ?? reply;
+          // Le premier bloc peut être un bloc de réflexion (vide) : on lit les
+          // blocs `text`, pas `content[0]`.
+          const texteFinal = final.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+          reply = texteFinal || reply;
           const usage = computeAiCost(MODEL, final.usage);
 
           // Log APRÈS le flux, sur le texte complet : le message du candidat ne

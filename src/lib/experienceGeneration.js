@@ -26,7 +26,15 @@ import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureR
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
-const GENERATION_MODEL = "claude-sonnet-4-6";
+// Opus pour concevoir le parcours : c'est la tâche la plus difficile du
+// produit, et elle ne tourne qu'une fois par offre.
+const GENERATION_MODEL = "claude-opus-5-5";
+
+// Sonnet pour le bouton « Couvrir une compétence » de l'éditeur
+// (runCouvertureCompetence) : une retouche ciblée sur un parcours déjà conçu.
+// Les mêmes passes servent aussi à la génération complète, d'où le modèle
+// passé en paramètre plutôt qu'un second jeu de fonctions.
+const COUVERTURE_MODEL = "claude-sonnet-5-5";
 
 // ─── Réflexion interne avant réponse ──────────────────────────────────────────
 // Le modèle devait jusqu'ici sortir son JSON immédiatement, sans espace pour
@@ -53,21 +61,28 @@ const REFLEXION = { type: "adaptive", display: "omitted" };
 // n'a pas l'usage.
 const EFFORT_REFLEXION = "medium";
 
-// ── Sauf pour la passe de CONCEPTION : pas de réflexion du tout ─────────────
-// Mesuré au banc le 29/09/2026 (offre Spott) : en "medium", 209 s de réflexion
-// AVANT la première étape écrite, 43 s pour écrire tout le JSON, puis 52 s de
-// critique — 304 s, au-delà des 300 s que la route peut durer (maxDuration,
-// plafond du plan Vercel). En "low", encore 137 s de réflexion : le budget ne
-// laissait plus la place d'un second essai quand le JSON sortait invalide, et
-// la génération était perdue.
+// Les passes « sans réflexion » tournent à cet effort. Opus 5.5 et Sonnet 5.5
+// ne permettent plus de couper la réflexion (`disabled` = 400) : "low" est le
+// plus bas, et le modèle y saute la réflexion quand la tâche le permet.
+const EFFORT_SANS_REFLEXION = "low";
+
+// ── Sauf pour la passe de CONCEPTION : réflexion au plus bas ────────────────
+// Mesuré au banc le 29/09/2026 (offre Spott, Sonnet 4.6) : en "medium", 209 s
+// de réflexion AVANT la première étape écrite, 43 s pour écrire tout le JSON,
+// puis 52 s de critique — 304 s, au-delà des 300 s que la route peut durer
+// (maxDuration, plafond du plan Vercel). En "low", encore 137 s de réflexion :
+// le budget ne laissait plus la place d'un second essai quand le JSON sortait
+// invalide, et la génération était perdue. Sous Opus 5.5 la réflexion ne se
+// coupe plus : cette passe tourne à EFFORT_SANS_REFLEXION.
 // Ce que cette réflexion arbitrait — répartir les compétences, dimensionner le
 // parcours — est désormais écrit en toutes lettres dans le prompt (règles 1 et
 // 6), vérifié par le code (couverture), et relu par la passe de critique, qui
 // garde sa réflexion : c'est elle, le second regard.
 const REFLEXION_CONCEPTION = false;
 
-// Interrupteur d'exploitation : la réflexion se coupe par variable
-// d'environnement, sans toucher au code. Elle change le comportement de TOUTES
+// Interrupteur d'exploitation : la réflexion se ramène au plus bas
+// (EFFORT_SANS_REFLEXION) par variable d'environnement, sans toucher au code —
+// la couper tout à fait n'existe plus sur les modèles 5.5. Il change TOUTES
 // les passes à la fois — c'est précisément ce qu'on veut pouvoir annuler d'un
 // geste si elle dérape en production.
 const REFLEXION_ACTIVE = process.env.ONBORD_REFLEXION !== "0";
@@ -416,7 +431,6 @@ async function generateCodeExercise({ title, description, criteria, companyConte
       prompt,
       // 8000 (c'était 4000) : la réflexion se sert dans le même budget.
       maxTokens: 8000,
-      temperature: 0.4,
       // La passe où la réflexion se justifie le plus : le prompt demande déjà
       // « vérifie mentalement chaque cas avant de l'écrire », et un
       // `expected_output` faux pénalise tous les candidats sans se voir avant
@@ -497,7 +511,7 @@ function critereCroisementSources(uiLocale, skillIds) {
 const RE_CROISEMENT = /crois|source|cross.?check|bronn/i;
 
 // Génère le scénario complet d'un step "crm" (2e passe).
-async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, onEvent }) {
+async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, onEvent, model }) {
   const prompt = buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -505,9 +519,9 @@ async function generateCrmScenario({ title, description, criteria, companyContex
     const response = await streamCompletion({
       system: "Tu conçois des mises en situation de recrutement. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       prompt,
-      maxTokens: 4000,
-      temperature: 0.5,
+      maxTokens: 8000,
       onText: scan || undefined,
+      model,
     });
     const usage = response.usage;
     if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
@@ -544,26 +558,22 @@ function mergeUsage(usages) {
 // arrivé. C'est ce qui permet au feed d'afficher le travail RÉEL du modèle, à sa
 // vitesse réelle — une étape complexe met plus longtemps à apparaître.
 //
-// `reflexion` : laisse le modèle raisonner avant d'écrire. DEUX pièges, tous
-// deux constatés sur l'API réelle et non déduits de la documentation :
+// `reflexion` : laisse le modèle raisonner avant d'écrire, à l'effort
+// demandé. Sans elle, l'appel tourne à EFFORT_SANS_REFLEXION — les modèles
+// 5.5 réfléchissent toujours un peu, on ne peut que les borner au plus bas.
+// Pas de `temperature` : les deux modèles 5.5 la refusent (400).
 //
-//  1. `thinking` et `temperature` NE COHABITENT PAS. L'API refuse (400 :
-//     « temperature may only be set to 1 when thinking is enabled »). On laisse
-//     donc tomber la température sur les passes qui réfléchissent : entre une
-//     température calibrée à 0.4 et un raisonnement, c'est le raisonnement qui
-//     porte la qualité. Les passes sans réflexion gardent la leur, inchangée.
-//  2. Les tokens de réflexion se prélèvent sur `max_tokens`. Chaque appelant
-//     qui active la réflexion doit relever son plafond, sinon le modèle
-//     consomme son budget à réfléchir et rend un JSON tronqué — la panne que
-//     `stop_reason === "max_tokens"` rattrape, au prix d'un appel entier.
-async function streamCompletion({ system, prompt, maxTokens, temperature, onText, reflexion = false, effort = EFFORT_REFLEXION }) {
+// Piège constaté sur l'API réelle : les tokens de réflexion se prélèvent sur
+// `max_tokens`. Un plafond trop juste et le modèle consomme son budget à
+// réfléchir puis rend un JSON tronqué — la panne que
+// `stop_reason === "max_tokens"` rattrape, au prix d'un appel entier.
+async function streamCompletion({ system, prompt, maxTokens, onText, reflexion = false, effort = EFFORT_REFLEXION, model = GENERATION_MODEL }) {
   const reflechit = reflexion && REFLEXION_ACTIVE;
   const stream = anthropic.messages.stream({
-    model: GENERATION_MODEL,
+    model,
     max_tokens: maxTokens,
-    ...(reflechit
-      ? { thinking: REFLEXION, output_config: { effort } }
-      : { temperature }),
+    thinking: REFLEXION,
+    output_config: { effort: reflechit ? effort : EFFORT_SANS_REFLEXION },
     system,
     messages: [{ role: "user", content: prompt }],
   });
@@ -584,7 +594,7 @@ async function streamCompletion({ system, prompt, maxTokens, temperature, onText
     .join("");
   return {
     text: texteFinal || text,
-    usage: computeAiCost(GENERATION_MODEL, final.usage),
+    usage: computeAiCost(model, final.usage),
     stop_reason: final.stop_reason,
   };
 }
@@ -819,11 +829,10 @@ export async function critiquerExperience({ title, description, criteria, compan
   const response = await streamCompletion({
     system: "Tu relis des évaluations de recrutement avant publication. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
     prompt,
-    maxTokens: 4000,
+    maxTokens: 8000,
     // Juger demande de peser plusieurs lectures d'un même énoncé : c'est le
     // genre de tâche pour laquelle cette passe existe.
     reflexion: true,
-    temperature: 0.3,
   });
 
   if (response.stop_reason === "max_tokens") return { problemes: [], usage: response.usage };
@@ -1034,13 +1043,13 @@ Réponds UNIQUEMENT avec un JSON valide :
  *
  * @returns {Promise<{rattachements: Array<{skillId:string, index:number|null, critere:object|null}>, usage: object|null}>}
  */
-async function rattacherCompetences({ title, description, criteria, companyContext, steps, manquantes, competences, locale, uiLocale }) {
+async function rattacherCompetences({ title, description, criteria, companyContext, steps, manquantes, competences, locale, uiLocale, model }) {
   const prompt = buildCouverturePrompt({ title, description, criteria, companyContext, steps, manquantes, locale, uiLocale });
   const response = await streamCompletion({
     system: "Tu conçois des grilles d'évaluation de recrutement. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
     prompt,
-    maxTokens: 4000,
-    temperature: 0.3,
+    maxTokens: 8000,
+    model,
   });
 
   const vide = manquantes.map((c) => ({ skillId: c.id, index: null, critere: null }));
@@ -1154,7 +1163,6 @@ export async function generateExperienceContent({ title, description, criteria, 
       // le plafond seul ne fait que payer plus longtemps.
       // On est en streaming : un plafond haut ne coûte que ce qui sort.
       maxTokens: 24000,
-      temperature: 0.4,
       reflexion: REFLEXION_CONCEPTION,
       onText: scan || undefined,
     });
@@ -1629,7 +1637,7 @@ function cumulerUsage(precedent, ajout) {
  *
  * @returns {Promise<{success: boolean, step?: object, usage?: object, error?: string}>}
  */
-async function regenererEtapeContenu({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale }) {
+async function regenererEtapeContenu({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale, model }) {
   const prompt = buildStepRegenerationPrompt({
     title, description, criteria: criteria || {}, companyContext,
     step, position, total, autresEtapes,
@@ -1643,10 +1651,10 @@ async function regenererEtapeContenu({ title, description, criteria, companyCont
     const response = await streamCompletion({
       system: "Tu es un concepteur d'évaluations par compétences. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       prompt,
-      // 4000 : une seule étape avec ses grilles BARS détaillées, là où la
-      // génération complète en demande 16000 pour trois à six étapes.
-      maxTokens: 4000,
-      temperature: 0.4,
+      // Une seule étape avec ses grilles BARS détaillées tenait en 4000 ; 8000
+      // depuis les modèles 5.5, dont la réflexion se sert dans le même budget.
+      maxTokens: 8000,
+      model,
     });
     usage = cumulerUsage(usage, response.usage);
     if (response.stop_reason === "max_tokens") { lastErr = "réponse tronquée"; continue; }
@@ -1674,7 +1682,9 @@ async function regenererEtapeContenu({ title, description, criteria, companyCont
  * @param {string} instruction consigne du recruteur, telle que le chat l'a comprise
  * @returns {Promise<{success: boolean, step?: object, position?: number, resume?: string, error?: string}>}
  */
-export async function runStepRegeneration(stepId, instruction) {
+// `model` : celui de la génération par défaut ; la couverture d'une compétence
+// passe le sien (COUVERTURE_MODEL) quand elle crée une étape dédiée.
+export async function runStepRegeneration(stepId, instruction, { model } = {}) {
   try {
     if (!instruction || !instruction.trim()) {
       return { success: false, error: "Aucune consigne : impossible de savoir quoi changer." };
@@ -1748,6 +1758,7 @@ export async function runStepRegeneration(stepId, instruction) {
       instruction,
       locale: coerceExperienceLocale(job.experience_locale),
       uiLocale,
+      model,
     });
     let usage = regen.usage || null;
     if (!regen.success) return { success: false, error: regen.error };
@@ -1806,6 +1817,7 @@ export async function runStepRegeneration(stepId, instruction) {
           // repartait avec des sources en français, au milieu d'un parcours qui,
           // lui, était bien en néerlandais.
           locale: coerceExperienceLocale(job.experience_locale),
+          model,
         });
         if (scenario.success) {
           usage = cumulerUsage(usage, scenario.usage);
@@ -1953,6 +1965,7 @@ export async function runCouvertureCompetence(experienceId, skillId) {
         competences,
         locale,
         uiLocale,
+        model: COUVERTURE_MODEL,
       });
       usage = cumulerUsage(usage, essai.usage);
       const r = essai.rattachements[0];
@@ -2010,7 +2023,8 @@ export async function runCouvertureCompetence(experienceId, skillId) {
 
     const regen = await runStepRegeneration(
       vide.id,
-      `Cette étape vient d'être créée, VIDE, pour une raison précise : la compétence MUST-HAVE « ${cible.name} » [${cible.id}] n'est notée par aucune autre étape du parcours. Conçois-la entièrement : une tâche courte et réaliste, ancrée dans le poste et dans la même scène que le reste du parcours, qui fait la preuve de cette compétence, sans doublon avec les autres étapes. "skills_tested" commence par ${cible.id}, et au moins une sous-dimension à checkpoints note cette compétence.`
+      `Cette étape vient d'être créée, VIDE, pour une raison précise : la compétence MUST-HAVE « ${cible.name} » [${cible.id}] n'est notée par aucune autre étape du parcours. Conçois-la entièrement : une tâche courte et réaliste, ancrée dans le poste et dans la même scène que le reste du parcours, qui fait la preuve de cette compétence, sans doublon avec les autres étapes. "skills_tested" commence par ${cible.id}, et au moins une sous-dimension à checkpoints note cette compétence.`,
+      { model: COUVERTURE_MODEL }
     );
     if (!regen.success) {
       // Pas d'étape vide laissée derrière : le recruteur la verrait sans
