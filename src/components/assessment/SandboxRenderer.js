@@ -4,6 +4,10 @@ import { MessageSquare, Layout } from "lucide-react";
 import EmailComposer from "./EmailComposer";
 import CrmSandbox from "./CrmSandbox";
 import CodeSandbox from "./CodeSandbox";
+import TableurSandbox from "./TableurSandbox";
+import InboxSandbox from "./InboxSandbox";
+import PersonaSandbox from "./PersonaSandbox";
+import BoardSandbox from "./BoardSandbox";
 import { field, DEFAULT_PRIMARY } from "./candidateUi";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { objetEmailReel } from "@/lib/sceneEtape";
@@ -34,7 +38,7 @@ function SceneBrief({ lignes, texte, primary }) {
 // #fafafa (radius 12), focus-ring de marque (classe nodal-input), liseré de
 // marque en haut du conteneur. L'éditeur de code vit dans CodeSandbox : il
 // exécute réellement du code, ce n'est plus un simple renderer de saisie.
-export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY, config, compact = false, onRun }) {
+export default function SandboxRenderer({ format, value, onChange, primary = DEFAULT_PRIMARY, config, compact = false, onRun, token, stepId }) {
   const t = useT();
   if (format === "email_reply") {
     const lignes = [
@@ -53,6 +57,24 @@ export default function SandboxRenderer({ format, value, onChange, primary = DEF
   // objet { fields, notes } (cf. meta.crm de la réponse).
   if (format === "crm") {
     return <CrmSandbox crm={config?.crm} value={value} onChange={onChange} primary={primary} compact={compact} />;
+  }
+
+  // Tableur et boîte de réception : même principe que la fiche CRM, la valeur
+  // est un objet structuré ({ edits, conclusion } / { items, plan }) dont le
+  // serveur dérive le texte lu par le correcteur.
+  if (format === "sheet") {
+    return <TableurSandbox sheet={config?.sheet} value={value} onChange={onChange} primary={primary} compact={compact} />;
+  }
+  if (format === "inbox") {
+    return <InboxSandbox inbox={config?.inbox} value={value} onChange={onChange} primary={primary} compact={compact} />;
+  }
+  if (format === "board") {
+    return <BoardSandbox board={config?.board} value={value} onChange={onChange} primary={primary} compact={compact} />;
+  }
+  // Le personnage parle au serveur lui-même (token + étape) : la conversation
+  // n'est pas une valeur que la page enregistre, seulement un état qu'elle lit.
+  if (format === "persona") {
+    return <PersonaSandbox persona={config?.persona} token={token} stepId={stepId} onChange={onChange} primary={primary} compact={compact} />;
   }
 
   if (format === "client_reply") {

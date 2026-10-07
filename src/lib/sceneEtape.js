@@ -19,6 +19,16 @@
 //
 // Les libellés sont en français : ce texte n'entre que dans des prompts, qui le
 // sont tous. Les valeurs, elles, restent dans la langue où la scène est jouée.
+//
+// Le tableur et la boîte de réception en font partie : ce sont des documents
+// que le candidat a sous les yeux, au même titre que le message d'un client.
+// Leurs notes de conception (ce que les données cachent, le tri attendu) n'en
+// font PAS partie — elles vont au seul correcteur, par runScoring.
+
+import { sheetSceneText } from "@/lib/tableur";
+import { inboxSceneText } from "@/lib/boiteReception";
+import { personaSceneText } from "@/lib/persona";
+import { boardSceneText } from "@/lib/tableauCartes";
 
 function net(v) {
   return String(v ?? "").trim();
@@ -45,6 +55,15 @@ export function elementsScene(config) {
     { libelle: "Objet de l'e-mail", texte: objetEmailReel(c.subject) },
     { libelle: "Contexte remis au candidat", texte: net(c.context) },
     { libelle: "Contexte du document", texte: net(c.document_context) },
+    // Blocs multi-lignes : un tableau ou une boîte de réception écrasés sur
+    // une seule ligne deviennent illisibles, pour le modèle comme pour nous.
+    { libelle: "Tableur remis au candidat", texte: c.sheet ? sheetSceneText(c.sheet) : "", bloc: true },
+    { libelle: "Boîte de réception remise au candidat", texte: c.inbox ? inboxSceneText(c.inbox) : "", bloc: true },
+    // Le personnage : seulement ce que le candidat en sait. Ses informations
+    // cachées vont au correcteur par le briefing, jamais ici — l'assistant du
+    // candidat lit aussi cette scène.
+    { libelle: "Conversation avec un personnage joué par l'IA", texte: c.persona ? personaSceneText(c.persona) : "", bloc: true },
+    { libelle: "Tableau remis au candidat", texte: c.board ? boardSceneText(c.board) : "", bloc: true },
   ].filter((e) => e.texte);
 }
 
@@ -56,6 +75,8 @@ export function elementsScene(config) {
  */
 export function sceneEnTexte(config, retrait = "") {
   return elementsScene(config)
-    .map((e) => `${retrait}${e.libelle} : ${e.texte.replace(/\s*\n\s*/g, " / ")}`)
+    .map((e) => (e.bloc
+      ? `${retrait}${e.libelle} :\n${e.texte.split("\n").map((l) => `${retrait}  ${l}`).join("\n")}`
+      : `${retrait}${e.libelle} : ${e.texte.replace(/\s*\n\s*/g, " / ")}`))
     .join("\n");
 }

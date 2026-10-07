@@ -27,11 +27,15 @@ export async function getCostStats(periodDays = null) {
     let runQ = admin.from("candidate_runs").select("id, experience_id, started_at");
     if (cutoff) runQ = runQ.gte("started_at", cutoff);
 
-    const [{ data: exps }, { data: runs }, { data: scores }, { data: msgs }] = await Promise.all([
+    const [{ data: exps }, { data: runs }, { data: scores }, { data: msgs }, { data: personas }] = await Promise.all([
       expQ,
       runQ,
       admin.from("run_scores").select("run_id, scoring_usage"),
       admin.from("run_ai_messages").select("run_id, role, input_tokens, output_tokens"),
+      // Conversations avec un personnage (sandbox « persona ») : leur usage vit
+      // avec la réponse de l'étape, pas dans run_ai_messages — ce n'est pas un
+      // usage de l'assistant par le candidat.
+      admin.from("run_step_responses").select("run_id, persona_usage:meta->persona->usage").not("meta->persona", "is", null),
     ]);
 
     const experiences = exps || [];
@@ -45,6 +49,12 @@ export async function getCostStats(periodDays = null) {
       if (m.role !== "assistant" || !runIds.has(m.run_id)) continue;
       const c = computeAiCost(ASSISTANT_MODEL, { input_tokens: m.input_tokens || 0, output_tokens: m.output_tokens || 0 }).cost_usd;
       assistantByRun[m.run_id] = (assistantByRun[m.run_id] || 0) + c;
+    }
+    // Personnage par run.
+    const personaByRun = {};
+    for (const p of personas || []) {
+      if (!runIds.has(p.run_id)) continue;
+      personaByRun[p.run_id] = (personaByRun[p.run_id] || 0) + (Number(p.persona_usage?.cost_usd) || 0);
     }
     // Scoring par run.
     const scoringByRun = {};
@@ -65,6 +75,8 @@ export async function getCostStats(periodDays = null) {
     const regenTotal = experiences.reduce((sum, e) => sum + (e.regeneration_usage?.cost_usd || 0), 0);
     const scoringTotal = Object.values(scoringByRun).reduce((a, b) => a + b, 0);
     const assistantTotal = Object.values(assistantByRun).reduce((a, b) => a + b, 0);
+    const personaTotal = Object.values(personaByRun).reduce((a, b) => a + b, 0);
+    const nWithPersona = Object.keys(personaByRun).length;
     const nRuns = runList.length;
     const nScored = Object.keys(scoringByRun).length;
     const nWithAssistant = Object.keys(assistantByRun).length;
@@ -76,20 +88,21 @@ export async function getCostStats(periodDays = null) {
     for (const e of experiences) {
       const jid = e.job_id;
       jobTitle[jid] = e.jobs?.title || "Poste supprimé";
-      (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, runs: 0 });
+      (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, persona: 0, runs: 0 });
       perJob[jid].generation += (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0);
     }
     for (const r of runList) {
       const jid = expById[r.experience_id]?.job_id;
       if (!jid) continue;
-      (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, runs: 0 });
+      (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, persona: 0, runs: 0 });
       perJob[jid].scoring += scoringByRun[r.id] || 0;
       perJob[jid].assistant += assistantByRun[r.id] || 0;
+      perJob[jid].persona += personaByRun[r.id] || 0;
       perJob[jid].runs += 1;
     }
     const perJobArr = Object.entries(perJob).map(([jid, v]) => ({
       jobId: jid, title: jobTitle[jid] || "—",
-      ...v, total: v.generation + v.scoring + v.assistant,
+      ...v, total: v.generation + v.scoring + v.assistant + v.persona,
     })).sort((a, b) => b.total - a.total);
 
     const div = (a, b) => (b ? a / b : 0);
@@ -97,20 +110,21 @@ export async function getCostStats(periodDays = null) {
     return {
       success: true,
       period: periodDays,
-      totals: { generation: genTotal, regeneration: regenTotal, scoring: scoringTotal, assistant: assistantTotal, all: genTotal + scoringTotal + assistantTotal },
+      totals: { generation: genTotal, regeneration: regenTotal, scoring: scoringTotal, assistant: assistantTotal, persona: personaTotal, all: genTotal + scoringTotal + assistantTotal + personaTotal },
       counts: {
         experiences: experiences.length, generated: genCount, runs: nRuns,
-        scoredRuns: nScored, runsWithAssistant: nWithAssistant,
+        scoredRuns: nScored, runsWithAssistant: nWithAssistant, runsWithPersona: nWithPersona,
         stepRegenerations: regenCalls,
       },
       avg: {
         generationPerExperience: div(genTotal, genCount),
         scoringPerRun: div(scoringTotal, nRuns),
         assistantPerRun: div(assistantTotal, nRuns),
+        personaPerRun: div(personaTotal, nRuns),
         // Coût marginal par candidat (hors génération, amortie) :
-        marginalPerParcours: div(scoringTotal, nRuns) + div(assistantTotal, nRuns),
+        marginalPerParcours: div(scoringTotal + assistantTotal + personaTotal, nRuns),
         // Coût complet par parcours, génération amortie sur tous les runs :
-        fullPerParcours: div(scoringTotal + assistantTotal + genTotal, nRuns),
+        fullPerParcours: div(scoringTotal + assistantTotal + personaTotal + genTotal, nRuns),
       },
       perJob: perJobArr,
     };

@@ -6,12 +6,17 @@ import { useRouter } from "@/lib/i18n/navigation";
 import {
   Loader2, Sparkles, ChevronUp, ChevronDown, Trash2, Plus, Check,
   ArrowLeft, Bot, Video, Type, ListChecks, Code2, CircleHelp, ClipboardList,
-  ShieldCheck, AlertTriangle, X,
+  ShieldCheck, AlertTriangle, X, Compass,
 } from "lucide-react";
 import {
   getExperienceForJob, updateStep,
-  addStep, deleteStep, moveStep, publishExperience, couvrirCompetence,
+  addStep, deleteStep, moveStep, publishExperience, couvrirCompetence, updateFilRouge,
 } from "@/lib/actions/experience";
+import { crmEstEspace, crmToutesSources, CRM_MISSIONS, CRM_ACTIVITY_TYPES } from "@/lib/crmScoring";
+import { lireNombre } from "@/lib/tableur";
+import { CANAUX, PRIORITES } from "@/lib/boiteReception";
+import { MODES_PERSONA, DEFAUT_TOURS, MAX_TOURS } from "@/lib/persona";
+import { MODES as MODES_TABLEAU } from "@/lib/tableauCartes";
 import {
   listerCompetences, calculerCouverture, estCritereCheckpoints, etapeNoteeSansGrille,
   EXERCICES_CIBLE_MAX, CHECKPOINTS_MAX, MUST,
@@ -39,7 +44,7 @@ const RESPONSE_FORMAT_VALUES = [
 const responseFormats = (t) =>
   RESPONSE_FORMAT_VALUES.map((f) => ({ ...f, label: t(`dashboard.experienceEditor.format.${f.value}`) }));
 
-const SANDBOX_KIND_VALUES = ["none", "email", "client_reply", "document", "code", "crm"];
+const SANDBOX_KIND_VALUES = ["none", "persona", "email", "client_reply", "document", "crm", "sheet", "inbox", "board", "code"];
 const sandboxKinds = (t) =>
   SANDBOX_KIND_VALUES.map((value) => ({ value, label: t(`dashboard.experienceEditor.sandboxKind.${value}`) }));
 
@@ -309,6 +314,16 @@ export default function ExperienceReviewPage() {
                 next: <strong>{t("dashboard.experienceEditor.lockedWarningNext")}</strong>,
               })}
             </div>
+          )}
+
+          {experience.generated_from?.fil_rouge && (
+            <FilRougeCard
+              key={experience.id}
+              experienceId={experience.id}
+              filRouge={experience.generated_from.fil_rouge}
+              toast={toast}
+              onSaved={async (res) => { annoncerVersion(res); await load(); }}
+            />
           )}
 
           <CoveragePanel
@@ -761,6 +776,38 @@ function StepCard({ step, index, total, competences, onMove, onDelete, onSaved, 
         />
       )}
 
+      {/* Éditeur du tableur */}
+      {local.sandbox_kind === "sheet" && (
+        <SheetEditor
+          sheet={local.config?.sheet}
+          onChange={(sheet) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), sheet } })); setDirty(true); }}
+        />
+      )}
+
+      {/* Éditeur de la boîte de réception */}
+      {local.sandbox_kind === "inbox" && (
+        <InboxEditor
+          inbox={local.config?.inbox}
+          onChange={(inbox) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), inbox } })); setDirty(true); }}
+        />
+      )}
+
+      {/* Éditeur du personnage */}
+      {local.sandbox_kind === "persona" && (
+        <PersonaEditor
+          persona={local.config?.persona}
+          onChange={(persona) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), persona } })); setDirty(true); }}
+        />
+      )}
+
+      {/* Éditeur du tableau de cartes */}
+      {local.sandbox_kind === "board" && (
+        <BoardEditor
+          board={local.config?.board}
+          onChange={(board) => { setLocal((p) => ({ ...p, config: { ...(p.config || {}), board } })); setDirty(true); }}
+        />
+      )}
+
       {/* Éditeur de l'exercice de code */}
       {local.sandbox_kind === "code" && (
         <CodeExerciseEditor
@@ -833,6 +880,64 @@ function SkillPicker({ ids, competences, onChange }) {
   );
 }
 
+// Les formats dont la couverture affiche le nom : le geste par lequel la
+// compétence est prouvée (« testée à l'étape 2 · Tableur »).
+const FORMATS_PREUVE = ["text", "video", "qcm", "choice", "code", "email", "client_reply", "document", "crm", "sheet", "inbox", "persona", "board"];
+
+// ─── Fil rouge ───────────────────────────────────────────────────────────────
+// La situation qui relie les étapes, lue par le candidat avant de commencer.
+// Décidée par la génération selon le métier ; le recruteur la relit, la
+// retouche, ou la retire (texte vidé). L'« univers » est la fiche de cohérence
+// des scènes détaillées : il ne s'affiche pas au candidat.
+function FilRougeCard({ experienceId, filRouge, onSaved, toast }) {
+  const { t } = useI18n();
+  const [contexte, setContexte] = useState(filRouge?.contexte_candidat || "");
+  const [univers, setUnivers] = useState(filRouge?.univers || "");
+  const [ouvert, setOuvert] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const dirty = contexte !== (filRouge?.contexte_candidat || "") || univers !== (filRouge?.univers || "");
+
+  async function save() {
+    setSaving(true);
+    const res = await updateFilRouge(experienceId, { contexte_candidat: contexte, univers });
+    setSaving(false);
+    if (!res.success) { toast(res.error || t("dashboard.experienceEditor.error"), "error"); return; }
+    toast(t(contexte.trim() ? "dashboard.experienceEditor.filRouge.saved" : "dashboard.experienceEditor.filRouge.removed"));
+    await onSaved?.(res);
+  }
+
+  return (
+    <div className="card" style={{ padding: "1.1rem 1.4rem", marginBottom: "1.5rem", borderLeft: dirty ? "3px solid var(--primary)" : undefined }}>
+      <h2 style={{ fontSize: "14px", fontWeight: 800, display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <Compass size={16} style={{ color: "var(--primary)" }} /> {t("dashboard.experienceEditor.filRouge.title")}
+      </h2>
+      <p style={{ fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: 1.5, marginBottom: "0.75rem" }}>
+        {t("dashboard.experienceEditor.filRouge.help")}
+      </p>
+      <label style={labelStyle}>{t("dashboard.experienceEditor.filRouge.candidateText")}</label>
+      <AutoTextarea value={contexte} onChange={(e) => setContexte(e.target.value)} rows={3} style={{ ...inputStyle, lineHeight: 1.5 }} />
+      <button className="btn btn-ghost btn-sm" onClick={() => setOuvert((o) => !o)} style={{ fontSize: "12px", marginTop: "0.5rem", display: "flex", alignItems: "center", gap: 4 }}>
+        <ChevronDown size={13} style={{ transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s" }} />
+        {t("dashboard.experienceEditor.filRouge.universe")}
+      </button>
+      {ouvert && (
+        <>
+          <p style={{ fontSize: "11.5px", color: "var(--muted-foreground)", margin: "0.25rem 0 0.35rem" }}>{t("dashboard.experienceEditor.filRouge.universeHelp")}</p>
+          <AutoTextarea value={univers} onChange={(e) => setUnivers(e.target.value)} rows={4} style={{ ...inputStyle, lineHeight: 1.5, fontSize: "13px" }} />
+        </>
+      )}
+      {dirty && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.75rem" }}>
+          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />}
+            {t("dashboard.experienceEditor.save")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Couverture des compétences ──────────────────────────────────────────────
 // Le contrôle est CALCULÉ, pas demandé au modèle (lib/competences.js) : chaque
 // compétence must-have validée à la création de l'offre doit être notée par au
@@ -855,6 +960,7 @@ function CoveragePanel({ couverture, competences, covering, onCover }) {
   const lignesRefs = (refs) => refs.map((r, i) => (
     <div key={i} style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: 1.5 }}>
       {t("dashboard.experienceEditor.coverage.testedIn", { n: r.stepIndex + 1, title: r.stepTitle || "—" })}
+      {r.format && FORMATS_PREUVE.includes(r.format) ? ` · ${t(`dashboard.experienceEditor.coverage.format.${r.format}`)}` : ""}
       {r.criterion ? ` · ${r.criterion}` : ""}
       {r.checkpoints.length > 0 && ` · ${t("dashboard.experienceEditor.coverage.checkpointCount", { count: r.checkpoints.length })}`}
       {r.automatic && ` · ${t("dashboard.experienceEditor.coverage.automatic")}`}
@@ -1101,7 +1207,9 @@ function CrmEditor({ crm, onChange }) {
   // Un attendu introuvable dans les sources est incorrigible pour le candidat et
   // pénalise tout le monde. On le signale sans bloquer : le repérage textuel est
   // approximatif (une date reformatée, un montant écrit en toutes lettres).
-  const sourcesText = sources.map((s) => `${s.body || ""} ${s.subject || ""} ${s.from || ""}`).join(" ").toLowerCase();
+  // En v2, les « sources » sont l'historique et les propriétés de chaque fiche.
+  const espace = crmEstEspace(c);
+  const sourcesText = crmToutesSources(c).map((s) => `${s.body || ""} ${s.subject || ""} ${s.from || ""} ${s.title || ""}`).join(" ").toLowerCase();
   // Comparaison aussi sans les espaces : un montant attendu "18000" s'écrit
   // "18 000 €" dans la source — ce n'est pas un attendu manquant.
   const sourcesTight = sourcesText.replace(/[\s ]/g, "");
@@ -1118,7 +1226,9 @@ function CrmEditor({ crm, onChange }) {
       <input value={c.record_title || ""} onChange={(e) => set({ record_title: e.target.value })}
         placeholder={t("dashboard.experienceEditor.crm.recordTitlePlaceholder")} style={inputStyle} />
 
-      {/* Sources du brief */}
+      {/* CRM v2 : le pipeline. Sinon (expériences publiées avant), les sources du brief. */}
+      {espace && <PipelineEditor crm={c} set={set} />}
+      {!espace && (<>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
         <label style={{ ...labelStyle, margin: 0 }}>Sources du brief ({sources.length})</label>
         <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
@@ -1151,6 +1261,7 @@ function CrmEditor({ crm, onChange }) {
           </div>
         ))}
       </div>
+      </>)}
 
       {/* Champs de la fiche */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
@@ -1252,6 +1363,520 @@ function CrmEditor({ crm, onChange }) {
         })}
       </p>
     </div>
+  );
+}
+
+// ─── Éditeur du tableur ──────────────────────────────────────────────────────
+// Le jeu de données s'édite comme on le colle depuis un tableur : une ligne par
+// ligne, colonnes séparées par des tabulations (ou des points-virgules), en-têtes
+// en première ligne. Ce qui compte le plus à relire n'est pas une cellule, c'est
+// la note d'analyse : si le constat qu'elle décrit n'est pas dans les chiffres,
+// la grille notera les candidats sur une illusion.
+function donneesVersTexte(o) {
+  return [o?.columns || [], ...(o?.rows || [])].map((l) => (l || []).map((v) => (v ?? "")).join("\t")).join("\n");
+}
+
+function texteVersDonnees(texte) {
+  const lignes = String(texte || "").replace(/\r/g, "").split("\n").filter((l) => l.trim() !== "");
+  if (!lignes.length) return { columns: [], rows: [] };
+  const sep = lignes[0].includes("\t") ? "\t" : ";";
+  const [entete, ...corps] = lignes.map((l) => l.split(sep).map((c) => c.trim()));
+  return {
+    columns: entete,
+    rows: corps.map((l) => entete.map((_, i) => {
+      const v = l[i] ?? "";
+      const n = lireNombre(v);
+      // Un code (« 0042 ») reste du texte, comme à la génération.
+      return n !== null && !/^0\d/.test(v) ? n : v;
+    })),
+  };
+}
+
+function OngletEditor({ onglet, onChange, onRemove }) {
+  const { t } = useI18n();
+  const [brouillon, setBrouillon] = useState(donneesVersTexte(onglet));
+  const inegales = (onglet?.rows || []).some((r) => (r || []).length !== (onglet?.columns || []).length);
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem", marginBottom: "0.5rem" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+        <input value={onglet?.name || ""} onChange={(e) => onChange({ ...onglet, name: e.target.value })}
+          placeholder={t("dashboard.experienceEditor.sheet.tabName")} style={{ ...inputStyle, marginBottom: 0, fontWeight: 600 }} />
+        {onRemove && (
+          <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+        )}
+      </div>
+      <AutoTextarea
+        value={brouillon}
+        onChange={(e) => setBrouillon(e.target.value)}
+        onBlur={() => onChange({ ...onglet, ...texteVersDonnees(brouillon) })}
+        rows={8}
+        style={{ ...inputStyle, marginBottom: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "12px", lineHeight: 1.5, whiteSpace: "pre", overflowX: "auto" }}
+      />
+      <p style={{ fontSize: "11px", color: inegales ? "#b45309" : "var(--muted-foreground)", marginTop: 4 }}>
+        {inegales
+          ? t("dashboard.experienceEditor.sheet.unevenRows")
+          : t("dashboard.experienceEditor.sheet.dataSize", { rows: (onglet?.rows || []).length, cols: (onglet?.columns || []).length })}
+      </p>
+    </div>
+  );
+}
+
+function SheetEditor({ sheet, onChange }) {
+  const { t } = useI18n();
+  const s = sheet || { file_name: "", deliverable_label: "", sheets: [{ name: "Feuille1", columns: [], rows: [] }], analysis_notes: "" };
+  const onglets = s.sheets || [];
+  const set = (patch) => onChange({ ...s, ...patch });
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 200px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.sheet.fileName")}</label>
+          <input value={s.file_name || ""} onChange={(e) => set({ file_name: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "2 1 260px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.sheet.deliverableLabel")}</label>
+          <input value={s.deliverable_label || ""} onChange={(e) => set({ deliverable_label: e.target.value })} style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.sheet.data")}</label>
+        {onglets.length < 3 && (
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+            onClick={() => set({ sheets: [...onglets, { name: `Feuille${onglets.length + 1}`, columns: [], rows: [] }] })}>
+            <Plus size={13} /> {t("dashboard.experienceEditor.sheet.addTab")}
+          </button>
+        )}
+      </div>
+      <p style={{ fontSize: "11.5px", color: "var(--muted-foreground)", margin: "0 0 0.5rem" }}>{t("dashboard.experienceEditor.sheet.dataHelp")}</p>
+      {onglets.map((o, i) => (
+        <OngletEditor
+          key={`${i}-${onglets.length}`}
+          onglet={o}
+          onChange={(neuf) => set({ sheets: onglets.map((x, j) => (j === i ? neuf : x)) })}
+          onRemove={onglets.length > 1 ? () => set({ sheets: onglets.filter((_, j) => j !== i) }) : null}
+        />
+      ))}
+
+      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "0.75rem", marginTop: "0.75rem" }}>
+        <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#0369a1", textTransform: "uppercase", marginBottom: 5 }}>
+          {t("dashboard.experienceEditor.sheet.analysisNotes")}
+        </div>
+        <AutoTextarea value={s.analysis_notes || ""} onChange={(e) => set({ analysis_notes: e.target.value })} rows={3}
+          style={{ ...inputStyle, marginBottom: 0, fontSize: "13px", lineHeight: 1.5, background: "#ffffff" }} />
+        <p style={{ fontSize: "11px", color: "#0369a1", marginTop: 5, lineHeight: 1.45 }}>{t("dashboard.experienceEditor.sheet.analysisHelp")}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Éditeur de la boîte de réception ────────────────────────────────────────
+// Chaque message porte, à côté, la lecture attendue du tri : c'est la grille du
+// correcteur, jamais montrée au candidat. Un message marqué « piège » est celui
+// qui départage — l'urgence discrète, le bruit insistant.
+function InboxEditor({ inbox, onChange }) {
+  const { t } = useI18n();
+  const b = inbox || { owner: "", now: "", items: [], triage_notes: [] };
+  const items = b.items || [];
+  const notes = b.triage_notes || [];
+  const set = (patch) => onChange({ ...b, ...patch });
+  const setItem = (i, patch) => set({ items: items.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
+  const noteDe = (id) => notes.find((n) => n.item === id) || { item: id, priority: null, trap: false, why: "" };
+  const setNote = (id, patch) => {
+    const existe = notes.some((n) => n.item === id);
+    set({ triage_notes: existe ? notes.map((n) => (n.item === id ? { ...n, ...patch } : n)) : [...notes, { ...noteDe(id), ...patch }] });
+  };
+  const ajouter = () => {
+    const max = items.reduce((m, x) => Math.max(m, Number(String(x.id).replace(/\D/g, "")) || 0), 0);
+    set({ items: [...items, { id: `m${max + 1}`, channel: "email", from: "", from_role: "", subject: "", received_at: "", body: "" }] });
+  };
+  const retirer = (i) => {
+    const id = items[i]?.id;
+    set({ items: items.filter((_, j) => j !== i), triage_notes: notes.filter((n) => n.item !== id) });
+  };
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ flex: "2 1 240px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.inbox.owner")}</label>
+          <input value={b.owner || ""} onChange={(e) => set({ owner: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "1 1 140px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.inbox.now")}</label>
+          <input value={b.now || ""} onChange={(e) => set({ now: e.target.value })} style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.inbox.messages", { count: items.length })}</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }} onClick={ajouter}>
+          <Plus size={13} /> {t("dashboard.experienceEditor.inbox.addMessage")}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {items.map((m, i) => {
+          const note = noteDe(m.id);
+          return (
+            <div key={m.id || i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${note.trap ? "#f97316" : "var(--border)"}`, borderRadius: 8, padding: "0.75rem" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", alignSelf: "center", fontFamily: "monospace" }}>{m.id}</span>
+                <select value={m.channel || "email"} onChange={(e) => setItem(i, { channel: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px" }}>
+                  {CANAUX.map((c) => <option key={c} value={c}>{t(`dashboard.experienceEditor.inbox.channels.${c}`)}</option>)}
+                </select>
+                <input value={m.from || ""} onChange={(e) => setItem(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.from")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px" }} />
+                <input value={m.from_role || ""} onChange={(e) => setItem(i, { from_role: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.fromRole")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px" }} />
+                <button className="btn btn-ghost btn-sm" onClick={() => retirer(i)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                <input value={m.subject || ""} onChange={(e) => setItem(i, { subject: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.subject")} style={{ ...inputStyle, marginBottom: 0 }} />
+                <input value={m.received_at || ""} onChange={(e) => setItem(i, { received_at: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.receivedAt")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 140px" }} />
+              </div>
+              <AutoTextarea value={m.body || ""} onChange={(e) => setItem(i, { body: e.target.value })} rows={3}
+                style={{ ...inputStyle, marginBottom: 6, fontSize: "13px", lineHeight: 1.5 }} />
+              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "8px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#92400e", textTransform: "uppercase" }}>{t("dashboard.experienceEditor.inbox.expectedTriage")}</span>
+                <select value={note.priority || ""} onChange={(e) => setNote(m.id, { priority: e.target.value || null })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 150px", fontSize: "12.5px", padding: "5px 28px 5px 8px" }}>
+                  <option value="">—</option>
+                  {PRIORITES.map((p) => <option key={p} value={p}>{t(`dashboard.experienceEditor.inbox.priorities.${p}`)}</option>)}
+                </select>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", color: "#92400e" }}>
+                  <input type="checkbox" checked={!!note.trap} onChange={(e) => setNote(m.id, { trap: e.target.checked })} />
+                  {t("dashboard.experienceEditor.inbox.trap")}
+                </label>
+                <input value={note.why || ""} onChange={(e) => setNote(m.id, { why: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.why")}
+                  style={{ ...inputStyle, marginBottom: 0, flex: "1 1 220px", fontSize: "12.5px", background: "#ffffff" }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.75rem", lineHeight: 1.5 }}>{t("dashboard.experienceEditor.inbox.help")}</p>
+    </div>
+  );
+}
+
+// ─── CRM v2 : le pipeline ────────────────────────────────────────────────────
+// Les propriétés libres d'une fiche s'éditent en « Clé : valeur », une par
+// ligne — la forme la plus rapide à relire et à corriger.
+function proprietesVersTexte(p) {
+  return Object.entries(p || {}).map(([k, v]) => `${k} : ${v}`).join("\n");
+}
+function texteVersProprietes(texte) {
+  const out = {};
+  for (const l of String(texte || "").split("\n")) {
+    const i = l.indexOf(":");
+    if (i <= 0) continue;
+    const k = l.slice(0, i).trim();
+    const v = l.slice(i + 1).trim();
+    if (k) out[k] = v;
+  }
+  return out;
+}
+
+function FicheCrmEditor({ record, onChange, onRemove }) {
+  const { t } = useI18n();
+  const [ouvert, setOuvert] = useState(false);
+  const [props, setProps] = useState(proprietesVersTexte(record.properties));
+  const timeline = record.timeline || [];
+  const set = (patch) => onChange({ ...record, ...patch });
+  const setActivite = (i, patch) => set({ timeline: timeline.map((a, j) => (j === i ? { ...a, ...patch } : a)) });
+
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.6rem 0.75rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => setOuvert((o) => !o)} style={{ padding: "2px" }}>
+          <ChevronDown size={14} style={{ transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s" }} />
+        </button>
+        <span style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--muted-foreground)" }}>{record.id}</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{record.name || "—"}</span>
+        <span style={{ fontSize: "11.5px", color: "var(--muted-foreground)" }}>
+          {[record.stage, t("dashboard.experienceEditor.crm.activityCount", { count: timeline.length })].filter(Boolean).join(" · ")}
+        </span>
+        <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+      </div>
+      {ouvert && (
+        <div style={{ marginTop: "0.6rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 6 }}>
+            {[
+              ["name", "recordName"], ["company", "recordCompany"], ["contact", "recordContact"], ["stage", "recordStage"],
+              ["amount", "recordAmount"], ["currency", "recordCurrency"], ["close_date", "recordCloseDate"],
+              ["owner", "recordOwner"], ["last_activity", "recordLastActivity"],
+            ].map(([cle, libelle]) => (
+              <input key={cle} value={record[cle] ?? ""} placeholder={t(`dashboard.experienceEditor.crm.${libelle}`)}
+                onChange={(e) => set({ [cle]: cle === "amount" ? (lireNombre(e.target.value) ?? e.target.value) : e.target.value })}
+                style={{ ...inputStyle, marginBottom: 0, fontSize: "13px" }} />
+            ))}
+          </div>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.crm.properties")}</label>
+          <AutoTextarea value={props} onChange={(e) => setProps(e.target.value)} onBlur={() => set({ properties: texteVersProprietes(props) })}
+            rows={2} placeholder={t("dashboard.experienceEditor.crm.propertiesPlaceholder")} style={{ ...inputStyle, fontSize: "13px", lineHeight: 1.5 }} />
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0.6rem 0 0.4rem" }}>
+            <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.crm.timeline")}</label>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+              onClick={() => set({ timeline: [...timeline, { id: `${record.id}_a${timeline.length + 1}`, type: "note", date: "", body: "" }] })}>
+              <Plus size={13} /> {t("dashboard.experienceEditor.crm.addActivity")}
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {timeline.map((a, i) => (
+              <div key={a.id || i} style={{ border: "1px dashed var(--border)", borderRadius: 6, padding: "0.5rem" }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 5, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--muted-foreground)", alignSelf: "center" }}>{a.id}</span>
+                  <select value={a.type || "note"} onChange={(e) => setActivite(i, { type: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 180px", fontSize: "12.5px" }}>
+                    {CRM_ACTIVITY_TYPES.map((ty) => <option key={ty} value={ty}>{t(`dashboard.experienceEditor.crm.activityTypes.${ty}`)}</option>)}
+                  </select>
+                  <input value={a.from || ""} onChange={(e) => setActivite(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceFrom")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px", fontSize: "12.5px" }} />
+                  <input value={a.subject || a.title || ""} onChange={(e) => setActivite(i, a.type === "email" ? { subject: e.target.value } : { title: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceSubject")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontSize: "12.5px" }} />
+                  <input value={a.date || ""} onChange={(e) => setActivite(i, { date: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceReceived")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 120px", fontSize: "12.5px" }} />
+                  <button className="btn btn-ghost btn-sm" onClick={() => set({ timeline: timeline.filter((_, j) => j !== i) })} style={{ padding: "4px", color: "#dc2626" }}><X size={13} /></button>
+                </div>
+                <AutoTextarea value={a.body || ""} onChange={(e) => setActivite(i, { body: e.target.value })} rows={3}
+                  style={{ ...inputStyle, marginBottom: 0, fontSize: "12.5px", lineHeight: 1.5 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineEditor({ crm, set }) {
+  const { t } = useI18n();
+  const records = crm.records || [];
+  const setRecord = (i, r) => set({ records: records.map((x, j) => (j === i ? r : x)) });
+  return (
+    <>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "0.75rem" }}>
+        <div style={{ flex: "1 1 200px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.crm.mission")}</label>
+          <select value={crm.mission || "update"} onChange={(e) => set({ mission: e.target.value, ...(e.target.value === "pipeline_review" ? { focus_record: null } : {}) })} style={selectStyle}>
+            {CRM_MISSIONS.map((m) => <option key={m} value={m}>{t(`dashboard.experienceEditor.crm.missions.${m}`)}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: "1 1 200px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.crm.pipelineName")}</label>
+          <input value={crm.pipeline_name || ""} onChange={(e) => set({ pipeline_name: e.target.value })} style={inputStyle} />
+        </div>
+        {crm.mission !== "pipeline_review" && (
+          <div style={{ flex: "1 1 200px" }}>
+            <label style={labelStyle}>{t("dashboard.experienceEditor.crm.focusRecord")}</label>
+            <select value={crm.focus_record || ""} onChange={(e) => set({ focus_record: e.target.value || null })} style={selectStyle}>
+              <option value="">—</option>
+              {records.map((r) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+      <label style={labelStyle}>{t("dashboard.experienceEditor.crm.stages")}</label>
+      <input value={(crm.stages || []).join(", ")} onChange={(e) => set({ stages: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })} style={inputStyle} />
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.crm.records", { count: records.length })}</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}
+          onClick={() => set({ records: [...records, { id: `r${records.length + 1}`, name: "", stage: (crm.stages || [])[0] || "", properties: {}, timeline: [] }] })}>
+          <Plus size={13} /> {t("dashboard.experienceEditor.crm.addRecord")}
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {records.map((r, i) => (
+          <FicheCrmEditor key={r.id || i} record={r} onChange={(neuf) => setRecord(i, neuf)}
+            onRemove={() => set({ records: records.filter((_, j) => j !== i), ...(crm.focus_record === r.id ? { focus_record: null } : {}) })} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─── Éditeur du personnage ───────────────────────────────────────────────────
+// Deux zones bien distinctes : ce que le candidat voit (nom, fonction,
+// contexte, première réplique) et ce qui fait le jeu — personnalité, objectifs,
+// informations cachées, objections, limites — que seul le personnage connaît.
+// Les signes de réussite, eux, vont au correcteur.
+function PersonaEditor({ persona, onChange }) {
+  const { t } = useI18n();
+  const p = persona || { name: "", role: "", company: "", mode: "call", language: "", context: "", opening_message: "", personality: "", goals: "", hidden_info: [], objections: [], red_lines: [], success_signals: [], max_turns: DEFAUT_TOURS };
+  const set = (patch) => onChange({ ...p, ...patch });
+  // Une liste s'édite à une ligne par élément ; les lignes vides sont ignorées
+  // à l'usage, pas pendant la frappe — sinon impossible de passer à la ligne.
+  const liste = (cle) => (
+    <AutoTextarea value={(p[cle] || []).join("\n")} onChange={(e) => set({ [cle]: e.target.value.split("\n") })} rows={2}
+      placeholder={t("dashboard.experienceEditor.persona.onePerLine")} style={{ ...inputStyle, fontSize: "13px", lineHeight: 1.5, background: "#ffffff" }} />
+  );
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.mode")}</label>
+          <select value={p.mode || "call"} onChange={(e) => set({ mode: e.target.value })} style={selectStyle}>
+            {MODES_PERSONA.map((m) => <option key={m} value={m}>{t(`dashboard.experienceEditor.persona.modes.${m}`)}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.name")}</label>
+          <input value={p.name || ""} onChange={(e) => set({ name: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.role")}</label>
+          <input value={p.role || ""} onChange={(e) => set({ role: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.company")}</label>
+          <input value={p.company || ""} onChange={(e) => set({ company: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "0 0 90px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.language")}</label>
+          <input value={p.language || ""} onChange={(e) => set({ language: e.target.value })} placeholder="fr" style={inputStyle} />
+        </div>
+        <div style={{ flex: "0 0 90px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.accent")}</label>
+          <input value={p.accent || ""} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} placeholder="BE" style={inputStyle} />
+        </div>
+        <div style={{ flex: "0 0 110px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.gender")}</label>
+          <select value={p.gender === "m" ? "m" : "f"} onChange={(e) => set({ gender: e.target.value })} style={selectStyle}>
+            <option value="f">{t("dashboard.experienceEditor.persona.genders.f")}</option>
+            <option value="m">{t("dashboard.experienceEditor.persona.genders.m")}</option>
+          </select>
+        </div>
+        <div style={{ flex: "0 0 110px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.maxTurns")}</label>
+          <input type="number" min={2} max={MAX_TOURS} value={p.max_turns ?? DEFAUT_TOURS}
+            onChange={(e) => set({ max_turns: Math.max(2, Math.min(MAX_TOURS, parseInt(e.target.value, 10) || DEFAUT_TOURS)) })} style={inputStyle} />
+        </div>
+      </div>
+
+      {(p.mode || "call") === "call" && (
+        <>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.voiceId")}</label>
+          <input value={p.voice_id || ""} onChange={(e) => set({ voice_id: e.target.value.trim() })}
+            placeholder={t("dashboard.experienceEditor.persona.voiceIdPlaceholder")} style={{ ...inputStyle, fontFamily: "monospace", fontSize: "12.5px" }} />
+        </>
+      )}
+
+      <label style={labelStyle}>{t("dashboard.experienceEditor.persona.context")}</label>
+      <AutoTextarea value={p.context || ""} onChange={(e) => set({ context: e.target.value })} rows={2} style={{ ...inputStyle, lineHeight: 1.5 }} />
+      <label style={labelStyle}>{t("dashboard.experienceEditor.persona.opening")}</label>
+      <AutoTextarea value={p.opening_message || ""} onChange={(e) => set({ opening_message: e.target.value })} rows={1}
+        placeholder={t("dashboard.experienceEditor.persona.openingPlaceholder")} style={{ ...inputStyle, lineHeight: 1.5 }} />
+
+      <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "0.75rem", marginTop: "0.75rem" }}>
+        <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#92400e", textTransform: "uppercase", marginBottom: 2 }}>
+          {t("dashboard.experienceEditor.persona.hiddenTitle")}
+        </div>
+        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.personality")}</label>
+        <AutoTextarea value={p.personality || ""} onChange={(e) => set({ personality: e.target.value })} rows={1} style={{ ...inputStyle, fontSize: "13px", lineHeight: 1.5, background: "#ffffff" }} />
+        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.goals")}</label>
+        <AutoTextarea value={p.goals || ""} onChange={(e) => set({ goals: e.target.value })} rows={1} style={{ ...inputStyle, fontSize: "13px", lineHeight: 1.5, background: "#ffffff" }} />
+        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.hiddenInfo")}</label>
+        {liste("hidden_info")}
+        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.objections")}</label>
+        {liste("objections")}
+        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.redLines")}</label>
+        {liste("red_lines")}
+      </div>
+
+      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "0.75rem", marginTop: "0.75rem" }}>
+        <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#0369a1", textTransform: "uppercase", marginBottom: 2 }}>
+          {t("dashboard.experienceEditor.persona.successSignals")}
+        </div>
+        {liste("success_signals")}
+      </div>
+      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.6rem", lineHeight: 1.5 }}>{t("dashboard.experienceEditor.persona.help")}</p>
+    </div>
+  );
+}
+
+// ─── Éditeur du tableau de cartes ────────────────────────────────────────────
+function BoardEditor({ board, onChange }) {
+  const { t } = useI18n();
+  const b = board || { title: "", mode: "backlog", constraint: "", columns: [], cards: [], triage_notes: [] };
+  const cards = b.cards || [];
+  const notes = b.triage_notes || [];
+  const set = (patch) => onChange({ ...b, ...patch });
+  const setCard = (i, patch) => set({ cards: cards.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const noteDe = (id) => notes.find((n) => n.card === id) || { card: id, column: null, trap: false, why: "" };
+  const setNote = (id, patch) => {
+    const existe = notes.some((n) => n.card === id);
+    set({ triage_notes: existe ? notes.map((n) => (n.card === id ? { ...n, ...patch } : n)) : [...notes, { ...noteDe(id), ...patch }] });
+  };
+  const ajouter = () => {
+    const max = cards.reduce((m, c) => Math.max(m, Number(String(c.id).replace(/\D/g, "")) || 0), 0);
+    set({ cards: [...cards, { id: `c${max + 1}`, title: "", body: "", meta: {} }] });
+  };
+
+  return (
+    <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ flex: "2 1 220px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.board.title")}</label>
+          <input value={b.title || ""} onChange={(e) => set({ title: e.target.value })} style={inputStyle} />
+        </div>
+        <div style={{ flex: "1 1 150px" }}>
+          <label style={labelStyle}>{t("dashboard.experienceEditor.board.mode")}</label>
+          <select value={b.mode || "backlog"} onChange={(e) => set({ mode: e.target.value })} style={selectStyle}>
+            {MODES_TABLEAU.map((m) => <option key={m} value={m}>{t(`dashboard.experienceEditor.board.modes.${m}`)}</option>)}
+          </select>
+        </div>
+      </div>
+      <label style={labelStyle}>{t("dashboard.experienceEditor.board.constraint")}</label>
+      <input value={b.constraint || ""} onChange={(e) => set({ constraint: e.target.value })} style={inputStyle} />
+      <label style={labelStyle}>{t("dashboard.experienceEditor.board.columns")}</label>
+      <input value={(b.columns || []).join(", ")} onChange={(e) => set({ columns: e.target.value.split(",").map((s) => s.trim()) })} style={inputStyle} />
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "1rem 0 0.5rem" }}>
+        <label style={{ ...labelStyle, margin: 0 }}>{t("dashboard.experienceEditor.board.cards", { count: cards.length })}</label>
+        <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }} onClick={ajouter}>
+          <Plus size={13} /> {t("dashboard.experienceEditor.board.addCard")}
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+        {cards.map((c, i) => {
+          const note = noteDe(c.id);
+          return (
+            <div key={c.id || i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${note.trap ? "#f97316" : "var(--border)"}`, borderRadius: 8, padding: "0.75rem" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", alignSelf: "center", fontFamily: "monospace" }}>{c.id}</span>
+                <input value={c.title || ""} onChange={(e) => setCard(i, { title: e.target.value })} placeholder={t("dashboard.experienceEditor.board.cardTitle")} style={{ ...inputStyle, marginBottom: 0, fontWeight: 600 }} />
+                <button className="btn btn-ghost btn-sm" onClick={() => set({ cards: cards.filter((_, j) => j !== i), triage_notes: notes.filter((n) => n.card !== c.id) })} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+              </div>
+              <AutoTextarea value={c.body || ""} onChange={(e) => setCard(i, { body: e.target.value })} rows={2} style={{ ...inputStyle, marginBottom: 6, fontSize: "13px", lineHeight: 1.5 }} />
+              <MetaEditor meta={c.meta} onChange={(meta) => setCard(i, { meta })} />
+              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "8px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+                <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#92400e", textTransform: "uppercase" }}>{t("dashboard.experienceEditor.board.expected")}</span>
+                <select value={note.column || ""} onChange={(e) => setNote(c.id, { column: e.target.value || null })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px", fontSize: "12.5px", padding: "5px 28px 5px 8px" }}>
+                  <option value="">—</option>
+                  {(b.columns || []).filter(Boolean).map((col) => <option key={col} value={col}>{col}</option>)}
+                </select>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", color: "#92400e" }}>
+                  <input type="checkbox" checked={!!note.trap} onChange={(e) => setNote(c.id, { trap: e.target.checked })} />
+                  {t("dashboard.experienceEditor.inbox.trap")}
+                </label>
+                <input value={note.why || ""} onChange={(e) => setNote(c.id, { why: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.why")}
+                  style={{ ...inputStyle, marginBottom: 0, flex: "1 1 220px", fontSize: "12.5px", background: "#ffffff" }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "0.75rem", lineHeight: 1.5 }}>{t("dashboard.experienceEditor.board.help")}</p>
+    </div>
+  );
+}
+
+// Les repères d'une carte, en « Clé : valeur » une ligne chacun — même forme
+// que les propriétés d'une fiche CRM.
+function MetaEditor({ meta, onChange }) {
+  const { t } = useI18n();
+  const [brouillon, setBrouillon] = useState(proprietesVersTexte(meta));
+  return (
+    <AutoTextarea value={brouillon} onChange={(e) => setBrouillon(e.target.value)} onBlur={() => onChange(texteVersProprietes(brouillon))}
+      rows={1} placeholder={t("dashboard.experienceEditor.board.metaPlaceholder")} style={{ ...inputStyle, marginBottom: 0, fontSize: "12.5px", lineHeight: 1.5 }} />
   );
 }
 

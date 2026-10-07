@@ -171,6 +171,25 @@ export function crmBarsLevel(score) {
   return 1;
 }
 
+// ─── Prochaine action planifiée (CRM v2) ──────────────────────────────────────
+// Dans un vrai CRM, un échange se clôt par une tâche datée : rappeler, envoyer,
+// rencontrer. Sans elle, une fiche « à jour » ne dit pas ce qui se passe
+// ensuite — et c'est précisément ce qu'un bon commercial ne laisse pas flotter.
+// Elle se note comme un champ de jugement, par la grille : il n'y a pas de bonne
+// date unique.
+export const TYPES_PROCHAINE_ACTION = ["call", "email", "meeting", "task"];
+const LIBELLE_ACTION = { call: "Appel", email: "E-mail", meeting: "Rendez-vous", task: "Tâche" };
+
+/** La prochaine action est-elle complète (type, date, description) ? */
+export function prochaineActionComplete(ns) {
+  return !!(ns?.type && String(ns?.date || "").trim() && String(ns?.text || "").trim());
+}
+
+function prochaineActionTexte(ns) {
+  if (!ns || !(ns.type || ns.date || ns.text)) return null;
+  return `${LIBELLE_ACTION[ns.type] || "Action"}${ns.date ? ` le ${ns.date}` : ""} — ${String(ns.text || "").trim() || "(sans description)"}`;
+}
+
 // Rendu NEUTRE de la fiche (aucune mention de la nature des champs) : c'est ce
 // qui est stocké dans text_answer, et text_answer est renvoyé au candidat quand
 // il reprend son run — il ne doit pas y apprendre quels champs sont corrigés.
@@ -178,6 +197,8 @@ export function crmAnswerToText(crm, answer) {
   const fields = crm?.fields || [];
   const given = answer?.fields || {};
   const lines = fields.map((f) => `${f.label || f.key} : ${given[f.key] || "(non renseigné)"}`);
+  const suite = prochaineActionTexte(answer?.next_step);
+  if (suite) lines.push(`Prochaine action planifiée : ${suite}`);
   const notes = (answer?.notes || "").trim();
   if (notes) lines.push("", "Notes internes :", notes);
   return lines.join("\n");
@@ -191,6 +212,8 @@ export function crmAnswerForScoring(crm, answer) {
   const line = (f) => `  - ${f.label || f.key} : ${given[f.key] || "(non renseigné)"}`;
   const factual = fields.filter((f) => f.nature === "factual").map(line);
   const judgment = fields.filter((f) => f.nature !== "factual").map(line);
+  const suite = prochaineActionTexte(answer?.next_step);
+  if (suite) judgment.push(`  - Prochaine action planifiée : ${suite}`);
   const notes = (answer?.notes || "").trim();
 
   return [
@@ -205,6 +228,116 @@ export function crmAnswerForScoring(crm, answer) {
     "Notes internes du candidat :",
     notes || "  (aucune note)",
   ].join("\n");
+}
+
+// ─── CRM v2 : un vrai espace de travail, plus une fiche isolée ────────────────
+// La première version posait 2 ou 3 documents à côté d'un formulaire : de
+// l'extraction d'information, pas du travail dans un CRM. La v2 met le candidat
+// devant un PIPELINE — plusieurs fiches, chacune avec son historique (e-mails,
+// appels, notes) — et lui confie une MISSION :
+//   • "update"          mettre à jour une fiche après des échanges récents ;
+//   • "pipeline_review" passer le pipeline en revue : quoi traiter, quoi est à risque ;
+//   • "account_prep"    préparer un rendez-vous à partir de l'historique d'un compte.
+// Le livrable reste le même objet : des champs (factuels corrigés sans IA,
+// de jugement notés par la grille) et des notes. La correction ne change pas ;
+// c'est le terrain qui devient réaliste.
+//
+// Les expériences publiées avant la v2 n'ont que `sources` : elles restent
+// jouées et notées exactement comme avant.
+
+export const CRM_MISSIONS = ["update", "pipeline_review", "account_prep"];
+export const CRM_ACTIVITY_TYPES = ["email", "call_transcript", "chat", "note", "meeting"];
+
+/** La fiche CRM est-elle au format v2 (pipeline de fiches) ? */
+export function crmEstEspace(crm) {
+  return Array.isArray(crm?.records) && crm.records.length > 0;
+}
+
+/**
+ * Tous les documents lisibles par le candidat, quel que soit le format : les
+ * sources de la v1, ou l'historique de chaque fiche de la v2. Sert au contrôle
+ * « l'attendu figure-t-il dans les sources ? » de l'éditeur.
+ */
+export function crmToutesSources(crm) {
+  if (!crmEstEspace(crm)) return crm?.sources || [];
+  return crm.records.flatMap((r) => [
+    // Les propriétés d'une fiche sont une source comme une autre : un effectif
+    // ou un montant peut n'apparaître que là.
+    { id: `${r.id}_props`, body: [r.name, r.company, r.contact, r.stage, r.amount, r.close_date, ...Object.values(r.properties || {})].filter((v) => v !== undefined && v !== null && v !== "").join(" ") },
+    ...(r.timeline || []),
+  ]);
+}
+
+function texteFiche(r, { detail }) {
+  const props = Object.entries(r.properties || {}).map(([k, v]) => `${k} : ${v}`);
+  const entete = [
+    r.company && `Société : ${r.company}`,
+    r.contact && `Contact : ${r.contact}`,
+    r.stage && `Étape : ${r.stage}`,
+    (r.amount || r.amount === 0) && `Montant : ${r.amount}${r.currency ? ` ${r.currency}` : ""}`,
+    r.close_date && `Clôture prévue : ${r.close_date}`,
+    r.last_activity && `Dernière activité : ${r.last_activity}`,
+    ...props,
+  ].filter(Boolean).join(" ; ");
+  const lignes = [`  [${r.id}] ${r.name || "(sans nom)"} — ${entete}`];
+  for (const a of r.timeline || []) {
+    const tete = [a.type, a.date || a.received_at, a.from && `de ${a.from}`, a.subject && `« ${a.subject} »`, a.title].filter(Boolean).join(" · ");
+    const corps = String(a.body || "").replace(/\s*\n\s*/g, " / ");
+    lignes.push(`      (${a.id}) ${tete} : ${detail ? corps : corps.slice(0, 280) + (corps.length > 280 ? "…" : "")}`);
+  }
+  return lignes.join("\n");
+}
+
+/**
+ * Le pipeline tel que le candidat l'avait sous les yeux, pour le CORRECTEUR.
+ * Les champs de jugement d'une revue de pipeline (« quel deal traiter en
+ * premier ? ») ne se notent pas sans voir les fiches. Chaîne vide en v1 : le
+ * correcteur y lisait déjà la fiche et le piège, rien ne change pour elle.
+ */
+export function crmSceneForScoring(crm) {
+  if (!crmEstEspace(crm)) return "";
+  const missions = {
+    update: "mettre à jour une fiche après des échanges récents",
+    pipeline_review: "passer le pipeline en revue et décider quoi traiter",
+    account_prep: "préparer un rendez-vous à partir de l'historique du compte",
+  };
+  const focus = crm.records.find((r) => r.id === crm.focus_record);
+  return [
+    `  Mission CRM : ${missions[crm.mission] || missions.update}${focus ? ` — fiche concernée : ${focus.name}` : ""}.`,
+    `  Pipeline remis au candidat${crm.pipeline_name ? ` (« ${crm.pipeline_name} »)` : ""} :`,
+    // Le détail complet pour la fiche concernée, un extrait pour les autres :
+    // c'est ce qui borne la taille du prompt sans priver le correcteur de
+    // l'information décisive.
+    ...crm.records.map((r) => texteFiche(r, { detail: !focus || r.id === focus.id || crm.mission === "pipeline_review" })),
+  ].join("\n");
+}
+
+/**
+ * Remet un espace CRM généré dans une forme exploitable : identifiants de
+ * fiche et d'activité uniques (les pièges les citent), types connus.
+ * Renvoie le crm tel quel s'il est au format v1.
+ */
+export function normaliserCrm(crm) {
+  if (!crm || !crmEstEspace(crm)) return crm;
+  const idsActivite = new Set();
+  const records = crm.records.map((r, i) => {
+    const id = String(r?.id || `r${i + 1}`);
+    const timeline = (Array.isArray(r?.timeline) ? r.timeline : [])
+      .filter((a) => String(a?.body || "").trim())
+      .map((a, k) => {
+        let aid = String(a.id || `${id}_a${k + 1}`);
+        if (idsActivite.has(aid)) aid = `${id}_a${k + 1}`;
+        idsActivite.add(aid);
+        return { ...a, id: aid, type: CRM_ACTIVITY_TYPES.includes(a.type) ? a.type : "note" };
+      });
+    const properties = r?.properties && typeof r.properties === "object" && !Array.isArray(r.properties) ? r.properties : {};
+    return { ...r, id, timeline, properties };
+  });
+  const mission = CRM_MISSIONS.includes(crm.mission) ? crm.mission : "update";
+  const focus = records.some((r) => r.id === crm.focus_record) ? crm.focus_record : (mission === "pipeline_review" ? null : records[0]?.id || null);
+  // `sources` n'existe plus en v2 : le garder ferait deux vérités.
+  const { sources: _sources, ...reste } = crm;
+  return { ...reste, mission, focus_record: focus, records };
 }
 
 // Contexte d'évaluation du piège, injecté dans la trajectoire de scoring.

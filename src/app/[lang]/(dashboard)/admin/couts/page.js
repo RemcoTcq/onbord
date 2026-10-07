@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { getCostStats } from "@/lib/actions/costs";
-import { Loader2, Shield, Sparkles, ClipboardCheck, Bot } from "lucide-react";
+import { Loader2, Shield, Sparkles, ClipboardCheck, Bot, Phone } from "lucide-react";
 
 // Seules les VALEURS sont ici : le libellé se résout au rendu, sinon il serait
 // figé en français au chargement du module.
@@ -96,6 +96,8 @@ export default function AdminCostsPage() {
                 sub={`${stats.counts.scoredRuns} runs notés · moy ${usd(stats.avg.scoringPerRun)}/run`} allTotal={stats.totals.all} />
               <Row icon={<Bot size={16} style={{ color: "#3b82f6" }} />} label={t("dashboard.admin.assistantCost")} total={stats.totals.assistant}
                 sub={`${stats.counts.runsWithAssistant} runs avec assistant · moy ${usd(stats.avg.assistantPerRun)}/run`} allTotal={stats.totals.all} />
+              <Row icon={<Phone size={16} style={{ color: "#8b5cf6" }} />} label={t("dashboard.admin.personaCost")} total={stats.totals.persona || 0}
+                sub={t("dashboard.admin.personaCostSub", { runs: stats.counts.runsWithPersona || 0, avg: usd(stats.avg.personaPerRun || 0) })} allTotal={stats.totals.all} />
             </div>
             <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
               {t("dashboard.admin.transcriptionNote")}

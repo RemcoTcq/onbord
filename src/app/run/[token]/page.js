@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Check, Compass, ChevronDown } from "lucide-react";
+import { boiteTraitee } from "@/lib/boiteReception";
+import { tableauTraite } from "@/lib/tableauCartes";
+import { MIN_TOURS_CANDIDAT } from "@/lib/persona";
+import { crmEstEspace, prochaineActionComplete } from "@/lib/crmScoring";
 import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifyingAnswers, runCode } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
@@ -33,6 +37,7 @@ export default function RunPage() {
   const [disqualified, setDisqualified] = useState(false);
   const [expired, setExpired] = useState(false); // lien de plus de 5 jours, parcours jamais commencé
   const [assistantCollapsed, setAssistantCollapsed] = useState(false); // le chat est ouvert par défaut
+  const [filRougeOuvert, setFilRougeOuvert] = useState(false); // rappel de la situation, replié pendant les étapes
 
   useEffect(() => { load(); }, [token]);
 
@@ -92,6 +97,14 @@ export default function RunPage() {
         // Fiche CRM : on repeuple depuis la donnée structurée, pas depuis
         // text_answer (qui n'est qu'un rendu lisible dérivé côté serveur).
         crm: r.meta?.crm ? { fields: r.meta.crm.fields || {}, notes: r.meta.crm.notes || "" } : undefined,
+        // Tableur et boîte de réception : même règle que la fiche CRM.
+        sheet: r.meta?.sheet ? { edits: r.meta.sheet.edits || {}, conclusion: r.meta.sheet.conclusion || "" } : undefined,
+        inbox: r.meta?.inbox ? { items: r.meta.inbox.items || {}, plan: r.meta.inbox.plan || "" } : undefined,
+        board: r.meta?.board ? { order: r.meta.board.order || [], notes: r.meta.board.notes || {}, justification: r.meta.board.justification || "" } : undefined,
+        // Personnage : la page ne garde que ce qui conditionne « Suivant ».
+        persona: r.meta?.persona
+          ? { turns: (r.meta.persona.messages || []).filter((m) => m.role === "candidate").length, ended: !!r.meta.persona.ended }
+          : undefined,
       };
     }
     setAnswers(a);
@@ -128,8 +141,22 @@ export default function RunPage() {
     if (s.sandbox_kind === "crm") {
       const crmFields = s.config?.crm?.fields || [];
       const filled = a.crm?.fields || {};
-      return crmFields.every((f) => String(filled[f.key] ?? "").trim() !== "");
+      const champs = crmFields.every((f) => String(filled[f.key] ?? "").trim() !== "");
+      // CRM v2 : la fiche se clôt par une prochaine action datée.
+      return champs && (!crmEstEspace(s.config?.crm) || prochaineActionComplete(a.crm?.next_step));
     }
+    // Personnage : au moins deux prises de parole, ou un échange clos.
+    if (s.sandbox_kind === "persona") {
+      const p = a.persona || {};
+      return (p.turns || 0) >= MIN_TOURS_CANDIDAT || (!!p.ended && (p.turns || 0) >= 1);
+    }
+    if (s.sandbox_kind === "board") return tableauTraite(s.config?.board, a.board);
+    // Tableur : c'est la synthèse qui fait la réponse — des calculs sans
+    // conclusion ne répondent à aucune question.
+    if (s.sandbox_kind === "sheet") return !!String(a.sheet?.conclusion || "").trim();
+    // Boîte de réception : chaque message classé et décidé, chaque réponse ou
+    // délégation rédigée.
+    if (s.sandbox_kind === "inbox") return boiteTraitee(s.config?.inbox, a.inbox);
     // text + formats sandbox texte (email_reply, client_reply, ...) + code
     return !!(a.text && a.text.trim());
   }
@@ -145,7 +172,16 @@ export default function RunPage() {
     const payload = { text_answer: null, meta: {} };
     if (step.sandbox_kind === "crm") {
       // text_answer est dérivé côté serveur depuis meta.crm (source de vérité).
-      payload.meta = { crm: { fields: ans.crm?.fields || {}, notes: ans.crm?.notes || "" } };
+      payload.meta = { crm: { fields: ans.crm?.fields || {}, notes: ans.crm?.notes || "", ...(ans.crm?.next_step ? { next_step: ans.crm.next_step } : {}) } };
+    } else if (step.sandbox_kind === "sheet") {
+      payload.meta = { sheet: { edits: ans.sheet?.edits || {}, conclusion: ans.sheet?.conclusion || "", charts: ans.sheet?.charts || [] } };
+    } else if (step.sandbox_kind === "board") {
+      payload.meta = { board: { order: ans.board?.order || [], notes: ans.board?.notes || {}, justification: ans.board?.justification || "" } };
+    } else if (step.sandbox_kind === "persona") {
+      // La conversation est déjà enregistrée tour par tour par le serveur.
+      payload.meta = {};
+    } else if (step.sandbox_kind === "inbox") {
+      payload.meta = { inbox: { items: ans.inbox?.items || {}, plan: ans.inbox?.plan || "" } };
     } else if (step.response_format === "text" || step.response_format === "code") {
       payload.text_answer = ans.text || "";
     } else if (step.response_format === "choice") {
@@ -338,6 +374,17 @@ export default function RunPage() {
                   : "",
               })}
           </p>
+          {/* Fil rouge : la situation qui relie toutes les étapes. Lue AVANT de
+              commencer — sans elle, la deuxième étape parlerait d'un client que
+              le candidat n'a jamais vu passer. */}
+          {experience?.fil_rouge && (
+            <div style={{ textAlign: "left", border: "1px solid var(--border)", borderLeft: `3px solid ${primary}`, borderRadius: 12, background: "#fafafa", padding: "14px 16px", marginBottom: "1.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted-foreground)", marginBottom: 6 }}>
+                <Compass size={13} /> {t("candidate.run.filRougeTitle")}
+              </div>
+              <p style={{ fontSize: 14.5, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "break-word", margin: 0, color: "var(--foreground)" }}>{experience.fil_rouge}</p>
+            </div>
+          )}
           <button onClick={() => setShowIntro(false)} style={pillBtn(primary)}>
             {t("candidate.intro.start")} <ArrowRight size={16} />
           </button>
@@ -350,11 +397,20 @@ export default function RunPage() {
   const ans = answers[step.id] || {};
   // Le type de sandbox (mise en situation) vient de sandbox_kind, pas de
   // response_format. On dérive le format de rendu à passer à SandboxRenderer.
-  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code", crm: "crm" };
+  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code", crm: "crm", sheet: "sheet", inbox: "inbox", persona: "persona", board: "board" };
   const sandboxFormat = step.sandbox_kind && step.sandbox_kind !== "none"
     ? (SANDBOX_FORMAT[step.sandbox_kind] || step.response_format)
     : step.response_format;
-  const isCrm = sandboxFormat === "crm";
+  // Les sandboxes dont la réponse est un OBJET (et non une chaîne) : la clé de
+  // la réponse porte le nom du format.
+  const structured = ["crm", "sheet", "inbox", "board", "persona"].includes(sandboxFormat);
+  const VALEUR_VIDE = {
+    crm: { fields: {}, notes: "" }, sheet: { edits: {}, conclusion: "", charts: [] }, inbox: { items: {}, plan: "" },
+    board: { order: [], notes: {}, justification: "" }, persona: { turns: 0, ended: false },
+  };
+  // Les espaces de travail (pipeline, tableur, boîte de réception) ont besoin
+  // de largeur : à l'étroit, ils deviennent des formulaires.
+  const wideSandbox = structured;
   const isSidebarMode = step.ai_assistant_allowed;
   // Ces sandboxes dessinent déjà leur propre fenêtre (bordure + barre de titre).
   // L'énoncé passe alors dans une carte à part, en pleine largeur au-dessus des
@@ -363,12 +419,13 @@ export default function RunPage() {
   // choix, vidéo) restent dans la carte de l'énoncé — seuls, ils ne feraient pas
   // une carte.
   const ownWindowSandbox = ["text", "code"].includes(step.response_format)
-    && ["email_reply", "crm", "code", "code_editor", "client_reply", "technical_architecture"].includes(sandboxFormat);
+    && ["email_reply", "crm", "sheet", "inbox", "board", "persona", "code", "code_editor", "client_reply", "technical_architecture"].includes(sandboxFormat);
   // Le chat prend 400px pour être un vrai espace de conversation ; replié, il se
   // réduit à son onglet vertical et rend la place à la tâche.
   const assistantWidth = assistantCollapsed ? 56 : 400;
-  // La fiche CRM est à deux colonnes (sources | fiche) : il lui faut de la place.
-  const containerMaxWidth = isSidebarMode ? (isCrm ? 1260 : 1280) : (isCrm ? 980 : ownWindowSandbox ? 900 : 720);
+  // La fiche CRM est à deux colonnes (pipeline | fiche) : il lui faut de la
+  // place, comme au tableur et à la boîte de réception.
+  const containerMaxWidth = isSidebarMode ? (wideSandbox ? 1320 : 1280) : (wideSandbox ? 1120 : ownWindowSandbox ? 900 : 720);
 
   // Énoncé et bloc de réponse sont montés soit dans la même carte, soit séparés
   // (cf. ownWindowSandbox). Décrits une seule fois ici pour que les deux
@@ -387,10 +444,13 @@ export default function RunPage() {
         <SandboxRenderer
           format={sandboxFormat}
           config={step.config}
-          compact={isCrm && isSidebarMode}
-          value={isCrm ? (ans.crm || { fields: {}, notes: "" }) : ans.text}
-          onChange={(val) => setAnswer(isCrm ? "crm" : "text", val)}
+          compact={structured && isSidebarMode && !assistantCollapsed}
+          value={structured ? (ans[sandboxFormat] || VALEUR_VIDE[sandboxFormat]) : ans.text}
+          onChange={(val) => setAnswer(structured ? sandboxFormat : "text", val)}
           onRun={(source) => runCode(token, step.id, source)}
+          token={token}
+          stepId={step.id}
+          key={step.id}
           primary={primary}
         />
       )}
@@ -483,6 +543,22 @@ export default function RunPage() {
             <div style={{ width: `${pct}%`, height: "100%", background: primary, transition: "width .3s" }} />
           </div>
         </div>
+
+        {/* Rappel du fil rouge, replié : le candidat y revient quand une étape
+            fait référence à ce qu'il a lu au début. */}
+        {experience?.fil_rouge && (
+          <div style={{ marginBottom: "1.25rem", border: "1px solid var(--border)", borderRadius: 12, background: "#fafafa", overflow: "hidden" }}>
+            <button type="button" onClick={() => setFilRougeOuvert((o) => !o)}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "var(--foreground)", textAlign: "left" }}>
+              <Compass size={15} style={{ color: primary }} />
+              <span style={{ flex: 1 }}>{t("candidate.run.filRougeReminder")}</span>
+              <ChevronDown size={15} style={{ transform: filRougeOuvert ? "none" : "rotate(-90deg)", transition: "transform .15s", color: "var(--muted-foreground)" }} />
+            </button>
+            {filRougeOuvert && (
+              <p style={{ padding: "0 14px 12px 37px", margin: 0, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>{experience.fil_rouge}</p>
+            )}
+          </div>
+        )}
 
         {/* Énoncé en pleine largeur : la mise en situation passe dessous, à
             côté du chat, et gagne toute la colonne. */}

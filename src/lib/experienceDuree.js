@@ -20,8 +20,12 @@
 // Le sandbox prime sur le format : rédiger un email dans une boîte simulée ne
 // coûte pas le même temps qu'une réponse libre de trois lignes.
 const MINUTES_SANDBOX = {
-  crm: 7,           // lire deux ou trois sources désordonnées, puis remplir la fiche
+  crm: 7,           // parcourir le pipeline et l'historique, puis remplir la fiche
   code: 8,          // lire l'énoncé, écrire, lancer les tests, corriger
+  sheet: 8,         // explorer les données, calculer, rédiger la synthèse
+  inbox: 8,         // lire six à huit messages, trier, répondre aux plus urgents
+  persona: 8,       // une conversation de huit à douze échanges écrits
+  board: 7,         // lire les cartes, les classer sous contrainte, justifier
   document: 5,
   email: 5,
   client_reply: 4,

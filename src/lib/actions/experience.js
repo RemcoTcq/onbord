@@ -109,6 +109,44 @@ export async function getExperienceForJob(jobId) {
   }
 }
 
+// ─── Fil rouge : la situation lue par le candidat avant la première étape ────
+// Il vit dans `generated_from.fil_rouge` (aucune migration). Comme toute
+// retouche, il passe par versionModifiable : un candidat déjà engagé garde le
+// texte qu'il a lu. Un contexte vidé retire le fil rouge.
+export async function updateFilRouge(experienceId, { contexte_candidat, univers } = {}) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: exp } = await supabase
+      .from("experiences")
+      .select("id, jobs!inner(user_id)")
+      .eq("id", experienceId)
+      .single();
+    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const v = await versionModifiable(supabase, experienceId);
+    const { data: cible } = await supabase
+      .from("experiences").select("generated_from").eq("id", v.experienceId).single();
+
+    const contexte = String(contexte_candidat || "").trim().slice(0, 1500);
+    const filRouge = contexte
+      ? { contexte_candidat: contexte, univers: String(univers || "").trim().slice(0, 4000) }
+      : null;
+
+    const { error } = await supabase
+      .from("experiences")
+      .update({ generated_from: { ...(cible?.generated_from || {}), fil_rouge: filRouge }, updated_at: new Date().toISOString() })
+      .eq("id", v.experienceId);
+    if (error) throw error;
+    return { success: true, forked: v.forked, version: v.version, fil_rouge: filRouge };
+  } catch (err) {
+    console.error("updateFilRouge error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── Vérifie que l'appelant possède le step (via experience → job) ────────────
 async function assertStepOwnership(supabase, userId, stepId) {
   const { data } = await supabase

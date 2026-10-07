@@ -5,6 +5,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { factureDemarrageCandidat } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
 import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
+import { sheetAnswerToText, lireAdresse, MAX_COLONNES, MAX_LIGNES } from "@/lib/tableur";
+import { inboxAnswerToText, PRIORITES, ACTIONS } from "@/lib/boiteReception";
+import { graphiquesValides } from "@/lib/tableur";
+import { normaliserPersona, personaPourCandidat, personaTranscript } from "@/lib/persona";
+import { boardAnswerToText, assainirReponseTableau, normaliserTableau } from "@/lib/tableauCartes";
+import { TYPES_PROCHAINE_ACTION } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
 import { executeBatch } from "@/lib/codeRunner";
 import { estimerMinutes } from "@/lib/experienceDuree";
@@ -45,6 +51,26 @@ function sanitizeStepForCandidate(step) {
       tests: tests.filter((t) => !t.hidden).map(({ name, stdin, expected_output }) => ({ name, stdin, expected_output })),
       hidden_count: tests.filter((t) => t.hidden).length,
     };
+  }
+  // Tableur et boîte de réception : ce que les données cachent, le tri qu'un
+  // bon professionnel ferait — la grille du correcteur. Le candidat ne reçoit
+  // que les données et les messages.
+  if (config.sheet) {
+    const { analysis_notes: _notes, ...sheet } = config.sheet;
+    config.sheet = sheet;
+  }
+  if (config.inbox) {
+    const { triage_notes: _tri, ...inbox } = config.inbox;
+    config.inbox = inbox;
+  }
+  // Personnage : son nom, sa fonction, le contexte et son premier message.
+  // Ses informations cachées, objections et limites sont la matière du jeu —
+  // les envoyer au navigateur, c'est donner les réponses.
+  if (config.persona) config.persona = personaPourCandidat(normaliserPersona(config.persona));
+  if (config.board) {
+    // Normalisé d'abord : une virgule en trop dans l'éditeur ferait une colonne vide.
+    const { triage_notes: _lecture, ...board } = normaliserTableau(config.board) || config.board;
+    config.board = board;
   }
   return {
     id: step.id,
@@ -285,6 +311,10 @@ export async function startRun(token) {
         // Dérivée des étapes, pas relue en base : une expérience éditée après
         // sa génération annonçait au candidat la durée de sa première version.
         estimated_minutes: estimerMinutes(steps),
+        // Fil rouge : la situation qui relie les étapes, lue par le candidat
+        // avant de commencer. Seul le texte qui lui est destiné sort — l'univers
+        // de conception (noms, chiffres à réutiliser) reste côté serveur.
+        fil_rouge: exp.generated_from?.fil_rouge?.contexte_candidat || null,
       },
       steps: (steps || []).map(sanitizeStepForCandidate),
       responses: responses || [],
@@ -368,13 +398,25 @@ export async function saveStepResponse(token, stepId, payload) {
     // client ne peut ni les poser ni les effacer.
     if (step.sandbox_kind === "crm" && step.config?.crm) {
       const crm = step.config.crm;
-      const submitted = { fields: meta.crm?.fields || {}, notes: meta.crm?.notes || "" };
+      const ns = meta.crm?.next_step;
+      const submitted = {
+        fields: meta.crm?.fields || {},
+        notes: meta.crm?.notes || "",
+        ...(ns ? {
+          next_step: {
+            type: TYPES_PROCHAINE_ACTION.includes(ns.type) ? ns.type : null,
+            date: String(ns.date || "").slice(0, 20),
+            text: String(ns.text || "").slice(0, 2000),
+          },
+        } : {}),
+      };
       const { data: existing } = await admin
         .from("run_step_responses").select("meta")
         .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
       const prior = existing?.meta?.crm || {};
       const changed = JSON.stringify(prior.fields || {}) !== JSON.stringify(submitted.fields)
-        || (prior.notes || "") !== submitted.notes;
+        || (prior.notes || "") !== submitted.notes
+        || JSON.stringify(prior.next_step || null) !== JSON.stringify(submitted.next_step || null);
       meta = {
         ...meta,
         crm: {
@@ -386,6 +428,65 @@ export async function saveStepResponse(token, stepId, payload) {
         },
       };
       textAnswer = crmAnswerToText(crm, submitted);
+    }
+
+    // Tableur : seules les modifications du candidat voyagent (meta.sheet.edits).
+    // Le texte lu par le correcteur est recalculé ICI, par le même moteur que la
+    // grille — jamais envoyé par le client, qui pourrait y mettre ce qu'il veut.
+    if (step.sandbox_kind === "sheet" && step.config?.sheet) {
+      const brut = meta.sheet || {};
+      const edits = {};
+      let nb = 0;
+      for (const [f, cellules] of Object.entries(brut.edits || {})) {
+        if (!/^\d$/.test(f) || !cellules || typeof cellules !== "object") continue;
+        for (const [a, v] of Object.entries(cellules)) {
+          const pos = lireAdresse(a);
+          if (!pos || pos.col >= MAX_COLONNES || pos.row >= MAX_LIGNES || ++nb > 1500) continue;
+          (edits[f] ||= {})[a.toUpperCase()] = String(v ?? "").slice(0, 500);
+        }
+      }
+      const submitted = { edits, conclusion: String(brut.conclusion || "").slice(0, 8000), charts: graphiquesValides(brut.charts) };
+      meta = { ...meta, sheet: submitted };
+      textAnswer = sheetAnswerToText(step.config.sheet, submitted);
+    }
+
+    // Boîte de réception : même principe. Seuls les messages qui existent
+    // vraiment dans l'étape, et des valeurs prises dans les listes fermées.
+    if (step.sandbox_kind === "inbox" && step.config?.inbox) {
+      const brut = meta.inbox || {};
+      const items = {};
+      for (const m of step.config.inbox.items || []) {
+        const t = brut.items?.[m.id];
+        if (!t) continue;
+        items[m.id] = {
+          priority: PRIORITES.includes(t.priority) ? t.priority : null,
+          action: ACTIONS.includes(t.action) ? t.action : null,
+          text: String(t.text || "").slice(0, 6000),
+        };
+      }
+      const submitted = { items, plan: String(brut.plan || "").slice(0, 4000) };
+      meta = { ...meta, inbox: submitted };
+      textAnswer = inboxAnswerToText(step.config.inbox, submitted);
+    }
+
+    // Tableau de cartes : seules des cartes de l'étape, chacune dans une colonne.
+    if (step.sandbox_kind === "board" && step.config?.board) {
+      const board = normaliserTableau(step.config.board) || step.config.board;
+      const submitted = assainirReponseTableau(board, meta.board);
+      meta = { ...meta, board: submitted };
+      textAnswer = boardAnswerToText(board, submitted);
+    }
+
+    // Personnage : la conversation appartient au SERVEUR (route
+    // /api/run/persona). Cette action ne transporte rien pour elle ; un `meta`
+    // client effacerait l'échange — d'où la reprise, comme pour le code.
+    if (step.sandbox_kind === "persona") {
+      const { data: existing } = await admin
+        .from("run_step_responses").select("meta")
+        .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+      const conv = existing?.meta?.persona || { messages: [] };
+      meta = { ...(existing?.meta || {}), persona: conv };
+      textAnswer = personaTranscript(normaliserPersona(step.config?.persona), conv);
     }
 
     // Sandbox code : le résultat d'exécution (meta.code) appartient au serveur,
@@ -550,6 +651,49 @@ export async function runCode(token, stepId, source) {
     };
   } catch (err) {
     console.error("runCode error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Vidéo d'un APPEL avec le personnage (sandbox « persona », mode appel) : la
+// caméra du candidat enregistrée pendant toute la conversation. Elle s'ajoute
+// à la réponse sans en changer la nature — format, statut et transcription
+// restent ceux de la conversation, c'est elle qui est notée. La vidéo est là
+// pour le recruteur, qui la retrouve dans le rapport comme toute vidéo d'étape.
+export async function savePersonaCallVideo(token, stepId, path, durationSeconds) {
+  try {
+    const admin = createAdminClient();
+    const ctx = await resolveCandidateAndRun(admin, token);
+    if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
+
+    const { data: step } = await admin
+      .from("experience_steps").select("id, sandbox_kind, response_format, config")
+      .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
+    if (!step || step.sandbox_kind !== "persona") return { success: false, error: "Étape invalide" };
+    // Le chemin vient du navigateur : il doit être dans le dossier de CE candidat.
+    if (typeof path !== "string" || !path.startsWith(`${token}/`) || path.includes("..")) {
+      return { success: false, error: "Chemin invalide" };
+    }
+
+    const { data: existing } = await admin
+      .from("run_step_responses").select("meta")
+      .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
+    const conv = existing?.meta?.persona || { messages: [] };
+    const { error } = await admin.from("run_step_responses").upsert({
+      run_id: ctx.run.id,
+      step_id: stepId,
+      response_format: step.response_format || "text",
+      text_answer: personaTranscript(normaliserPersona(step.config?.persona), conv),
+      meta: { ...(existing?.meta || {}), persona: conv },
+      video_url: path,
+      duration_seconds: Number.isFinite(durationSeconds) ? Math.round(durationSeconds) : null,
+      status: "submitted",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "run_id,step_id" });
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("savePersonaCallVideo error:", err);
     return { success: false, error: err.message };
   }
 }

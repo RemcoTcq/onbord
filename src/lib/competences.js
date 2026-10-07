@@ -179,7 +179,11 @@ export function etapeNoteeSansGrille(step) {
 export function calculerCouverture(steps, competences) {
   const refs = new Map((competences || []).map((c) => [c.id, []]));
   (steps || []).forEach((s, stepIndex) => {
-    const ajouter = (id, ref) => refs.get(id)?.push({ stepIndex, stepTitle: s?.title || "", ...ref });
+    // Le FORMAT de l'étape voyage avec la référence : une compétence prouvée
+    // dans un tableur et dans une vidéo ne se lit pas comme une compétence
+    // déclarée dans deux questions écrites.
+    const format = s?.sandbox_kind && s.sandbox_kind !== "none" ? s.sandbox_kind : (s?.response_format || "text");
+    const ajouter = (id, ref) => refs.get(id)?.push({ stepIndex, stepTitle: s?.title || "", format, ...ref });
     const viaGrille = new Set();
 
     for (const c of s?.criteria || []) {
