@@ -272,7 +272,7 @@ const pages = {
     meta: {
       title: "Tarifs : Onbord",
       description:
-        "Deux plans, des crédits dépensés sur quatre choses seulement, et l'arithmétique à découvert. Core à partir de 85 € par mois, facturé annuellement.",
+        "Deux plans, des crédits dépensés sur quatre choses seulement, et l'arithmétique à découvert. Core à partir de 100 € par mois, facturé annuellement.",
     },
     eyebrow: "Tarifs",
     titleA: "Des tarifs sans détour",
@@ -285,7 +285,7 @@ const pages = {
     perMonth: "/mois",
     billedAnnually: "facturé annuellement",
     billedMonthly: "facturé mensuellement",
-    save: "15 % d'économie",
+    save: "2 mois offerts",
     popular: "Le plus choisi",
     creditsPerMonth: "crédits par mois",
     rollover: "Crédits non utilisés reportés",

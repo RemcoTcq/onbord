@@ -272,7 +272,7 @@ const pages = {
     meta: {
       title: "Tarieven: Onbord",
       description:
-        "Twee plannen, credits die aan vier dingen worden besteed, en de rekensom in de open lucht. Core vanaf € 85 per maand, jaarlijks gefactureerd.",
+        "Twee plannen, credits die aan vier dingen worden besteed, en de rekensom in de open lucht. Core vanaf € 100 per maand, jaarlijks gefactureerd.",
     },
     eyebrow: "Tarieven",
     titleA: "Heldere tarieven",
@@ -285,7 +285,7 @@ const pages = {
     perMonth: "/maand",
     billedAnnually: "jaarlijks gefactureerd",
     billedMonthly: "maandelijks gefactureerd",
-    save: "15 % voordeel",
+    save: "2 maanden gratis",
     popular: "Meest gekozen",
     creditsPerMonth: "credits per maand",
     rollover: "Ongebruikte credits schuiven door",

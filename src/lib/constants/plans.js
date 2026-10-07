@@ -22,10 +22,12 @@
  * supprimé : ces modules ne structurent plus le produit.
  *
  * ── Les prix ─────────────────────────────────────────────────────────────────
- * Alignés le 25/09/2026 sur la page des tarifs du site (site/src/lib/pricing.js,
- * barème du 26/09/2026) : Core 100 €, Pro 300 €, -15 % à l'année. Le site et
- * l'application ne partagent pas de code : ces chiffres sont RECOPIÉS dans les
- * deux, à changer ensemble.
+ * Alignés le 07/10/2026 sur la page des tarifs du site (site/src/lib/pricing.js) :
+ * Core 120 € au mois ou 100 € à l'année, Pro 360 € ou 300 € — deux mois
+ * offerts sur douze. Les crédits n'ont pas bougé : même usage pour le client,
+ * la hausse finance la marge des appels vocaux. Le site et l'application ne
+ * partagent pas de code : ces chiffres sont RECOPIÉS dans les deux, à changer
+ * ensemble.
  *
  * Plus de crédit supplémentaire à l'unité : l'achat de crédits en plus a été
  * retiré de l'offre (le site n'en vend plus). Un compte à court de crédits
@@ -45,8 +47,8 @@ const FEATURES_COMPLETES = {
 const CORE = {
   label: "Core",
   creditsPerMonth: 150,
-  priceMonthly: 100,
-  priceAnnual: 85,      // 100 - 15 %, prix MENSUEL sous engagement annuel
+  priceMonthly: 120,
+  priceAnnual: 100,     // prix MENSUEL sous engagement annuel : 10 mois payés sur 12
   features: {
     videoInterview: true,
     companyBranding: true,
@@ -62,8 +64,8 @@ export const PLANS = {
     label: "Pro",
     labelInterne: "Pro",
     creditsPerMonth: 500,
-    priceMonthly: 300,
-    priceAnnual: 255,   // 300 - 15 %
+    priceMonthly: 360,
+    priceAnnual: 300,   // 10 mois payés sur 12
     features: { ...FEATURES_COMPLETES },
   },
 

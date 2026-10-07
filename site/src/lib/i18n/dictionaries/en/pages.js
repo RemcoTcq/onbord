@@ -293,7 +293,7 @@ const pages = {
     meta: {
       title: "Pricing: Onbord",
       description:
-        "Two plans, credits spent on four things only, and the arithmetic in the open. Core from €85 a month, billed annually.",
+        "Two plans, credits spent on four things only, and the arithmetic in the open. Core from €100 a month, billed annually.",
     },
     eyebrow: "Pricing",
     titleA: "Straightforward pricing",
@@ -306,7 +306,7 @@ const pages = {
     perMonth: "/month",
     billedAnnually: "billed annually",
     billedMonthly: "billed monthly",
-    save: "Save 15%",
+    save: "2 months free",
     popular: "Most chosen",
     creditsPerMonth: "credits per month",
     rollover: "Unused credits roll over",

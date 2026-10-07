@@ -24,21 +24,24 @@
  *  Applique par l'application depuis le 26/09/2026 : `CYCLES` dans
  *  src/lib/constants/plans.js, `calculerRecharge` dans src/lib/utils/limits.js.
  *
- *  BAREME DU 26 SEPTEMBRE 2026 : Core 100 €, Pro 300 €, -15 % a l'annee,
- *  150 et 500 credits. Fixe cote SITE, puis reporte dans l'application
- *  (src/lib/constants/plans.js) le 26/09/2026 : les deux sont alignes. */
+ *  BAREME DU 7 OCTOBRE 2026 : Core 120 € au mois ou 100 € a l'annee, Pro
+ *  360 € ou 300 € — soit deux mois offerts sur douze (le badge `save` de la
+ *  page le dit, il est a changer avec ces chiffres). 150 et 500 credits :
+ *  les memes credits qu'avant, le meme usage pour le client. La hausse du
+ *  mensuel finance la marge une fois la voix des appels payee a l'usage.
+ *  Reporte le meme jour dans l'application (src/lib/constants/plans.js). */
 export const PLANS = [
   {
     id: "core",
-    monthly: 100,
-    annual: 85,       // 100 - 15 %
+    monthly: 120,
+    annual: 100,      // 10 mois payés sur 12
     credits: 150,
     featured: false,
   },
   {
     id: "pro",
-    monthly: 300,
-    annual: 255,      // 300 - 15 %
+    monthly: 360,
+    annual: 300,      // 10 mois payés sur 12
     credits: 500,
     featured: true,
   },
