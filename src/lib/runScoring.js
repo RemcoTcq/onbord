@@ -1,7 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName } from "@/lib/crmScoring";
+import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName, crmSceneForScoring } from "@/lib/crmScoring";
+import { sheetReperesCalcules } from "@/lib/tableur";
+import { inboxBriefing } from "@/lib/boiteReception";
+import { personaBriefing } from "@/lib/persona";
+import { boardBriefing } from "@/lib/tableauCartes";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
@@ -156,6 +160,215 @@ function verifyVerbatim(verbatim, sourceText) {
   return v.length >= 5 && norm(sourceText).includes(v);
 }
 
+// Ce que le correcteur doit savoir d'une scène pour la juger, et que le
+// candidat ne voit pas : le piège d'une fiche CRM, ce que les données d'un
+// tableur permettent de voir, le tri qu'un bon professionnel ferait d'une boîte
+// de réception. Même rôle que le briefing du piège CRM, étendu aux nouvelles
+// scènes — la grille et la façon de noter ne changent pas.
+function briefingCorrecteur(s) {
+  const c = s.config || {};
+  if (s.sandbox_kind === "crm" && c.crm) {
+    return [crmSceneForScoring(c.crm), crmTrapBriefing(c.crm)].filter(Boolean).join("\n");
+  }
+  if (s.sandbox_kind === "sheet" && c.sheet) {
+    const reperes = sheetReperesCalcules(c.sheet);
+    return [
+      c.sheet.analysis_notes
+        ? `  Ce que les données permettent de voir, selon la conception (NON communiqué au candidat) : ${String(c.sheet.analysis_notes).replace(/\s*\n\s*/g, " / ")}`
+        : "",
+      reperes
+        ? `  Repères CALCULÉS automatiquement sur les données d'origine (exacts, NON communiqués au candidat) :\n${reperes.split("\n").map((l) => `    ${l}`).join("\n")}`
+        : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (s.sandbox_kind === "inbox" && c.inbox) return inboxBriefing(c.inbox);
+  if (s.sandbox_kind === "persona" && c.persona) return personaBriefing(c.persona);
+  if (s.sandbox_kind === "board" && c.board) return boardBriefing(c.board);
+  return "";
+}
+
+// ─── Notation étape par étape, en double ──────────────────────────────────────
+// Deux changements de FONCTIONNEMENT, la méthode restant celle d'avant (mêmes
+// grilles, même échelle 0/1/2, même exigence de preuve, mêmes plafonds) :
+//
+// 1. UNE ÉTAPE = UN APPEL, en parallèle. Le correcteur lisait tout le parcours
+//    d'un coup : l'impression laissée par une étape déteignait sur la suivante,
+//    l'attention se diluait sur les longs parcours (une boîte de réception, un
+//    tableur et une transcription d'appel dans le même prompt), et la réponse
+//    pouvait être tronquée. Chaque étape est désormais notée seule, sans voir
+//    les réponses des autres — ni les échanges avec l'assistant, qui ne servent
+//    qu'à la note d'usage de l'IA.
+//
+// 2. UN DEUXIÈME AVIS EN CAS DE DOUTE. Un correcteur IA n'est pas parfaitement
+//    stable : relancé sur la même réponse, il peut donner 1 là où il avait
+//    donné 2. Faire tout noter deux fois triplait le coût de la notation ;
+//    la plupart des notes, pourtant, ne font pas débat. Le premier correcteur
+//    signale donc les checkpoints où il HÉSITE entre deux notes, et le code
+//    ajoute un signal objectif : un point accordé dont la citation est
+//    introuvable dans la réponse. Seules ces étapes repassent devant un second
+//    correcteur ; s'il diverge, un troisième tranche et la note MÉDIANE est
+//    retenue. Doutes et désaccords sont comptés (scoring_usage.stabilite) :
+//    c'est la mesure de fiabilité du correcteur.
+//
+// Réglage d'exploitation, ONBORD_SECOND_AVIS :
+//   "doute" (défaut) · "toujours" (deux avis par étape) · "jamais" (un seul).
+// L'ancien interrupteur ONBORD_DOUBLE_NOTATION=0 vaut toujours « jamais ».
+const SECOND_AVIS = (() => {
+  const v = process.env.ONBORD_SECOND_AVIS || (process.env.ONBORD_DOUBLE_NOTATION === "0" ? "jamais" : "doute");
+  return ["doute", "toujours", "jamais"].includes(v) ? v : "doute";
+})();
+// Appels simultanés au plus : un parcours de six étapes notées deux fois part
+// d'un coup, sans marteler l'API sur un parcours plus long.
+const CONCURRENCE_NOTATION = 8;
+
+async function avecLimite(items, limite, fn) {
+  const resultats = new Array(items.length);
+  let suivant = 0;
+  const travail = async () => {
+    while (suivant < items.length) {
+      const k = suivant++;
+      resultats[k] = await fn(items[k], k);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limite, items.length) }, travail));
+  return resultats;
+}
+
+// Médiane BASSE : sur trois avis, la valeur du milieu ; sur deux avis qui
+// divergent (le troisième a échoué), la plus basse — on ne crédite pas un
+// comportement que la moitié des correcteurs n'a pas vu.
+function mediane(valeurs) {
+  const t = [...valeurs].sort((a, b) => a - b);
+  return t[Math.floor((t.length - 1) / 2)];
+}
+
+function cumulUsages(usages) {
+  const liste = usages.filter(Boolean);
+  const somme = (cle) => liste.reduce((n, u) => n + (u[cle] || 0), 0);
+  return {
+    model: SCORING_MODEL,
+    calls: liste.length,
+    input_tokens: somme("input_tokens"),
+    output_tokens: somme("output_tokens"),
+    cost_usd: Number(somme("cost_usd").toFixed(6)),
+  };
+}
+
+/** Un appel au correcteur. Ne jette jamais : renvoie { ok, data | erreur, usage }. */
+async function appelCorrecteur({ system, user, maxTokens }) {
+  try {
+    // Effort "medium" : noter, c'est juger chaque checkpoint contre la
+    // réponse, pas extraire. Pas de `temperature` (400 sur Sonnet 5.5). En
+    // streaming : la réflexion se sert dans le budget de sortie, et le SDK
+    // refuse un plafond haut hors streaming.
+    const response = await anthropic.messages.stream({
+      model: SCORING_MODEL,
+      max_tokens: maxTokens,
+      output_config: { effort: "medium" },
+      system,
+      messages: [{ role: "user", content: user }],
+    }).finalMessage();
+    const usage = computeAiCost(SCORING_MODEL, response.usage);
+    if (response.stop_reason === "max_tokens") return { ok: false, erreur: "réponse tronquée", usage };
+    // Le premier bloc peut être un bloc de réflexion : on lit les blocs `text`.
+    const texte = response.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    const match = texte.match(/\{[\s\S]*\}/);
+    if (!match) return { ok: false, erreur: "aucun JSON", usage };
+    try {
+      return { ok: true, data: JSON.parse(match[0]), usage };
+    } catch (err) {
+      return { ok: false, erreur: `JSON illisible — ${err.message}`, usage };
+    }
+  } catch (err) {
+    return { ok: false, erreur: err.message };
+  }
+}
+
+/**
+ * Ce qu'un correcteur a rendu pour UNE étape, rattaché à la grille. La GRILLE
+ * fait foi, pas la réponse du modèle : chaque entrée est rattachée à un critère
+ * défini — par son nom, ou à défaut au premier critère du même format pas
+ * encore noté (un nom reformulé ne doit pas faire tomber un critère à 0). Un id
+ * de checkpoint inventé ne crée aucune note.
+ * @returns {Map<object, object>} critère → lecture
+ */
+function lireJugement(step, entrees) {
+  const normNom = (s) => String(s || "").trim().toLowerCase();
+  const lectures = new Map();
+  for (const c of Array.isArray(entrees) ? entrees : []) {
+    const libres = (step.criteria || []).filter((k) => !lectures.has(k));
+    const critere =
+      libres.find((k) => normNom(k.name) === normNom(c?.sub_dimension_name)) ||
+      libres.find((k) => estCritereCheckpoints(k) === Array.isArray(c?.checkpoints));
+    if (!critere) continue;
+    if (estCritereCheckpoints(critere)) {
+      const parId = new Map();
+      for (const r of Array.isArray(c.checkpoints) ? c.checkpoints : []) {
+        if (!critere.checkpoints.some((cp) => String(cp.id) === String(r?.id))) continue;
+        parId.set(String(r.id), {
+          score: Math.max(0, Math.min(2, Math.round(Number(r.score) || 0))),
+          verbatim: String(r.verbatim || ""),
+          justification: String(r.justification || ""),
+          doute: r.doute === true,
+        });
+      }
+      lectures.set(critere, { checkpoints: parId, observations: String(c.observations || ""), justification: String(c.justification || "") });
+    } else {
+      lectures.set(critere, {
+        bars_level: Math.max(1, Math.min(5, Number(c.bars_level) || 1)),
+        verbatim: String(c.verbatim || ""),
+        justification: String(c.justification || ""),
+        doute: c.doute === true,
+      });
+    }
+  }
+  return lectures;
+}
+
+/**
+ * Le premier avis sur une étape appelle-t-il une relecture ? Oui si le
+ * correcteur a déclaré hésiter, si un critère ou un checkpoint n'a pas été
+ * noté, ou si un point accordé s'appuie sur une citation introuvable dans la
+ * réponse — le seul de ces signaux qui ne dépend pas du modèle.
+ * @param {string} src la réponse du candidat, telle que le correcteur l'a lue
+ */
+function etapeDouteuse(step, lecture, src) {
+  for (const critere of step.criteria || []) {
+    const l = lecture.get(critere);
+    if (!l) return true;
+    if (estCritereCheckpoints(critere)) {
+      for (const cp of critere.checkpoints) {
+        const x = l.checkpoints.get(String(cp.id));
+        if (!x || x.doute) return true;
+        if (x.score > 0 && !verifyVerbatim(x.verbatim, src)) return true;
+      }
+    } else if (l.doute || (l.bars_level > 1 && !verifyVerbatim(l.verbatim, src))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Nombre de notes qui diffèrent entre deux lectures d'une même étape. */
+function desaccords(step, a, b) {
+  let n = 0;
+  for (const critere of step.criteria || []) {
+    const la = a.get(critere);
+    const lb = b.get(critere);
+    if (!la || !lb) continue;
+    if (estCritereCheckpoints(critere)) {
+      for (const cp of critere.checkpoints) {
+        const x = la.checkpoints.get(String(cp.id));
+        const y = lb.checkpoints.get(String(cp.id));
+        if (x && y && x.score !== y.score) n++;
+      }
+    } else if (la.bars_level !== lb.bars_level) {
+      n++;
+    }
+  }
+  return n;
+}
+
 function candidateAnswerText(step, resp) {
   if (!resp) return "(pas de réponse)";
   // Fiche CRM : rendu qui SÉPARE les deux natures de champ et interdit à
@@ -183,14 +396,12 @@ function candidateAnswerText(step, resp) {
   return resp.text_answer || "(pas de réponse)";
 }
 
-// Scoring UNIQUE de fin de run : un seul appel qui relit toute la trajectoire.
-export async function scoreRun(runId) {
-  const admin = createAdminClient();
-
-  const { data: run } = await admin
-    .from("candidate_runs").select("id, candidate_id, experience_id, status").eq("id", runId).single();
-  if (!run) return { success: false, error: "Run introuvable" };
-  if (run.status === "scored") return { success: true, alreadyScored: true };
+// ─── Le calcul de la note, sans rien écrire ───────────────────────────────────
+// Séparé de scoreRun pour pouvoir être rejoué à blanc — mesurer le coût et la
+// stabilité de la notation sur de vrais parcours, sans toucher à leur note ni
+// à la facturation. Renvoie la ligne run_scores prête à écrire.
+export async function evaluerRun(admin, run) {
+  const runId = run.id;
 
   // ── Les DEUX langues du scoring ──────────────────────────────────────────
   // Le rapport n'est pas rédigé dans la langue du candidat mais dans celle du
@@ -354,9 +565,13 @@ export async function scoreRun(runId) {
     });
   }
 
-  // ── Construit la trajectoire pour le prompt (uniquement les steps non-QCM) ──
+  // ── Le bloc de chaque étape, tel que le correcteur le lit ──────────────────
+  // Une étape à la fois : son énoncé, sa scène, ce que le correcteur doit en
+  // savoir, la réponse et la grille. Ni les autres étapes, ni les échanges avec
+  // l'assistant — ceux-là ne servent qu'à la note d'usage de l'IA, rendue à part.
   const copieParStep = {};
-  const traj = scored.map((s, i) => {
+  const blocs = new Map();
+  scored.forEach((s, i) => {
     const resp = respByStep[s.id];
     const answer = candidateAnswerText(s, resp);
     // Deux formats cohabitent : les checkpoints (générations récentes) et les
@@ -371,7 +586,6 @@ export async function scoreRun(runId) {
       return `    • ${c.name} — NIVEAUX (place le candidat de 1 à 5)\n${grid}`;
     }).join("\n");
     const skill = skillOf(s);
-    const ai = (aiByStep[s.id] || []).map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n");
     // Recopiage : mesuré ici, PAS laissé au jugement du modèle. Comparer une
     // réponse à dix messages d'assistant est un travail de comptage, pas
     // d'appréciation — et un évaluateur qui compte à vue rate les cas moyens.
@@ -383,9 +597,9 @@ export async function scoreRun(runId) {
     const copie = tauxCopie >= SEUIL_SIGNAL
       ? `  RECOPIAGE MESURÉ : ${Math.round(tauxCopie * 100)} % des séquences de ${NGRAMME} mots de la réponse figurent MOT POUR MOT dans les messages de l'assistant.\n`
       : "";
-    // Piège du sandbox CRM : l'évaluateur doit connaître la contradiction placée
-    // dans le brief pour juger si le candidat a croisé les sources.
-    const trap = s.sandbox_kind === "crm" && s.config?.crm ? crmTrapBriefing(s.config.crm) : "";
+    // Piège du sandbox CRM (et pipeline v2), repères du tableur, tri attendu de
+    // la boîte de réception, jeu du personnage : ce que l'évaluateur doit savoir.
+    const trap = briefingCorrecteur(s);
     // Le candidat a-t-il repris sa fiche après l'avertissement (qui ne lui disait
     // pas quel champ) ? Signal de rigueur, pas de justesse.
     const crmMeta = s.sandbox_kind === "crm" ? respByStep[s.id]?.meta?.crm : null;
@@ -396,18 +610,18 @@ export async function scoreRun(runId) {
     // prospect, contexte du document) : sans elle, le correcteur notait un
     // e-mail de prospection sans savoir à qui il s'adressait.
     const scene = sceneEnTexte(s.config, "    ");
-    return `ÉTAPE ${i + 1} — ${s.title || s.kind} (step_id: ${s.id})
+    blocs.set(s.id, `ÉTAPE ${i + 1} sur ${scored.length} — ${s.title || s.kind}
   Énoncé : ${s.prompt}
 ${scene ? `  Mise en situation remise au candidat :\n${scene}\n` : ""}${trap ? `${trap}\n` : ""}${revision}${copie}  Réponse du candidat :
   """${answer}"""
   Compétence évaluée : ${skill || "(non précisée)"}
   Sous-dimensions à noter :
-${subDims}${ai ? `\n  Échanges avec l'assistant IA :\n${ai}` : ""}`;
-  }).join("\n\n");
+${subDims}`);
+  });
 
-  const system = `${consigneLangueRapport(reportLocale, contentLocale)}
+  const systemEtape = `${consigneLangueRapport(reportLocale, contentLocale)}
 
-Tu es un évaluateur de recrutement rigoureux ET juste. Tu notes un candidat sur une trajectoire d'évaluation, sous-dimension par sous-dimension, selon des grilles DÉFINIES À L'AVANCE et validées par le recruteur. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés.
+Tu es un évaluateur de recrutement rigoureux ET juste. Tu notes UNE étape d'un parcours d'évaluation, sous-dimension par sous-dimension, selon des grilles DÉFINIES À L'AVANCE et validées par le recruteur. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés. Tu ne vois que cette étape : juge-la pour elle-même.
 
 DEUX FORMATS DE GRILLE — chaque sous-dimension annonce le sien :
 - CHECKPOINTS : chaque checkpoint est UN comportement observable, noté SÉPARÉMENT :
@@ -419,171 +633,243 @@ DEUX FORMATS DE GRILLE — chaque sous-dimension annonce le sien :
 
 RÈGLES ABSOLUES :
 - PREUVE : un checkpoint noté 1 ou 2 cite un VERBATIM — un extrait EXACT, copié mot pour mot depuis la réponse du candidat (sous-chaîne réelle), qui montre le comportement. Pour un checkpoint qui porte sur la réponse entière (longueur, ton général), cite le passage le plus représentatif. Aucun extrait possible = aucun point : note 0. Même exigence pour une sous-dimension à niveaux : un verbatim exact, ou "" et une note basse.
-- MISE EN SITUATION : quand une étape porte une « Mise en situation remise au candidat », juge la réponse AU REGARD de cette scène — une réponse client sur ce qu'elle répond au message reçu, un e-mail de prospection sur ce qu'il fait de ce qu'on savait du prospect. Le candidat l'avait sous les yeux : un détail de la scène qu'il ignore compte, un détail qu'il invente aussi. Si l'énoncé lui demandait de répondre dans une langue donnée, une réponse dans cette langue est la réponse attendue, jamais un écart.
+- MISE EN SITUATION : quand l'étape porte une « Mise en situation remise au candidat », juge la réponse AU REGARD de cette scène — une réponse client sur ce qu'elle répond au message reçu, un e-mail de prospection sur ce qu'il fait de ce qu'on savait du prospect. Le candidat l'avait sous les yeux : un détail de la scène qu'il ignore compte, un détail qu'il invente aussi. Si l'énoncé lui demandait de répondre dans une langue donnée, une réponse dans cette langue est la réponse attendue, jamais un écart.
+- REPÈRES DE CONCEPTION : quand l'étape porte des repères calculés, une lecture attendue des données ou du tri, sers-t'en pour VÉRIFIER les faits et les chiffres du candidat — un total faux annoncé avec assurance reste faux. Ce sont des repères, pas un corrigé : un autre ordre de priorité, une autre lecture des données, se créditent s'ils sont justes et justifiés.
 - PORTÉE : le candidat ne connaît de l'entreprise que ce que l'énoncé et la scène lui ont dit. Ne le pénalise JAMAIS de ne pas citer un fait qui n'y figurait pas — un chiffre, un délai, une référence client, une fonctionnalité du produit. Si un checkpoint ou une ancre semble l'exiger, juge la démarche (a-t-il cherché à chiffrer, à rassurer, à s'appuyer sur un exemple ?), pas le fait. Un fait qu'il INVENTE, en revanche, compte contre lui.
 - LA FONCTION, PAS LA FORME : une réponse courte qui fait ce que le checkpoint décrit le valide ; une réponse longue et bien tournée qui ne le fait pas ne le valide pas. Les fautes de frappe ne comptent que si une sous-dimension porte explicitement sur la qualité de l'écrit.
-- ÉCHANGES AVEC L'ASSISTANT IA : ils ne servent QU'À la note d'usage de l'IA. Ne t'en sers JAMAIS pour noter la tâche : ne compare pas la réponse aux brouillons de l'assistant, ne reproche pas au candidat de ne pas avoir repris une formulation de l'assistant, et n'invoque aucun « recopiage » en l'absence de la ligne « RECOPIAGE MESURÉ ». Un candidat qui a consulté l'assistant puis écrit sa propre réponse est noté sur cette réponse, exactement comme les autres.
-- RECOPIAGE : quand, et SEULEMENT quand, une étape porte la ligne « RECOPIAGE MESURÉ », la réponse est en partie le travail de l'assistant, collé. Note alors ce que le CANDIDAT a produit : un checkpoint ne vaut 2 que si l'extrait cité est un passage qu'il a écrit lui-même (absent des messages de l'assistant), sinon 1 au plus ; sur une grille à niveaux, 1 ou 2, jamais plus. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le dans la justification, sans détour.
-- La note d'usage de l'IA n'est calculée QUE si le candidat a échangé avec l'assistant : évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé. Absente sinon.
-- Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes (cadrage, itération, regard critique), dis pour chacun ce que le candidat a fait ou n'a pas fait, et appuie-toi sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
+- DOUTE : mets "doute": true sur un checkpoint (ou une sous-dimension à niveaux) quand la réponse se situe à la frontière entre deux notes et qu'un autre correcteur attentif pourrait raisonnablement trancher autrement. Sois honnête : le doute déclenche une relecture par un second correcteur, il ne pénalise personne. Ne le mets pas par précaution partout, ni quand la note est nette.
+- RECOPIAGE : quand, et SEULEMENT quand, l'étape porte la ligne « RECOPIAGE MESURÉ », la réponse est en partie le travail de l'assistant IA, collé. Note alors ce que le CANDIDAT a produit : un checkpoint ne vaut 2 que si l'extrait cité est un passage qu'il a écrit lui-même, sinon 1 au plus ; sur une grille à niveaux, 1 ou 2, jamais plus. Un texte excellent qu'on n'a pas écrit ne prouve aucune compétence. Dis-le dans la justification, sans détour. Sans cette ligne, n'invoque jamais de recopiage.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
 
-  const user = `TRAJECTOIRE DU CANDIDAT :
-
-${traj}
-
-L'assistant IA a-t-il été utilisé sur ce run : ${aiUsed ? "OUI" : "NON"}.
-
-Réponds avec ce JSON exact :
+  const consigneJson = `Réponds avec ce JSON exact :
 {
   "sub_dimension_scores": [
-    { "step_id": "id exact", "sub_dimension_name": "nom exact d'une sous-dimension à CHECKPOINTS", "observations": "…", "checkpoints": [ { "id": "cp1", "score": 0, "verbatim": "extrait exact (vide si score 0)", "justification": "une phrase" } ], "justification": "synthèse d'une phrase" },
-    { "step_id": "id exact", "sub_dimension_name": "nom exact d'une sous-dimension à NIVEAUX", "bars_level": 1, "justification": "…", "verbatim": "extrait exact de la réponse" }
-  ],
-  "ai_usage": { "used": ${aiUsed}, "score": 0-100, "justification": "…" },
-  "summary": "Synthèse de 2-3 phrases, factuelle."
+    { "sub_dimension_name": "nom exact d'une sous-dimension à CHECKPOINTS", "observations": "…", "checkpoints": [ { "id": "cp1", "score": 0, "doute": false, "verbatim": "extrait exact (vide si score 0)", "justification": "une phrase" } ], "justification": "synthèse d'une phrase" },
+    { "sub_dimension_name": "nom exact d'une sous-dimension à NIVEAUX", "bars_level": 1, "doute": false, "justification": "…", "verbatim": "extrait exact de la réponse" }
+  ]
 }
-Une entrée par sous-dimension listée, sans exception, au format qu'elle annonce : "checkpoints" (une ligne par checkpoint, avec son id exact entre crochets) pour une sous-dimension à CHECKPOINTS, "bars_level" pour une sous-dimension à NIVEAUX. Les pourcentages sont calculés automatiquement ; ne les fournis pas. Si used=false, mets ai_usage.score à null.`;
-  let critScores = [];
-  let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
-  let usage = {};
+Une entrée par sous-dimension listée, sans exception, au format qu'elle annonce : "checkpoints" (une ligne par checkpoint, avec son id exact entre crochets) pour une sous-dimension à CHECKPOINTS, "bars_level" pour une sous-dimension à NIVEAUX. Les pourcentages sont calculés automatiquement ; ne les fournis pas.`;
 
   // Le budget de sortie se dimensionne sur ce que le modèle rend réellement :
-  // une entrée par SOUS-DIMENSION (~250 tokens mesurés, observations et
-  // justification comprises), plus une ligne par CHECKPOINT (score, verbatim,
-  // une phrase). Compter les steps sous-évaluait le besoin d'un facteur 3 et
-  // tronquait la réponse au milieu du JSON.
-  //
-  // Depuis Sonnet 5.5, la réflexion se sert dans ce même budget : on ajoute
-  // une marge fixe pour elle, et l'appel passe en streaming, sans quoi le SDK
-  // refuse un plafond au-delà de 16000. En streaming, un plafond haut ne coûte
-  // que ce qui sort.
-  const subDimCount = scored.reduce((n, s) => n + (s.criteria || []).length, 0);
-  const checkpointCount = scored.reduce(
-    (n, s) => n + (s.criteria || []).reduce((m, c) => m + (estCritereCheckpoints(c) ? c.checkpoints.length : 0), 0),
-    0
-  );
+  // une entrée par SOUS-DIMENSION (~250 tokens, observations et justification
+  // comprises), plus une ligne par CHECKPOINT (score, verbatim, une phrase),
+  // plus une marge fixe pour la réflexion — qui se sert dans le même budget.
+  const checkpointsDe = (s) => (s.criteria || []).reduce((m, c) => m + (estCritereCheckpoints(c) ? c.checkpoints.length : 0), 0);
+  const budgetEtape = (s) => Math.min(32000, 6000 + (s.criteria || []).length * 400 + checkpointsDe(s) * 150);
+  const avisEtape = (s) => appelCorrecteur({ system: systemEtape, user: `${blocs.get(s.id)}\n\n${consigneJson}`, maxTokens: budgetEtape(s) });
 
-  // Appeler Claude seulement s'il y a des sous-dimensions à évaluer
+  let critScores = [];
+  let parsed = { ai_usage: { used: aiUsed, score: null }, summary: "" };
+  const usages = [];
+  // La mesure de fiabilité du correcteur, enregistrée avec le coût.
+  const stabilite = {
+    second_avis: SECOND_AVIS,
+    etapes: scored.length,
+    checkpoints: scored.reduce((n, s) => n + checkpointsDe(s), 0),
+    etapes_douteuses: 0,
+    seconds_avis: 0,
+    etapes_en_desaccord: 0,
+    notes_en_desaccord: 0,
+    troisiemes_avis: 0,
+    avis_uniques: 0,
+  };
+
   if (scored.length > 0) {
-    // Effort "medium" : noter, c'est juger chaque checkpoint contre la
-    // réponse, pas extraire. Pas de `temperature` (400 sur Sonnet 5.5).
-    const response = await anthropic.messages.stream({
-      model: SCORING_MODEL,
-      max_tokens: Math.min(48000, 9000 + subDimCount * 400 + checkpointCount * 150),
-      output_config: { effort: "medium" },
-      system, messages: [{ role: "user", content: user }],
-    }).finalMessage();
-    usage = computeAiCost(SCORING_MODEL, response.usage);
+    const lecturesParEtape = new Map(scored.map((s) => [s.id, []]));
+    // Lance un avis sur chacune des étapes données, en parallèle, et range les
+    // lectures obtenues. Renvoie le nombre d'avis exploitables.
+    const tour = async (etapes, libelle) => {
+      const reponses = await avecLimite(etapes, CONCURRENCE_NOTATION, avisEtape);
+      let reussis = 0;
+      etapes.forEach((s, k) => {
+        const r = reponses[k];
+        usages.push(r.usage);
+        if (r.ok) { lecturesParEtape.get(s.id).push(lireJugement(s, r.data?.sub_dimension_scores)); reussis += 1; }
+        else console.error(`scoreRun ${runId} : ${libelle} sur l'étape ${s.id} en échec — ${r.erreur}`);
+      });
+      return reussis;
+    };
 
-    // Sur échec, le run RESTE en "submitted". Le passer à "scored" sans ligne
-    // run_scores le rendrait définitivement irrécupérable : le garde-fou en tête
-    // de fonction sort immédiatement sur status === "scored", donc plus aucune
-    // relance ne pourrait aboutir.
-    if (response.stop_reason === "max_tokens") {
-      console.error(`scoreRun ${runId} : réponse tronquée (max_tokens) sur ${subDimCount} sous-dimensions, ${checkpointCount} checkpoints`);
-      return { success: false, error: "Scoring : réponse tronquée" };
-    }
-    // Le premier bloc peut être un bloc de réflexion : on lit les blocs `text`.
-    const texte = response.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-    const match = texte.match(/\{[\s\S]*\}/);
-    if (!match) {
-      console.error(`scoreRun ${runId} : aucun JSON dans la réponse du modèle`);
-      return { success: false, error: "Scoring : JSON invalide" };
-    }
-    // Un JSON tronqué passe la regex (elle s'arrête au dernier `}` présent) :
-    // c'est ici que l'échec se matérialisait, en exception non rattrapée.
-    try {
-      parsed = JSON.parse(match[0]);
-    } catch (err) {
-      console.error(`scoreRun ${runId} : JSON illisible — ${err.message}`);
-      return { success: false, error: "Scoring : JSON illisible" };
+    // ── Premier tour : un avis par étape (deux en mode « toujours ») ─────────
+    await tour(SECOND_AVIS === "toujours" ? scored.flatMap((s) => [s, s]) : scored, "premier avis");
+    // Un premier avis en échec se retente une fois : sans lui, l'étape n'a pas
+    // de note et tout le run reste en attente.
+    const sansPremier = scored.filter((s) => !lecturesParEtape.get(s.id).length);
+    if (sansPremier.length) await tour(sansPremier, "premier avis (nouvel essai)");
+
+    // ── Deuxième avis, seulement là où le premier a douté ────────────────────
+    if (SECOND_AVIS === "doute") {
+      const douteuses = scored.filter((s) => {
+        const l = lecturesParEtape.get(s.id);
+        return l.length === 1 && etapeDouteuse(s, l[0], candidateAnswerText(s, respByStep[s.id]));
+      });
+      stabilite.etapes_douteuses = douteuses.length;
+      if (douteuses.length) stabilite.seconds_avis = await tour(douteuses, "deuxième avis");
+    } else if (SECOND_AVIS === "toujours") {
+      stabilite.seconds_avis = scored.filter((s) => lecturesParEtape.get(s.id).length >= 2).length;
     }
 
-    const normNom = (s) => String(s || "").trim().toLowerCase();
-    const apparies = new Set();
+    // ── Désaccord entre les deux avis : un troisième tranche ─────────────────
+    const aDepartager = scored.filter((s) => {
+      const l = lecturesParEtape.get(s.id);
+      if (l.length < 2) return false;
+      const n = desaccords(s, l[0], l[1]);
+      if (!n) return false;
+      stabilite.etapes_en_desaccord += 1;
+      stabilite.notes_en_desaccord += n;
+      return true;
+    });
+    if (aDepartager.length) {
+      const tiers = await avecLimite(aDepartager, CONCURRENCE_NOTATION, avisEtape);
+      tiers.forEach((r, k) => {
+        usages.push(r.usage);
+        if (r.ok) {
+          lecturesParEtape.get(aDepartager[k].id).push(lireJugement(aDepartager[k], r.data?.sub_dimension_scores));
+          stabilite.troisiemes_avis += 1;
+        } else {
+          console.error(`scoreRun ${runId} : troisième avis sur l'étape ${aDepartager[k].id} en échec — ${r.erreur}`);
+        }
+      });
+    }
 
-    // Post-traitement : la GRILLE fait foi, pas la réponse du modèle. Chaque
-    // entrée est rattachée à un critère défini — par son nom, ou à défaut au
-    // premier critère du même format que le modèle n'a pas encore noté (un nom
-    // reformulé ne doit pas faire tomber un critère à 0). Un id de checkpoint
-    // inventé, lui, ne crée aucune note.
-    critScores = (parsed.sub_dimension_scores || []).map((c) => {
-      const step = scored.find((s) => s.id === c.step_id);
-      if (!step) return null;
-      const libres = (step.criteria || []).filter((k) => !apparies.has(k));
-      const critere =
-        libres.find((k) => normNom(k.name) === normNom(c.sub_dimension_name)) ||
-        libres.find((k) => estCritereCheckpoints(k) === Array.isArray(c.checkpoints));
-      if (critere) apparies.add(critere);
+    // Une étape restée sans aucun avis : le run RESTE en « submitted », donc
+    // rejouable. Le passer à « scored » sans sa note le figerait pour de bon.
+    const sansAvis = scored.filter((s) => !lecturesParEtape.get(s.id).length);
+    if (sansAvis.length) {
+      console.error(`scoreRun ${runId} : ${sansAvis.length} étape(s) sans aucun avis exploitable`);
+      return { success: false, error: "Scoring : étape non notée" };
+    }
+    stabilite.avis_uniques = scored.filter((s) => lecturesParEtape.get(s.id).length === 1).length;
+
+    // ── Consolidation : la note médiane, la preuve qui la porte ──────────────
+    critScores = scored.flatMap((step) => {
+      const lectures = lecturesParEtape.get(step.id);
       const src = candidateAnswerText(step, respByStep[step.id]);
       // Au-delà du seuil, le plafond ne se négocie pas : le modèle a pour
       // consigne de ne pas créditer ce que le candidat n'a pas écrit, mais il
       // lui arrive de se laisser impressionner par un texte bien tourné. Ce
       // cas-là est trop net pour dépendre d'un jugement.
-      const taux = copieParStep[c.step_id] || 0;
+      const taux = copieParStep[step.id] || 0;
       const plafonne = taux >= SEUIL_PLAFOND;
-      const skillIds = critere?.skill_ids?.length ? critere.skill_ids : idsEtape(step);
 
-      const commun = {
-        step_id: c.step_id,
-        // La compétence vient du step, pas du modèle : elle sert de clé de
-        // regroupement à l'affichage et ne doit pas dériver d'une reformulation.
-        skill_name: skillOf(step),
-        skill_ids: skillIds,
-        tier: tierDe(skillIds),
-        sub_dimension_name: critere?.name || c.sub_dimension_name || "",
-      };
+      return (step.criteria || []).map((critere) => {
+        const vues = lectures.map((l) => l.get(critere)).filter(Boolean);
+        if (!vues.length) return null;
+        const skillIds = critere.skill_ids?.length ? critere.skill_ids : idsEtape(step);
+        const commun = {
+          step_id: step.id,
+          // La compétence vient du step, pas du modèle : elle sert de clé de
+          // regroupement à l'affichage et ne doit pas dériver d'une reformulation.
+          skill_name: skillOf(step),
+          skill_ids: skillIds,
+          tier: tierDe(skillIds),
+          sub_dimension_name: critere.name || "",
+        };
 
-      // ── Critère à checkpoints ──────────────────────────────────────────────
-      if (critere && estCritereCheckpoints(critere)) {
-        const rendus = Array.isArray(c.checkpoints) ? c.checkpoints : [];
-        const checkpoints = critere.checkpoints.map((cp) => {
-          const r = rendus.find((x) => String(x?.id) === String(cp.id));
-          // Un checkpoint que le modèle a sauté compte 0, et le dit : ne pas le
-          // compter du tout gonflerait le pourcentage sur ce qu'on n'a pas vu.
-          if (!r) {
-            return { id: cp.id, description: cp.description, score: 0, justification: L.checkpointNotScored, verbatim: "", verbatim_verified: false, not_scored: true };
-          }
-          let score = Math.max(0, Math.min(2, Math.round(Number(r.score) || 0)));
-          if (plafonne) score = Math.min(score, 1);
-          const verbatim = score > 0 ? String(r.verbatim || "") : "";
+        // ── Critère à checkpoints ──────────────────────────────────────────
+        if (estCritereCheckpoints(critere)) {
+          const checkpoints = critere.checkpoints.map((cp) => {
+            const avis = vues.map((v) => v.checkpoints.get(String(cp.id))).filter(Boolean);
+            // Un checkpoint qu'aucun avis n'a noté compte 0, et le dit : ne pas
+            // le compter du tout gonflerait le pourcentage sur ce qu'on n'a pas vu.
+            if (!avis.length) {
+              return { id: cp.id, description: cp.description, score: 0, justification: L.checkpointNotScored, verbatim: "", verbatim_verified: false, not_scored: true };
+            }
+            let score = mediane(avis.map((a) => a.score));
+            // La justification et la preuve viennent d'un avis qui a donné
+            // cette note — de préférence un dont la citation est vérifiée.
+            const retenu = avis.find((a) => a.score === score && verifyVerbatim(a.verbatim, src))
+              || avis.find((a) => a.score === score) || avis[0];
+            if (plafonne) score = Math.min(score, 1);
+            const verbatim = score > 0 ? retenu.verbatim : "";
+            return {
+              id: cp.id,
+              description: cp.description,
+              ...(cp.skill_id ? { skill_id: cp.skill_id } : {}),
+              score,
+              justification: retenu.justification,
+              verbatim,
+              verbatim_verified: verifyVerbatim(verbatim, src),
+              // Les notes de chaque avis, quand il y en a eu plusieurs : on voit
+              // où le correcteur a hésité.
+              ...(avis.length > 1 ? { avis: avis.map((a) => a.score) } : {}),
+            };
+          });
+          // Les observations d'ensemble : celles de l'avis le plus proche des
+          // notes retenues.
+          const accord = (v) => critere.checkpoints.filter((cp, k) => v.checkpoints.get(String(cp.id))?.score === checkpoints[k].score).length;
+          const proche = vues.reduce((meilleur, v) => (accord(v) > accord(meilleur) ? v : meilleur), vues[0]);
           return {
-            id: cp.id,
-            description: cp.description,
-            ...(cp.skill_id ? { skill_id: cp.skill_id } : {}),
-            score,
-            justification: String(r.justification || ""),
-            verbatim,
-            verbatim_verified: verifyVerbatim(verbatim, src),
+            ...commun,
+            format: "checkpoints",
+            checkpoints,
+            observations: proche.observations,
+            bars_level: null,
+            score: pourcentageCheckpoints(checkpoints.map((cp) => cp.score)),
+            justification: proche.justification + (plafonne ? L.recopiageCapCheckpoints(Math.round(taux * 100)) : ""),
+            verbatim: "",
+            verbatim_verified: false,
           };
-        });
+        }
+
+        // ── Critère à niveaux (ancienne grille) ────────────────────────────
+        let level = mediane(vues.map((v) => v.bars_level));
+        const retenu = vues.find((v) => v.bars_level === level) || vues[0];
+        if (plafonne) level = Math.min(level, 2);
         return {
           ...commun,
-          format: "checkpoints",
-          checkpoints,
-          observations: String(c.observations || ""),
-          bars_level: null,
-          score: pourcentageCheckpoints(checkpoints.map((cp) => cp.score)),
-          justification: (c.justification || "") + (plafonne ? L.recopiageCapCheckpoints(Math.round(taux * 100)) : ""),
-          verbatim: "",
-          verbatim_verified: false,
+          bars_level: level,
+          score: (level - 1) * 25,
+          justification: retenu.justification + (plafonne ? L.recopiageCap(Math.round(taux * 100)) : ""),
+          verbatim: retenu.verbatim,
+          verbatim_verified: verifyVerbatim(retenu.verbatim, src),
         };
-      }
+      }).filter(Boolean);
+    });
 
-      // ── Critère à niveaux (ancienne grille) ────────────────────────────────
-      let level = Math.max(1, Math.min(5, Number(c.bars_level) || 1));
-      if (plafonne) level = Math.min(level, 2);
-      return {
-        ...commun,
-        bars_level: level,
-        score: (level - 1) * 25,
-        justification: (c.justification || "") + (plafonne ? L.recopiageCap(Math.round(taux * 100)) : ""),
-        verbatim: c.verbatim || "",
-        verbatim_verified: verifyVerbatim(c.verbatim, src),
-      };
-    }).filter(Boolean);
+    // ── Synthèse et usage de l'IA : un dernier appel, sur les notes retenues ──
+    // La synthèse s'écrit à partir des notes CONSOLIDÉES, pas d'une nouvelle
+    // lecture du parcours : elle ne peut pas contredire ce qui a été noté.
+    // L'usage de l'IA, lui, se juge sur l'ensemble des échanges du run.
+    const resultats = [...critScores, ...qcmScores, ...crmScores, ...codeScores];
+    const lignesResultats = (steps || []).map((s, i) => {
+      const lignes = resultats.filter((c) => c.step_id === s.id)
+        .map((c) => `    • ${c.sub_dimension_name} : ${c.score} % — ${String(c.justification || "").replace(/\s*\n\s*/g, " ")}`);
+      return lignes.length ? `  Étape ${i + 1} — ${s.title || s.kind} (${skillOf(s) || "compétence non précisée"})\n${lignes.join("\n")}` : null;
+    }).filter(Boolean).join("\n");
+    const echanges = (steps || []).map((s, i) => {
+      const msgs = aiByStep[s.id] || [];
+      if (!msgs.length) return null;
+      return `  Étape ${i + 1} — ${s.title || s.kind}\n${msgs.map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n")}`;
+    }).filter(Boolean).join("\n\n");
+
+    const systemSynthese = `${consigneLangueRapport(reportLocale, contentLocale)}
+
+Tu rédiges la synthèse d'une évaluation de recrutement dont les notes sont DÉJÀ établies, sous-dimension par sous-dimension. Tu ne renotes rien : tu résumes.
+- "summary" : 2 à 3 phrases factuelles pour le recruteur — les forces et les manques qui ressortent des notes, sans contredire aucune d'elles.
+- "ai_usage" : seulement si le candidat a échangé avec l'assistant IA. Évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé, sur 0 à 100. Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes, dis pour chacun ce que le candidat a fait ou n'a pas fait, en t'appuyant sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
+- Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
+    const userSynthese = `NOTES ÉTABLIES :
+${lignesResultats || "  (aucune)"}
+
+L'assistant IA a-t-il été utilisé sur ce run : ${aiUsed ? "OUI" : "NON"}.
+${echanges ? `\nÉCHANGES AVEC L'ASSISTANT IA :\n${echanges}\n` : ""}
+Réponds avec ce JSON exact :
+{
+  "ai_usage": { "used": ${aiUsed}, "score": 0-100, "justification": "…" },
+  "summary": "Synthèse de 2-3 phrases, factuelle."
+}
+Si used=false, mets ai_usage.score à null.`;
+
+    // Non bloquant : sans synthèse, les notes restent valables et le rapport
+    // s'affiche — seul le résumé manquera.
+    const synthese = await appelCorrecteur({ system: systemSynthese, user: userSynthese, maxTokens: 8000 });
+    usages.push(synthese.usage);
+    if (synthese.ok) parsed = synthese.data;
+    else console.error(`scoreRun ${runId} : synthèse en échec (non bloquant) — ${synthese.erreur}`);
   }
+
+  const usage = { ...cumulUsages(usages), stabilite };
 
   // Fusionne les scores notés par le modèle et les scores déterministes
   // (QCM + champs factuels du CRM + tests exécutés du sandbox code)
@@ -601,15 +887,38 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
   // sous-dimension BARS porte, elle, son explication.
   const aiUsageJustification = parsed.ai_usage?.used ? (parsed.ai_usage?.justification || null) : null;
 
+  return {
+    success: true,
+    exp,
+    ligne: {
+      overall,
+      ai_usage_used: !!parsed.ai_usage?.used,
+      ai_usage_score: aiUsageScore,
+      ai_usage_justification: aiUsageJustification,
+      summary: parsed.summary || "",
+      criterion_scores: allScores,
+      scoring_usage: usage,
+    },
+  };
+}
+
+// Scoring de fin de run : calcule la note (evaluerRun), l'enregistre, facture.
+export async function scoreRun(runId) {
+  const admin = createAdminClient();
+
+  const { data: run } = await admin
+    .from("candidate_runs").select("id, candidate_id, experience_id, status").eq("id", runId).single();
+  if (!run) return { success: false, error: "Run introuvable" };
+  if (run.status === "scored") return { success: true, alreadyScored: true };
+
+  const ev = await evaluerRun(admin, run);
+  if (!ev.success) return ev;
+  const { exp } = ev;
+  const { overall } = ev.ligne;
+
   const { error: upsertError } = await admin.from("run_scores").upsert({
     run_id: runId,
-    overall,
-    ai_usage_used: !!parsed.ai_usage?.used,
-    ai_usage_score: aiUsageScore,
-    ai_usage_justification: aiUsageJustification,
-    summary: parsed.summary || "",
-    criterion_scores: allScores,
-    scoring_usage: usage,
+    ...ev.ligne,
   }, { onConflict: "run_id" });
 
   // Cette écriture n'était pas contrôlée : un échec (schéma en retard sur le
