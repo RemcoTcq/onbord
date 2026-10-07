@@ -11,11 +11,16 @@ export function useToast() {
   return context;
 }
 
+// Identifiant par compteur, pas par horodatage : deux toasts émis d'affilée
+// (« étape réécrite » puis « nouvelle version ») tombaient dans la même
+// milliseconde et partageaient leur clé React — l'un des deux disparaissait.
+let prochainId = 0;
+
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = "success") => {
-    const id = Date.now();
+    const id = ++prochainId;
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
