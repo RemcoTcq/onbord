@@ -351,21 +351,15 @@ const candidate = {
   cvUpload: {
     title: "Your CV",
     subtitle:
-      "Upload your CV as a PDF. Our AI will analyse it to assess your profile against the role.",
-    analyzed: "Your CV was analysed successfully.",
+      "The company would like to receive your CV before the simulation. It is shared only with the team hiring for this role.",
     dropzone: "Click or drag your CV here",
     constraints: "PDF only · Max 5 MB",
-    received: "CV received!",
-    analyzing: "Analysing…",
-    analyzingHint: "Our AI is reviewing your profile, this may take a few seconds.",
+    change: "Choose another file",
+    uploading: "Uploading…",
     notPdf: "Please select a PDF file only.",
     tooLarge: "That file is too large (max 5 MB).",
-    uploadError: "Upload error:",
-    parseError: "Something went wrong while reading your CV.",
-    emptyPdf:
-      "This PDF looks empty or unreadable. Check that your CV isn't a scanned image.",
-    aiError: "Something went wrong during AI analysis",
-    genericError: "Something went wrong. Please try again.",
+    uploadError: "Your CV could not be uploaded. Please try again.",
+    continue: "Send and start",
   },
 
   fullscreenGuard: {

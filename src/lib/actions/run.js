@@ -100,6 +100,19 @@ function getQualifyingQuestions(job) {
   return [];
 }
 
+// CV demandé avant la simulation (jobs.cv_requis, migration 033). Lu À PART,
+// et non dans le select de resolveCandidateAndRun : tant que la migration n'est
+// pas passée, la colonne manque, et un select qui la nomme ferait échouer tout
+// le parcours. Ici, l'erreur vaut « non demandé » — personne n'est bloqué.
+async function lireCvRequis(admin, jobId) {
+  const { data, error } = await admin.from("jobs").select("cv_requis").eq("id", jobId).maybeSingle();
+  if (error) return false;
+  return data?.cv_requis === true;
+}
+
+// Le CV : un PDF, 5 Mo au plus. Mêmes bornes que l'écran de dépôt.
+const CV_TAILLE_MAX = 5 * 1024 * 1024;
+
 // Un lien d'évaluation vit 5 jours. `interview_expires_at` est posé à la création
 // du candidat et fait foi ; on retombe sur created_at + 5 jours pour les lignes
 // antérieures à cette colonne, comme le faisait l'ancien hub.
@@ -120,7 +133,7 @@ function linkHasExpired(candidate) {
 async function resolveCandidateAndRun(admin, token) {
   const { data: candidate } = await admin
     .from("candidates")
-    .select("id, job_id, first_name, assessment_status, created_at, interview_expires_at")
+    .select("id, job_id, first_name, assessment_status, created_at, interview_expires_at, cv_url")
     .eq("interview_token", token).single();
   if (!candidate) return { error: "Lien d'évaluation invalide." };
 
@@ -260,6 +273,21 @@ export async function startRun(token) {
         // La réponse attendue ne sort JAMAIS du serveur : sinon la porte se lit
         // dans le HTML. La correction se fait dans submitQualifyingAnswers.
         qualifying: { questions: qualifying.map((q, i) => ({ id: q.id ?? String(i), text: q.text })) },
+      };
+    }
+
+    // ── CV, si l'entreprise le demande ──────────────────────────────────────
+    // Après les questions qualificatives (un recalé n'a pas à déposer de CV),
+    // avant la création du run : tant que le CV manque, la simulation ne
+    // démarre pas et rien n'est facturé. Un run déjà entamé n'est jamais
+    // bloqué — la case cochée en cours de route ne vaut que pour les suivants.
+    if (!run && !candidate.cv_url && await lireCvRequis(admin, job.id)) {
+      return {
+        success: true,
+        ...branding,
+        // Le dépôt se fait du navigateur, sous resumes/<candidate_id>/ : c'est
+        // le préfixe que la policy de storage autorise (migrations 018-019).
+        cvRequired: { candidateId: candidate.id, maxBytes: CV_TAILLE_MAX },
       };
     }
 
@@ -694,6 +722,47 @@ export async function savePersonaCallVideo(token, stepId, path, durationSeconds)
     return { success: true };
   } catch (err) {
     console.error("savePersonaCallVideo error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Enregistre le CV déposé par le candidat avant la simulation. Le fichier est
+// déjà dans le bucket (dépôt navigateur) : on vérifie qu'il est bien dans le
+// dossier de CE candidat, qu'il existe, et qu'il est un PDF de taille
+// raisonnable — le navigateur a pu mentir sur les trois.
+export async function saveCandidateCv(token, path) {
+  try {
+    const admin = createAdminClient();
+    const { data: candidate } = await admin
+      .from("candidates").select("id").eq("interview_token", token).maybeSingle();
+    if (!candidate) return { success: false, error: "Lien d'évaluation invalide." };
+
+    const prefixe = `${candidate.id}/`;
+    if (typeof path !== "string" || !path.startsWith(prefixe) || path.includes("..")) {
+      return { success: false, error: "Chemin invalide" };
+    }
+    const nom = path.slice(prefixe.length);
+    if (!nom || nom.includes("/") || !nom.toLowerCase().endsWith(".pdf")) {
+      return { success: false, error: "Chemin invalide" };
+    }
+
+    const { data: fichiers, error: listError } = await admin.storage
+      .from("resumes").list(candidate.id, { search: nom });
+    if (listError) throw listError;
+    const fichier = (fichiers || []).find((f) => f.name === nom);
+    if (!fichier) return { success: false, error: "Fichier introuvable" };
+    const taille = fichier.metadata?.size ?? 0;
+    const type = fichier.metadata?.mimetype || "";
+    if (taille > CV_TAILLE_MAX || (type && type !== "application/pdf")) {
+      await admin.storage.from("resumes").remove([path]);
+      return { success: false, error: "Fichier refusé" };
+    }
+
+    const { error } = await admin.from("candidates").update({ cv_url: path }).eq("id", candidate.id);
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error("saveCandidateCv error:", err);
     return { success: false, error: err.message };
   }
 }

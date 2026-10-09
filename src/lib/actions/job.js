@@ -230,3 +230,31 @@ export async function updateJobAiConfig(jobId, config) {
     return { success: false, error: err.message };
   }
 }
+
+// « Recevoir le CV des candidats » (jobs.cv_requis, migration 033). Cochée, le
+// candidat dépose son CV avant d'entrer dans la simulation (startRun). Écrit
+// avec le client du recruteur : la policy UPDATE de `jobs` vérifie déjà la
+// propriété, le filtre user_id la redit. `.select()` pour savoir si une ligne a
+// réellement bougé — une offre d'un autre compte renverrait zéro ligne, sans
+// erreur.
+export async function updateCvRequis(jobId, cvRequis) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Non authentifié");
+
+    const { data, error } = await supabase
+      .from("jobs")
+      .update({ cv_requis: cvRequis === true })
+      .eq("id", jobId)
+      .eq("user_id", user.id)
+      .select("id, cv_requis");
+
+    if (error) throw error;
+    if (!data?.length) throw new Error("Offre introuvable");
+    return { success: true, cvRequis: data[0].cv_requis === true };
+  } catch (err) {
+    console.error("updateCvRequis error:", err);
+    return { success: false, error: err.message };
+  }
+}

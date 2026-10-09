@@ -743,6 +743,18 @@ const dashboard = {
       saved: "Fil rouge enregistré",
       removed: "Fil rouge retiré",
     },
+    // Case « CV avant la simulation » (jobs.cv_requis). Le ton est celui d'un
+    // conseil, pas d'une interdiction : l'entreprise garde le CV si elle y tient,
+    // et on lui dit pourquoi elle peut s'en passer.
+    cv: {
+      title: "CV des candidats",
+      label: "Demander le CV avant la simulation",
+      help: "Cochée, chaque candidat dépose son CV (PDF) avant de commencer. Vous le retrouvez sur sa fiche, à côté de ses résultats.",
+      advice: "Notre conseil : essayez sans. La simulation montre ce que le candidat sait faire ; le CV, ce qu'il dit avoir fait — et le demander en premier décourage une partie des bons profils.",
+      onlyNext: "S'applique aux candidats qui n'ont pas encore commencé.",
+      enabled: "Le CV sera demandé avant la simulation",
+      disabled: "Le CV n'est plus demandé",
+    },
   },
 
   // ── Langue de l'offre, choisie à la création ──────────────────────────────

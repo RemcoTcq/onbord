@@ -6,7 +6,7 @@ import { useRouter } from "@/lib/i18n/navigation";
 import {
   Loader2, Sparkles, ChevronUp, ChevronDown, Trash2, Plus, Check,
   ArrowLeft, Bot, Video, Type, ListChecks, Code2, CircleHelp, ClipboardList,
-  ShieldCheck, AlertTriangle, X, Compass,
+  ShieldCheck, AlertTriangle, X, Compass, FileText,
 } from "lucide-react";
 import {
   getExperienceForJob, updateStep,
@@ -22,6 +22,7 @@ import {
   EXERCICES_CIBLE_MAX, CHECKPOINTS_MAX, MUST,
 } from "@/lib/competences";
 import { getJobDetail } from "@/lib/actions/candidate";
+import { updateCvRequis } from "@/lib/actions/job";
 import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
 import GenerationFeed, { streamExperienceGeneration, translateFeedError } from "@/components/assessment/GenerationFeed";
 import { useToast } from "@/components/ui/Toast";
@@ -314,6 +315,15 @@ export default function ExperienceReviewPage() {
                 next: <strong>{t("dashboard.experienceEditor.lockedWarningNext")}</strong>,
               })}
             </div>
+          )}
+
+          {job && (
+            <CvRequisCard
+              jobId={jobId}
+              cvRequis={job.cv_requis === true}
+              toast={toast}
+              onSaved={(valeur) => setJob((j) => ({ ...j, cv_requis: valeur }))}
+            />
           )}
 
           {experience.generated_from?.fil_rouge && (
@@ -889,6 +899,49 @@ const FORMATS_PREUVE = ["text", "video", "qcm", "choice", "code", "email", "clie
 // Décidée par la génération selon le métier ; le recruteur la relit, la
 // retouche, ou la retire (texte vidé). L'« univers » est la fiche de cohérence
 // des scènes détaillées : il ne s'affiche pas au candidat.
+// ─── CV avant la simulation ──────────────────────────────────────────────────
+// Réglage de l'OFFRE (jobs.cv_requis), pas de la version : il survit aux
+// régénérations et ne crée pas de nouvelle version. Enregistré au clic, sans
+// bouton — c'est une case, pas un formulaire.
+function CvRequisCard({ jobId, cvRequis, onSaved, toast }) {
+  const { t } = useI18n();
+  const [saving, setSaving] = useState(false);
+
+  async function basculer(valeur) {
+    setSaving(true);
+    const res = await updateCvRequis(jobId, valeur);
+    setSaving(false);
+    if (!res.success) { toast(res.error || t("dashboard.experienceEditor.error"), "error"); return; }
+    onSaved?.(res.cvRequis);
+    toast(t(res.cvRequis ? "dashboard.experienceEditor.cv.enabled" : "dashboard.experienceEditor.cv.disabled"));
+  }
+
+  return (
+    <div className="card" style={{ padding: "1.1rem 1.4rem", marginBottom: "1.5rem" }}>
+      <h2 style={{ fontSize: "14px", fontWeight: 800, display: "flex", alignItems: "center", gap: 8, marginBottom: "0.6rem" }}>
+        <FileText size={16} style={{ color: "var(--primary)" }} /> {t("dashboard.experienceEditor.cv.title")}
+      </h2>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: saving ? "wait" : "pointer", fontSize: "13.5px", fontWeight: 600 }}>
+        <input
+          type="checkbox"
+          checked={cvRequis}
+          disabled={saving}
+          onChange={(e) => basculer(e.target.checked)}
+          style={{ width: 16, height: 16, accentColor: "var(--primary)", cursor: "inherit" }}
+        />
+        {t("dashboard.experienceEditor.cv.label")}
+        {saving && <Loader2 size={13} style={{ animation: "spin 1s linear infinite", color: "var(--muted-foreground)" }} />}
+      </label>
+      <p style={{ fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0.5rem 0 0 26px" }}>
+        {t("dashboard.experienceEditor.cv.help")} {t("dashboard.experienceEditor.cv.onlyNext")}
+      </p>
+      <p style={{ fontSize: "12.5px", lineHeight: 1.5, margin: "0.6rem 0 0 26px", padding: "8px 12px", borderRadius: 8, background: "var(--muted)", color: "var(--foreground)" }}>
+        {t("dashboard.experienceEditor.cv.advice")}
+      </p>
+    </div>
+  );
+}
+
 function FilRougeCard({ experienceId, filRouge, onSaved, toast }) {
   const { t } = useI18n();
   const [contexte, setContexte] = useState(filRouge?.contexte_candidat || "");

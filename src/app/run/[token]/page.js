@@ -12,6 +12,7 @@ import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
 import CandidateNotice from "@/components/assessment/CandidateNotice";
+import CvGate from "@/components/assessment/CvGate";
 import { primaryBtn, pillBtn, ghostBtn, optionBtn, container, heading, focusStyle, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "@/components/assessment/candidateUi";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
@@ -35,6 +36,7 @@ export default function RunPage() {
   const [qualAnswers, setQualAnswers] = useState({});
   const [qualSubmitting, setQualSubmitting] = useState(false);
   const [disqualified, setDisqualified] = useState(false);
+  const [cvGate, setCvGate] = useState(null); // CV demandé par l'entreprise, pas encore déposé
   const [expired, setExpired] = useState(false); // lien de plus de 5 jours, parcours jamais commencé
   const [assistantCollapsed, setAssistantCollapsed] = useState(false); // le chat est ouvert par défaut
   const [filRougeOuvert, setFilRougeOuvert] = useState(false); // rappel de la situation, replié pendant les étapes
@@ -65,8 +67,12 @@ export default function RunPage() {
 
     // Questions qualificatives de la pipeline : à passer avant tout le reste.
     if (res.qualifying) { setQualifying(res.qualifying); setLoading(false); return; }
-
     setQualifying(null);
+
+    // CV demandé par l'entreprise : déposé avant d'entrer dans la simulation.
+    if (res.cvRequired) { setCvGate(res.cvRequired); setLoading(false); return; }
+    setCvGate(null);
+
     setRun(res.run);
     setExperience(res.experience);
     setSteps(res.steps);
@@ -234,7 +240,7 @@ export default function RunPage() {
   const pageStyle = { "--primary": primary, "--primary-hover": primary };
 
   if (loading) return <Center><Loader2 size={30} style={{ color: primary, animation: "spin 1s linear infinite" }} /></Center>;
-  if (error && !steps.length && !qualifying && !disqualified && !expired) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
+  if (error && !steps.length && !qualifying && !cvGate && !disqualified && !expired) return <Center style={pageStyle}><div style={{ ...container, padding: "2.5rem", textAlign: "center", maxWidth: 420 }}><div style={{ fontSize: 40, marginBottom: 12 }}>⛔</div><p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{error}</p></div></Center>;
 
   // ── Lien périmé ───────────────────────────────────────────────────────────
   // Un lien d'évaluation vit 5 jours. Le candidat n'est pas en faute : on lui
@@ -319,6 +325,15 @@ export default function RunPage() {
             </button>
           </div>
         </div>
+      </Center>
+    );
+  }
+
+  // ── CV, quand l'entreprise le demande ───────────────────────────────────
+  if (cvGate) {
+    return (
+      <Center style={pageStyle}>
+        <CvGate token={token} gate={cvGate} recruiter={recruiter} job={job} primary={primary} onDone={load} />
       </Center>
     );
   }

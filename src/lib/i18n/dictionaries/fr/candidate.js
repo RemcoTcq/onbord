@@ -380,24 +380,21 @@ const candidate = {
   },
 
   // ── Dépôt de CV ───────────────────────────────────────────────────────────
+  // Avant la simulation, quand l'entreprise le demande
+  // (jobs.cv_requis). Le CV n'est PAS analysé par l'IA : il est transmis tel
+  // quel à l'équipe qui recrute — ne rien promettre d'autre.
   cvUpload: {
     title: "Votre CV",
     subtitle:
-      "Importez votre CV au format PDF. Notre IA l'analysera pour évaluer votre profil face à l'offre.",
-    analyzed: "Votre CV a été analysé avec succès.",
+      "L'entreprise souhaite recevoir votre CV avant la simulation. Il est transmis uniquement à l'équipe qui recrute pour ce poste.",
     dropzone: "Cliquez ou glissez votre CV ici",
     constraints: "Format PDF uniquement · Max 5 Mo",
-    received: "CV bien reçu !",
-    analyzing: "Analyse en cours…",
-    analyzingHint: "Notre IA évalue votre profil, cela peut prendre quelques secondes.",
+    change: "Choisir un autre fichier",
+    uploading: "Envoi en cours…",
     notPdf: "Veuillez sélectionner un fichier PDF uniquement.",
     tooLarge: "Le fichier est trop volumineux (max 5 Mo).",
-    uploadError: "Erreur lors de l'upload :",
-    parseError: "Erreur lors de l'analyse du CV.",
-    emptyPdf:
-      "Le PDF semble vide ou illisible. Vérifiez que votre CV n'est pas une image scannée.",
-    aiError: "Erreur lors de l'analyse IA",
-    genericError: "Une erreur est survenue. Veuillez réessayer.",
+    uploadError: "L'envoi du CV a échoué. Veuillez réessayer.",
+    continue: "Envoyer et commencer",
   },
 
   // ── Garde anti-triche ─────────────────────────────────────────────────────

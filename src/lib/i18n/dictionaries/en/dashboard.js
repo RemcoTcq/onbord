@@ -696,6 +696,15 @@ const dashboard = {
       saved: "Common thread saved",
       removed: "Common thread removed",
     },
+    cv: {
+      title: "Candidate CVs",
+      label: "Ask for the CV before the simulation",
+      help: "When ticked, each candidate uploads their CV (PDF) before starting. You will find it on their profile, next to their results.",
+      advice: "Our advice: try without it. The simulation shows what candidates can do; a CV shows what they say they have done, and asking for it first puts off some of the strongest applicants.",
+      onlyNext: "Applies to candidates who have not started yet.",
+      enabled: "The CV will be requested before the simulation",
+      disabled: "The CV is no longer requested",
+    },
   },
 
   jobLocale: {

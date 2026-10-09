@@ -359,21 +359,15 @@ const candidate = {
   cvUpload: {
     title: "Je cv",
     subtitle:
-      "Upload je cv als pdf. Onze AI analyseert het om je profiel te toetsen aan de vacature.",
-    analyzed: "Je cv is met succes geanalyseerd.",
+      "Het bedrijf wil je cv graag ontvangen vóór de simulatie. Het wordt alleen gedeeld met het team dat voor deze functie aanwerft.",
     dropzone: "Klik of sleep je cv hierheen",
     constraints: "Alleen pdf · Max 5 MB",
-    received: "Cv goed ontvangen!",
-    analyzing: "Bezig met analyseren…",
-    analyzingHint: "Onze AI bekijkt je profiel, dit kan enkele seconden duren.",
+    change: "Ander bestand kiezen",
+    uploading: "Bezig met verzenden…",
     notPdf: "Selecteer alleen een pdf-bestand.",
     tooLarge: "Dit bestand is te groot (max 5 MB).",
-    uploadError: "Fout bij het uploaden:",
-    parseError: "Er ging iets mis bij het lezen van je cv.",
-    emptyPdf:
-      "Deze pdf lijkt leeg of onleesbaar. Controleer of je cv geen gescande afbeelding is.",
-    aiError: "Er ging iets mis bij de AI-analyse",
-    genericError: "Er is iets misgegaan. Probeer het opnieuw.",
+    uploadError: "Je cv kon niet worden verzonden. Probeer het opnieuw.",
+    continue: "Verzenden en beginnen",
   },
 
   fullscreenGuard: {
