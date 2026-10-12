@@ -337,7 +337,7 @@ export async function factureGenerationSimulation(userId, jobId) {
 }
 
 /**
- * 1 crédit — l'agent a réécrit une étape à la demande du recruteur.
+ * 2 crédits — l'agent a réécrit une étape à la demande du recruteur.
  * Appelée après l'écriture de l'étape, comme la génération. La relecture
  * automatique (passe de critique) ne passe PAS par ici : elle est comprise
  * dans les 6 crédits de la génération.

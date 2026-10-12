@@ -153,7 +153,7 @@ export function consigneLangueEtapes(experienceLocale, uiLocale) {
       ? `LANGUE DE SORTIE : français. Tout ce que tu génères est en français — ce que lit le candidat ("title", "prompt", contenu de "config") comme ce que lit le recruteur seul ("skill_assessed", "name" des sous-dimensions, "description" des checkpoints) — à l'exception décrite ci-dessous près. ${REGISTRE.fr}`
       : `${consigneLangueContenu(candidat, { scene: false })}
 
-Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, la "description" des checkpoints. Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
+Cela vaut aussi pour ce que le recruteur est seul à lire : "skill_assessed", le "name" des sous-dimensions, la "description" des checkpoints, la fiche de cohérence "fil_rouge.univers". Ici les deux lecteurs partagent la même langue, il n'y a donc rien à répartir.`;
 
     return `${base}
 
@@ -169,7 +169,7 @@ ${competences}`;
    REGISTRE : ${REGISTRE[candidat]}
 
 2. CE QUE LIT LE RECRUTEUR SEUL → ${nomRecruteur}.
-   Le champ "skill_assessed", le "name" de chaque sous-dimension, et la "description" de chaque checkpoint. Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
+   Le champ "skill_assessed", le "name" de chaque sous-dimension, la "description" de chaque checkpoint, et la fiche de cohérence "fil_rouge.univers". Ces champs sont RETIRÉS de ce que reçoit le candidat : ils ne servent qu'à la grille de correction, affichée dans le tableau de bord du recruteur. Les rédiger en ${nomCandidat} rendrait cette grille illisible pour celui qui doit s'en servir.
    Un checkpoint décrit ce que la réponse du candidat doit faire : il est lu par le recruteur, donc lui aussi en ${nomRecruteur}, même quand la scène est jouée dans une autre langue.
 
 3. ${consigneLangueScene(nomCandidat)}

@@ -177,7 +177,7 @@ ${forme}
 - Tu ne conclus pas à la place du candidat : c'est à lui d'obtenir une suite (rendez-vous, accord, engagement).
 - Quand la conversation arrive à une fin naturelle — accord obtenu, rendez-vous fixé, ou tu y mets un terme parce que l'échange ne mène nulle part — écris ta dernière réplique puis, sur une ligne seule, ${SENTINELLE_FIN}
 ${toursRestants <= 2 ? `- Le temps presse : il reste au plus ${toursRestants} message(s) au candidat. Amène l'échange vers sa fin, comme le ferait quelqu'un qui doit raccrocher.\n` : ""}
-LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Si le candidat t'écrit dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
+LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Ta fiche ci-dessus (personnalité, informations cachées, objections, limites) peut être rédigée dans une autre langue, celle du recruteur qui l'a relue : tu en restitues le SENS en ${nomLangue}, jamais les mots tels quels. Si le candidat t'écrit dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
 }
 
 /** Retire la sentinelle de fin d'une réplique. */

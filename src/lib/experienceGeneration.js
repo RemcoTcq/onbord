@@ -24,11 +24,12 @@ import {
 } from "@/lib/competences";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { consigneLangueContenu, consigneLangueEtapes } from "@/lib/i18n/prompt";
-import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
+import { coerceExperienceLocale, coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { niveauLangueLisible } from "@/lib/i18n/languages";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureRegenerationEtape } from "@/lib/utils/limits";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
+import { enPause, SANDBOXES_EN_PAUSE } from "@/lib/constants/features";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 
 // Opus pour concevoir le parcours : c'est la tâche la plus difficile du
@@ -120,6 +121,14 @@ const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CHECKPOIN
    f) Un checkpoint décrit ce que la réponse FAIT, pas comment elle est tournée : pas de phrase modèle à reconnaître, pas de verbatim à reproduire. Deux bons candidats qui s'y prennent différemment doivent pouvoir valider le même checkpoint. Jamais de formulation vague (« bonne qualité », « réponse adéquate »).
    g) Au plus UN checkpoint par sous-dimension décrit un geste au-delà de l'attendu (ex. : retourner l'objection en levier). Les autres décrivent ce qu'une réponse correcte doit accomplir.`;
 
+// Les mises en situation que la génération peut proposer : toutes, moins celles
+// en pause (lib/constants/features.js). Les lignes du prompt propres à un type
+// en pause disparaissent avec lui — le modèle ne voit même pas l'option.
+const SANDBOXES_TOUTES = ["email", "client_reply", "document", "code", "crm", "sheet", "inbox", "board", "persona"];
+const SANDBOXES_PROPOSEES = SANDBOXES_TOUTES.filter((k) => !enPause(k));
+const siActif = (kind, texte) => (enPause(kind) ? "" : texte);
+const listeGuillemets = (kinds) => kinds.map((k) => `"${k}"`).join(", ");
+
 const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
 4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
 5. LA BONNE PREUVE POUR CHAQUE COMPÉTENCE. Avant d'écrire une étape, demande-toi quel GESTE DE TRAVAIL montre le mieux la compétence qu'elle doit noter — pas quel format est le plus simple à écrire. Repères :
@@ -127,15 +136,15 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
    - conduire un ÉCHANGE à l'oral sur plusieurs tours — appel à froid, découverte, objections, négociation, escalade client, feedback ou conflit avec un collaborateur → sandbox "persona" (un appel avec un interlocuteur joué par l'IA, qui a ses objections et des informations à faire sortir). C'est la meilleure preuve des métiers où tout se joue en conversation ;
    - un échange qui se vit réellement PAR ÉCRIT (chat de support, messagerie interne, message LinkedIn) → sandbox "persona" en mode "chat" ;
    - une prise de parole d'une traite — pitch, présentation, posture, aisance orale, message vidéo → "video", mise en situation jouée en direct (règle 4) ;
-   - consigner, suivre, prioriser des opportunités ou des comptes, préparer un rendez-vous à partir d'un historique → sandbox "crm" ;
-   - analyser des chiffres, raisonner sur des données, piloter par indicateurs, construire un reporting → sandbox "sheet" (tableur) ;
+${siActif("crm", `   - consigner, suivre, prioriser des opportunités ou des comptes, préparer un rendez-vous à partir d'un historique → sandbox "crm" ;
+`)}   - analyser des chiffres, raisonner sur des données, piloter par indicateurs, construire un reporting → sandbox "sheet" (tableur) ;
    - prioriser, s'organiser, arbitrer entre des demandes concurrentes, tenir sous la charge → sandbox "inbox" (boîte de réception) ;
    - arbitrer un backlog, une roadmap, un plan de projet ou une file de tickets sous contrainte (capacité, budget, délai) → sandbox "board" (tableau de cartes) ;
    - structurer une réflexion : note, plan d'action, cahier des charges, process → sandbox "document" ;
    - une connaissance qui se vérifie mieux par une question fermée → "classic_qcm", avec parcimonie ;
-   - programmer → sandbox "code", uniquement pour un poste technique.
-   Un must-have central gagne à être observé dans DEUX gestes différents (l'écrit et l'oral, le calcul et la recommandation). AU PLUS UN step de chacune des sandboxes "crm", "sheet", "inbox", "board" et "persona" par expérience.
-   "response_format" par défaut : "text" pour l'écrit et pour toutes les sandboxes (email, client_reply, document, crm, sheet, inbox, board, persona — même en appel : c'est la transcription qui est notée) ; "video" pour l'oral, TOUJOURS sous forme de mise en situation jouée en direct (règle 4) ; "qcm" pour un QCM ; "code" pour le code. Le recruteur pourra changer ce défaut ; propose le plus pertinent.
+${siActif("code", `   - programmer → sandbox "code", uniquement pour un poste technique.
+`)}   Un must-have central gagne à être observé dans DEUX gestes différents (l'écrit et l'oral, le calcul et la recommandation). AU PLUS UN step de chacune des sandboxes ${listeGuillemets(["crm", "sheet", "inbox", "board", "persona"].filter((k) => !enPause(k)))} par expérience.
+   "response_format" par défaut : "text" pour l'écrit et pour toutes les sandboxes (${SANDBOXES_PROPOSEES.filter((k) => k !== "code").join(", ")} — même en appel : c'est la transcription qui est notée) ; "video" pour l'oral, TOUJOURS sous forme de mise en situation jouée en direct (règle 4) ; "qcm" pour un QCM${siActif("code", ` ; "code" pour le code`)}. Le recruteur pourra changer ce défaut ; propose le plus pertinent.
 6. COMPÉTENCES ET GRILLE DE CHAQUE ÉTAPE.
    a) "skills_tested" : les IDENTIFIANTS (entre crochets dans la liste des compétences validées) des compétences que l'étape teste — une ou plusieurs, de tiers différents quand un même geste s'y prête. Recopie-les TELS QUELS. Jamais une compétence hors de cette liste. "skill_assessed" : le NOM de la compétence principale (celle du premier identifiant).
    b) Pour CHAQUE étape "question" ou "task", décompose ce que « bien réussir » veut dire ici en 2 à 3 SOUS-DIMENSIONS observables — une vraie décomposition, pas une liste de critères plats. Ex. : une réponse à une objection en visio se décompose en "Gestion de l'objection", "Clarté du pitch sous pression", "Orientation vers la suite". Chaque sous-dimension porte "skill_ids" : le ou les identifiants, pris dans "skills_tested", de la compétence qu'elle note.
@@ -143,23 +152,23 @@ ${REGLES_CHECKPOINTS}
    h) Un checkpoint peut porter son propre "skill_id" quand il note une AUTRE compétence de "skills_tested" que sa sous-dimension (ex. : un checkpoint de ton commercial dans un e-mail adressé à un coéquipier).
    Une étape "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement), mais elle porte ses "skills_tested".
 7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
-8. "sandbox_kind" : "email" | "client_reply" | "document" | "code" | "crm" | "sheet" | "inbox" | "board" | "persona" pour les tâches, sinon "none".
+8. "sandbox_kind" : ${SANDBOXES_PROPOSEES.map((k) => `"${k}"`).join(" | ")} pour les tâches, sinon "none".${SANDBOXES_EN_PAUSE.length ? ` Les types ${listeGuillemets(SANDBOXES_EN_PAUSE)} sont INDISPONIBLES : ne les propose jamais.` : ""}
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
    - Pour "email" : config.to (le destinataire : nom, fonction, entreprise), config.subject (l'objet s'il est imposé, par exemple une réponse « Re : … » ; chaîne vide si c'est au candidat de l'écrire — jamais un texte entre crochets), config.context (la fiche remise au candidat : qui est le destinataire, où, pourquoi lui écrire — c'est tout ce que le candidat saura de lui). Les trois sont rédigés dans la langue de la scène quand elle diffère de celle du parcours (voir l'exception de langue en tête)
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
    - Pour "document" : config.document_context
-   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation — et config.crm_mission, l'une de :
+${siActif("crm", `   - Pour "crm" : config.crm_brief — UNE SEULE PHRASE décrivant la situation — et config.crm_mission, l'une de :
        "update" (mettre à jour une fiche après des échanges récents — SDR, support, ADV, assistanat),
        "pipeline_review" (passer en revue un pipeline ou un portefeuille et décider quoi traiter — account executive, sales manager, customer success sur les renouvellements),
        "account_prep" (préparer un rendez-vous à partir de l'historique d'un compte — account manager, customer success, conseil).
      Le pipeline détaillé (fiches, historiques, champs) sera produit dans un second temps ; ne le génère PAS ici.
-   - Pour "sheet" : config.sheet_brief — UNE SEULE PHRASE : quelles données, pour répondre à quelle question de travail, pour qui. Le fichier sera produit dans un second temps ; ne génère PAS les données ici.
+`)}   - Pour "sheet" : config.sheet_brief — UNE SEULE PHRASE : quelles données, pour répondre à quelle question de travail, pour qui. Le fichier sera produit dans un second temps ; ne génère PAS les données ici.
    - Pour "inbox" : config.inbox_brief — UNE SEULE PHRASE : la boîte de qui, quel moment, quelle contrainte de temps. Les messages seront produits dans un second temps ; ne les génère PAS ici.
    - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel, le cas général) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
    - Pour "board" : config.board_brief — UNE SEULE PHRASE : quelles cartes, quelle contrainte, quelle décision — et config.board_mode : "backlog" | "roadmap" | "project" | "tickets". Les cartes seront produites dans un second temps ; ne les génère PAS ici.
-   - Pour "code" : config.code_brief — UNE SEULE PHRASE décrivant la tâche de programmation. L'exercice complet (langage, squelette, cas de test) sera produit dans un second temps ; ne génère PAS les tests ici.
-   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information d'un tiers et à la CONSIGNER, ou à SUIVRE des opportunités ou des comptes dans un outil — vente, SDR, business developer, account management, customer success, support/SAV, ADV, ops, office management, assistanat.
-   QUAND CHOISIR "sheet" : le poste demande de lire des chiffres pour décider — opérations, supply, customer success, sales ops, product, finance, marketing, RH (indicateurs), contrôle de gestion.
+${siActif("code", `   - Pour "code" : config.code_brief — UNE SEULE PHRASE décrivant la tâche de programmation. L'exercice complet (langage, squelette, cas de test) sera produit dans un second temps ; ne génère PAS les tests ici.
+`)}${siActif("crm", `   QUAND CHOISIR "crm" : le poste consiste, au moins en partie, à RECEVOIR de l'information d'un tiers et à la CONSIGNER, ou à SUIVRE des opportunités ou des comptes dans un outil — vente, SDR, business developer, account management, customer success, support/SAV, ADV, ops, office management, assistanat.
+`)}   QUAND CHOISIR "sheet" : le poste demande de lire des chiffres pour décider — opérations, supply, customer success, sales ops, product, finance, marketing, RH (indicateurs), contrôle de gestion.
    QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — office management, opérations, customer success, support, assistanat, gestion de projet, RH généraliste, encadrement d'équipe.
    QUAND CHOISIR "persona" : le poste se joue en conversation — vente, SDR, account management, customer success, support, recrutement, management, négociation achats. Préfère-le à une vidéo dès que la compétence se prouve en réagissant à l'autre (objection, information à obtenir, désaccord) plutôt qu'en parlant seul.
    QUAND CHOISIR "board" : le poste arbitre des demandes sous contrainte — product, gestion de projet, opérations, support (file de tickets), marketing (plan de campagnes).
@@ -235,7 +244,7 @@ const REGLE_FIL_ROUGE = `10. FIL ROUGE — décide s'il en faut un, et dis-le da
    NE L'ACTIVE PAS quand les compétences à mesurer sont indépendantes, ou quand les enchaîner forcerait un scénario artificiel : un poste d'expertise testé sur des cas distincts, un parcours dominé par des questions de connaissance.
    S'il est actif :
    - "contexte_candidat" : 3 à 5 phrases, dans la langue du parcours, lues par le candidat AVANT la première étape — qui il est dans l'entreprise, quel jour, quelle situation, avec qui il va travailler. Aucun indice sur ce qui est évalué.
-   - "univers" : la fiche de cohérence, EN FRANÇAIS, pour les concepteurs qui écriront ensuite le détail des mises en situation (fiches CRM, tableur, boîte de réception) — noms des entreprises et des personnes, leurs fonctions, les chiffres et dates clés, ce qui s'est passé avant. Tout ce qui doit rester IDENTIQUE d'une étape à l'autre.
+   - "univers" : la fiche de cohérence, dans la LANGUE DU RECRUTEUR (la même que les checkpoints, voir la consigne de langue en tête) — il la relit et la retouche dans son tableau de bord —, pour les concepteurs qui écriront ensuite le détail des mises en situation (fiches CRM, tableur, boîte de réception) — noms des entreprises et des personnes, leurs fonctions, les chiffres et dates clés, ce qui s'est passé avant. Tout ce qui doit rester IDENTIQUE d'une étape à l'autre.
    - Chaque énoncé s'appuie sur ce qui précède sans le répéter, et reste compréhensible seul.
    S'il n'est pas actif : "fil_rouge": { "actif": false }.`;
 
@@ -245,6 +254,15 @@ function normaliserFilRouge(fr) {
   const contexte = String(fr.contexte_candidat || "").trim();
   if (!contexte) return null;
   return { contexte_candidat: contexte.slice(0, 1500), univers: String(fr.univers || "").trim().slice(0, 4000) };
+}
+
+// Langue des notes réservées au correcteur dans une scène de 2e passe
+// (analysis_notes, triage_notes, success_signals). Le candidat ne les reçoit
+// jamais, le RECRUTEUR les relit et les retouche dans l'éditeur de l'étape :
+// elles suivent sa langue, comme les checkpoints. Elles étaient imposées « EN
+// FRANÇAIS » jusqu'au 09/10/2026 — illisibles pour un recruteur en anglais.
+function enLangueRecruteur(uiLocale) {
+  return `EN ${LOCALE_NAMES_FR[coerceUiLocale(uiLocale)].toUpperCase()} (la langue du recruteur, qui le relit dans son tableau de bord)`;
 }
 
 // Bloc d'un prompt de 2e passe : la fiche de cohérence du parcours. Vide sans
@@ -276,7 +294,7 @@ const SCHEMA_STEP = `    {
       "title": "Titre court",
       "prompt": "Énoncé lu tel quel au candidat (vouvoiement)",
       "response_format": "text|video|qcm|choice",
-      "sandbox_kind": "none|email|client_reply|document|code|crm|sheet|inbox|board|persona",
+      "sandbox_kind": "${["none", ...SANDBOXES_PROPOSEES].join("|")}",
       "ai_assistant_allowed": true,
       "config": {},
       "skills_tested": ["h:identifiant-recopie-de-la-liste"],
@@ -371,7 +389,7 @@ const MISSIONS_CRM = {
   account_prep: `"account_prep" — PRÉPARER UN RENDEZ-VOUS avec un compte (focus_record). Son historique compte 5 à 7 activités étalées sur plusieurs mois (60 à 140 mots chacune) : ce qui a été promis, ce qui a coincé, qui décide, ce qui a changé. Les "fields" forment le brief de préparation : faits clés (factuels) et enjeux, risques, objectifs du rendez-vous (jugement). Ajoute 3 à 4 AUTRES fiches légères pour que le pipeline soit crédible.`,
 };
 
-function buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }) {
+function buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -409,7 +427,7 @@ RÈGLES DE CONCEPTION :
    Il faut AU MOINS 2 champs "factual" et AU MOINS 2 champs "judgment".
    Un champ "select" dont les options sont des fiches du pipeline reprend EXACTEMENT leur "name".
    La fiche comporte D'OFFICE un bloc « prochaine action planifiée » (type, date, description) : ne crée PAS de champ « prochaine action », il ferait doublon.
-4. PIÈGE OBLIGATOIRE — exactement UN : une information CONTRADICTOIRE entre deux activités (ou entre une activité et une propriété de la fiche) — l'e-mail annonce un chiffre, l'appel plus récent en annonce un autre. Elle doit porter sur un champ "factual", et l'"expected" de ce champ doit être la valeur RÉSOLUE (celle qui fait foi). La règle de résolution doit être déductible (une date, une mention « finalement », « après arbitrage », « je corrige »), jamais arbitraire. "sources" du piège : les identifiants des deux activités.
+4. PIÈGE OBLIGATOIRE — exactement UN : une information CONTRADICTOIRE entre deux activités (ou entre une activité et une propriété de la fiche) — l'e-mail annonce un chiffre, l'appel plus récent en annonce un autre. Elle doit porter sur un champ "factual", et l'"expected" de ce champ doit être la valeur RÉSOLUE (celle qui fait foi). La règle de résolution doit être déductible (une date, une mention « finalement », « après arbitrage », « je corrige »), jamais arbitraire. "sources" du piège : les identifiants des deux activités. Le piège n'est jamais montré au candidat : sa "description", sa "resolution" et son "expected_signal" sont rédigés ${enLangueRecruteur(uiLocale)}.
 5. Les valeurs attendues doivent être TEXTUELLEMENT PRÉSENTES dans le pipeline. N'invente jamais un attendu que le candidat ne pourrait pas trouver.
 6. Pour un champ "select", les options sont un vocabulaire métier plausible (4 à 5 options) ou les noms des fiches, et l'attendu est EXACTEMENT l'une des options.
 7. Le type "date" est réservé aux échéances DATÉES ; son "expected" est au format jj/mm/aaaa et cette date figure dans le pipeline. Une échéance vague (« fin juin », « avant l'été ») prend le type "text".
@@ -456,7 +474,7 @@ Types de champ autorisés : "text", "number", "select", "textarea", "date".`;
 // détourne le candidat pressé. Les totaux exacts ne sont PAS demandés au
 // modèle : ils sont recalculés en JS pour le correcteur (sheetReperesCalcules),
 // parce qu'un modèle de langage additionne mal trente lignes.
-function buildSheetScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }) {
+function buildSheetScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -483,7 +501,7 @@ RÈGLES DE CONCEPTION :
 2. CE QUE LES DONNÉES CACHENT : construis les chiffres pour qu'une ANALYSE ÉLÉMENTAIRE (un total, un taux, une moyenne par catégorie, une évolution) révèle UN constat décisif qu'une lecture en diagonale ne voit pas — et qu'un indicateur trompeur (le plus gros volume, la catégorie qui « crie ») détourne le candidat pressé. Exemples : la région qui vend le plus est celle qui perd le plus en retours ; le commercial au plus gros chiffre d'affaires a la pire marge ; la semaine record cache une hausse des annulations.
    Le constat doit être VRAI dans les données que tu écris : vérifie tes calculs ligne par ligne. Un constat faux pénalise tous les candidats.
 3. La difficulté est l'analyse, pas le nettoyage : pas de piège arithmétique, pas de cellule vide au hasard, pas de doublon caché — sauf si le poste est précisément un poste de qualité de données.
-4. "analysis_notes" — EN FRANÇAIS, lu par le seul correcteur : ce que les données permettent de voir, quel calcul le montre, quel indicateur trompe, et ce qu'une bonne recommandation en tire. Décris-le en ordre de grandeur (« le Sud retourne environ deux fois plus que les autres régions ») : les totaux exacts sont recalculés automatiquement à part.
+4. "analysis_notes" — ${enLangueRecruteur(uiLocale)}, lu par le correcteur : ce que les données permettent de voir, quel calcul le montre, quel indicateur trompe, et ce qu'une bonne recommandation en tire. Décris-le en ordre de grandeur (« le Sud retourne environ deux fois plus que les autres régions ») : les totaux exacts sont recalculés automatiquement à part.
 5. "step_prompt" : 2 à 4 phrases. La situation, le destinataire, et la question à trancher (« Votre directrice veut savoir sur quelle région concentrer le budget du T4 »). Il ne livre pas le constat, n'indique pas quel calcul faire, ne nomme pas l'indicateur trompeur. Il précise que le candidat peut calculer directement dans le tableur.
 6. "deliverable_label" : le libellé du champ de synthèse, dans la langue du parcours (« Votre recommandation à Claire Dubois — 5 à 8 lignes »).
 7. "file_name" : un nom de fichier réaliste (« Suivi_retours_T3.xlsx »).
@@ -506,7 +524,7 @@ Réponds UNIQUEMENT avec un JSON valide :
 // prompt impose la composition qui rend le tri révélateur : une urgence
 // discrète, du bruit insistant, une délégation, un message sans suite, et deux
 // messages qui se répondent.
-function buildInboxScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }) {
+function buildInboxScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -536,7 +554,7 @@ RÈGLES DE CONCEPTION :
    - 1 message qui n'appelle aucune action ;
    - au moins 2 messages qui se RÉPONDENT ou se contredisent : une information du message 2 change la priorité du message 5.
 2. Le métier donne le contenu : ce sont les demandes que CE poste reçoit dans CETTE entreprise, pas des demandes génériques de bureau.
-3. "triage_notes" — EN FRANÇAIS, lu par le seul correcteur : pour CHAQUE message, la priorité qu'un bon professionnel retiendrait ("urgent" | "today" | "week" | "none"), pourquoi en une phrase, et "trap": true pour les messages conçus pour tromper (urgence discrète, bruit, contradiction). Un autre tri peut se défendre : écris le raisonnement, pas un barème.
+3. "triage_notes" — ${enLangueRecruteur(uiLocale)}, lu par le correcteur : pour CHAQUE message, la priorité qu'un bon professionnel retiendrait ("urgent" | "today" | "week" | "none"), pourquoi en une phrase, et "trap": true pour les messages conçus pour tromper (urgence discrète, bruit, contradiction). Un autre tri peut se défendre : écris le raisonnement, pas un barème.
 4. "step_prompt" : 2 à 3 phrases. La situation (qui, quand, quelle contrainte de temps — « vous avez une réunion à 9h30 ») et la consigne : trier toute la boîte, décider d'une action pour chaque message, rédiger les réponses et délégations nécessaires. Il ne désigne aucun message.
 5. "owner" : la personne dont c'est la boîte (« Vous — Office Manager chez Kinéo ») et "now" : le moment (« Lundi, 8h40 »), dans la langue du parcours.
 6. Langue de la scène : les messages sont rédigés dans la langue de leurs expéditeurs (voir l'exception en tête). Aucun emoji.
@@ -710,8 +728,8 @@ function critereCroisementSources(uiLocale, skillIds) {
 const RE_CROISEMENT = /crois|source|cross.?check|bronn/i;
 
 // Génère le pipeline complet d'un step "crm" (2e passe).
-async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, onEvent, model, filRouge }) {
-  const prompt = buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge });
+async function generateCrmScenario({ title, description, criteria, companyContext, step, locale, uiLocale, onEvent, model, filRouge }) {
+  const prompt = buildCrmScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const scan = onEvent ? makeCrmScanner(onEvent) : null;
@@ -744,8 +762,8 @@ async function generateCrmScenario({ title, description, criteria, companyContex
 // le prompt exige que le constat caché soit VRAI dans les chiffres écrits, et
 // un constat faux pénalise tous les candidats sans se voir avant la mise en
 // ligne — le même enjeu que les sorties attendues d'un exercice de code.
-async function generateSheetScenario({ title, description, criteria, companyContext, step, locale, onEvent, model, filRouge }) {
-  const prompt = buildSheetScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge });
+async function generateSheetScenario({ title, description, criteria, companyContext, step, locale, uiLocale, onEvent, model, filRouge }) {
+  const prompt = buildSheetScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const response = await streamCompletion({
@@ -773,8 +791,8 @@ async function generateSheetScenario({ title, description, criteria, companyCont
 }
 
 // Génère la boîte de réception d'un step "inbox" (2e passe).
-async function generateInboxScenario({ title, description, criteria, companyContext, step, locale, onEvent, model, filRouge }) {
-  const prompt = buildInboxScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge });
+async function generateInboxScenario({ title, description, criteria, companyContext, step, locale, uiLocale, onEvent, model, filRouge }) {
+  const prompt = buildInboxScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge });
   let lastErr = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const response = await streamCompletion({
@@ -805,7 +823,7 @@ async function generateInboxScenario({ title, description, criteria, companyCont
 // personnage fermé à tout est injuste. Le prompt impose ce qui fait un bon
 // partenaire de jeu : une raison d'être là, des objections qui tombent face à
 // une vraie réponse, et des informations qui ne sortent que si on les cherche.
-function buildPersonaScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }) {
+function buildPersonaScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -815,6 +833,8 @@ function buildPersonaScenarioPrompt({ title, description, criteria, companyConte
   const mode = step.config?.persona_mode === "chat" ? "chat" : "call";
 
   return `${consigneLangueContenu(locale)}
+
+LANGUE DE LA FICHE CACHÉE — elle prime sur la consigne ci-dessus pour les champs qui suivent. Ce que le candidat voit ou entend ("step_prompt", "context", "opening_message", "name", "role", "company") suit la consigne ci-dessus. Ce qu'il ne voit JAMAIS — "personality", "goals", "hidden_info", "objections", "red_lines", "success_signals" — est rédigé ${enLangueRecruteur(uiLocale)} : c'est lui qui relit et retouche cette fiche. L'IA qui jouera le personnage la restitue d'elle-même dans la langue du personnage ; n'écris donc pas ces champs dans la langue de la scène.
 
 Tu conçois un PERSONNAGE pour une évaluation de recrutement. Le candidat va ${mode === "call" ? "l'APPELER (ou être appelé) : il parle, le personnage lui répond à voix haute" : "échanger avec lui PAR ÉCRIT, dans une messagerie"}. Le personnage est joué par une IA qui suivra ta fiche à la lettre.
 
@@ -832,7 +852,7 @@ RÈGLES DE CONCEPTION :
 3. INFORMATIONS CACHÉES ("hidden_info") : 2 à 4 faits décisifs que le personnage ne livre QUE si le candidat pose la question qui y mène (le vrai blocage, le budget réel, qui décide vraiment, ce qui s'est passé avec le concurrent). Chacune dit ce qu'elle est ET quel genre de question la fait sortir.
 4. OBJECTIONS ("objections") : 2 à 4, crédibles dans ce métier, qui tombent face à une vraie réponse — pas devant une formule.
 5. LIMITES ("red_lines") : 1 à 3 choses que le personnage n'accepte pas (une remise au-delà d'un seuil, un engagement sans validation…).
-6. SIGNAUX DE RÉUSSITE ("success_signals") — EN FRANÇAIS, lus par le seul correcteur : 3 à 5 comportements qui distinguent une bonne conversation (a fait sortir telle information, a reformulé l'objection, a obtenu un engagement précis). Atteignables avec la seule information de la scène.
+6. SIGNAUX DE RÉUSSITE ("success_signals") — ${enLangueRecruteur(uiLocale)}, lus par le correcteur : 3 à 5 comportements qui distinguent une bonne conversation (a fait sortir telle information, a reformulé l'objection, a obtenu un engagement précis). Atteignables avec la seule information de la scène.
 7. "context" : ce que le CANDIDAT sait en entrant — 2 à 4 phrases, vouvoiement : qui il est, qui est l'interlocuteur, pourquoi cette conversation, ce qu'il doit obtenir. Sans les informations cachées.
 8. "opening_message" : la première réplique du personnage s'il décroche ou ouvre l'échange (1 à 2 phrases, ${mode === "call" ? "parlées, sans mise en forme" : "écrites"}). Chaîne vide si c'est au candidat de parler en premier (appel à froid, message de prospection).
 9. "language" : le code de la langue que parle le personnage (fr, en, nl…) — celle de la scène, voir l'exception en tête. "accent" : son pays d'origine, en deux lettres (BE, FR, NL, GB, US…) — il choisit la voix de l'appel : un client gantois est "nl" + "BE", un Bruxellois francophone "fr" + "BE". "gender" : "f" ou "m", cohérent avec le prénom.
@@ -864,7 +884,7 @@ Réponds UNIQUEMENT avec un JSON valide :
 }
 
 // ─── Prompt de la 2e passe : le tableau d'un step "board" ─────────────────────
-function buildBoardScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }) {
+function buildBoardScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
   const companyBlock = [
     ctx.description && `Description : ${ctx.description}`,
@@ -896,7 +916,7 @@ RÈGLES DE CONCEPTION :
 2. CONTRAINTE ("constraint") : une seule phrase chiffrée qui rend IMPOSSIBLE de tout faire (« Capacité du sprint : 20 jours-développeur »). Les efforts des cartes doivent la dépasser nettement.
 3. Des cartes qui se départagent : une demande bruyante d'un gros client ou d'un dirigeant qui pèse moins qu'elle n'en a l'air, une dette ou un risque discret mais critique, une dépendance qui impose un ordre, une carte qui ne sert personne, deux cartes qui font doublon.
 4. COLONNES ("columns") : 3 à 4, dans la langue du parcours, du plus urgent au rejet (par exemple ${exemples[mode]}).
-5. "triage_notes" — EN FRANÇAIS, lu par le seul correcteur : pour chaque carte, la colonne qu'un bon professionnel retiendrait (son nom exact), pourquoi en une phrase, et "trap": true pour les cartes conçues pour tromper. Un autre arbitrage se défend : écris le raisonnement, pas un barème.
+5. "triage_notes" — ${enLangueRecruteur(uiLocale)}, lu par le correcteur : pour chaque carte, la colonne qu'un bon professionnel retiendrait (son nom exact), pourquoi en une phrase, et "trap": true pour les cartes conçues pour tromper. Un autre arbitrage se défend : écris le raisonnement, pas un barème.
 6. "step_prompt" : 2 à 3 phrases : la situation, la décision attendue, et la demande de justifier les choix. Il ne désigne aucune carte.
 7. Identifiants "c1", "c2"… Langue du parcours pour tout ce que voit le candidat. Aucun emoji.
 
@@ -939,9 +959,9 @@ async function generateSceneJson({ prompt, maxTokens, model, normaliser }) {
 }
 
 // Génère le personnage d'un step "persona" (2e passe).
-async function generatePersonaScenario({ title, description, criteria, companyContext, step, locale, onEvent, model, filRouge }) {
+async function generatePersonaScenario({ title, description, criteria, companyContext, step, locale, uiLocale, onEvent, model, filRouge }) {
   const res = await generateSceneJson({
-    prompt: buildPersonaScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }),
+    prompt: buildPersonaScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }),
     maxTokens: 6000,
     model,
     normaliser: (brut) => normaliserPersona({ ...brut, mode: brut.mode || step.config?.persona_mode }),
@@ -952,9 +972,9 @@ async function generatePersonaScenario({ title, description, criteria, companyCo
 }
 
 // Génère le tableau d'un step "board" (2e passe).
-async function generateBoardScenario({ title, description, criteria, companyContext, step, locale, onEvent, model, filRouge }) {
+async function generateBoardScenario({ title, description, criteria, companyContext, step, locale, uiLocale, onEvent, model, filRouge }) {
   const res = await generateSceneJson({
-    prompt: buildBoardScenarioPrompt({ title, description, criteria, companyContext, step, locale, filRouge }),
+    prompt: buildBoardScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }),
     maxTokens: 8000,
     model,
     normaliser: normaliserTableau,
@@ -1449,6 +1469,20 @@ function normaliserEtape(s, competences) {
   return { ...s, skills_tested, sub_dimensions };
 }
 
+/**
+ * Garde-fou des types en pause : si le modèle en propose un malgré la consigne,
+ * l'étape retombe en tâche écrite — même repli qu'une 2e passe ratée. Une étape
+ * qui l'avait DÉJÀ (simulation antérieure à la pause) le garde : une retouche
+ * ne doit pas casser une scène existante. Modifie l'étape en place.
+ */
+function neutraliserPause(s, kindAvant = null) {
+  if (!enPause(s?.sandbox_kind) || s.sandbox_kind === kindAvant) return s;
+  s.sandbox_kind = "none";
+  if (s.response_format === "code") s.response_format = "text";
+  if (s.config) for (const cle of ["crm_brief", "crm_mission", "code_brief"]) delete s.config[cle];
+  return s;
+}
+
 /** Vue « base » d'une étape en mémoire, pour calculerCouverture. */
 function formeBase(s) {
   return { ...s, criteria: s.sub_dimensions || s.criteria || [], config: { ...(s.config || {}), skills_tested: s.skills_tested || [] } };
@@ -1689,11 +1723,12 @@ export async function generateExperienceContent({ title, description, criteria, 
         // contenu complet. Chaque passe ne touche que son étape : rien ne les
         // oblige à attendre l'une après l'autre.
         await Promise.all((parsed.steps || []).map(async (s) => {
+          neutraliserPause(s);
           // Tableur et boîte de réception : même forme, même repli.
           const scene = SCENES_DEUXIEME_PASSE[s.sandbox_kind];
           if (scene) {
             onEvent?.({ kind: scene.evenement, label: s.title || null });
-            const res = await scene.generer({ title, description, criteria, companyContext, step: s, locale, onEvent, filRouge })
+            const res = await scene.generer({ title, description, criteria, companyContext, step: s, locale, uiLocale, onEvent, filRouge })
               .catch((e) => ({ success: false, error: e.message }));
             appliquerScene(s, scene, res);
             if (res.usage) extraUsages.push(res.usage);
@@ -1724,7 +1759,7 @@ export async function generateExperienceContent({ title, description, criteria, 
           }
           if (s.sandbox_kind !== "crm") return;
           onEvent?.({ kind: "crm_start", label: s.title || null });
-          const scenario = await generateCrmScenario({ title, description, criteria, companyContext, step: s, locale, onEvent, filRouge })
+          const scenario = await generateCrmScenario({ title, description, criteria, companyContext, step: s, locale, uiLocale, onEvent, filRouge })
             .catch((e) => ({ success: false, error: e.message }));
           if (!scenario.success) {
             // Pas de scénario = pas de sandbox : l'étape retombe en tâche texte
@@ -2211,7 +2246,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
     const filRouge = step?.experiences?.generated_from?.fil_rouge || null;
     if (!step || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
 
-    // 1 crédit par réécriture (CREDIT_COSTS.step_regeneration) : contrôlé ici,
+    // 2 crédits par réécriture (CREDIT_COSTS.step_regeneration) : contrôlé ici,
     // avant le modèle, débité une fois l'étape écrite.
     const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
@@ -2289,6 +2324,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
       sub_dimensions: grilleFournie ? (regenere.sub_dimensions || regenere.criteria) : (step.criteria || []),
     }, competences);
     const nomsCompetences = new Map(competences.map((c) => [c.id, c.name]));
+    neutraliserPause(nouveau, step.sandbox_kind);
 
     // ── config : on FUSIONNE, on ne remplace pas ─────────────────────────────
     // Le modèle ne renvoie que ce qu'il a l'intention de changer, et il a toutes
@@ -2325,6 +2361,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
           companyContext,
           step: { ...nouveau, config: { ...config } },
           locale: coerceExperienceLocale(job.experience_locale),
+          uiLocale,
           model,
           filRouge,
         }).catch((e) => ({ success: false, error: e.message }));
@@ -2360,6 +2397,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
           // repartait avec des sources en français, au milieu d'un parcours qui,
           // lui, était bien en néerlandais.
           locale: coerceExperienceLocale(job.experience_locale),
+          uiLocale,
           model,
           filRouge,
         });
@@ -2458,7 +2496,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
 // par la régénération d'étape : mêmes règles que tout le reste, et c'est elle
 // qui facture son crédit.
 //
-// 1 crédit dans les deux cas (CREDIT_COSTS.step_regeneration) : c'est une
+// 2 crédits dans les deux cas (CREDIT_COSTS.step_regeneration) : c'est une
 // retouche assistée d'une étape, au même titre qu'une réécriture.
 export async function runCouvertureCompetence(experienceId, skillId) {
   try {

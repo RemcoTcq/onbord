@@ -163,14 +163,16 @@ Analyse ce contenu et extrait les informations suivantes. Réponds UNIQUEMENT en
 Si une information n'est pas clairement identifiable dans le contenu, laisse la valeur vide "".`;
 
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      // Haiku 5.5 : ni `temperature` (refusée, 400) ni réflexion (activée par
+      // défaut, elle peut consommer le budget et ne rendre aucun texte).
+      model: "claude-haiku-5-5",
       max_tokens: 600,
-      temperature: 0.1,
+      thinking: { type: "disabled" },
       system: "Tu es un assistant expert en analyse d'entreprises. Réponds UNIQUEMENT avec un JSON valide.",
       messages: [{ role: "user", content: prompt }],
     });
 
-    const textResponse = response.content[0].text;
+    const textResponse = response.content.filter((c) => c.type === "text").map((c) => c.text).join("");
     const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Réponse IA invalide");
 

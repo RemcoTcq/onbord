@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { runExperienceGeneration, runStepRegeneration, runCouvertureCompetence } from "@/lib/experienceGeneration";
 import { chargerExperienceCourante } from "@/lib/experienceChat";
 import { versionModifiable } from "@/lib/experienceVersion";
+import { cleResume, rediger as redigerResumes } from "@/lib/resumeEtapes";
+import { coerceUiLocale, coerceExperienceLocale } from "@/lib/i18n/config";
+import { inventaire as inventaireNotes, traduire as traduireNotes } from "@/lib/notesRecruteur";
+import { cleCritere, decrire as decrireCriteresIA } from "@/lib/descriptionsCriteres";
+import { ajouterUsageEcran } from "@/lib/usageEcran";
 
 // ─── Génération ───────────────────────────────────────────────────────────────
 // Le pipeline (prompts, appels Claude, versionnage, insertion) vit dans
@@ -143,6 +148,205 @@ export async function updateFilRouge(experienceId, { contexte_candidat, univers 
     return { success: true, forked: v.forked, version: v.version, fil_rouge: filRouge };
   } catch (err) {
     console.error("updateFilRouge error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Résumé des étapes, pour les blocs de la vue d'ensemble ──────────────────
+// Lus dans le cache (generated_from.recaps), rédigés par Haiku pour les étapes
+// qui n'en ont pas ou dont le contenu a changé (lib/resumeEtapes.js). Le cache
+// est réécrit tel quel : une étape supprimée en sort, et l'écriture ne passe pas
+// par versionModifiable — elle ne touche à rien de ce que voit un candidat.
+// Un échec du modèle n'est pas une erreur pour l'écran : les blocs gardent
+// leur titre, et le prochain affichage réessaie.
+export async function resumerEtapes(experienceId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: exp } = await supabase
+      .from("experiences")
+      .select("id, generated_from, jobs!inner(user_id)")
+      .eq("id", experienceId)
+      .single();
+    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const [{ data: steps }, { data: profil }] = await Promise.all([
+      supabase.from("experience_steps")
+        .select("id, title, prompt, sandbox_kind, response_format")
+        .eq("experience_id", experienceId).order("order_index"),
+      supabase.from("users").select("ui_locale").eq("id", user.id).single(),
+    ]);
+    const uiLocale = coerceUiLocale(profil?.ui_locale);
+    const cache = exp.generated_from?.recaps || {};
+
+    const recaps = {};
+    const aRediger = [];
+    for (const s of steps || []) {
+      const cle = cleResume(s, uiLocale);
+      if (cache[s.id]?.cle === cle && cache[s.id]?.texte) recaps[s.id] = cache[s.id];
+      else aRediger.push({ ...s, cle });
+    }
+
+    let usage = null;
+    if (aRediger.length) {
+      try {
+        const res = await redigerResumes(aRediger, uiLocale);
+        usage = res.usage;
+        for (const s of aRediger) {
+          const texte = res.resumes.get(s.id);
+          if (texte) recaps[s.id] = { texte, cle: s.cle };
+        }
+      } catch (err) {
+        console.error("resumerEtapes : rédaction en échec (non bloquant) —", err.message);
+      }
+    }
+
+    const inchange = Object.keys(recaps).length === Object.keys(cache).length
+      && Object.entries(recaps).every(([id, r]) => cache[id]?.cle === r.cle);
+    if (!inchange) {
+      const precedent = exp.generated_from?.recaps_usage || null;
+      const recaps_usage = usage
+        ? {
+            model: usage.model,
+            calls: (precedent?.calls || 0) + 1,
+            input_tokens: (precedent?.input_tokens || 0) + (usage.input_tokens || 0),
+            output_tokens: (precedent?.output_tokens || 0) + (usage.output_tokens || 0),
+            cost_usd: Number(((precedent?.cost_usd || 0) + (usage.cost_usd || 0)).toFixed(6)),
+          }
+        : precedent;
+      await supabase
+        .from("experiences")
+        .update({ generated_from: { ...(exp.generated_from || {}), recaps, recaps_usage } })
+        .eq("id", experienceId);
+    }
+
+    return { success: true, recaps: Object.fromEntries(Object.entries(recaps).map(([id, r]) => [id, r.texte])) };
+  } catch (err) {
+    console.error("resumerEtapes error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Description des sous-compétences d'une étape ────────────────────────────
+// Pour les cartes de l'onglet Scoring (lib/descriptionsCriteres.js). Lues dans
+// le cache, rédigées pour les critères neufs ou modifiés. Rend, par critère, son
+// nom et sa description : l'écran n'affiche une description que si le nom
+// correspond encore (un critère renommé à l'écran attend son enregistrement).
+// Un échec n'est jamais une erreur pour l'écran : les cartes restent sans texte.
+export async function decrireCriteres(stepId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: step } = await supabase
+      .from("experience_steps")
+      .select("id, title, prompt, criteria, experience_id, experiences!inner(id, generated_from, jobs!inner(user_id))")
+      .eq("id", stepId)
+      .single();
+    if (!step || step.experiences?.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+
+    const criteres = (step.criteria || []).filter((c) => Array.isArray(c?.checkpoints) && c.checkpoints.some((cp) => (cp?.description || "").trim()));
+    if (!criteres.length) return { success: true, descriptions: [] };
+
+    const { data: profil } = await supabase.from("users").select("ui_locale").eq("id", user.id).single();
+    const uiLocale = coerceUiLocale(profil?.ui_locale);
+    const generatedFrom = step.experiences.generated_from || {};
+    const cache = generatedFrom.descriptions_criteres || {};
+    const cle = (c) => `${step.id}:${cleCritere(c, uiLocale)}`;
+
+    const manquants = criteres.filter((c) => !cache[cle(c)]);
+    if (manquants.length) {
+      try {
+        const { descriptions, usage } = await decrireCriteresIA({ titreEtape: step.title, consigne: step.prompt, criteres: manquants }, uiLocale);
+        // Le cache ne garde, pour cette étape, que les critères actuels.
+        const neuf = Object.fromEntries(Object.entries(cache).filter(([k]) => !k.startsWith(`${step.id}:`)));
+        for (const c of criteres) if (cache[cle(c)]) neuf[cle(c)] = cache[cle(c)];
+        manquants.forEach((c, i) => { if (descriptions[i]) neuf[cle(c)] = descriptions[i]; });
+        await supabase
+          .from("experiences")
+          .update({ generated_from: { ...generatedFrom, descriptions_criteres: neuf } })
+          .eq("id", step.experience_id);
+        Object.assign(cache, neuf);
+        await ajouterUsageEcran(supabase, step.experience_id, usage);
+      } catch (err) {
+        console.error("decrireCriteres : rédaction en échec (non bloquant) —", err.message);
+      }
+    }
+
+    return { success: true, descriptions: criteres.map((c) => ({ name: c.name || "", texte: cache[cle(c)] || "" })) };
+  } catch (err) {
+    console.error("decrireCriteres error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── Les notes du recruteur, dans sa langue ──────────────────────────────────
+// Appelée à l'ouverture de la simulation (vue d'ensemble, page d'une étape).
+// Détection gratuite ; traduction (Haiku 5.5, ≈ 0,001 $) seulement si un champ
+// lu par le seul recruteur est dans une autre langue que son interface — les
+// simulations générées avant le 09/10/2026, ou un recruteur qui a changé de
+// langue (lib/notesRecruteur.js). Non facturée : c'est notre erreur, pas une
+// demande du recruteur.
+//
+// Écrite EN PLACE, sans nouvelle version : rien de ce que voit le candidat ne
+// change, et le sens des notes non plus. Un candidat déjà engagé garde la même
+// scène ; seul l'outil de notation et le personnage relisent une note traduite.
+export async function harmoniserNotesRecruteur(jobId) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const { data: job } = await supabase.from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+    if (!job) return { success: false, error: "Accès refusé" };
+
+    const { experience, steps } = await chargerExperienceCourante(supabase, jobId);
+    if (!experience) return { success: true, changed: 0 };
+
+    const { data: profil } = await supabase.from("users").select("ui_locale").eq("id", user.id).single();
+    const cible = coerceUiLocale(profil?.ui_locale);
+
+    // chargerExperienceCourante ne rend pas toujours `config` complet : on
+    // relit les étapes entières pour écrire sans rien perdre.
+    const { data: completes } = await supabase
+      .from("experience_steps").select("id, sandbox_kind, config").eq("experience_id", experience.id);
+    const { data: exp } = await supabase
+      .from("experiences").select("generated_from").eq("id", experience.id).single();
+
+    const aTraduire = inventaireNotes(completes || steps, exp?.generated_from?.fil_rouge, cible);
+    if (!aTraduire.length) return { success: true, changed: 0 };
+
+    const { traductions, usage } = await traduireNotes(aTraduire.map((x) => x.valeur), cible);
+
+    // Applique, étape par étape, toutes les traductions d'une même étape.
+    const configs = new Map((completes || []).map((s) => [s.id, s.config || {}]));
+    let univers = null;
+    aTraduire.forEach((x, i) => {
+      if (x.univers) { univers = traductions[i]; return; }
+      configs.set(x.stepId, x.ecrire(configs.get(x.stepId), traductions[i]));
+    });
+    const touchees = [...new Set(aTraduire.filter((x) => x.stepId).map((x) => x.stepId))];
+    for (const id of touchees) {
+      // updated_at bouge : un éditeur déjà ouvert sur l'étape repart de la traduction.
+      const { error } = await supabase.from("experience_steps")
+        .update({ config: configs.get(id), updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    }
+
+    if (univers) {
+      await supabase.from("experiences")
+        .update({ generated_from: { ...(exp.generated_from || {}), fil_rouge: { ...exp.generated_from.fil_rouge, univers } } })
+        .eq("id", experience.id);
+    }
+    await ajouterUsageEcran(supabase, experience.id, usage);
+
+    return { success: true, changed: aTraduire.length };
+  } catch (err) {
+    // Jamais bloquant : l'écran s'ouvre avec les notes telles quelles.
+    console.error("harmoniserNotesRecruteur error:", err);
     return { success: false, error: err.message };
   }
 }

@@ -6,6 +6,9 @@ export const AI_PRICING = {
   "claude-opus-5-5": { input: 4.0, output: 20.0 },
   "claude-sonnet-5-5": { input: 2.0, output: 10.0 },
   "claude-haiku-4-5": { input: 1.0, output: 5.0 },
+  // Jusqu'à 100 000 tokens de prompt ; au-delà 0,50 / 2,50 $ — les appels
+  // qui l'utilisent (résumés des étapes) restent très en dessous.
+  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
 };
 
 /**

@@ -33,7 +33,12 @@ import anthropic from "@/lib/anthropic";
 // l'un de cinq emplacements ne demande pas le modèle de conception. Cette passe
 // tourne AVANT chaque réponse du chat, donc sa latence s'ajoute à celle du
 // tour — c'est le critère qui a tranché.
-const EXTRACTION_MODEL = "claude-haiku-4-5";
+//
+// Haiku 5.5 depuis le 09/10/2026 (dix fois moins cher que 4.5). Deux réglages
+// imposés par ce modèle : pas de `temperature` (refusée, 400) et pas de
+// réflexion — activée par défaut, elle peut consommer tout le budget et ne
+// rendre aucun texte ; l'extraction, non bloquante, échouerait alors en silence.
+const EXTRACTION_MODEL = "claude-haiku-5-5";
 
 // Interrupteur d'exploitation, comme ceux de la génération : sans extraction,
 // la fiche cesse de se remplir et le chat retombe sur son comportement d'avant.
@@ -245,7 +250,7 @@ export async function extraireDecouverte({ fiche, fil, titrePoste }) {
     const reponse = await anthropic.messages.create({
       model: EXTRACTION_MODEL,
       max_tokens: 1500,
-      temperature: 0,
+      thinking: { type: "disabled" },
       system: "Tu extrais des faits d'un message et tu remplis une fiche. Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans bloc de code Markdown.",
       messages: [{ role: "user", content: buildExtractionPrompt({ fiche: courante, question, message, titrePoste }) }],
     });

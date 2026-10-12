@@ -30,6 +30,17 @@ export const NICE = "nice_to_have";
 // compétence redeviendrait un accident de génération.
 export const POIDS_TIER = { [MUST]: 2, [NICE]: 1 };
 
+// Importance d'une étape dans la note finale, réglée par le recruteur
+// (12/10/2026) : chaque entrée de l'étape voit son poids multiplié. 1 par
+// défaut — une étape jamais réglée pèse exactement comme avant.
+export const POIDS_ETAPE = [0.5, 1, 1.5, 2];
+
+/** Le multiplicateur d'une étape (config.poids_etape), borné aux valeurs proposées. */
+export function poidsEtape(step) {
+  const v = Number(step?.config?.poids_etape);
+  return POIDS_ETAPE.includes(v) ? v : 1;
+}
+
 // Garde-fou de durée : au-delà, le recruteur est prévenu (jamais bloqué).
 export const EXERCICES_CIBLE_MAX = 5;
 
@@ -241,7 +252,8 @@ export function pourcentageCheckpoints(scores) {
 }
 
 /**
- * Score final : moyenne des critères, pondérée par le tier de leur compétence.
+ * Score final : moyenne des critères, pondérée par le tier de leur compétence
+ * et par l'importance de leur étape (`facteur`, réglée par le recruteur).
  * Un critère sans tier connu compte comme un must-have (même règle que
  * tierDePriorite) : sur un parcours antérieur aux tiers, tous les critères
  * pèsent alors pareil, et le score reste la moyenne qu'il était.
@@ -251,11 +263,71 @@ export function moyennePonderee(entrees) {
   let poids = 0;
   for (const e of entrees || []) {
     if (e?.score == null) continue;
-    const w = POIDS_TIER[e.tier] ?? POIDS_TIER[MUST];
+    // `facteur` : l'importance de l'étape (poidsEtape), 1 si absente.
+    const w = (POIDS_TIER[e.tier] ?? POIDS_TIER[MUST]) * (Number(e.facteur) || 1);
     somme += e.score * w;
     poids += w;
   }
   return poids ? Math.round(somme / poids) : null;
+}
+
+/**
+ * Ce qui entrera dans la note finale, étape par étape — AVANT tout candidat.
+ *
+ * Miroir de runScoring.js, pour l'expliquer au recruteur : une entrée par
+ * sous-dimension notée par le correcteur (`criteria`, hors QCM), plus une entrée
+ * automatique par QCM, par fiche CRM à champs factuels et par exercice de code
+ * à tests. Chaque entrée pèse POIDS_TIER selon le tier de ses compétences — les
+ * siennes, sinon celles de l'étape —, un tier inconnu pesant comme un
+ * must-have (moyennePonderee). Une règle changée là-bas se change ici.
+ *
+ * @returns {{ etapes: Array<{ stepId, entrees: Array, poids: number, part: number }>, poidsTotal: number }}
+ *   `part` : la part de l'étape dans la note finale, en % arrondi.
+ */
+export function partsDeLaNote(steps, competences) {
+  const poidsTier = (tier) => POIDS_TIER[tier] ?? POIDS_TIER[MUST];
+  const idsEtape = (s) => {
+    const ids = resoudreIds(s?.config?.skills_tested || [], competences);
+    return ids.length ? ids : resoudreIds([s?.skill_assessed, ...(s?.config?.targets_skills || [])].filter(Boolean), competences);
+  };
+
+  const etapes = (steps || []).map((s) => {
+    const entrees = [];
+    // Même règle que moyennePonderee : tier × importance de l'étape.
+    const poidsDe = (tier) => poidsTier(tier) * poidsEtape(s);
+    const auto = (type) => {
+      const tier = tierDesIds(idsEtape(s), competences);
+      entrees.push({ type, automatique: true, skill_ids: idsEtape(s), tier, poids: poidsDe(tier) });
+    };
+
+    if (s?.kind === "classic_qcm") auto("qcm");
+    else {
+      for (const c of s?.criteria || []) {
+        const skill_ids = c?.skill_ids?.length ? c.skill_ids : idsEtape(s);
+        const tier = tierDesIds(skill_ids, competences);
+        entrees.push({
+          type: estCritereCheckpoints(c) ? "checkpoints" : "niveaux",
+          nom: c?.name || "",
+          checkpoints: estCritereCheckpoints(c) ? c.checkpoints.length : 0,
+          skill_ids, tier, poids: poidsDe(tier),
+        });
+      }
+    }
+    if (s?.sandbox_kind === "crm" && (s?.config?.crm?.fields || []).some((f) => f?.nature === "factual")) auto("crm");
+    if (s?.sandbox_kind === "code" && (s?.config?.code?.tests || []).length) auto("code");
+
+    return { stepId: s?.id, entrees, poids: entrees.reduce((t, e) => t + e.poids, 0) };
+  });
+
+  // Arrondi au plus fort reste : les parts affichées font toujours 100 % pile
+  // (cinq étapes à 18,2 % s'arrondissaient à 101 %).
+  const poidsTotal = etapes.reduce((t, e) => t + e.poids, 0);
+  const exactes = etapes.map((e) => (poidsTotal ? (e.poids / poidsTotal) * 100 : 0));
+  etapes.forEach((e, i) => { e.part = Math.floor(exactes[i]); });
+  let reste = poidsTotal ? 100 - etapes.reduce((t, e) => t + e.part, 0) : 0;
+  const parReste = exactes.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of parReste) { if (reste <= 0) break; etapes[i].part += 1; reste -= 1; }
+  return { etapes, poidsTotal };
 }
 
 /**

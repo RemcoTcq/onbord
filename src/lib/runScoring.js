@@ -12,7 +12,7 @@ import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib
 import { factureNotationCandidat } from "@/lib/utils/limits";
 import {
   listerCompetences, resoudreIds, tierDesIds, estCritereCheckpoints,
-  pourcentageCheckpoints, moyennePonderee,
+  pourcentageCheckpoints, moyennePonderee, poidsEtape,
 } from "@/lib/competences";
 
 const SCORING_MODEL = "claude-sonnet-5-5";
@@ -879,7 +879,11 @@ Si used=false, mets ai_usage.score à null.`;
   // must-have compte double (décision du 29/09/2026). Un critère sans tier
   // connu pèse comme un must-have — sur un parcours antérieur aux tiers, tous
   // pèsent pareil, et le score reste la moyenne qu'il était.
-  const overall = moyennePonderee(allScores);
+  // Chaque critère porte aussi l'importance de son étape, réglée par le
+  // recruteur (poidsEtape, 1 par défaut) — dans le calcul seulement : les notes
+  // enregistrées dans criterion_scores restent telles quelles.
+  const importance = new Map((steps || []).map((s) => [s.id, poidsEtape(s)]));
+  const overall = moyennePonderee(allScores.map((e) => ({ ...e, facteur: importance.get(e.step_id) ?? 1 })));
   const rawAi = parsed.ai_usage?.used ? parsed.ai_usage?.score : null;
   const aiUsageScore = rawAi == null ? null : Math.round(Math.max(0, Math.min(100, Number(rawAi))));
   // Le modèle produisait déjà cette justification, mais elle n'était pas

@@ -135,11 +135,14 @@ export function planVisible(planId) {
  * ont déjà payé leur première simulation : elle leur est offerte, une fois
  * (table `simulations_prepayees`, migration 031).
  *
- * ── 2. Régénérer une étape : 1 crédit ────────────────────────────────────────
- * Chaque réécriture d'une étape par l'agent, à la demande du recruteur (bouton
- * ou chat). La passe de relecture automatique, qui réécrit elle aussi des
- * étapes, fait partie de la génération : elle est comprise dans les 6 crédits.
- * L'édition manuelle d'une étape ne coûte rien — le modèle ne tourne pas.
+ * ── 2. Réécrire une étape : 2 crédits ────────────────────────────────────────
+ * Chaque réécriture COMPLÈTE d'une étape par l'agent, à la demande du
+ * recruteur (chat de l'étape), et « Couvrir une compétence ». La passe de
+ * relecture automatique, qui réécrit elle aussi des étapes, fait partie de la
+ * génération : elle est comprise dans les 6 crédits. 1 crédit jusqu'au
+ * 09/10/2026. L'édition manuelle ne coûte rien — le modèle ne tourne pas. (Une
+ * « petite retouche » à 1 crédit a existé du 09 au 12/10/2026 ; retirée : toute
+ * réécriture par l'IA passe par le chat de l'étape.)
  *
  * ── 3. Faire passer un candidat : 3 crédits ──────────────────────────────────
  * En deux temps, sur deux faits observables :
@@ -154,7 +157,7 @@ export function planVisible(planId) {
  */
 export const CREDIT_COSTS = {
   simulation_generation: 6,
-  step_regeneration: 1,
+  step_regeneration: 2,
   candidate_start: 1,
   candidate_scoring: 2,
 };

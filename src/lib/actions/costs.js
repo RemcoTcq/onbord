@@ -22,7 +22,7 @@ export async function getCostStats(periodDays = null) {
     const admin = createAdminClient();
     const cutoff = periodDays ? new Date(Date.now() - periodDays * 86400000).toISOString() : null;
 
-    let expQ = admin.from("experiences").select("id, job_id, generation_usage, regeneration_usage, created_at, jobs(title)");
+    let expQ = admin.from("experiences").select("id, job_id, generation_usage, regeneration_usage, generated_from, created_at, jobs(title)");
     if (cutoff) expQ = expQ.gte("created_at", cutoff);
     let runQ = admin.from("candidate_runs").select("id, experience_id, started_at");
     if (cutoff) runQ = runQ.gte("started_at", cutoff);
@@ -67,8 +67,12 @@ export async function getCostStats(periodDays = null) {
     // le parcours), deux gestes distincts. Le total les additionne, les
     // compteurs les gardent séparés — c'est le rapport entre les deux qui dit si
     // la régénération ciblée fait son travail.
+    // Les appels « d'écran » (chat de l'étape, résumés des blocs, descriptions
+    // des critères, traduction des notes) : non facturés, comptés ici dans la
+    // conception — sans gonfler le compteur des réécritures (lib/usageEcran.js).
+    const coutEcran = (e) => (e.generated_from?.ecran_usage?.cost_usd || 0) + (e.generated_from?.recaps_usage?.cost_usd || 0);
     const genTotal = experiences.reduce(
-      (sum, e) => sum + (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0),
+      (sum, e) => sum + (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0) + coutEcran(e),
       0,
     );
     const regenCalls = experiences.reduce((n, e) => n + (e.regeneration_usage?.calls || 0), 0);
@@ -89,7 +93,7 @@ export async function getCostStats(periodDays = null) {
       const jid = e.job_id;
       jobTitle[jid] = e.jobs?.title || "Poste supprimé";
       (perJob[jid] ||= { generation: 0, scoring: 0, assistant: 0, persona: 0, runs: 0 });
-      perJob[jid].generation += (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0);
+      perJob[jid].generation += (e.generation_usage?.cost_usd || 0) + (e.regeneration_usage?.cost_usd || 0) + coutEcran(e);
     }
     for (const r of runList) {
       const jid = expById[r.experience_id]?.job_id;
