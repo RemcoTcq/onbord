@@ -342,11 +342,11 @@ const pages = {
             "Een generatie die mislukt, kost niets. De analyse van de vacature, de keuze van de vaardigheden, uw aanpassingen en de publicatie zijn inbegrepen.",
         },
         {
-          what: "Eén stap hergenereren",
-          cost: "1",
-          when: "Afgeboekt voor elke stap die de agent herschrijft.",
+          what: "Eén stap herschrijven",
+          cost: "2",
+          when: "Afgeboekt voor elke stap die de agent volledig herschrijft.",
           detail:
-            "Om één stap bij te werken zonder het hele traject opnieuw te doen. Zelf aanpassen kost niets.",
+            "Om één stap opnieuw te doen zonder het hele traject opnieuw te doen. Zelf aanpassen kost niets.",
         },
         {
           what: "Een kandidaat start",

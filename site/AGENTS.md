@@ -71,6 +71,16 @@ Les partis pris, à respecter en ajoutant quoi que ce soit :
   La trame vit à deux endroits, le hero et la bande finale ; ailleurs il ne
   reste que les deux filets (`body::before`, un calque fixe).
 
+  ⚠️ **DEPUIS LE 12/10/2026, LE HERO N'A PLUS DE CARREAUX** (demande directe).
+  Les deux calques de la trame du hero sont restés en place, mais leurs
+  masques ne découpent plus que trois lignes : la PREMIÈRE horizontale (le
+  filet du bas de la barre de navigation) et la PREMIÈRE et la DERNIÈRE
+  verticale de la bande (les deux filets continus de la page, en blanc sur
+  le ciel). Toutes les autres lignes du hero sont éteintes. La bande finale
+  (`.section--tail`, `.footer`) garde sa trame. Ce qui suit sur la trame
+  du hero décrit la mécanique des calques, toujours valable ; seule la
+  quantité de lignes découpées a changé.
+
   **La barre de navigation est DESSINÉE PAR la trame, pas posée dessus.**
   Elle fait donc **exactement un carreau de haut** : `--header-h` vaut
   `var(--grid-step)`.

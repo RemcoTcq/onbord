@@ -1100,10 +1100,17 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
     #f4f6f9 46%,
     #f1f3f5 60%,
     #f1f3f5 100%);
+  /* ⚠️ PLUS DE CARREAUX DANS LE HERO (12/10/2026, demande directe). Le
+     masque ne découpe plus une ligne par rangée mais UNE SEULE, la première :
+     c'est le filet du bas de la barre de navigation, qui doit rester. Taille
+     du masque = tout le bloc, sans répétition. Le dégradé d'encre ci-dessus
+     reste en place : la ligne gardée est en haut, donc blanche, sur le ciel. */
   -webkit-mask-image: linear-gradient(to bottom, #000 1px, transparent 1px);
   mask-image: linear-gradient(to bottom, #000 1px, transparent 1px);
-  -webkit-mask-size: 100% var(--grid-step);
-  mask-size: 100% var(--grid-step);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   /* ⚠️ `top`, ET SURTOUT PAS `center`. Le motif etait ancre au MILIEU du
      bloc : la premiere rangee sous la barre de navigation tombait donc ou
      elle voulait, et elle etait presque toujours COUPEE. On voyait un
@@ -3160,10 +3167,19 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
     #f4f6f9 46%,
     #f1f3f5 60%,
     #f1f3f5 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 0px, #000 1px, transparent 1px);
-  mask-image: linear-gradient(to right, #000 0px, #000 1px, transparent 1px);
-  -webkit-mask-size: var(--grid-step) 100%;
-  mask-size: var(--grid-step) 100%;
+  /* ⚠️ PLUS DE CARREAUX DANS LE HERO (12/10/2026, demande directe). Des
+     verticales, il ne reste que la PREMIÈRE et la DERNIÈRE de la bande :
+     ce sont exactement les deux filets continus de la page (même position,
+     voir `left` et `width` de .colonnes), qu'on garde ici en BLANC sur le
+     ciel, comme dans la barre. Toutes les verticales entre les deux sont
+     éteintes. Le masque couvre la bande entière, sans répétition : un trait
+     d'un pixel à chaque bord. */
+  -webkit-mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   /* ⚠️ LE DÉGRADÉ COUVRE TOUT LE BLOC, IL NE SE RÉPÈTE PAS.
 
      .colonnes pose `background-size: var(--grid-step) var(--grid-step)` du

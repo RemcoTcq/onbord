@@ -363,11 +363,11 @@ const pages = {
             "A generation that fails costs nothing. Parsing the job ad, choosing the skills, your edits and publishing are included.",
         },
         {
-          what: "Regenerate a step",
-          cost: "1",
-          when: "Charged for each step the agent rewrites.",
+          what: "Rewrite a step",
+          cost: "2",
+          when: "Charged for each step the agent rewrites in full.",
           detail:
-            "To rework one step without redoing the whole journey. Editing it yourself costs nothing.",
+            "To redo one step without redoing the whole journey. Editing it yourself costs nothing.",
         },
         {
           what: "A candidate starts",

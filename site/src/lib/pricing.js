@@ -63,7 +63,7 @@ export const CREDIT_COSTS = {
   // recopie. Ce qu'elle facture, c'est la CREATION D'UNE SIMULATION : c'est le
   // vocabulaire de la page des tarifs, et c'est ce qui declenche le debit.
   job: 6,             // generer une simulation : a chaque generation complete reussie
-  stepRegeneration: 1, // l'agent reecrit une etape
+  stepRegeneration: 2, // l'agent reecrit une etape en entier (1 jusqu'au 09/10/2026)
   candidateStart: 1,  // le candidat entre réellement dans la simulation
   candidateScoring: 2, // la notation, à la soumission
 };

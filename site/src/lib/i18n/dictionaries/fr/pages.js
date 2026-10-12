@@ -342,11 +342,11 @@ const pages = {
             "Une génération qui échoue ne coûte rien. L'analyse de l'offre, le choix des compétences, vos modifications et la publication sont compris.",
         },
         {
-          what: "Régénérer une étape",
-          cost: "1",
-          when: "Débité pour chaque étape que l'agent réécrit.",
+          what: "Réécrire une étape",
+          cost: "2",
+          when: "Débité pour chaque étape que l'agent réécrit en entier.",
           detail:
-            "Pour retoucher une étape sans refaire tout le parcours. La modifier vous-même ne coûte rien.",
+            "Pour refaire une étape sans refaire tout le parcours. La modifier vous-même ne coûte rien.",
         },
         {
           what: "Un candidat commence",
