@@ -759,10 +759,12 @@ ul, ol { list-style: none; }
        Une couleur ecrite en dur dans le SVG le laisserait noir ici. */
 body:has(.hero--full) .header:not(.header--stuck) .brand,
 body:has(.hero--full) .header:not(.header--stuck) .nav a,
+body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
 body:has(.hero--full) .header:not(.header--stuck) .burger { color: #fff; }
 /* Un cran de graisse en plus, tant qu'ils sont blancs : un texte clair sur
    fond fonce parait plus maigre que le meme texte en noir sur blanc. */
-body:has(.hero--full) .header:not(.header--stuck) .nav a { font-weight: 500; }
+body:has(.hero--full) .header:not(.header--stuck) .nav a,
+body:has(.hero--full) .header:not(.header--stuck) .nav__trigger { font-weight: 500; }
 /* ⚠️ LA LISIBILITE PASSE PAR UNE OMBRE, PAS PAR LE FOND.
 
    Le blanc sur le ciel clair ne tient pas seul (1,4:1 de contraste pour
@@ -774,6 +776,7 @@ body:has(.hero--full) .header:not(.header--stuck) .nav a { font-weight: 500; }
    une ombre portee et le texte parait flou. */
 body:has(.hero--full) .header:not(.header--stuck) .brand,
 body:has(.hero--full) .header:not(.header--stuck) .nav a,
+body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
 body:has(.hero--full) .header:not(.header--stuck) .lang__btn {
   text-shadow: 0 1px 2px rgba(7, 41, 75, 0.45), 0 0 1px rgba(7, 41, 75, 0.35);
 }
@@ -781,7 +784,8 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn {
 body:has(.hero--full) .header:not(.header--stuck) .brand svg {
   filter: drop-shadow(0 1px 1.5px rgba(7, 41, 75, 0.4));
 }
-body:has(.hero--full) .header:not(.header--stuck) .nav a:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
+body:has(.hero--full) .header:not(.header--stuck) .nav a:hover,
+body:has(.hero--full) .header:not(.header--stuck) .nav__trigger:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
 body:has(.hero--full) .header:not(.header--stuck) .nav a[aria-current="page"] { color: #fff; background: rgba(255, 255, 255, 0.2); }
 body:has(.hero--full) .header:not(.header--stuck) .lang__btn,
 body:has(.hero--full) .header:not(.header--stuck) .burger {
@@ -878,6 +882,63 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .nav a:hover { color: var(--text); background: var(--surface); }
 .nav a[aria-current="page"] { color: var(--text); background: var(--surface-2); }
 
+/* ── Le menu « Roles » (12/10/2026) ───────────────────────────────────────
+   Le déclencheur est un bouton, mais il se lit comme les liens de la barre :
+   même corps, même padding, mêmes couleurs (y compris blanc sur le ciel du
+   hero, voir plus haut). Le menu, lui, reprend le panneau du menu de langue,
+   en plus large : deux entrées, chacune avec son état. */
+.roles { position: relative; }
+.nav__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.875rem;
+  color: var(--text-2);
+  padding: 7px 11px 7px 13px;
+  border-radius: var(--r-sm);
+  transition: color 240ms ease, background 160ms ease;
+}
+.nav__trigger:hover { color: var(--text); background: var(--surface); }
+.nav__trigger[aria-current="page"] { color: var(--text); background: var(--surface-2); }
+.nav__trigger svg { transition: transform 160ms ease; }
+.nav__trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.roles__menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 9px);
+  width: 320px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: 0 18px 44px -18px rgba(7, 41, 75, 0.28), var(--edge);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+.roles__item {
+  display: grid;
+  gap: 3px;
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  transition: background 140ms ease;
+}
+.roles__item:hover, .roles__item[aria-current="page"] { background: var(--surface-2); }
+.roles__label { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.roles__desc { font-size: 0.8125rem; color: var(--text-3); line-height: 1.45; }
+/* « Soon » : la même étiquette sur le menu et sur la page tech. */
+.soon {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.5625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 2px 8px;
+}
+
 .header__right { display: flex; align-items: center; gap: 8px; }
 
 .lang { position: relative; }
@@ -942,7 +1003,10 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   position: fixed;
   inset: var(--header-h) 0 0;
   z-index: 59;
-  background: rgba(5, 7, 15, 0.97);
+  /* Blanc, et plus le bleu nuit de la version sombre du site (avant
+     septembre 2026) : sur ce fond-là, les liens à l encre ordinaire
+     étaient illisibles. Corrigé le 12/10/2026. */
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
   padding: 22px var(--gutter) 40px;
   overflow-y: auto;
@@ -1929,16 +1993,35 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
    CENTRE et devant, le code derrière à gauche, l'appel à droite qui mord sur
    l'e-mail. Le chevauchement est le sujet — il dit « plusieurs choses, dans
    la même demi-heure ». */
-.compo { position: relative; padding: 76px 0 40px; min-height: 640px; }
+/* ⚠️ UNE RANGÉE CENTRÉE (12/10/2026, demande directe) : classeur, e-mail et
+   appel côte à côte, de gauche à droite, mais groupés au CENTRE de la page au
+   lieu d'être collés aux deux bords. Ils se recouvrent par des marges
+   négatives, et chaque recouvrement est réglé pour laisser lire l'essentiel :
+     • l'e-mail, plus bas, chevauche le classeur en laissant sa colonne des
+       montants et sa somme visibles ;
+     • l'appel, au premier plan, ne recouvre que le bord droit de l'e-mail :
+       le texte écrit reste lisible. */
+.compo {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8px 0 40px;
+}
 
-/* Le code, derrière tout le reste, en haut à droite. Il dépasse du cadre par
-   le haut : on ne lit pas la fonction, on voit que du code s ecrit. */
-.compo__code {
-  position: absolute;
+/* Le tableur, derrière tout le reste, en haut à gauche (12/10/2026 : il a
+   remplacé le panneau de code, en pause dans l'application). Même place, même
+   cadre et même effacement que l'ancien panneau : seul le contenu change. */
+.compo__sheet {
+  position: relative;
   z-index: 1;
-  top: 0;
-  left: 0;
-  width: min(50%, 420px);
+  flex: none;
+  margin-top: 0;
+  /* Réduit le 12/10/2026 (demande directe) : il reste à l'arrière-plan. La
+     colonne des MONTANTS vient juste après celle des comptes, pour tomber à
+     gauche de l'e-mail : la somme surlignée reste visible sans que le
+     classeur ait besoin d'être grand. */
+  width: 300px;
   border-radius: var(--r);
   border: 1px solid var(--border);
   background: #fff;
@@ -1946,28 +2029,61 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   overflow: hidden;
   opacity: 0.82;
 }
-/* Le bloc descend bien plus bas que l'e-mail, qui vient le couvrir : on voit
-   du code ressortir AU-DESSUS et EN DESSOUS de l'e-mail, donc les deux se
-   passent en même temps au lieu de se suivre. */
-/* L'interligne a été étiré ici un temps pour faire descendre le bloc ; c'est
-   l'EXTRAIT lui-même qui est long maintenant (voir SNIPPET), ce qui est plus
-   honnête : on voit du vrai code, pas du code aéré pour remplir. */
-.compo__code .code { max-height: 520px; overflow: hidden; border: none; margin: 0; padding-left: 20px; border-left: 2px solid var(--border); }
+/* La barre de formule : « fx » et la somme. C'est elle qui dit « tableur ». */
+.compo__fx {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 13px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  color: var(--text-2);
+}
+.compo__fx span { font-style: italic; color: var(--text-4); }
+.compo__grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.625rem;
+  color: var(--text-2);
+}
+.compo__grid th,
+.compo__grid td {
+  border: 1px solid var(--border);
+  padding: 4px 7px;
+  text-align: left;
+  white-space: nowrap;
+}
+/* Les en-têtes de lignes et de colonnes, en gris, comme dans un vrai tableur. */
+.compo__grid th,
+.compo__grid td:first-child {
+  background: var(--bg-2);
+  color: var(--text-4);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 400;
+  text-align: center;
+  width: 26px;
+}
+.compo__grid .num { text-align: right; font-variant-numeric: tabular-nums; }
+.compo__head td:not(:first-child) { font-weight: 600; color: var(--text); }
+/* La somme : la cellule sélectionnée, cadrée en bleu. */
+.compo__total td:not(:first-child) { font-weight: 600; color: var(--text); }
+.compo__total td.num { outline: 2px solid var(--blue-300); outline-offset: -2px; background: rgba(37, 99, 235, 0.06); }
 .compo__tabs { display: flex; align-items: center; gap: 11px; padding: 9px 13px; border-bottom: 1px solid var(--border); background: var(--bg-2); }
 .compo__dots { display: flex; gap: 5px; }
 .compo__dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(7, 41, 75, 0.13); }
 .compo__tab { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; color: var(--text-3); background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 10px; }
-.compo__tests { display: flex; align-items: center; gap: 5px; padding: 0 14px 12px; }
-.compo__testCount { margin-left: 7px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.06em; color: var(--text-4); }
-.compo__tests i { width: 18px; height: 4px; border-radius: 3px; background: var(--ok); display: block; }
-.compo__tests i.ko { background: var(--bad); }
 
 /* L'e-mail : AU CENTRE, et devant. C'est la pièce qu'on doit lire. */
 .compo__mail {
   position: relative;
   z-index: 2;
-  margin-inline: auto;
-  width: min(62%, 520px);
+  flex: none;
+  /* Plus bas que ses voisins, et posé sur le classeur : -95px laisse
+     dépasser à gauche les colonnes « compte » et « montant ». */
+  margin-top: 110px;
+  margin-left: -95px;
+  width: 470px;
   padding: 22px 18px 20px;
   border-radius: var(--r);
   border: 1px solid var(--border);
@@ -2009,11 +2125,15 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 
 /* L'appel, par-dessus l'e-mail, débordant à droite. */
 .compo__call {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  right: 0;
-  top: 128px;
-  width: min(32%, 272px);
+  flex: none;
+  /* Agrandi le 12/10/2026 (demande directe) : l'appel est le geste qui
+     distingue Onbord, il domine la composition. Il ne mord que 110px sur
+     l'e-mail, dont le texte reste lisible. */
+  margin-top: 30px;
+  margin-left: -110px;
+  width: 300px;
   aspect-ratio: 4 / 5;
   border-radius: var(--r);
   border: 1px solid var(--border-2);
@@ -2066,7 +2186,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .compo__who--me { left: 5px; bottom: 5px; font-size: 0.5rem; padding: 2px 6px; }
 .compo__who--me svg { color: var(--ok); }
 
-.compo__pipWrap { position: absolute; right: 10px; bottom: 52px; width: 36%; }
+/* Le médaillon de la candidate : calé en bas à droite, son bord bas aligné
+   sur celui de la barre de commandes (bottom: 10px des deux côtés), et assez
+   étroit pour ne pas la chevaucher (12/10/2026, demande directe). */
+.compo__pipWrap { position: absolute; right: 10px; bottom: 10px; width: 27%; }
 .compo__pipWrap .compo__pip { position: static; width: 100%; display: block; }
 
 /* La barre de commandes, posée en bas de la vignette. Le bouton rouge est le
@@ -3366,10 +3489,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   .split__aside { position: static; }
   /* La composition se déplie : à cette largeur, le chevauchement ne dit plus
      « en même temps », il cache la moitié de l e-mail. */
-  .compo { padding-top: 0; }
-  .compo__mail { width: 100%; margin-top: 0; }
-  .compo__code { position: static; width: 100%; margin-bottom: 14px; }
-  .compo__call { position: static; width: 100%; max-width: 260px; margin-top: 14px; aspect-ratio: 4 / 3; }
+  .compo { padding-top: 0; gap: 14px; flex-direction: column; align-items: center; }
+  .compo__mail { width: 100%; margin: 0; }
+  .compo__sheet { width: 100%; margin: 0; }
+  .compo__call { width: 100%; max-width: 260px; margin: 0; aspect-ratio: 4 / 3; }
 }
 
 @media (max-width: 880px) {

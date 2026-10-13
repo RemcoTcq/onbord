@@ -31,8 +31,8 @@ const home = {
       steps: [
         { name: "Répondre à une objection sur le prix", format: "E-mail", min: "6 min" },
         { name: "Passer l'appel face caméra", format: "Direct", min: "5 min" },
-        { name: "Remplir la fiche", format: "CRM", min: "4 min" },
-        { name: "Nettoyer une liste de leads en double", format: "Code", min: "" },
+        { name: "Trier la boîte du lundi", format: "Boîte", min: "5 min" },
+        { name: "Lire les chiffres du pipeline", format: "Tableur", min: "" },
       ],
     },
 
@@ -40,7 +40,7 @@ const home = {
       label: "Décrivez le poste que vous cherchez à pourvoir",
       placeholders: [
         "Je veux une simulation pour un business developer",
-        "Je veux une simulation pour tester si quelqu'un sait coder en Python",
+        "Je veux une simulation pour un Customer Success Manager",
         "Je veux une simulation pour un office manager",
       ],
       send: "Construire la simulation",
@@ -115,7 +115,7 @@ const home = {
     titleA: "Vingt minutes",
     titleEm: "du métier.",
     titleB: "Pas un questionnaire.",
-    lede: "Ils répondent au client qui a un devis moins cher, passent l'appel face caméra, et corrigent le bug avant la mise en production. L'assistant IA reste ouvert à côté d'eux, comme au travail, et la façon dont ils s'en servent fait partie du résultat.",
+    lede: "Ils répondent au client qui a un devis moins cher, passent l'appel face caméra, et lisent les chiffres avant la réunion du lundi. L'assistant IA reste ouvert à côté d'eux, comme au travail, et la façon dont ils s'en servent fait partie du résultat.",
   },
 
   how: {

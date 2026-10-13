@@ -26,8 +26,8 @@ const home = {
       steps: [
         { name: "Een prijsbezwaar beantwoorden", format: "E-mail", min: "6 min" },
         { name: "Het gesprek voor de camera voeren", format: "Live", min: "5 min" },
-        { name: "De fiche invullen", format: "CRM", min: "4 min" },
-        { name: "Een lijst dubbele leads opschonen", format: "Code", min: "" },
+        { name: "De inbox van maandag sorteren", format: "Inbox", min: "5 min" },
+        { name: "De pipelinecijfers lezen", format: "Spreadsheet", min: "" },
       ],
     },
 
@@ -35,7 +35,7 @@ const home = {
       label: "Beschrijf de functie die u wilt invullen",
       placeholders: [
         "Ik wil een simulatie voor een business developer",
-        "Ik wil een simulatie om te testen of iemand in Python kan coderen",
+        "Ik wil een simulatie voor een Customer Success Manager",
         "Ik wil een simulatie voor een office manager",
       ],
       send: "Bouw de simulatie",
@@ -110,7 +110,7 @@ const home = {
     titleA: "Twintig minuten",
     titleEm: "van het werk.",
     titleB: "Geen vragenlijst.",
-    lede: "Ze antwoorden de klant met de goedkopere offerte, voeren het gesprek voor de camera, en lossen de bug op voor hij live gaat. De AI-assistent staat naast hen open, precies zoals op het werk, en hoe ze hem gebruiken hoort bij het resultaat.",
+    lede: "Ze antwoorden de klant met de goedkopere offerte, voeren het gesprek voor de camera, en lezen de cijfers voor de vergadering van maandag. De AI-assistent staat naast hen open, precies zoals op het werk, en hoe ze hem gebruiken hoort bij het resultaat.",
   },
 
   how: {

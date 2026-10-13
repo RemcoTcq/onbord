@@ -1,4 +1,3 @@
-import { SNIPPET } from "./Mocks";
 import { Mic, MicOff, Cam, Hangup } from "./Icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6,7 +5,9 @@ import { Mic, MicOff, Cam, Hangup } from "./Icons";
 //
 // Trois objets qui se chevauchent, et rien d'autre :
 //
-//   1. le CODE, derrière, en haut. Quelques lignes et des tests qui passent ;
+//   1. le TABLEUR, derrière, en haut : un pipeline et sa somme. Il a
+//      remplacé le CODE le 12/10/2026 — l'exercice de code est en pause dans
+//      l'application, le site ne le montre plus comme disponible ;
 //   2. l'E-MAIL, au milieu, avec la réponse en train de s'écrire ;
 //   3. l'APPEL, devant : la personne en face en grand, le candidat en
 //      médaillon, et les commandes.
@@ -43,31 +44,43 @@ const PHOTOS = {
 export default function WorkScenes({ m, s }) {
   return (
     <div className="compo" role="img" aria-label={s.label}>
-      {/* Le code, derrière. Coupé par le bord du panneau : on n'a pas besoin de
-          lire la fonction, on a besoin de voir que du code s'écrit. */}
-      <figure className="compo__code">
-        {/* L'onglet de fichier et les pastilles : sans eux, un bloc de code
-            gris sur fond blanc pouvait aussi bien être une citation. Avec
-            eux, on reconnaît un éditeur en une demi-seconde. */}
+      {/* Le tableur, derrière. Coupé par le bord du panneau comme l'était le
+          code : on n'a pas besoin de lire chaque ligne, on a besoin de voir des
+          chiffres qu'on analyse. La barre de formule et la somme en bas disent
+          « tableur » avant qu'on lise un mot. */}
+      <figure className="compo__sheet">
         <div className="compo__tabs">
           <span className="compo__dots" aria-hidden="true"><i /><i /><i /></span>
-          <span className="compo__tab">{s.codeFile}</span>
+          <span className="compo__tab">{m.sheet.file}</span>
         </div>
-        <pre className="code"><code>{SNIPPET}</code></pre>
-        {/* Les résultats des tests. C'ÉTAIT quatre tirets de couleur sans un
-            mot : l'information était là (trois tests passent, celui de
-            performance échoue) mais rien ne permettait de la lire, et on
-            pouvait la prendre pour une décoration. Le compte est écrit à
-            côté maintenant. C'est une des affirmations du site — « du vrai
-            code, de vrais tests » — elle mérite d'être lisible. */}
-        <div className="compo__tests" aria-hidden="true">
-          {m.code.tests.map((t, i) => (
-            <i key={i} className={t.ok ? undefined : "ko"} />
-          ))}
-          <span className="compo__testCount">
-            {m.code.tests.filter((t) => t.ok).length}/{m.code.tests.length} {s.testsLabel}
-          </span>
-        </div>
+        <p className="compo__fx"><span>fx</span>{m.sheet.formula}</p>
+        <table className="compo__grid">
+          <thead>
+            <tr>
+              <th />
+              {m.sheet.columns.map((c, i) => <th key={c}>{String.fromCharCode(65 + i)}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="compo__head">
+              <td>1</td>
+              {m.sheet.columns.map((c) => <td key={c}>{c}</td>)}
+            </tr>
+            {m.sheet.rows.map((r, i) => (
+              <tr key={r[0]}>
+                <td>{i + 2}</td>
+                {r.map((v, j) => <td key={j} className={j === 1 ? "num" : undefined}>{v}</td>)}
+              </tr>
+            ))}
+            <tr className="compo__total">
+              <td>{m.sheet.rows.length + 2}</td>
+              <td>{m.sheet.totalLabel}</td>
+              <td className="num">{m.sheet.total}</td>
+              <td />
+              <td />
+            </tr>
+          </tbody>
+        </table>
       </figure>
 
       {/* L'e-mail. Le curseur clignotant fait la différence entre une capture

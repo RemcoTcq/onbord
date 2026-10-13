@@ -22,6 +22,13 @@ const common = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
     skip: "Skip to content",
+    // Le menu « Roles » (Header.js) : deux pages, et l'état de chacune.
+    roles: "Roles",
+    soon: "Soon",
+    rolesItems: {
+      business: { title: "Business roles", desc: "Sales, customer success, operations, marketing. Available today." },
+      tech: { title: "Engineering roles", desc: "Developers and technical profiles." },
+    },
   },
 
   footer: {
@@ -45,9 +52,7 @@ const common = {
       more: "…more",
       meName: "Sarah D.",
       themName: "David M.",
-      testsLabel: "tests passed",
       signOff: "Kind regards,",
-      codeFile: "leads.js",
       compose: "New message",
       to: "To",
       subject: "Subject",
@@ -207,6 +212,25 @@ const common = {
       missed: "Missed",
     },
 
+    // Le tableur de la composition « Ce que font les candidats » (WorkScenes.js).
+    // Il a remplacé le panneau de code le 12/10/2026 : l'exercice de code est
+    // en pause dans l'application. La somme est juste (79 200) : une maquette
+    // qui montre un total ne doit pas se tromper d'addition.
+    sheet: {
+      file: "pipeline-q3.xlsx",
+      formula: "=SUM(B2:B7)",
+      columns: ["Account", "Value", "Stage", "Close"],
+      rows: [
+        ["Vandelaer NV", "18 400", "Proposal", "30/09"],
+        ["Brasserie Lou", "6 200", "Demo", "15/10"],
+        ["Atelier Mertens", "24 900", "Negotiation", "07/10"],
+        ["Kortrijk Bouw", "9 800", "Discovery", "—"],
+        ["De Smet Fietsen", "12 300", "Proposal", "22/10"],
+        ["Hotel Sint-Jan", "7 600", "Demo", "18/10"],
+      ],
+      totalLabel: "Total",
+      total: "79 200",
+    },
     // Exercice de code avec exécution réelle des tests.
     code: {
       task: "Remove duplicate leads by email, keeping the first one seen.",

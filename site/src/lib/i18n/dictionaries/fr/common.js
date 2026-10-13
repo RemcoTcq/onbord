@@ -13,6 +13,13 @@ const common = {
     openMenu: "Ouvrir le menu",
     closeMenu: "Fermer le menu",
     skip: "Aller au contenu",
+    // Le menu « Métiers » (Header.js) : deux pages, et l'état de chacune.
+    roles: "Métiers",
+    soon: "Bientôt",
+    rolesItems: {
+      business: { title: "Métiers business", desc: "Commercial, customer success, opérations, marketing. Disponible aujourd'hui." },
+      tech: { title: "Métiers tech", desc: "Développeurs et profils techniques." },
+    },
   },
 
   footer: {
@@ -33,9 +40,7 @@ const common = {
       more: "…suite",
       meName: "Sarah D.",
       themName: "David M.",
-      testsLabel: "tests réussis",
       signOff: "Bien à vous,",
-      codeFile: "leads.js",
       compose: "Nouveau message",
       to: "À",
       subject: "Objet",
@@ -182,6 +187,25 @@ const common = {
       missed: "Manquée",
     },
 
+    // Le tableur de la composition « Ce que font les candidats » (WorkScenes.js).
+    // Il a remplacé le panneau de code le 12/10/2026 : l'exercice de code est
+    // en pause dans l'application. La somme est juste (79 200) : une maquette
+    // qui montre un total ne doit pas se tromper d'addition.
+    sheet: {
+      file: "pipeline-q3.xlsx",
+      formula: "=SUM(B2:B7)",
+      columns: ["Compte", "Montant", "Étape", "Clôture"],
+      rows: [
+        ["Vandelaer NV", "18 400", "Proposition", "30/09"],
+        ["Brasserie Lou", "6 200", "Démo", "15/10"],
+        ["Atelier Mertens", "24 900", "Négociation", "07/10"],
+        ["Kortrijk Bouw", "9 800", "Découverte", "—"],
+        ["De Smet Fietsen", "12 300", "Proposition", "22/10"],
+        ["Hotel Sint-Jan", "7 600", "Démo", "18/10"],
+      ],
+      totalLabel: "Total",
+      total: "79 200",
+    },
     code: {
       task: "Retirer les leads en double par e-mail, en gardant le premier vu.",
       tests: [

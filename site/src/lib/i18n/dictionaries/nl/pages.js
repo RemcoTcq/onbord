@@ -406,6 +406,74 @@ const pages = {
     },
   },
 
+  // De twee « functie »-pagina's (12/10/2026). Wat de businesspagina zegt,
+  // moet waar blijven in de applicatie (regel 2). CRM en code staan daar
+  // GEPAUZEERD: ze verschijnen hier niet.
+  business: {
+    meta: {
+      title: "Businessfuncties: Onbord",
+      description: "Werksimulaties voor sales-, customer success-, operations- en marketingfuncties, gebouwd op uw eigen vacature.",
+    },
+    eyebrow: "Vandaag beschikbaar",
+    titleA: "Simulaties voor",
+    titleEm: "businessfuncties.",
+    titleB: "",
+    lede: "Elke simulatie wordt gebouwd op uw vacature: de kandidaat doet het werk van uw functie, geen algemene versie ervan.",
+    roles: {
+      kicker: "De functies",
+      title: "Voor wie verkoopt, begeleidt en het bedrijf draaiende houdt.",
+      cards: [
+        { title: "Sales en business development", body: "Een live gesprek met een prospect met bezwaren en informatie om boven te halen, daarna de opvolgmail." },
+        { title: "Accountmanagement", body: "Een klant die korting wil voor hij verlengt, en een relatie om te behouden terwijl u nee zegt." },
+        { title: "Customer success en support", body: "Een ontevreden klant aan de telefoon of in de chat, en een antwoord dat hem behoudt." },
+        { title: "Operations", body: "Een inbox vol concurrerende vragen, en een spreadsheet om te lezen voor u beslist wat eerst komt." },
+        { title: "Marketing", body: "Campagnecijfers om te analyseren, een plan om te prioriteren binnen een budget, een briefing om te schrijven." },
+        { title: "Office en HR", body: "Een ochtend vol vragen om te sorteren, een moeilijk gesprek om te voeren, een proces om uit te schrijven." },
+      ],
+    },
+    tools: {
+      kicker: "Waarin ze werken",
+      title: "Tools die zich gedragen als de echte.",
+      items: [
+        { q: "Een live gesprek", a: "Een personage gespeeld door AI, met een eigen persoonlijkheid, bezwaren en verborgen informatie. De kandidaat praat, het gesprek wordt uitgeschreven en beoordeeld." },
+        { q: "E-mails en berichten", a: "Een echt opstelvenster, een klantbericht om te beantwoorden, een gesprek dat schriftelijk verloopt." },
+        { q: "Een spreadsheet", a: "Echte gegevens, formules die werken, en een conclusie om uit de cijfers te trekken." },
+        { q: "Een inbox", a: "Concurrerende berichten om te sorteren op prioriteit, en dan te beantwoorden, te delegeren, in te plannen of te archiveren." },
+        { q: "Een prioriteringsbord", a: "Een backlog, een roadmap of een ticketwachtrij om te ordenen onder een echte beperking." },
+        { q: "Een video-antwoord", a: "Een pitch of een demo, in één keer opgenomen en uitgeschreven." },
+      ],
+    },
+    closing: {
+      title: "Werft u aan voor een van deze functies?",
+      body: "Stuur ons de vacature: wij bouwen de simulatie en tonen ze u voor een kandidaat ze ziet.",
+      cta: "Plan een demo",
+    },
+  },
+
+  tech: {
+    meta: {
+      title: "Techfuncties: Onbord",
+      description: "Simulaties voor developers en technische functies komen naar Onbord.",
+    },
+    eyebrow: "Binnenkort",
+    titleA: "Techfuncties.",
+    titleEm: "Binnenkort.",
+    titleB: "",
+    lede: "Simulaties voor developers zijn in de maak: echte code, een echte omgeving, en de AI-tools die engineers elke dag gebruiken.",
+    now: {
+      kicker: "Intussen",
+      title: "Businessfuncties zijn vandaag al beschikbaar.",
+      body: "Sales, customer success, operations, marketing: werft u voor een van die functies aan, dan werkt het nu.",
+      more: "Bekijk de businessfuncties",
+    },
+    closing: {
+      title: "Wilt u weten wanneer het opent?",
+      body: "Laat ons een berichtje achter: we laten het u weten zodra de techsimulaties klaar zijn.",
+      cta: "Houd me op de hoogte",
+      secondary: "Plan een demo",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

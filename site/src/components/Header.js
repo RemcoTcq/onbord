@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LOCALES, LOCALE_LABELS, LOCALE_SHORT } from "@/lib/i18n/config";
 import { href, localiserChemin, canoniserChemin } from "@/lib/i18n/routes";
-import { Logo, Globe, Menu, Close, Check, ArrowRight } from "./Icons";
+import { Logo, Globe, Menu, Close, Check, ArrowRight, ChevronDown } from "./Icons";
 
 // Seul composant client du chrome : il lui faut la position de défilement,
 // l'état d'un menu, et le chemin courant. Les textes arrivent en props depuis
@@ -17,6 +17,15 @@ import { Logo, Globe, Menu, Close, Check, ArrowRight } from "./Icons";
 // construit sur la page d accueil de la langue courante.
 // Simulations passe AVANT How it works : c'est aussi l'ordre des sections sur
 // l'accueil (#work arrive avant #how), donc la barre suit la page qu'elle sert.
+// Le menu « Roles » (12/10/2026), sur le modèle d'un menu de secteurs : ce
+// qu'Onbord fait passer AUJOURD'HUI, et ce qui arrive. Deux pages, et l'état
+// de chacune écrit dans le menu même — un visiteur qui recrute un développeur
+// le sait avant d'avoir cliqué.
+const METIERS = [
+  { path: "/business-roles", key: "business", etat: "now" },
+  { path: "/tech-roles", key: "tech", etat: "soon" },
+];
+
 const PAGES = [
   { key: "simulations", ancre: "work" },
   { key: "how", ancre: "how" },
@@ -28,7 +37,9 @@ export default function Header({ locale, nav, demoHref, appHref }) {
   const [stuck, setStuck] = useState(false);
   const [menu, setMenu] = useState(false);
   const [langs, setLangs] = useState(false);
+  const [metiers, setMetiers] = useState(false);
   const langRef = useRef(null);
+  const metiersRef = useRef(null);
   const pathname = usePathname() || `/${locale}`;
 
   useEffect(() => {
@@ -54,6 +65,21 @@ export default function Header({ locale, nav, demoHref, appHref }) {
     };
   }, [langs]);
 
+  // Même fermeture pour le menu « Roles » : clic à côté, ou Échap.
+  useEffect(() => {
+    if (!metiers) return;
+    const onClick = (e) => {
+      if (metiersRef.current && !metiersRef.current.contains(e.target)) setMetiers(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setMetiers(false);
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [metiers]);
+
   // Le menu mobile couvre l'écran : laisser la page défiler derrière lui donne
   // l'impression que le site a deux fonds qui glissent l'un sur l'autre.
   useEffect(() => {
@@ -61,7 +87,7 @@ export default function Header({ locale, nav, demoHref, appHref }) {
     return () => { document.body.style.overflow = ""; };
   }, [menu]);
 
-  const fermer = () => { setMenu(false); setLangs(false); };
+  const fermer = () => { setMenu(false); setLangs(false); setMetiers(false); };
 
   // Le chemin courant, ramené en canonique, sert à deux choses : marquer la
   // page active, et traduire l'URL quand on change de langue. Passer par le
@@ -89,6 +115,39 @@ export default function Header({ locale, nav, demoHref, appHref }) {
           </Link>
 
           <nav className="nav" aria-label="Onbord">
+            <div className="roles" ref={metiersRef}>
+              <button
+                type="button"
+                className="nav__trigger"
+                aria-expanded={metiers}
+                aria-haspopup="true"
+                aria-current={METIERS.some((m) => m.path === cheminCanonique) ? "page" : undefined}
+                onClick={() => setMetiers((v) => !v)}
+              >
+                {nav.roles}
+                <ChevronDown size={13} />
+              </button>
+              {metiers && (
+                <div className="roles__menu" role="menu">
+                  {METIERS.map((m) => (
+                    <Link
+                      key={m.key}
+                      href={href(m.path, locale)}
+                      className="roles__item"
+                      role="menuitem"
+                      aria-current={cheminCanonique === m.path ? "page" : undefined}
+                      onClick={fermer}
+                    >
+                      <span className="roles__label">
+                        {nav.rolesItems[m.key].title}
+                        {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
+                      </span>
+                      <span className="roles__desc">{nav.rolesItems[m.key].desc}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
             {PAGES.map((p) => (
               <Link
                 key={p.key}
@@ -157,6 +216,12 @@ export default function Header({ locale, nav, demoHref, appHref }) {
 
       {menu && (
         <div className="mobile">
+          {METIERS.map((m) => (
+            <Link key={m.key} href={href(m.path, locale)} className="mobile__link" onClick={fermer}>
+              {nav.rolesItems[m.key].title}
+              <span>{m.etat === "soon" ? nav.soon : ""}</span>
+            </Link>
+          ))}
           {PAGES.map((p, i) => (
             <Link
               key={p.key}

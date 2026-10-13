@@ -49,6 +49,7 @@ export function Logo({ height = 19 }) {
 
 /* ── Interface ───────────────────────────────────────────────────────────── */
 
+export const ChevronDown = (p) => (<Svg {...p}><path d="M6 9l6 6 6-6" /></Svg>);
 export const ArrowRight = (p) => (<Svg {...p}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>);
 export const ArrowLeft = (p) => (<Svg {...p}><path d="M19 12H5M11 18l-6-6 6-6" /></Svg>);
 export const ArrowUp = (p) => (<Svg {...p}><path d="M12 19V5M6 11l6-6 6 6" /></Svg>);

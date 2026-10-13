@@ -22,18 +22,21 @@ const SUJETS = {
     plan: "Demande de démo Onbord, offre",
     offre: "Une offre d'emploi à transformer en simulation",
     parler: "Parler à quelqu'un d'Onbord",
+    tech: "Onbord pour les métiers tech : prévenez-moi",
   },
   nl: {
     demo: "Demoaanvraag Onbord",
     plan: "Demoaanvraag Onbord, plan",
     offre: "Een vacature om in een simulatie om te zetten",
     parler: "Iemand spreken bij Onbord",
+    tech: "Onbord voor techfuncties: houd me op de hoogte",
   },
   en: {
     demo: "Onbord demo request",
     plan: "Onbord demo request, plan",
     offre: "A job posting to turn into a simulation",
     parler: "Talking to someone at Onbord",
+    tech: "Onbord for engineering roles: let me know",
   },
 };
 
@@ -74,4 +77,14 @@ export function postingHref(locale, description) {
 export function talkHref(locale) {
   const s = SUJETS[locale] || SUJETS.fr;
   return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(s.parler)}`;
+}
+
+/**
+ * Lien « Être prévenu » de la page des métiers tech (12/10/2026) : un e-mail
+ * pré-rempli, comme les autres appels de ce fichier. Le site n'a pas de base de
+ * données (règle 6) : la liste d'attente, c'est notre boîte de réception.
+ */
+export function notifyTechHref(locale) {
+  const s = SUJETS[locale] || SUJETS.fr;
+  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(s.tech)}`;
 }

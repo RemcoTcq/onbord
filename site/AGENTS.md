@@ -480,7 +480,33 @@ réseau à chaque visite sans jamais rien afficher. Retirée. Ne la remettez pas
 pour « donner du caractère » aux titres : ici c'est leur taille et leur
 crénage serré qui le font.
 
-### 0 ter. Il n'y a plus que DEUX pages : l'accueil et `/pricing`
+### 0 ter. Les pages : l'accueil, `/pricing`, et les deux pages « métiers »
+
+⚠️ **AJOUT DU 12/10/2026, sur demande directe** : `/business-roles` (FR
+`/metiers-business`, NL `/business-functies`) et `/tech-roles` (FR
+`/metiers-tech`, NL `/tech-functies`), ouvertes par le menu « Roles » de la
+barre (`METIERS` dans `Header.js`, sur le modèle d'un menu de secteurs).
+
+- **`/business-roles` dit ce qui marche AUJOURD'HUI** : six familles de
+  métiers, chacune en une phrase, puis les outils dans lesquels le candidat
+  travaille. Chaque outil cité existe dans l'application (règle 2). Le **CRM
+  et le code y sont EN PAUSE** (`SANDBOXES_EN_PAUSE`,
+  `src/lib/constants/features.js` côté application) : ils ne sont cités ni
+  sur cette page, ni sur l'accueil. Le jour où l'un revient, il revient ici.
+- **`/tech-roles` est une page « bientôt »** : une direction, jamais une
+  promesse (règle 4 quater). Elle renvoie vers les métiers business et
+  recueille les intéressés par un e-mail pré-rempli (`notifyTechHref`,
+  `contact.js`) — pas de formulaire, le site n'a pas de base (règle 6).
+- **Sur l'accueil**, le code a quitté l'aperçu du hero, le bac à sable et la
+  composition `#work`, où un TABLEUR (un pipeline et sa somme) a remplacé
+  le panneau de code, à la même place. Le pipeline compte douze lignes pour
+  que sa somme surlignée ressorte SOUS l'e-mail, comme le faisait le code.
+  `CodeMock` et `mocks.code` restent, en sommeil, comme `HowVisuals.js`.
+
+Ce qui suit date d'avant cet ajout et reste vrai pour les trois pages
+retirées en septembre.
+
+#### Il n'y avait plus que DEUX pages : l'accueil et `/pricing`
 
 `/how-it-works`, `/simulations` et `/scoring` ont été **supprimées** en
 septembre 2026, sur demande directe : leur contenu part dans le blog, qui n'est
@@ -554,8 +580,8 @@ chaque règle qu'il énonce se vérifie côté application —
 
 | Ce que dit le site | Où c'est vrai (racine du dépôt) |
 |---|---|
-| 6 crédits par génération de simulation (refontes comprises), 1 par étape régénérée, 1 au démarrage, 2 à la notation | `src/lib/constants/plans.js` (`CREDIT_COSTS`) |
-| Core 100 € (85 à l'année), Pro 300 € (255), 150 et 500 crédits, pas de crédit à l'unité | `src/lib/constants/plans.js` (`PLANS`) |
+| 6 crédits par génération de simulation (refontes comprises), 2 par étape réécrite, 1 au démarrage, 2 à la notation | `src/lib/constants/plans.js` (`CREDIT_COSTS`) |
+| Core 120 € (100 à l'année), Pro 360 € (300), 150 et 500 crédits, pas de crédit à l'unité | `src/lib/constants/plans.js` (`PLANS`) |
 | En annuel, crédits non utilisés reportés ; solde à zéro au renouvellement | `src/lib/constants/plans.js` (`CYCLES`), `src/lib/utils/limits.js` (`calculerRecharge`) |
 | Pas de question rétrospective, pas de version générique du métier | `src/lib/experienceGeneration.js` (`REGLES_ETAPE`, `REGLE_ANCRAGE_OFFRE`) |
 | Sous-dimensions, échelles comportementales | `src/lib/experienceGeneration.js` (règle 6) |
@@ -564,7 +590,7 @@ chaque règle qu'il énonce se vérifie côté application —
 | Règles anti-biais des QCM | `src/lib/experienceGeneration.js` (`REGLES_QCM`) |
 | Citations vérifiées comme sous-chaînes réelles | `src/lib/runScoring.js` (`verifyVerbatim`) |
 | Note plafonnée en cas de recopiage de l'assistant | `src/lib/runScoring.js` (`recopiageCap`) |
-| Correction déterministe : QCM, code, champs CRM | `src/lib/runScoring.js`, `src/lib/crmScoring.js` |
+| Correction déterministe : QCM (code et champs CRM aussi, mais ces deux formats sont EN PAUSE et ne sont plus cités par le site) | `src/lib/runScoring.js`, `src/lib/crmScoring.js` |
 | Retour candidat de 120 à 180 mots | `src/lib/actions/candidate.js` |
 
 **N'ajoutez rien ici qui ne soit vrai là-bas.** Et quand le barème change de

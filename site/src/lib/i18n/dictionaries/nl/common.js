@@ -16,6 +16,13 @@ const common = {
     openMenu: "Menu openen",
     closeMenu: "Menu sluiten",
     skip: "Naar de inhoud",
+    // Het menu « Functies » (Header.js): twee pagina's, elk met zijn status.
+    roles: "Functies",
+    soon: "Binnenkort",
+    rolesItems: {
+      business: { title: "Businessfuncties", desc: "Sales, customer success, operations, marketing. Vandaag beschikbaar." },
+      tech: { title: "Techfuncties", desc: "Developers en technische profielen." },
+    },
   },
 
   footer: {
@@ -36,9 +43,7 @@ const common = {
       more: "…meer",
       meName: "Sarah D.",
       themName: "David M.",
-      testsLabel: "tests geslaagd",
       signOff: "Met vriendelijke groeten,",
-      codeFile: "leads.js",
       compose: "Nieuw bericht",
       to: "Aan",
       subject: "Onderwerp",
@@ -185,6 +190,25 @@ const common = {
       missed: "Gemist",
     },
 
+    // Le tableur de la composition « Ce que font les candidats » (WorkScenes.js).
+    // Il a remplacé le panneau de code le 12/10/2026 : l'exercice de code est
+    // en pause dans l'application. La somme est juste (79 200) : une maquette
+    // qui montre un total ne doit pas se tromper d'addition.
+    sheet: {
+      file: "pipeline-q3.xlsx",
+      formula: "=SUM(B2:B7)",
+      columns: ["Account", "Bedrag", "Fase", "Afsluiting"],
+      rows: [
+        ["Vandelaer NV", "18 400", "Voorstel", "30/09"],
+        ["Brasserie Lou", "6 200", "Demo", "15/10"],
+        ["Atelier Mertens", "24 900", "Onderhandeling", "07/10"],
+        ["Kortrijk Bouw", "9 800", "Ontdekking", "—"],
+        ["De Smet Fietsen", "12 300", "Voorstel", "22/10"],
+        ["Hotel Sint-Jan", "7 600", "Demo", "18/10"],
+      ],
+      totalLabel: "Totaal",
+      total: "79 200",
+    },
     code: {
       task: "Dubbele leads op e-mailadres verwijderen, de eerste behouden.",
       tests: [

@@ -427,6 +427,75 @@ const pages = {
     },
   },
 
+  // Les deux pages « métiers » (12/10/2026). Ce que dit la page business doit
+  // rester vrai dans l'application (règle 2) : appel avec un personnage IA,
+  // e-mail, tableur, boîte de réception, tableau à prioriser, vidéo. Le CRM et
+  // le code sont EN PAUSE côté application : ils n'apparaissent pas ici.
+  business: {
+    meta: {
+      title: "Business roles: Onbord",
+      description: "Work simulations for sales, customer success, operations and marketing roles, built from your own job posting.",
+    },
+    eyebrow: "Available today",
+    titleA: "Simulations for",
+    titleEm: "business roles.",
+    titleB: "",
+    lede: "Each one is built from your job posting, so candidates do the work of your role, not a generic version of it.",
+    roles: {
+      kicker: "The roles",
+      title: "For the people who sell, serve and run the company.",
+      cards: [
+        { title: "Sales and business development", body: "A live call with a prospect who has objections and information to dig out, then the follow-up email." },
+        { title: "Account management", body: "A client who wants a discount before renewing, and a relationship to keep while saying no." },
+        { title: "Customer success and support", body: "An unhappy customer on the phone or in a chat, and a reply that keeps them." },
+        { title: "Operations", body: "An inbox full of competing requests, and a spreadsheet to read before deciding what comes first." },
+        { title: "Marketing", body: "Campaign numbers to analyse, a plan to prioritise under a budget, a brief to write." },
+        { title: "Office and people", body: "A morning of requests to triage, a difficult conversation to hold, a process to write down." },
+      ],
+    },
+    tools: {
+      kicker: "What they work in",
+      title: "Tools that behave like the real ones.",
+      items: [
+        { q: "A live call", a: "An AI character with its own personality, objections and hidden information. The candidate talks, and the call is transcribed and scored." },
+        { q: "Emails and messages", a: "A real compose window, a client message to answer, a conversation held in writing." },
+        { q: "A spreadsheet", a: "Real data, formulas that work, and a conclusion to write from the numbers." },
+        { q: "An inbox", a: "Competing messages to sort by priority, then answer, delegate, schedule or archive." },
+        { q: "A prioritisation board", a: "A backlog, a roadmap or a ticket queue to arrange under a real constraint." },
+        { q: "A video answer", a: "A pitch or a demo, recorded in one take and transcribed." },
+      ],
+    },
+    closing: {
+      title: "Hiring for one of these roles?",
+      body: "Send us the posting: we build the simulation and show it to you before any candidate sees it.",
+      cta: "Book a demo",
+    },
+  },
+
+  tech: {
+    meta: {
+      title: "Engineering roles: Onbord",
+      description: "Simulations for developers and technical roles are coming to Onbord.",
+    },
+    eyebrow: "Coming soon",
+    titleA: "Engineering roles.",
+    titleEm: "Soon.",
+    titleB: "",
+    lede: "Simulations for developers are in the works: real code, a real environment, and the AI tools engineers use every day.",
+    now: {
+      kicker: "In the meantime",
+      title: "Business roles are live today.",
+      body: "Sales, customer success, operations, marketing: if you are hiring for one of them, it works now.",
+      more: "See business roles",
+    },
+    closing: {
+      title: "Want to know when it opens?",
+      body: "Leave us a note and we will tell you as soon as engineering simulations are ready.",
+      cta: "Get notified",
+      secondary: "Book a demo",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

@@ -33,6 +33,8 @@ export default function Footer({ locale, common }) {
             <ul className="footer__links">
               {/* Les trois premières sont des ancres vers l'accueil : leurs
                   pages ont été retirées (voir routes.js). */}
+              <li><Link href={href("/business-roles", locale)}>{n.rolesItems.business.title}</Link></li>
+              <li><Link href={href("/tech-roles", locale)}>{n.rolesItems.tech.title}</Link></li>
               <li><Link href={`/${locale}#how`}>{n.how}</Link></li>
               <li><Link href={`/${locale}#work`}>{n.simulations}</Link></li>
               <li><Link href={`/${locale}#proof`}>{n.scoring}</Link></li>

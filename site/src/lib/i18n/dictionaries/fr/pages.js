@@ -406,6 +406,74 @@ const pages = {
     },
   },
 
+  // Les deux pages « métiers » (12/10/2026). Ce que dit la page business doit
+  // rester vrai dans l'application (règle 2). Le CRM et le code sont EN PAUSE
+  // côté application : ils n'apparaissent pas ici.
+  business: {
+    meta: {
+      title: "Métiers business : Onbord",
+      description: "Des simulations de travail pour les métiers commerciaux, customer success, opérations et marketing, construites à partir de votre offre.",
+    },
+    eyebrow: "Disponible aujourd'hui",
+    titleA: "Des simulations pour",
+    titleEm: "les métiers business.",
+    titleB: "",
+    lede: "Chacune est construite à partir de votre offre : le candidat fait le travail de votre poste, pas d'une version générique.",
+    roles: {
+      kicker: "Les métiers",
+      title: "Pour ceux qui vendent, accompagnent et font tourner l'entreprise.",
+      cards: [
+        { title: "Commercial et business development", body: "Un appel en direct avec un prospect qui a ses objections et des informations à faire sortir, puis l'e-mail de suivi." },
+        { title: "Account management", body: "Un client qui veut une remise avant de renouveler, et une relation à garder tout en disant non." },
+        { title: "Customer success et support", body: "Un client mécontent au téléphone ou par chat, et une réponse qui le garde." },
+        { title: "Opérations", body: "Une boîte de réception pleine de demandes concurrentes, et un tableur à lire avant de décider par quoi commencer." },
+        { title: "Marketing", body: "Des chiffres de campagne à analyser, un plan à prioriser sous budget, un brief à rédiger." },
+        { title: "Office et RH", body: "Une matinée de demandes à trier, une conversation difficile à mener, un process à mettre par écrit." },
+      ],
+    },
+    tools: {
+      kicker: "Les outils",
+      title: "Des outils qui se comportent comme les vrais.",
+      items: [
+        { q: "Un appel en direct", a: "Un personnage joué par l'IA, avec sa personnalité, ses objections et des informations cachées. Le candidat parle, l'appel est transcrit et noté." },
+        { q: "E-mails et messages", a: "Une vraie fenêtre de rédaction, un message client auquel répondre, une conversation menée par écrit." },
+        { q: "Un tableur", a: "De vraies données, des formules qui fonctionnent, et une conclusion à tirer des chiffres." },
+        { q: "Une boîte de réception", a: "Des messages concurrents à trier par priorité, puis à traiter, déléguer, planifier ou archiver." },
+        { q: "Un tableau à prioriser", a: "Un backlog, une roadmap ou une file de tickets à organiser sous une vraie contrainte." },
+        { q: "Une réponse vidéo", a: "Un pitch ou une démo, enregistré en une prise et transcrit." },
+      ],
+    },
+    closing: {
+      title: "Vous recrutez pour l'un de ces métiers ?",
+      body: "Envoyez-nous l'offre : nous construisons la simulation et vous la montrons avant qu'un candidat ne la voie.",
+      cta: "Réserver une démo",
+    },
+  },
+
+  tech: {
+    meta: {
+      title: "Métiers tech : Onbord",
+      description: "Les simulations pour les développeurs et les métiers techniques arrivent sur Onbord.",
+    },
+    eyebrow: "Bientôt",
+    titleA: "Métiers tech.",
+    titleEm: "Bientôt.",
+    titleB: "",
+    lede: "Les simulations pour développeurs sont en préparation : du vrai code, un vrai environnement, et les outils d'IA que les ingénieurs utilisent tous les jours.",
+    now: {
+      kicker: "En attendant",
+      title: "Les métiers business sont disponibles dès aujourd'hui.",
+      body: "Commercial, customer success, opérations, marketing : si vous recrutez pour l'un d'eux, ça fonctionne maintenant.",
+      more: "Voir les métiers business",
+    },
+    closing: {
+      title: "Vous voulez savoir quand ça ouvre ?",
+      body: "Laissez-nous un mot : nous vous prévenons dès que les simulations tech sont prêtes.",
+      cta: "Être prévenu",
+      secondary: "Réserver une démo",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

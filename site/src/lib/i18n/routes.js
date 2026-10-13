@@ -35,6 +35,20 @@ const SEGMENTS = {
     fr: "/tarifs",
     nl: "/tarieven",
   },
+  // Les deux pages « métiers » (12/10/2026) : ce qu'Onbord fait passer
+  // AUJOURD'HUI (les métiers business), et ce qui arrive (la tech). Le code
+  // est en pause dans l'application ; le site ne doit pas le vendre comme
+  // disponible.
+  "/business-roles": {
+    en: "/business-roles",
+    fr: "/metiers-business",
+    nl: "/business-functies",
+  },
+  "/tech-roles": {
+    en: "/tech-roles",
+    fr: "/metiers-tech",
+    nl: "/tech-functies",
+  },
 };
 
 /** Index inverse, construit une fois : traduction → chemin canonique. */

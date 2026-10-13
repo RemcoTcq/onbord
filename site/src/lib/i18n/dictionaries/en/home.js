@@ -49,8 +49,8 @@ const home = {
       steps: [
         { name: "Answer a price objection", format: "Email", min: "6 min" },
         { name: "Take the call on camera", format: "Live", min: "5 min" },
-        { name: "File the record", format: "CRM", min: "4 min" },
-        { name: "Clean a duplicate leads list", format: "Code", min: "" },
+        { name: "Sort Monday's inbox", format: "Inbox", min: "5 min" },
+        { name: "Read the pipeline numbers", format: "Sheet", min: "" },
       ],
     },
 
@@ -63,7 +63,7 @@ const home = {
       // l'effet machine à écrire qui les fait défiler.
       placeholders: [
         "I want a simulation for a Sales Development Representative",
-        "I want a simulation to test if someone can code in Python",
+        "I want a simulation for a Customer Success Manager",
         "I want a simulation for an Office Manager",
       ],
       send: "Build the simulation",
@@ -145,7 +145,7 @@ const home = {
     titleA: "Twenty minutes of",
     titleEm: "the job.",
     titleB: "Not a questionnaire.",
-    lede: "They answer the client who has a cheaper quote, take the call on camera, and fix the bug before it ships. The AI assistant is open beside them, exactly like at work, and how they use it is part of the result.",
+    lede: "They answer the client who has a cheaper quote, take the call on camera, and read the numbers before the Monday meeting. The AI assistant is open beside them, exactly like at work, and how they use it is part of the result.",
   },
 
   how: {
