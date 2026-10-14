@@ -693,6 +693,7 @@ export async function savePersonaCallVideo(token, stepId, path, durationSeconds)
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
+    if (ctx.run.status !== "in_progress") return { success: false, error: "Run déjà soumis" };
 
     const { data: step } = await admin
       .from("experience_steps").select("id, sandbox_kind, response_format, config")
@@ -774,10 +775,20 @@ export async function saveVideoResponse(token, stepId, videoUrl, durationSeconds
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
+    // Comme saveStepResponse : un run soumis est figé. Sans ce garde, la vidéo
+    // pouvait être remplacée après la note, et le recruteur voyait autre chose
+    // que ce qui avait été évalué.
+    if (ctx.run.status !== "in_progress") return { success: false, error: "Run déjà soumis" };
 
     const { data: step } = await admin
       .from("experience_steps").select("id").eq("id", stepId).eq("experience_id", ctx.exp.id).single();
     if (!step) return { success: false, error: "Étape invalide" };
+    // Le chemin vient du navigateur : il doit être dans le dossier de CE
+    // candidat. Le rapport recruteur le signe en service_role, sans autre
+    // contrôle — un chemin étranger y ferait lire la vidéo d'un autre candidat.
+    if (typeof videoUrl !== "string" || !videoUrl.startsWith(`${token}/`) || videoUrl.includes("..")) {
+      return { success: false, error: "Chemin invalide" };
+    }
 
     const { data: resp, error } = await admin.from("run_step_responses").upsert({
       run_id: ctx.run.id,
