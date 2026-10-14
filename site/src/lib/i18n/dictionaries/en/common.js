@@ -22,12 +22,12 @@ const common = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
     skip: "Skip to content",
-    // Le menu « Roles » (Header.js) : deux pages, et l'état de chacune.
-    roles: "Roles",
+    // Le menu « Roles » (Header.js) : une page, et une entrée « bientôt » non cliquable.
+    roles: "Use cases",
     soon: "Soon",
     rolesItems: {
-      business: { title: "Business roles", desc: "Sales, customer success, operations, marketing. Available today." },
-      tech: { title: "Engineering roles", desc: "Developers and technical profiles." },
+      business: { title: "Business roles", desc: "Sales, customer success, finance, HR, operations. Available today." },
+      tech: { title: "Tech roles", desc: "Developers and technical profiles. Coming later." },
     },
   },
 

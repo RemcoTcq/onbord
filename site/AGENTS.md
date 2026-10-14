@@ -76,8 +76,11 @@ Les partis pris, à respecter en ajoutant quoi que ce soit :
   masques ne découpent plus que trois lignes : la PREMIÈRE horizontale (le
   filet du bas de la barre de navigation) et la PREMIÈRE et la DERNIÈRE
   verticale de la bande (les deux filets continus de la page, en blanc sur
-  le ciel). Toutes les autres lignes du hero sont éteintes. La bande finale
-  (`.section--tail`, `.footer`) garde sa trame. Ce qui suit sur la trame
+  le ciel). Toutes les autres lignes du hero sont éteintes.
+
+  ⚠️ **DEPUIS LE 14/10/2026, LA BANDE FINALE N'A PLUS DE CARREAUX NON
+  PLUS** (demande directe). Voir la règle 0 bis ter. Il n'y a donc plus de
+  trame NULLE PART sur le site : seulement les deux filets. Ce qui suit sur la trame
   du hero décrit la mécanique des calques, toujours valable ; seule la
   quantité de lignes découpées a changé.
 
@@ -417,6 +420,16 @@ candidat, pas les nôtres.
 
 ### 0 bis ter. La page commence et finit sur le MÊME ciel
 
+⚠️ **MISE À JOUR DU 14/10/2026, demande directe : PLUS DE CARREAUX dans la
+bande finale**, sur toutes les pages. Ce qui reste : le ciel en dégradé
+(blanc en haut, bleu en bas), les deux filets verticaux de la page, que
+`.colonnes--tail` dessine seuls (même masque que `.colonnes--hero`), et un
+**filet horizontal pleine largeur en haut du pied de page** (`.footer::after`),
+le pendant de celui qui ferme la barre : sans la trame, rien ne marquait plus
+la limite entre l'appel et le pied de page. La **couture floutée** (`.seam`,
+`.section--tail::after`) a été retirée avec la trame : elle n'avait plus rien à
+flouter. Ce qui suit sur le quadrillage et la couture décrit l'état d'avant.
+
 Le hero pose un ciel bleu en dégradé avec un quadrillage fin et ses « + » aux
 intersections. **L'appel final et le pied de page reprennent exactement cette
 trame**, le ciel retourné : blanc en haut, bleu en bas. C'est le geste du
@@ -482,21 +495,60 @@ crénage serré qui le font.
 
 ### 0 ter. Les pages : l'accueil, `/pricing`, et les deux pages « métiers »
 
+⚠️ **14/10/2026** : le menu s'appelle **« Use cases »** (FR « Cas d'usage »,
+NL « Toepassingen »), plus « Roles », qu'on ne comprenait pas seul dans la
+barre. Ses entrées gardent leurs noms (« Business roles », « Tech roles »).
+Et les règles « sur le ciel » de la barre visent `.nav > a`, JAMAIS
+`.nav a` : les entrées du menu sont aussi des liens dans `.nav`, et
+héritaient sur l'accueil d'une ombre et d'une graisse qui les empâtaient.
+L'appel final est aussi devenu une BANDE fermée par deux filets (règle 0 bis
+ter), et « Available today » a quitté le haut de `/business-roles`.
+
 ⚠️ **AJOUT DU 12/10/2026, sur demande directe** : `/business-roles` (FR
 `/metiers-business`, NL `/business-functies`) et `/tech-roles` (FR
 `/metiers-tech`, NL `/tech-functies`), ouvertes par le menu « Roles » de la
 barre (`METIERS` dans `Header.js`, sur le modèle d'un menu de secteurs).
 
-- **`/business-roles` dit ce qui marche AUJOURD'HUI** : six familles de
-  métiers, chacune en une phrase, puis les outils dans lesquels le candidat
-  travaille. Chaque outil cité existe dans l'application (règle 2). Le **CRM
+- **`/business-roles` dit ce qui marche AUJOURD'HUI.** Refaite le
+  14/10/2026, sur demande directe, en trois blocs :
+  1. **cinq familles de rôles** (Sales, Customer success, Finance, People
+     and leadership, Operations) dans UN panneau, une colonne par famille,
+     et sous chacune les seuls INTITULÉS des postes. Rien à cliquer, aucune
+     description. ⚠️ Une première version mettait les familles en onglets
+     avec une ligne par poste : retirée sur retour direct, « le temps qu'ils
+     cliquent, ils lisent tout, c'est beaucoup trop d'infos ». Et JAMAIS
+     l'exercice qu'on fait passer à un rôle : la façon dont Onbord met un
+     commercial ou un recruteur à l'épreuve se montre en DÉMO, pas sur une
+     vitrine qu'un concurrent peut copier ;
+  2. **quatre façons de travailler** (appel en direct, chat et e-mail,
+     documents, boîte de réception et priorités) en `.grid4`, SANS icônes,
+     et **l'IA** en bande pleine largeur dessous. ⚠️ Ne réécrivez pas
+     « and AI in all of them » : c'est faux, l'IA n'est pas dans l'appel
+     en direct et l'assistant s'ouvre étape par étape. La page dit « AI
+     where it belongs » ;
+  3. **le fonctionnement**, en trois `.duo` qui alternent : DEUX personnages
+     aussi différents que possible (`Cast`, il y en a eu trois, la
+     troisième doublait la première), la simulation construite sur le
+     contexte de l'entreprise, l'offre et les compétences (`Feed`), et le
+     **copilote** qu'on peut manipuler (`Copilot.js`), titré « ONBORD
+     COPILOT » en capitales. Comme le bac à sable (règle 5 bis), c'est une
+     ANIMATION : des demandes en boutons, des réponses écrites d'avance,
+     aucun champ libre.
+
+  Chaque format cité existe dans l'application (règle 2) : sandboxes
+  `persona` (modes `call` et `chat`), `email`, `client_reply`, `document`,
+  `sheet`, `inbox`, `board`, et `ai_assistant_allowed` par étape. Le **CRM
   et le code y sont EN PAUSE** (`SANDBOXES_EN_PAUSE`,
   `src/lib/constants/features.js` côté application) : ils ne sont cités ni
   sur cette page, ni sur l'accueil. Le jour où l'un revient, il revient ici.
-- **`/tech-roles` est une page « bientôt »** : une direction, jamais une
-  promesse (règle 4 quater). Elle renvoie vers les métiers business et
-  recueille les intéressés par un e-mail pré-rempli (`notifyTechHref`,
-  `contact.js`) — pas de formulaire, le site n'a pas de base (règle 6).
+- **La tech n'a PLUS DE PAGE** (14/10/2026, demande directe). `/tech-roles`
+  a vécu du 13 au 14/10 ; elle est supprimée, son segment a quitté
+  `routes.js`, et son adresse redirige (307) vers `/business-roles`
+  (`next.config.mjs`). Il ne reste qu'une entrée **non cliquable** du menu
+  « Roles », marquée « Soon » (`METIERS` sans `path` dans `Header.js`), et
+  plus rien dans le pied de page. `notifyTechHref` et le bloc `pages.tech`
+  sont partis avec elle. Le jour où la tech ouvre : une page, un segment,
+  un `path`, et on retire la redirection.
 - **Sur l'accueil**, le code a quitté l'aperçu du hero, le bac à sable et la
   composition `#work`, où un TABLEUR (un pipeline et sa somme) a remplacé
   le panneau de code, à la même place. Le pipeline compte douze lignes pour
@@ -1269,6 +1321,7 @@ site/
 │   │       ├── simulations/      Quatre gestes, les situations, et les règles
 │   │       ├── scoring/          La page de la confiance
 │   │       ├── pricing/          Tarifs, barème, arithmétique à découvert
+│   │       ├── business-roles/   Familles de rôles, façons de travailler, copilote
 │   │       └── legal/[doc]/      Les trois pages légales (voir règle 1)
 │   ├── components/
 │   │   ├── Bits.js               Briques de mise en page (Split, Title, Rule…)
@@ -1277,6 +1330,7 @@ site/
 │   │   ├── HowVisuals.js         Les vignettes minimalistes de /how-it-works
 │   │   ├── FeedbackTabs.js       Le retour candidat, retenu/refusé (client)
 │   │   ├── Mocks.js              Les maquettes d'interface
+│   │   ├── Copilot.js / RolesVisuals.js   /business-roles
 │   │   ├── Header.js / Footer.js / Reveal.js / PlanTable.js / Icons.js
 │   └── lib/
 │       ├── contact.js            Destination de TOUS les appels à l'action

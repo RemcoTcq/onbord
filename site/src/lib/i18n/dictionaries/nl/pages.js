@@ -406,71 +406,141 @@ const pages = {
     },
   },
 
-  // De twee « functie »-pagina's (12/10/2026). Wat de businesspagina zegt,
-  // moet waar blijven in de applicatie (regel 2). CRM en code staan daar
-  // GEPAUZEERD: ze verschijnen hier niet.
+  // De pagina « businessfuncties » (herschreven op 14/10/2026). Zelfde vorm
+  // als het Engels, zie het commentaar in en/pages.js.
   business: {
     meta: {
       title: "Businessfuncties: Onbord",
-      description: "Werksimulaties voor sales-, customer success-, operations- en marketingfuncties, gebouwd op uw eigen vacature.",
+      description: "Werksimulaties voor sales, customer success, finance, HR en operations, gebouwd op uw bedrijf, uw vacature en de vaardigheden die u zoekt.",
     },
-    eyebrow: "Vandaag beschikbaar",
     titleA: "Simulaties voor",
     titleEm: "businessfuncties.",
     titleB: "",
-    lede: "Elke simulatie wordt gebouwd op uw vacature: de kandidaat doet het werk van uw functie, geen algemene versie ervan.",
-    roles: {
+    lede: "Sales, customer success, finance, HR en operations: vijf families die de meeste businessfuncties dekken waarvoor een bedrijf aanwerft.",
+    families: {
       kicker: "De functies",
-      title: "Voor wie verkoopt, begeleidt en het bedrijf draaiende houdt.",
-      cards: [
-        { title: "Sales en business development", body: "Een live gesprek met een prospect met bezwaren en informatie om boven te halen, daarna de opvolgmail." },
-        { title: "Accountmanagement", body: "Een klant die korting wil voor hij verlengt, en een relatie om te behouden terwijl u nee zegt." },
-        { title: "Customer success en support", body: "Een ontevreden klant aan de telefoon of in de chat, en een antwoord dat hem behoudt." },
-        { title: "Operations", body: "Een inbox vol concurrerende vragen, en een spreadsheet om te lezen voor u beslist wat eerst komt." },
-        { title: "Marketing", body: "Campagnecijfers om te analyseren, een plan om te prioriteren binnen een budget, een briefing om te schrijven." },
-        { title: "Office en HR", body: "Een ochtend vol vragen om te sorteren, een moeilijk gesprek om te voeren, een proces om uit te schrijven." },
-      ],
-    },
-    tools: {
-      kicker: "Waarin ze werken",
-      title: "Tools die zich gedragen als de echte.",
+      title: "Vijf families, het gros van de businessaanwervingen.",
+      label: "Functiefamilies",
       items: [
-        { q: "Een live gesprek", a: "Een personage gespeeld door AI, met een eigen persoonlijkheid, bezwaren en verborgen informatie. De kandidaat praat, het gesprek wordt uitgeschreven en beoordeeld." },
-        { q: "E-mails en berichten", a: "Een echt opstelvenster, een klantbericht om te beantwoorden, een gesprek dat schriftelijk verloopt." },
-        { q: "Een spreadsheet", a: "Echte gegevens, formules die werken, en een conclusie om uit de cijfers te trekken." },
-        { q: "Een inbox", a: "Concurrerende berichten om te sorteren op prioriteit, en dan te beantwoorden, te delegeren, in te plannen of te archiveren." },
-        { q: "Een prioriteringsbord", a: "Een backlog, een roadmap of een ticketwachtrij om te ordenen onder een echte beperking." },
-        { q: "Een video-antwoord", a: "Een pitch of een demo, in één keer opgenomen en uitgeschreven." },
+        {
+          id: "sales",
+          name: "Sales en business development",
+          roles: [
+            "Sales Development Representative",
+            "Business Developer",
+            "Account Executive",
+            "Account Manager",
+            "Sales Manager",
+            "Sales Director",
+          ],
+        },
+        {
+          id: "success",
+          name: "Customer success en support",
+          roles: [
+            "Customer Support",
+            "Customer Success",
+            "Customer Success Manager",
+            "Support Team Lead",
+          ],
+        },
+        {
+          id: "finance",
+          name: "Finance",
+          roles: [
+            "Financieel analist",
+            "FP&A-analist",
+            "Business controller",
+          ],
+        },
+        {
+          id: "people",
+          name: "HR en leadership",
+          roles: [
+            "Recruiter",
+            "Talent Acquisition",
+            "HR Business Partner",
+            "People Operations",
+            "HR Manager",
+            "Chief of Staff",
+          ],
+        },
+        {
+          id: "operations",
+          name: "Operations",
+          roles: [
+            "Operations Manager",
+            "Product Manager",
+            "Projectmanager",
+            "Business Operations Analyst",
+          ],
+        },
       ],
+      note: "Staat uw functie er niet bij? Als het werk draait om gesprekken, schrijven en beslissingen, kunnen we het bouwen. Stuur ons de vacature.",
+    },
+    ways: {
+      kicker: "Hoe ze werken",
+      title: "Vier manieren van werken.",
+      lede: "De formats waaruit het werk echt bestaat, gebouwd rond uw functie. En AI waar het thuishoort.",
+      items: [
+        { id: "call", title: "Live gesprek", body: "Een gesproken gesprek in realtime met een klant, een prospect of een collega, die terugpraat." },
+        { id: "chat", title: "Chat en e-mail", body: "Berichten die op antwoord wachten: een klant in de chat, een collega in de teamchat, een e-mail die de juiste toon vraagt." },
+        { id: "document", title: "Documenten", body: "Iets om te maken: een spreadsheet om door te werken, een voorstel, een plan, elk zakelijk document." },
+        { id: "inbox", title: "Inbox en prioriteiten", body: "Een volle inbox en een takenbord: waarop antwoorden, wat delegeren, wat kan wachten." },
+      ],
+      ai: {
+        title: "AI, zoals ze het op het werk zouden gebruiken",
+        body: "Op de stappen waar het zin heeft, kunnen kandidaten met een AI-assistent werken, zoals ze dat in de job zouden doen. Wij kijken hoe ze hem gebruiken: wat ze vragen, wat ze controleren, en wat ze zich eigen maken.",
+      },
+    },
+    how: {
+      kicker: "Hoe het werkt",
+      title: "Een echte simulatie, met iemand aan de andere kant.",
+      lede: "Geen vragenlijst. De kandidaat praat en schrijft met mensen die terugantwoorden, en het gesprek gaat waar de antwoorden het heen sturen.",
+      cast: {
+        title: "Personages, geen scripts.",
+        body: "We bouwden personages voor elke simulatie: een klant, een prospect, een collega, een manager. Elk heeft een rol, een persoonlijkheid en eigen motivaties, en een paar dingen die ze pas zeggen als je de juiste vraag stelt.",
+        wantsLabel: "Wil",
+        hiddenLabel: "Houdt voor zich",
+        people: [
+          { name: "Marc Peeters", role: "Aankoopmanager", mood: "Druk, sceptisch", wants: "Een lagere prijs voor hij iets tekent." },
+          { name: "Thomas Leroy", role: "Uw nieuwe teamleider", mood: "Vriendelijk, overbelast", wants: "De helft van zijn backlog van zijn bureau tegen vrijdag." },
+        ],
+      },
+      custom: {
+        title: "Gemaakt voor uw bedrijf, elke keer.",
+        body: "Geen enkele simulatie komt uit een catalogus. Elke simulatie wordt gebouwd op uw eigen materiaal: de context van uw bedrijf, de vacature, en de vaardigheden die de functie vraagt.",
+        inputs: [
+          { id: "company", label: "Bedrijfscontext", value: "B2B-software voor logistiek, 40 mensen, verkoopt aan middelgrote transporteurs." },
+          { id: "posting", label: "Vacature", value: "Account Executive, Benelux" },
+          { id: "skills", label: "Vereiste vaardigheden", chips: ["Behoefteanalyse", "Onderhandeling", "Schriftelijke opvolging"] },
+        ],
+        output: {
+          label: "Uw simulatie",
+          title: "Account Executive, Benelux",
+          meta: "4 stappen, ongeveer 20 minuten",
+          covered: "gedekt",
+        },
+      },
+      copilot: {
+        title: "Pas haar aan in gewone woorden.",
+        body: "De Onbord-copiloot bouwt de simulatie samen met u. Vertel wat er waar is in uw team, en hij herschrijft de stappen, de personages en de beoordeling.",
+        window: "Onbord-copiloot",
+        hello: "Uw simulatie is klaar: vier stappen, ongeveer 20 minuten. Wat moet ik aanpassen?",
+        try: "Probeer het",
+        changedLabel: "Aangepast",
+        reset: "Opnieuw",
+        suggestions: [
+          { ask: "Onze kopers zijn aankoopdiensten, geen oprichters.", reply: "Gedaan. Het gesprek is nu met een aankoopmanager die u vergelijkt met twee andere leveranciers.", changed: "Stap 1 herschreven, personage bijgewerkt" },
+          { ask: "Maak de klant moeilijker te overtuigen.", reply: "Hij betwist nu twee keer de prijs, en vraagt een referentie voor hij een tweede afspraak aanvaardt.", changed: "Personage bijgewerkt" },
+          { ask: "Voeg een schriftelijke opvolging toe na het gesprek.", reply: "Toegevoegd: een opvolgmail aan dezelfde klant de volgende ochtend, met wat er in het gesprek is afgesproken.", changed: "Stap toegevoegd, beoordelingsrooster bijgewerkt" },
+        ],
+      },
     },
     closing: {
       title: "Werft u aan voor een van deze functies?",
-      body: "Stuur ons de vacature: wij bouwen de simulatie en tonen ze u voor een kandidaat ze ziet.",
-      cta: "Plan een demo",
-    },
-  },
-
-  tech: {
-    meta: {
-      title: "Techfuncties: Onbord",
-      description: "Simulaties voor developers en technische functies komen naar Onbord.",
-    },
-    eyebrow: "Binnenkort",
-    titleA: "Techfuncties.",
-    titleEm: "Binnenkort.",
-    titleB: "",
-    lede: "Simulaties voor developers zijn in de maak: echte code, een echte omgeving, en de AI-tools die engineers elke dag gebruiken.",
-    now: {
-      kicker: "Intussen",
-      title: "Businessfuncties zijn vandaag al beschikbaar.",
-      body: "Sales, customer success, operations, marketing: werft u voor een van die functies aan, dan werkt het nu.",
-      more: "Bekijk de businessfuncties",
-    },
-    closing: {
-      title: "Wilt u weten wanneer het opent?",
-      body: "Laat ons een berichtje achter: we laten het u weten zodra de techsimulaties klaar zijn.",
-      cta: "Houd me op de hoogte",
-      secondary: "Plan een demo",
+      body: "Stuur ons de vacature: wij bouwen de simulatie en tonen ze u voor een kandidaat ze te zien krijgt.",
+      cta: "Demo boeken",
     },
   },
 

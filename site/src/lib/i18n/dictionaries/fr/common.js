@@ -13,12 +13,12 @@ const common = {
     openMenu: "Ouvrir le menu",
     closeMenu: "Fermer le menu",
     skip: "Aller au contenu",
-    // Le menu « Métiers » (Header.js) : deux pages, et l'état de chacune.
-    roles: "Métiers",
+    // Le menu « Métiers » (Header.js) : une page, et une entrée « bientôt » non cliquable.
+    roles: "Cas d'usage",
     soon: "Bientôt",
     rolesItems: {
-      business: { title: "Métiers business", desc: "Commercial, customer success, opérations, marketing. Disponible aujourd'hui." },
-      tech: { title: "Métiers tech", desc: "Développeurs et profils techniques." },
+      business: { title: "Métiers business", desc: "Commercial, customer success, finance, RH, opérations. Disponible aujourd'hui." },
+      tech: { title: "Métiers tech", desc: "Développeurs et profils techniques. Disponible plus tard." },
     },
   },
 

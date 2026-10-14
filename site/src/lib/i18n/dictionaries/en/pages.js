@@ -427,72 +427,149 @@ const pages = {
     },
   },
 
-  // Les deux pages « métiers » (12/10/2026). Ce que dit la page business doit
-  // rester vrai dans l'application (règle 2) : appel avec un personnage IA,
-  // e-mail, tableur, boîte de réception, tableau à prioriser, vidéo. Le CRM et
-  // le code sont EN PAUSE côté application : ils n'apparaissent pas ici.
+  // La page « métiers business » (refaite le 14/10/2026). Trois blocs : les
+  // familles de rôles, avec les seuls INTITULÉS des postes (ni description du
+  // métier, ni a fortiori de l'exercice : c'est la matière de la démo, pas de
+  // la vitrine) ; les quatre façons de travailler, et l'IA « là où elle a sa
+  // place » (PAS « dans toutes » : elle n'est pas dans l'appel en direct, et
+  // l'assistant s'ouvre étape par étape) ; puis le fonctionnement (personnages,
+  // simulation construite sur vos données, copilote). Tout ce qui est dit ici
+  // existe dans l'application (règle 2) : appel et chat (`persona`), e-mail,
+  // document, tableur, boîte de réception, tableau, assistant IA. Le CRM et le
+  // code sont EN PAUSE côté application : ils n'apparaissent pas ici.
   business: {
     meta: {
       title: "Business roles: Onbord",
-      description: "Work simulations for sales, customer success, operations and marketing roles, built from your own job posting.",
+      description: "Work simulations for sales, customer success, finance, HR and operations roles, built from your company, your job posting and the skills you need.",
     },
-    eyebrow: "Available today",
     titleA: "Simulations for",
     titleEm: "business roles.",
     titleB: "",
-    lede: "Each one is built from your job posting, so candidates do the work of your role, not a generic version of it.",
-    roles: {
+    lede: "Sales, customer success, finance, people and operations: five families that cover most of the business roles a company hires for.",
+    families: {
       kicker: "The roles",
-      title: "For the people who sell, serve and run the company.",
-      cards: [
-        { title: "Sales and business development", body: "A live call with a prospect who has objections and information to dig out, then the follow-up email." },
-        { title: "Account management", body: "A client who wants a discount before renewing, and a relationship to keep while saying no." },
-        { title: "Customer success and support", body: "An unhappy customer on the phone or in a chat, and a reply that keeps them." },
-        { title: "Operations", body: "An inbox full of competing requests, and a spreadsheet to read before deciding what comes first." },
-        { title: "Marketing", body: "Campaign numbers to analyse, a plan to prioritise under a budget, a brief to write." },
-        { title: "Office and people", body: "A morning of requests to triage, a difficult conversation to hold, a process to write down." },
-      ],
-    },
-    tools: {
-      kicker: "What they work in",
-      title: "Tools that behave like the real ones.",
+      title: "Five families, most of business hiring.",
+      label: "Role families",
       items: [
-        { q: "A live call", a: "An AI character with its own personality, objections and hidden information. The candidate talks, and the call is transcribed and scored." },
-        { q: "Emails and messages", a: "A real compose window, a client message to answer, a conversation held in writing." },
-        { q: "A spreadsheet", a: "Real data, formulas that work, and a conclusion to write from the numbers." },
-        { q: "An inbox", a: "Competing messages to sort by priority, then answer, delegate, schedule or archive." },
-        { q: "A prioritisation board", a: "A backlog, a roadmap or a ticket queue to arrange under a real constraint." },
-        { q: "A video answer", a: "A pitch or a demo, recorded in one take and transcribed." },
+        {
+          id: "sales",
+          name: "Sales and business development",
+          roles: [
+            "Sales Development Representative",
+            "Business Developer",
+            "Account Executive",
+            "Account Manager",
+            "Sales Manager",
+            "Sales Director",
+          ],
+        },
+        {
+          id: "success",
+          name: "Customer success and support",
+          roles: [
+            "Customer Support",
+            "Customer Success",
+            "Customer Success Manager",
+            "Support Team Lead",
+          ],
+        },
+        {
+          id: "finance",
+          name: "Finance",
+          roles: [
+            "Financial Analyst",
+            "FP&A Analyst",
+            "Business Controller",
+          ],
+        },
+        {
+          id: "people",
+          name: "People and leadership",
+          roles: [
+            "Recruiter",
+            "Talent Acquisition",
+            "HR Business Partner",
+            "People Operations",
+            "HR Manager",
+            "Chief of Staff",
+          ],
+        },
+        {
+          id: "operations",
+          name: "Operations",
+          roles: [
+            "Operations Manager",
+            "Product Manager",
+            "Project Manager",
+            "Business Operations Analyst",
+          ],
+        },
       ],
+      note: "Your role isn't listed? If the job is done through conversations, writing and decisions, we can build it. Send us the posting.",
+    },
+    ways: {
+      kicker: "How they work",
+      title: "Four ways of working.",
+      lede: "The formats the job is actually made of, built around your role. And AI where it belongs.",
+      items: [
+        { id: "call", title: "Live call", body: "A spoken conversation in real time with a client, a prospect or a colleague, who answers back." },
+        { id: "chat", title: "Chat and email", body: "Messages that wait for a reply: a client on chat, a teammate on team chat, an email that needs the right tone." },
+        { id: "document", title: "Documents", body: "Something to produce: a spreadsheet to work through, a proposal, a plan, any business document." },
+        { id: "inbox", title: "Inbox and priorities", body: "A full inbox and a task board: what to answer, what to delegate, what can wait." },
+      ],
+      ai: {
+        title: "AI, the way they would use it at work",
+        body: "On the steps where it makes sense, candidates can work with an AI assistant, as they would on the job. We look at how they use it: what they ask, what they check, and what they make their own.",
+      },
+    },
+    how: {
+      kicker: "How it works",
+      title: "A real simulation, with someone on the other side.",
+      lede: "Not a questionnaire. The candidate talks and writes to people who answer back, and the conversation goes where their answers take it.",
+      cast: {
+        title: "Characters, not scripts.",
+        body: "We built characters for every simulation: a client, a prospect, a colleague, a manager. Each one has a role, a personality and motivations of their own, and a few things they won't say unless they're asked the right way.",
+        wantsLabel: "Wants",
+        hiddenLabel: "Keeps to themselves",
+        people: [
+          { name: "Marc Peeters", role: "Procurement manager", mood: "Busy, sceptical", wants: "A lower price before he signs anything." },
+          { name: "Thomas Leroy", role: "Your new team lead", mood: "Friendly, overloaded", wants: "Half of his backlog off his desk by Friday." },
+        ],
+      },
+      custom: {
+        title: "Made for your company, every time.",
+        body: "No simulation comes off a shelf. Each one is built from your own material: your company context, the job posting, and the skills the role requires.",
+        inputs: [
+          { id: "company", label: "Company context", value: "B2B software for logistics, 40 people, sells to mid-size carriers." },
+          { id: "posting", label: "Job posting", value: "Account Executive, Benelux" },
+          { id: "skills", label: "Required skills", chips: ["Discovery", "Negotiation", "Written follow-up"] },
+        ],
+        output: {
+          label: "Your simulation",
+          title: "Account Executive, Benelux",
+          meta: "4 steps, about 20 minutes",
+          covered: "covered",
+        },
+      },
+      copilot: {
+        title: "Adjust it in plain words.",
+        body: "The Onbord copilot builds the simulation with you. Tell it what's true about your team, and it rewrites the steps, the characters and the scoring to match.",
+        window: "Onbord copilot",
+        hello: "Your simulation is ready: four steps, about 20 minutes. What should I change?",
+        try: "Try it",
+        changedLabel: "Changed",
+        reset: "Start over",
+        suggestions: [
+          { ask: "Our buyers are procurement teams, not founders.", reply: "Done. The call is now with a procurement manager who is comparing you with two other suppliers.", changed: "Step 1 rewritten, character updated" },
+          { ask: "Make the client harder to convince.", reply: "He now pushes back twice on price, and asks for a reference before agreeing to a second meeting.", changed: "Character updated" },
+          { ask: "Add a written follow-up after the call.", reply: "Added: a follow-up email to the same client the next morning, covering what was agreed on the call.", changed: "Step added, scoring grid updated" },
+        ],
+      },
     },
     closing: {
       title: "Hiring for one of these roles?",
       body: "Send us the posting: we build the simulation and show it to you before any candidate sees it.",
       cta: "Book a demo",
-    },
-  },
-
-  tech: {
-    meta: {
-      title: "Engineering roles: Onbord",
-      description: "Simulations for developers and technical roles are coming to Onbord.",
-    },
-    eyebrow: "Coming soon",
-    titleA: "Engineering roles.",
-    titleEm: "Soon.",
-    titleB: "",
-    lede: "Simulations for developers are in the works: real code, a real environment, and the AI tools engineers use every day.",
-    now: {
-      kicker: "In the meantime",
-      title: "Business roles are live today.",
-      body: "Sales, customer success, operations, marketing: if you are hiring for one of them, it works now.",
-      more: "See business roles",
-    },
-    closing: {
-      title: "Want to know when it opens?",
-      body: "Leave us a note and we will tell you as soon as engineering simulations are ready.",
-      cta: "Get notified",
-      secondary: "Book a demo",
     },
   },
 

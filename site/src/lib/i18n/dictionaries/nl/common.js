@@ -16,12 +16,12 @@ const common = {
     openMenu: "Menu openen",
     closeMenu: "Menu sluiten",
     skip: "Naar de inhoud",
-    // Het menu « Functies » (Header.js): twee pagina's, elk met zijn status.
-    roles: "Functies",
+    // Het menu « Functies » (Header.js): één pagina, en een niet-klikbare « binnenkort ».
+    roles: "Toepassingen",
     soon: "Binnenkort",
     rolesItems: {
-      business: { title: "Businessfuncties", desc: "Sales, customer success, operations, marketing. Vandaag beschikbaar." },
-      tech: { title: "Techfuncties", desc: "Developers en technische profielen." },
+      business: { title: "Businessfuncties", desc: "Sales, customer success, finance, HR, operations. Vandaag beschikbaar." },
+      tech: { title: "Techfuncties", desc: "Developers en technische profielen. Later beschikbaar." },
     },
   },
 

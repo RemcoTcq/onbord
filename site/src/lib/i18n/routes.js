@@ -35,19 +35,14 @@ const SEGMENTS = {
     fr: "/tarifs",
     nl: "/tarieven",
   },
-  // Les deux pages « métiers » (12/10/2026) : ce qu'Onbord fait passer
-  // AUJOURD'HUI (les métiers business), et ce qui arrive (la tech). Le code
-  // est en pause dans l'application ; le site ne doit pas le vendre comme
-  // disponible.
+  // La page « métiers business » (12/10/2026) : ce qu'Onbord fait passer
+  // AUJOURD'HUI. La page tech a été retirée le 14/10/2026 : elle n'est plus
+  // qu'une entrée « bientôt » non cliquable du menu (Header.js). Ne remettez
+  // pas son segment ici sans la page, le sitemap annoncerait une 404.
   "/business-roles": {
     en: "/business-roles",
     fr: "/metiers-business",
     nl: "/business-functies",
-  },
-  "/tech-roles": {
-    en: "/tech-roles",
-    fr: "/metiers-tech",
-    nl: "/tech-functies",
   },
 };
 

@@ -17,6 +17,17 @@ const nextConfig = {
   // raison : sans ça, un plantage côté client ne laisse aucune trace lisible
   // ailleurs que dans la console du navigateur. Sans effet en production.
   logging: { browserToTerminal: "error" },
+
+  // La page des métiers tech a été en ligne du 13 au 14/10/2026, puis retirée
+  // (elle n'est plus qu'une entrée « bientôt » du menu). Son adresse renvoie
+  // vers les métiers business plutôt que sur une 404. Temporaire (307) et non
+  // permanente : la page reviendra, et une 308 resterait en cache.
+  async redirects() {
+    return [
+      { source: "/tech-roles", destination: "/en/business-roles", permanent: false },
+      { source: "/:lang/tech-roles", destination: "/:lang/business-roles", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

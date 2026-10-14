@@ -758,12 +758,19 @@ ul, ol { list-style: none; }
      • le logo suit parce que son SVG est en `fill: currentColor` (Icons.js).
        Une couleur ecrite en dur dans le SVG le laisserait noir ici. */
 body:has(.hero--full) .header:not(.header--stuck) .brand,
-body:has(.hero--full) .header:not(.header--stuck) .nav a,
+body:has(.hero--full) .header:not(.header--stuck) .nav > a,
 body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
 body:has(.hero--full) .header:not(.header--stuck) .burger { color: #fff; }
 /* Un cran de graisse en plus, tant qu'ils sont blancs : un texte clair sur
-   fond fonce parait plus maigre que le meme texte en noir sur blanc. */
-body:has(.hero--full) .header:not(.header--stuck) .nav a,
+   fond fonce parait plus maigre que le meme texte en noir sur blanc.
+
+   ⚠️ `.nav > a` et JAMAIS `.nav a` dans toutes ces règles : les entrées du
+   menu « Roles » sont AUSSI des liens dans `.nav`. Avec `.nav a`, elles
+   héritaient sur l'accueil de l'ombre bleu nuit et de la graisse prévues
+   pour du blanc sur le ciel : texte noir sur panneau blanc, empâté comme une
+   mauvaise impression, et seulement sur l'accueil (les autres pages n'ont
+   pas de ciel). Corrigé le 14/10/2026. */
+body:has(.hero--full) .header:not(.header--stuck) .nav > a,
 body:has(.hero--full) .header:not(.header--stuck) .nav__trigger { font-weight: 500; }
 /* ⚠️ LA LISIBILITE PASSE PAR UNE OMBRE, PAS PAR LE FOND.
 
@@ -775,7 +782,7 @@ body:has(.hero--full) .header:not(.header--stuck) .nav__trigger { font-weight: 5
    le ciel ne change pas. Ne la grossissez pas : au-dela, elle se voit comme
    une ombre portee et le texte parait flou. */
 body:has(.hero--full) .header:not(.header--stuck) .brand,
-body:has(.hero--full) .header:not(.header--stuck) .nav a,
+body:has(.hero--full) .header:not(.header--stuck) .nav > a,
 body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
 body:has(.hero--full) .header:not(.header--stuck) .lang__btn {
   text-shadow: 0 1px 2px rgba(7, 41, 75, 0.45), 0 0 1px rgba(7, 41, 75, 0.35);
@@ -784,9 +791,9 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn {
 body:has(.hero--full) .header:not(.header--stuck) .brand svg {
   filter: drop-shadow(0 1px 1.5px rgba(7, 41, 75, 0.4));
 }
-body:has(.hero--full) .header:not(.header--stuck) .nav a:hover,
+body:has(.hero--full) .header:not(.header--stuck) .nav > a:hover,
 body:has(.hero--full) .header:not(.header--stuck) .nav__trigger:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
-body:has(.hero--full) .header:not(.header--stuck) .nav a[aria-current="page"] { color: #fff; background: rgba(255, 255, 255, 0.2); }
+body:has(.hero--full) .header:not(.header--stuck) .nav > a[aria-current="page"] { color: #fff; background: rgba(255, 255, 255, 0.2); }
 body:has(.hero--full) .header:not(.header--stuck) .lang__btn,
 body:has(.hero--full) .header:not(.header--stuck) .burger {
   color: #fff;
@@ -925,6 +932,12 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .roles__item:hover, .roles__item[aria-current="page"] { background: var(--surface-2); }
 .roles__label { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
 .roles__desc { font-size: 0.8125rem; color: var(--text-3); line-height: 1.45; }
+/* Une entrée SANS page (la tech, depuis le 14/10/2026) : pas de survol, pas
+   de main, un intitulé éteint. Elle dit « ça arrive », elle ne mène nulle part. */
+.roles__item--off { cursor: default; }
+.roles__item--off:hover { background: none; }
+.roles__item--off .roles__label { color: var(--text-3); }
+.mobile__link--off { color: var(--text-4); }
 /* « Soon » : la même étiquette sur le menu et sur la page tech. */
 .soon {
   font-family: var(--font-mono), ui-monospace, monospace;
@@ -3321,8 +3334,22 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   -webkit-mask-position: left top;
   mask-position: left top;
 }
-/* Dans la bande finale, elle se glisse entre le ciel (-1) et le contenu. */
-.colonnes--tail { inset-block: 0; z-index: -1; }
+/* Dans la bande finale, elle se glisse entre le ciel (-1) et le contenu.
+   ⚠️ Comme dans le hero, elle ne garde que sa PREMIÈRE et sa DERNIÈRE
+   verticale : les deux filets de la page, qui continuent jusqu'en bas. Le
+   ciel de la bande est opaque et passe devant le calque fixe des filets
+   (body::before) : sans ces deux traits, ils s'arrêteraient à l'entrée de
+   la bande. Toutes les verticales entre les deux sont éteintes. */
+.colonnes--tail {
+  inset-block: 0;
+  z-index: -1;
+  -webkit-mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
 /* ⚠️ LES DEUX BLOCS QUI PORTENT LA BANDE LA ROGNENT. Sur telephone, --rule-x
    a un plancher de 7 carreaux, bien plus que la demi-largeur de l'ecran : la
    bande depassait de 330px a droite et toute la page defilait de cote, sur
@@ -3331,52 +3358,34 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .section--tail,
 .footer { overflow-x: clip; }
 
-/* ── LA COUTURE DU BAS DE PAGE ───────────────────────────────────────────
-   Une bande de flou posee a cheval sur l'entree de la bande finale, pour
-   que la trame n'y reprenne pas d'un coup : `backdrop-filter` floute ce qui
-   est peint derriere elle, et un masque en degrade fait naitre ce flou
-   progressivement au lieu de le poser en rectangle.
-
-   ⚠️ IL N'Y EN A PLUS QU'UNE. Le bas du hero en avait une aussi. Elle a ete
-   retiree : la trame n'a pas besoin de disparaitre en bas du hero, ses
-   lignes s'y terminent deja sur exactement l'encre des deux filets du site,
-   qui prennent le relais. Le flou ne faisait donc plus qu'effacer la fin des
-   lignes, ce qui se voyait comme une zone morte en bas de l'ecran.
-
-   Deux pieges, tous deux rencontres sur celle qui restait :
-     • le flou ne doit pas mordre sur le contenu. Elle est en `::after`, donc
-       peinte APRES `.wrap` : sans `.section--tail > .wrap { z-index: 1 }`,
-       elle flouterait le titre de l'appel ;
-     • `backdrop-filter` ne voit que ce qui est peint sous SON contexte
-       d'empilement. Celle-ci vit dans `.section--tail`, qui est en
-       `isolation: isolate` : elle floute la bande, pas la page derriere.
-       C'est ce qu'on veut, mais ce n'est pas evident a la lecture. */
-/* Elle est en ::after plutôt
-   qu'en élément : la section d'appel est rendue par un composant partagé
-   (Bits.js), et un marqueur de plus dans son JSX se retrouverait sur toutes
-   les pages qui l'appellent. */
-.section--tail::after {
-  content: "";
-  position: absolute;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  top: 0;
-  height: 150px;
-  z-index: 0;
-  pointer-events: none;
-  -webkit-backdrop-filter: blur(11px);
-  backdrop-filter: blur(11px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 28%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 28%, transparent 100%);
-}
+/* ── PLUS DE COUTURE FLOUTÉE ─────────────────────────────────────────────
+   Une bande de flou (`backdrop-filter`) dissolvait l'entrée de la trame en
+   haut de la bande finale. Retirée le 14/10/2026 avec les carreaux : sans
+   trame, elle n'avait plus rien à flouter. */
+/* ⚠️ L'APPEL EST UNE BANDE QUI SÉPARE (14/10/2026, demande directe).
+   Avant : le padding de `.section` PLUS celui de `.cta` en haut, sur un ciel
+   qui partait du blanc pur. On lisait un grand vide, puis l'appel, puis le
+   pied de page, sans savoir où finissait la page. Maintenant la bande commence
+   SUR un filet pleine largeur (`::after`), sans padding de section au-dessus
+   (c'est la section précédente qui donne l'air), sur un ciel déjà teinté :
+   contenu, filet, appel, filet, pied de page. L'appel tient le rôle de la
+   frontière. */
 .section--tail {
   position: relative;
   isolation: isolate;
-  padding-bottom: 0;
+  padding-block: 0;
 }
-/* Le contenu repasse AU-DESSUS de la couture : elle est en ::after, donc
-   peinte après .wrap, et sans ça elle flouterait le titre de l'appel. */
+.section--tail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+/* Le contenu repasse au-dessus du calque. */
 .section--tail > .wrap { position: relative; z-index: 1; }
 .section--tail::before,
 .footer::before {
@@ -3386,27 +3395,24 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   width: 100vw;
   z-index: -1;
   pointer-events: none;
-  /* Le ciel et les horizontales. Les verticales sont dans .colonnes, voir
-     le commentaire du hero. */
-  background-image:
-    linear-gradient(to bottom, var(--grid) 1px, transparent 1px),
-    var(--ciel);
-  background-size: var(--grid-step) var(--grid-step), auto;
-  background-position: center top;
+  /* ⚠️ LE CIEL SEUL, PLUS DE CARREAUX (14/10/2026, demande directe, comme
+     le hero le 12/10). Les horizontales ont quitté ce calque ; des
+     verticales, `.colonnes--tail` ne garde que les deux filets de la page. */
+  background-image: var(--ciel);
 }
 .section--tail::before {
   top: 0;
   /* 1px de recouvrement : sans lui, un arrondi de rendu laisse parfois
      apparaitre une ligne blanche d'un pixel a la couture. */
   bottom: -1px;
-  --ciel: linear-gradient(180deg, #fff 0%, #f6f9ff 55%, #eef4ff 100%);
+  --ciel: linear-gradient(180deg, #f7f9fe 0%, #f2f6fe 55%, #eef4ff 100%);
 }
 
 /* Le bloc d'appel lui-meme n'a plus de matiere : ni fond, ni bordure, ni
    ombre, ni angles. Il n'est plus qu'un bloc de texte centre sur la bande. */
 .cta {
   position: relative;
-  padding: clamp(64px, 9vw, 120px) clamp(20px, 4vw, 48px) clamp(56px, 8vw, 96px);
+  padding: clamp(56px, 7vw, 96px) clamp(20px, 4vw, 48px);
   text-align: center;
 }
 .cta__in { display: grid; justify-items: center; gap: 20px; position: relative; }
@@ -3424,6 +3430,21 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .footer::before {
   inset-block: 0;
   --ciel: linear-gradient(180deg, #eef4ff 0%, #dce8fc 100%);
+}
+/* Le FILET qui ouvre le pied de page (14/10/2026) : une horizontale pleine
+   largeur, le pendant de celle qui ferme la barre de navigation. Sans la
+   trame, rien ne disait plus où finissait l'appel et où commençait le pied
+   de page. Un pseudo et non une `border-top` : la bordure suivrait la
+   largeur du bloc, ce filet traverse toute la fenêtre. */
+.footer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: 1px;
+  background: var(--border);
+  pointer-events: none;
 }
 /* Le contenu repasse au-dessus du calque. */
 .footer > .wrap { position: relative; z-index: 1; }
@@ -3634,4 +3655,174 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 @media (max-width: 620px) {
   .demo__row { grid-template-columns: minmax(0, 1fr); }
   .demo__calendar { height: 1000px; }
+}
+
+/* ─── 16. PAGE « MÉTIERS BUSINESS » (14/10/2026) ─────────────────────────── */
+
+/* ── Les familles : un seul panneau, une colonne par famille ──────────────
+   Rien à cliquer, rien à dérouler : le nom de la famille, puis les
+   intitulés de postes, et c'est tout. Une première version mettait les
+   familles en onglets avec une ligne d'explication par poste ; c'était trop
+   à lire, et le visiteur ne voyait qu'une famille à la fois. Ici, les
+   cinq se lisent d'un coup d'oeil.
+   La hauteur minimale du nom aligne les filets d'une colonne à l'autre,
+   même quand un nom tient sur une ligne et son voisin sur deux. */
+.fam {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 46px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--edge);
+}
+.fam__col { padding: 22px 20px 26px; border-left: 1px solid var(--border); }
+.fam__col:first-child { border-left: 0; }
+.fam__name { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; color: var(--text); min-height: 2.6em; }
+.fam__roles { list-style: none; display: grid; gap: 10px; margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
+.fam__roles li { font-size: 0.875rem; line-height: 1.4; color: var(--text-2); }
+.fam__note { margin: 22px auto 0; max-width: 62ch; font-size: 0.875rem; line-height: 1.6; color: var(--text-3); }
+
+@media (max-width: 1080px) {
+  /* Cinq colonnes ne tiennent plus : chaque famille devient sa propre carte,
+     deux par rangée. Un panneau unique à deux colonnes laisserait une case
+     vide avec cinq familles. */
+  .fam { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; background: none; border: 0; box-shadow: none; }
+  .fam__col, .fam__col:first-child { background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); }
+  .fam__name { min-height: 0; }
+}
+@media (max-width: 620px) {
+  .fam { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Les quatre façons de travailler, et l'IA ──────────────────────────────
+   SANS icônes (retirées sur demande directe). L'IA n'est pas une cinquième
+   façon de travailler mais un outil qui s'ouvre sur certaines étapes, d'où
+   une bande pleine largeur sous la grille, et le fond `--feature`. */
+.ways { margin-top: 46px; text-align: left; }
+.ways .card { padding: 24px 22px 26px; }
+/* Pas de halo au survol (`.card::before`), ni de fond qui fonce : retour
+   direct, « une espèce d'ombre bizarre ». Ces cartes ne mènent nulle part,
+   rien ne doit suggérer qu'elles se cliquent. */
+/* Et plus de fond gris ni d'ombre, au repos non plus (même demande, en
+   deux temps) : des cartes blanches et plates, un filet pour seul bord. La
+   bande IA perd aussi son dégradé `--feature` ; c'est sa largeur qui la
+   distingue des quatre autres, pas sa couleur. */
+.ways .card::before { display: none; }
+.ways .card,
+.ways .card:hover,
+.ways .card--feature,
+.ways .card--feature:hover { background: #fff; border-color: var(--border); box-shadow: none; }
+.ways__ai { margin-top: 16px; }
+.ways__ai p { max-width: 74ch; }
+
+/* ── Comment ça marche : trois `.duo`, la maquette alterne de côté ────────
+   Trois blocs de même forme : l'alternance empêche l'œil de décrocher, comme
+   sur les anciens formats de /simulations. Elle s'annule quand les colonnes
+   s'empilent, sinon la maquette passerait AVANT son texte. */
+.how { display: grid; gap: clamp(72px, 9vw, 120px); margin-top: clamp(56px, 7vw, 88px); }
+.how > .duo:nth-child(even) > :first-child { order: 2; }
+.how__h { font-size: clamp(1.5rem, 2.6vw, 2.125rem); line-height: 1.1; letter-spacing: -0.032em; font-weight: 600; text-wrap: balance; }
+.how__p { margin-top: 16px; }
+@media (max-width: 1080px) {
+  .how > .duo:nth-child(even) > :first-child { order: 0; }
+}
+
+/* Les personnages : trois fiches, la deuxième décalée vers la droite. Une
+   pile de gens plutôt qu'un tableau. */
+.cast { display: grid; gap: 12px; }
+.cast__card { display: flex; gap: 14px; padding: 16px 18px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); }
+/* Décalage DANS la colonne, jamais au-delà : une marge négative débordait
+   de la gouttière et faisait défiler la page de côté une fois empilé. */
+.cast__card { margin-right: 32px; }
+.cast__card:nth-child(2) { margin: 0 0 0 32px; }
+.cast__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.cast__body { min-width: 0; flex: 1; }
+.cast__top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.cast__name { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.015em; color: var(--text); }
+.cast__role { font-size: 0.8125rem; color: var(--text-3); margin-top: 2px; }
+.cast__rows { display: grid; gap: 7px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+.cast__row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.cast__row dt { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
+.cast__row dd { font-size: 0.8125rem; line-height: 1.5; color: var(--text-2); }
+.cast__redact { display: flex; flex-wrap: wrap; gap: 5px; align-self: center; }
+.cast__redact i { display: block; height: 9px; border-radius: 2px; background: rgba(7, 41, 75, 0.14); }
+
+/* Ce qu'on donne, ce qui en sort : trois sources, une flèche, la simulation.
+   La sortie est la seule fiche « décollée » (bordure plus franche, ombre) :
+   c'est le résultat, pas une quatrième source. */
+.feed { display: grid; grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1.05fr); align-items: center; }
+.feed__in { display: grid; gap: 10px; }
+.feed__src { display: grid; gap: 7px; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); }
+.feed__label { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
+.feed__value { font-size: 0.8125rem; line-height: 1.5; color: var(--text-2); }
+.feed__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.feed__arrow { display: grid; place-items: center; color: var(--text-4); }
+.feed__out { display: grid; gap: 8px; padding: 18px; background: #fff; border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: 0 18px 44px -18px rgba(7, 41, 75, 0.28), var(--edge); }
+.feed__title { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.feed__meta { font-size: 0.8125rem; color: var(--text-3); }
+.feed__checks { list-style: none; display: grid; gap: 7px; margin-top: 4px; padding-top: 11px; border-top: 1px solid var(--border); }
+.feed__checks li { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--text-2); }
+.feed__checks svg { flex: none; color: var(--ok); }
+.feed__checks i { margin-left: auto; font-style: normal; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
+
+/* Le copilote. Hauteur FIXE du fil, qui défile en interne (voir Copilot.js) :
+   le panneau ne grandit pas sous le clic. */
+.copilot { background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); overflow: hidden; text-align: left; }
+/* Le nom en capitales (« ONBORD COPILOT »), demande directe : il se lit
+   comme le nom d'un produit, pas comme le titre d'une fenêtre. */
+.copilot__head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--bg-2); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); }
+.copilot__msgs { display: grid; gap: 10px; align-content: start; height: 300px; overflow-y: auto; padding: 16px; scrollbar-width: thin; }
+.copilot__turn { display: grid; gap: 10px; animation: copilot-in 320ms ease both; }
+.copilot__changed { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-self: start; padding: 6px 10px; border: 1px solid rgba(7, 41, 75, 0.2); border-radius: var(--r-sm); background: rgba(7, 41, 75, 0.05); font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; letter-spacing: 0.04em; color: var(--text-2); }
+.copilot__changed b { color: var(--text); font-weight: 600; }
+.copilot__changed svg { color: var(--ok); }
+.copilot__dots { display: inline-flex; gap: 4px; justify-self: start; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.copilot__dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-4); animation: copilot-dot 1s ease-in-out infinite; }
+.copilot__dots i:nth-child(2) { animation-delay: 150ms; }
+.copilot__dots i:nth-child(3) { animation-delay: 300ms; }
+.copilot__foot { display: grid; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid var(--border); }
+.copilot__try { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
+.copilot__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.copilot__chip {
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: left;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+.copilot__chip:hover:not(:disabled) { border-color: var(--border-2); color: var(--text); background: var(--surface); }
+.copilot__chip:disabled { opacity: 0.55; cursor: default; }
+.copilot__chip--reset { justify-self: start; }
+@keyframes copilot-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes copilot-dot { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .copilot__turn, .copilot__dots i { animation: none; }
+}
+
+@media (max-width: 620px) {
+  .cast__card, .cast__card:nth-child(2) { margin: 0; }
+  .cast__row { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .feed { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .feed__arrow svg { transform: rotate(90deg); }
 }

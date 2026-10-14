@@ -18,12 +18,16 @@ import { Logo, Globe, Menu, Close, Check, ArrowRight, ChevronDown } from "./Icon
 // Simulations passe AVANT How it works : c'est aussi l'ordre des sections sur
 // l'accueil (#work arrive avant #how), donc la barre suit la page qu'elle sert.
 // Le menu « Roles » (12/10/2026), sur le modèle d'un menu de secteurs : ce
-// qu'Onbord fait passer AUJOURD'HUI, et ce qui arrive. Deux pages, et l'état
-// de chacune écrit dans le menu même — un visiteur qui recrute un développeur
-// le sait avant d'avoir cliqué.
+// qu'Onbord fait passer AUJOURD'HUI, et ce qui arrive. L'état de chacun est
+// écrit dans le menu même : un visiteur qui recrute un développeur le sait
+// avant d'avoir cliqué.
+//
+// ⚠️ Depuis le 14/10/2026, la tech n'a PLUS DE PAGE (demande directe) : son
+// entrée n'a pas de `path`, elle s'affiche « Soon » et ne se clique pas. Le
+// jour où la tech ouvre, on lui redonne un `path` et une page.
 const METIERS = [
   { path: "/business-roles", key: "business", etat: "now" },
-  { path: "/tech-roles", key: "tech", etat: "soon" },
+  { key: "tech", etat: "soon" },
 ];
 
 const PAGES = [
@@ -129,22 +133,37 @@ export default function Header({ locale, nav, demoHref, appHref }) {
               </button>
               {metiers && (
                 <div className="roles__menu" role="menu">
-                  {METIERS.map((m) => (
-                    <Link
-                      key={m.key}
-                      href={href(m.path, locale)}
-                      className="roles__item"
-                      role="menuitem"
-                      aria-current={cheminCanonique === m.path ? "page" : undefined}
-                      onClick={fermer}
-                    >
-                      <span className="roles__label">
-                        {nav.rolesItems[m.key].title}
-                        {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
-                      </span>
-                      <span className="roles__desc">{nav.rolesItems[m.key].desc}</span>
-                    </Link>
-                  ))}
+                  {METIERS.map((m) => {
+                    const contenu = (
+                      <>
+                        <span className="roles__label">
+                          {nav.rolesItems[m.key].title}
+                          {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
+                        </span>
+                        <span className="roles__desc">{nav.rolesItems[m.key].desc}</span>
+                      </>
+                    );
+                    // Sans page : une entrée inerte, annoncée comme désactivée.
+                    if (!m.path) {
+                      return (
+                        <div key={m.key} className="roles__item roles__item--off" role="menuitem" aria-disabled="true">
+                          {contenu}
+                        </div>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={m.key}
+                        href={href(m.path, locale)}
+                        className="roles__item"
+                        role="menuitem"
+                        aria-current={cheminCanonique === m.path ? "page" : undefined}
+                        onClick={fermer}
+                      >
+                        {contenu}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -216,11 +235,16 @@ export default function Header({ locale, nav, demoHref, appHref }) {
 
       {menu && (
         <div className="mobile">
-          {METIERS.map((m) => (
+          {METIERS.map((m) => m.path ? (
             <Link key={m.key} href={href(m.path, locale)} className="mobile__link" onClick={fermer}>
               {nav.rolesItems[m.key].title}
-              <span>{m.etat === "soon" ? nav.soon : ""}</span>
+              <span />
             </Link>
+          ) : (
+            <div key={m.key} className="mobile__link mobile__link--off" aria-disabled="true">
+              {nav.rolesItems[m.key].title}
+              <span>{nav.soon}</span>
+            </div>
           ))}
           {PAGES.map((p, i) => (
             <Link
