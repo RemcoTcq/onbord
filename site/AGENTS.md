@@ -111,6 +111,15 @@ Les partis pris, à respecter en ajoutant quoi que ce soit :
   reprend le sien qu'une fois posée (`.header--stuck`), où elle est blanche
   opaque et recouvre la trame.
 
+  ⚠️ **DEPUIS LE 15/10/2026, LE HERO N'A PLUS DE HAUTEUR IMPOSÉE SUR BUREAU**
+  (demande directe, constatée en 1920 × 1080 : la fenêtre finissait 130px
+  avant le bas de l'écran, sur une bande blanche, et elle paraissait trop
+  haute). La fenêtre est coupée sous ses quatre étapes (`.peek` à 316px) et
+  le hero s'arrête avec elle (`height: auto` au-dessus de 760px, bloc en
+  fin de `globals.css`) : la section suivante commence dans le premier
+  écran. Le paragraphe qui suit décrit l'état d'AVANT ; le téléphone garde
+  la hauteur imposée.
+
   ⚠️ **Le hero fait onze carreaux de haut**, par construction (`--hero-h`),
   et la hauteur est imposée, pas seulement minimale : le
   contenu dépassait de quelques dizaines de pixels et réimposait la sienne.
@@ -206,6 +215,19 @@ Les partis pris, à respecter en ajoutant quoi que ce soit :
   Vérifiez-le toujours sur une colonne étroite prise HORS du contenu : au
   milieu de la page, le titre et la fenêtre masquent justement la zone qui
   pose problème.
+
+  ⚠️ **DEPUIS LE 14/10/2026, LE HERO A SA FENÊTRE SUR TÉLÉPHONE AUSSI**
+  (demande directe : « on ne voit pas l'image de la plateforme »). C'est la
+  MÊME fenêtre que sur bureau, 860px de large, réduite par `zoom` à la
+  largeur de l'écran (`--k`, calculé par `AppPeek.js`) : une capture qu'on
+  rapetisse, pas une mise en page réorganisée, qui ne donnait que des
+  barres grises. Sur téléphone, le FONDU du titre suit l'avancée de la scène
+  sur le texte (le bas de la fenêtre y est hors écran, le calage du bureau
+  ne se déclenchait jamais) ; le bloc du titre ne rétrécit plus
+  (`flex-shrink: 0`), sinon la scène montait sur le bouton (iPhone SE).
+  Bouton, sous-titre et barre de saisie y sont un cran plus petits (bloc
+  « 17. TÉLÉPHONE » de `globals.css`). Le paragraphe suivant décrit l'état
+  d'AVANT.
 
   **Sur téléphone (≤ 760px), le hero n'a pas de fenêtre d'application** :
 réduite à cette largeur, elle ne montrait que des barres grises et
@@ -587,6 +609,54 @@ Ce que ça change pour qui écrit ici :
 ⚠️ Ne remettez pas ces entrées dans `SEGMENTS` « pour plus tard » : le
 sitemap se construit à partir de ce fichier, et il annoncerait à Google des
 URL qui n'existent pas.
+
+### 0 quinquies. La barre : trois menus et un lien (15/10/2026)
+
+Demande directe, « décharger la barre » : **Product ▾** (Simulations, How it
+works, Scoring, les trois ANCRES de l'accueil, `PRODUIT`), **Use cases ▾**,
+**Resources ▾**, puis **Pricing**, seul lien direct. Les trois menus passent
+par le même composant `Deroulant` (`DEROULANTS` dans `Header.js`) ; une
+entrée a un `path` (une page), une `ancre` (une section de l'accueil), ou
+rien (inerte, « Soon »). Le menu mobile, lui, garde la liste à plat.
+
+### 0 quater. Les RESSOURCES : blog, comparaisons, documentation (15/10/2026)
+
+Sur demande directe, sur le modèle de spott.io/resources. Un menu
+« Resources » dans la barre (`RESSOURCES` dans `Header.js`, à côté de
+« Use cases » : les deux passent par le même composant `Deroulant`), une
+colonne dans le pied de page, et trois routes :
+
+| | |
+|---|---|
+| `/resources` | toutes les ressources, en cartes, la plus récente d'abord |
+| `/resources/[category]` | `blog` ou `comparisons` ; `docs` répond 404 tant qu'elle n'existe pas |
+| `/resources/[category]/[slug]` | un article |
+
+Ce qu'il faut savoir avant d'y toucher :
+
+- **le CONTENU n'est pas dans les dictionnaires** mais dans
+  `src/content/resources.js`, en ANGLAIS seulement : ce sont de longs textes
+  de référencement, pas des libellés. Un article est une liste de blocs
+  (paragraphe, titre, encadré, « Bottom line », puces, étapes, tableau) ; le
+  format est décrit en tête du fichier. Les LIBELLÉS autour (onglets,
+  « Bottom line », FAQ…) sont, eux, dans `pages.resources`, trois langues ;
+- **ajouter un article** = une entrée dans `ARTICLES`. La carte, la page, le
+  sitemap et les articles liés en découlent. Pour une comparaison, le logo du
+  concurrent va dans `public/logos/` ;
+- **la couverture n'est pas une image** : deux tuiles blanches (Onbord,
+  l'autre), « vs » ou « + » entre les deux, sur une trame légère. C'est le
+  gabarit fourni par Remco. ⚠️ Elle se mesure en `cqw` sur un élément
+  INTÉRIEUR (`.rcov__in`) : posées sur le conteneur lui-même, ces unités se
+  mesuraient sur la fenêtre et les tuiles tombaient à 5px sur une carte ;
+- **règle 2, ici aussi** : tout ce que les articles disent d'Onbord doit être
+  vrai dans l'application. Nos prix y portent « billed annually » (100 et
+  300 € sont les prix sous engagement annuel). Ce qu'ils disent des
+  concurrents est daté et sourcé dans chaque article, avec l'avertissement de
+  marques en pied ;
+- ⚠️ **ces textes disent « assessment »**, que la règle 2 bis interdit
+  ailleurs sur le site. C'est assumé : ce sont des pages de référencement
+  écrites par Remco, et c'est le mot que tapent les gens qui comparent ces
+  outils. Ne le « corrigez » pas sans lui demander.
 
 ### 0 bis. Les pages intérieures aussi : un bloc = un paragraphe court
 
@@ -1189,6 +1259,13 @@ Et ne durcissez pas son texte non plus, les lignes du CV sont des phrases
 honnêtes que n'importe qui écrirait — le reproche porte sur ce qu'un CV ne peut
 pas montrer, jamais sur la personne qui l'a écrit.
 
+⚠️ **Sous 1080px, la composition RESTE imbriquée** (14/10/2026, demande
+directe). Elle s'empilait : tableur, puis e-mail, puis l'appel en dernier et
+en plus petit. C'est maintenant une toile de 520px (tableur derrière en haut
+à droite, e-mail à gauche, APPEL devant en bas à droite, le plus grand des
+trois, sous la somme surlignée du tableur), réduite par `zoom` par paliers
+de largeur d'écran.
+
 **La composition du candidat** (`WorkScenes.js`) n'est pas une maquette de
 logiciel mais une **image composée** : la consigne en bulle par-dessus tout,
 l'e-mail en train de s'écrire dessous, l'appel en face à face qui mord sur son
@@ -1322,6 +1399,7 @@ site/
 │   │       ├── scoring/          La page de la confiance
 │   │       ├── pricing/          Tarifs, barème, arithmétique à découvert
 │   │       ├── business-roles/   Familles de rôles, façons de travailler, copilote
+│   │       ├── resources/        Index, catégories, articles (contenu : src/content/)
 │   │       └── legal/[doc]/      Les trois pages légales (voir règle 1)
 │   ├── components/
 │   │   ├── Bits.js               Briques de mise en page (Split, Title, Rule…)

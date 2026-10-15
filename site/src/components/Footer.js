@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Logo } from "./Icons";
+import { Logo, FlagEU } from "./Icons";
 import { CONTACT_EMAIL } from "@/lib/i18n/config";
 import { href } from "@/lib/i18n/routes";
+import { articles, cheminArticle } from "@/content/resources";
 
 // Composant serveur : aucun état, aucun gestionnaire d'événement, donc aucune
 // raison de partir dans le bundle du navigateur.
@@ -41,6 +42,29 @@ export default function Footer({ locale, common }) {
             </ul>
           </div>
 
+          {/* Les ressources (15/10/2026) : la documentation n'y est pas tant
+              qu'elle n'a pas de page. */}
+          <div>
+            <p className="footer__h">{f.resources}</p>
+            <ul className="footer__links">
+              <li><Link href={href("/resources", locale)}>{n.resourcesItems.all.title}</Link></li>
+              <li><Link href={href("/resources/blog", locale)}>{n.resourcesItems.blog.title}</Link></li>
+            </ul>
+          </div>
+
+          {/* CHAQUE comparaison a son lien (demande directe, comme le pied de
+              page de spott.io) : ce sont les pages que l'on cherche par leur
+              nom. La liste vient du contenu, une comparaison ajoutée y
+              apparaît d'elle-même. */}
+          <div>
+            <p className="footer__h">{f.comparisons}</p>
+            <ul className="footer__links">
+              {articles("comparisons").map((a) => (
+                <li key={a.slug}><Link href={href(cheminArticle(a), locale)}>{a.title}</Link></li>
+              ))}
+            </ul>
+          </div>
+
           <div>
             <p className="footer__h">{f.legal}</p>
             <ul className="footer__links">
@@ -60,6 +84,12 @@ export default function Footer({ locale, common }) {
 
         <div className="footer__bottom">
           <span>© {new Date().getFullYear()} Onbord · {f.rights}</span>
+          {/* Où l'on est. Le drapeau européen plutôt que le belge : c'est le
+              cadre qui compte pour un prospect (RGPD, hébergement, AI Act). */}
+          <span className="footer__place">
+            <FlagEU height={11} />
+            {f.place}
+          </span>
         </div>
       </div>
     </footer>

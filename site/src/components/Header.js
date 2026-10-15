@@ -30,6 +30,33 @@ const METIERS = [
   { key: "tech", etat: "soon" },
 ];
 
+// Le menu « Resources » (15/10/2026), sur le modèle de spott.io : le blog,
+// les comparaisons, et la documentation « bientôt », sans page donc sans lien.
+const RESSOURCES = [
+  { path: "/resources", key: "all" },
+  { path: "/resources/blog", key: "blog" },
+  { path: "/resources/comparisons", key: "comparisons" },
+  { key: "docs", etat: "soon" },
+];
+
+// Le menu « Product » (15/10/2026, demande directe : « décharger la barre »).
+// Simulations, How it works et Scoring étaient trois liens de premier niveau ;
+// ce sont des ANCRES vers les sections de l'accueil, pas des pages, d'où
+// `ancre` et non `path`.
+const PRODUIT = [
+  { key: "simulations", ancre: "work" },
+  { key: "how", ancre: "how" },
+  { key: "scoring", ancre: "proof" },
+];
+
+// Les trois menus déroulants de la barre, décrits une fois : leur libellé et
+// leurs entrées viennent du dictionnaire (`nav[cle]`, `nav[items]`).
+const DEROULANTS = {
+  product: { items: "productItems", entrees: PRODUIT, actif: () => false },
+  roles: { items: "rolesItems", entrees: METIERS, actif: (c) => METIERS.some((m) => m.path === c) },
+  resources: { items: "resourcesItems", entrees: RESSOURCES, actif: (c) => c === "/resources" || c.startsWith("/resources/") },
+};
+
 const PAGES = [
   { key: "simulations", ancre: "work" },
   { key: "how", ancre: "how" },
@@ -37,13 +64,24 @@ const PAGES = [
   { path: "/pricing", key: "pricing" },
 ];
 
+// L'ordre de la barre : trois menus, puis les tarifs, seul lien direct, en
+// dernier comme sur la plupart des sites.
+const BARRE = [
+  { menu: "product" },
+  { menu: "roles" },
+  { menu: "resources" },
+  { page: PAGES.find((p) => p.key === "pricing") },
+];
+
 export default function Header({ locale, nav, demoHref, appHref }) {
   const [stuck, setStuck] = useState(false);
   const [menu, setMenu] = useState(false);
   const [langs, setLangs] = useState(false);
-  const [metiers, setMetiers] = useState(false);
+  // Le menu déroulant ouvert : "roles", "resources" ou rien. Un seul à la
+  // fois : en ouvrir un ferme l'autre.
+  const [deroulant, setDeroulant] = useState(null);
   const langRef = useRef(null);
-  const metiersRef = useRef(null);
+  const navRef = useRef(null);
   const pathname = usePathname() || `/${locale}`;
 
   useEffect(() => {
@@ -69,20 +107,22 @@ export default function Header({ locale, nav, demoHref, appHref }) {
     };
   }, [langs]);
 
-  // Même fermeture pour le menu « Roles » : clic à côté, ou Échap.
+  // Même fermeture pour les menus déroulants : clic hors du menu ouvert, ou
+  // Échap. Le clic sur l'AUTRE déclencheur passe par son propre onClick.
   useEffect(() => {
-    if (!metiers) return;
+    if (!deroulant) return;
     const onClick = (e) => {
-      if (metiersRef.current && !metiersRef.current.contains(e.target)) setMetiers(false);
+      const ouvert = navRef.current?.querySelector(`[data-deroulant="${deroulant}"]`);
+      if (ouvert && !ouvert.contains(e.target)) setDeroulant(null);
     };
-    const onKey = (e) => e.key === "Escape" && setMetiers(false);
+    const onKey = (e) => e.key === "Escape" && setDeroulant(null);
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [metiers]);
+  }, [deroulant]);
 
   // Le menu mobile couvre l'écran : laisser la page défiler derrière lui donne
   // l'impression que le site a deux fonds qui glissent l'un sur l'autre.
@@ -91,7 +131,7 @@ export default function Header({ locale, nav, demoHref, appHref }) {
     return () => { document.body.style.overflow = ""; };
   }, [menu]);
 
-  const fermer = () => { setMenu(false); setLangs(false); setMetiers(false); };
+  const fermer = () => { setMenu(false); setLangs(false); setDeroulant(null); };
 
   // Le chemin courant, ramené en canonique, sert à deux choses : marquer la
   // page active, et traduire l'URL quand on change de langue. Passer par le
@@ -118,62 +158,25 @@ export default function Header({ locale, nav, demoHref, appHref }) {
             <span>onbord</span>
           </Link>
 
-          <nav className="nav" aria-label="Onbord">
-            <div className="roles" ref={metiersRef}>
-              <button
-                type="button"
-                className="nav__trigger"
-                aria-expanded={metiers}
-                aria-haspopup="true"
-                aria-current={METIERS.some((m) => m.path === cheminCanonique) ? "page" : undefined}
-                onClick={() => setMetiers((v) => !v)}
-              >
-                {nav.roles}
-                <ChevronDown size={13} />
-              </button>
-              {metiers && (
-                <div className="roles__menu" role="menu">
-                  {METIERS.map((m) => {
-                    const contenu = (
-                      <>
-                        <span className="roles__label">
-                          {nav.rolesItems[m.key].title}
-                          {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
-                        </span>
-                        <span className="roles__desc">{nav.rolesItems[m.key].desc}</span>
-                      </>
-                    );
-                    // Sans page : une entrée inerte, annoncée comme désactivée.
-                    if (!m.path) {
-                      return (
-                        <div key={m.key} className="roles__item roles__item--off" role="menuitem" aria-disabled="true">
-                          {contenu}
-                        </div>
-                      );
-                    }
-                    return (
-                      <Link
-                        key={m.key}
-                        href={href(m.path, locale)}
-                        className="roles__item"
-                        role="menuitem"
-                        aria-current={cheminCanonique === m.path ? "page" : undefined}
-                        onClick={fermer}
-                      >
-                        {contenu}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            {PAGES.map((p) => (
+          <nav className="nav" aria-label="Onbord" ref={navRef}>
+            {BARRE.map((b) => b.menu ? (
+              <Deroulant
+                key={b.menu}
+                cle={b.menu}
+                nav={nav}
+                locale={locale}
+                chemin={cheminCanonique}
+                ouvert={deroulant === b.menu}
+                basculer={() => setDeroulant((v) => (v === b.menu ? null : b.menu))}
+                fermer={fermer}
+              />
+            ) : (
               <Link
-                key={p.key}
-                href={p.path ? href(p.path, locale) : `/${locale}#${p.ancre}`}
-                aria-current={p.path && cheminCanonique === p.path ? "page" : undefined}
+                key={b.page.key}
+                href={b.page.path ? href(b.page.path, locale) : `/${locale}#${b.page.ancre}`}
+                aria-current={b.page.path && cheminCanonique === b.page.path ? "page" : undefined}
               >
-                {nav[p.key]}
+                {nav[b.page.key]}
               </Link>
             ))}
           </nav>
@@ -235,17 +238,19 @@ export default function Header({ locale, nav, demoHref, appHref }) {
 
       {menu && (
         <div className="mobile">
-          {METIERS.map((m) => m.path ? (
-            <Link key={m.key} href={href(m.path, locale)} className="mobile__link" onClick={fermer}>
-              {nav.rolesItems[m.key].title}
-              <span />
-            </Link>
-          ) : (
-            <div key={m.key} className="mobile__link mobile__link--off" aria-disabled="true">
-              {nav.rolesItems[m.key].title}
-              <span>{nav.soon}</span>
-            </div>
-          ))}
+          {[["roles", METIERS], ["resources", RESSOURCES.filter((r) => r.key !== "all")]].flatMap(([cle, entrees]) =>
+            entrees.map((m) => m.path ? (
+              <Link key={cle + m.key} href={href(m.path, locale)} className="mobile__link" onClick={fermer}>
+                {nav[DEROULANTS[cle].items][m.key].title}
+                <span />
+              </Link>
+            ) : (
+              <div key={cle + m.key} className="mobile__link mobile__link--off" aria-disabled="true">
+                {nav[DEROULANTS[cle].items][m.key].title}
+                <span>{nav.soon}</span>
+              </div>
+            ))
+          )}
           {PAGES.map((p, i) => (
             <Link
               key={p.key}
@@ -284,5 +289,61 @@ export default function Header({ locale, nav, demoHref, appHref }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Un menu déroulant de la barre : son déclencheur, et ses entrées avec leur
+ *  état. Une entrée sans `path` est inerte et marquée « Soon ». */
+function Deroulant({ cle, nav, locale, chemin, ouvert, basculer, fermer }) {
+  const d = DEROULANTS[cle];
+  return (
+    <div className="roles" data-deroulant={cle}>
+      <button
+        type="button"
+        className="nav__trigger"
+        aria-expanded={ouvert}
+        aria-haspopup="true"
+        aria-current={d.actif(chemin) ? "page" : undefined}
+        onClick={basculer}
+      >
+        {nav[cle]}
+        <ChevronDown size={13} />
+      </button>
+      {ouvert && (
+        <div className="roles__menu" role="menu">
+          {d.entrees.map((m) => {
+            const contenu = (
+              <>
+                <span className="roles__label">
+                  {nav[d.items][m.key].title}
+                  {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
+                </span>
+                <span className="roles__desc">{nav[d.items][m.key].desc}</span>
+              </>
+            );
+            // Sans page : une entrée inerte, annoncée comme désactivée.
+            if (!m.path && !m.ancre) {
+              return (
+                <div key={m.key} className="roles__item roles__item--off" role="menuitem" aria-disabled="true">
+                  {contenu}
+                </div>
+              );
+            }
+            return (
+              <Link
+                key={m.key}
+                href={m.ancre ? `/${locale}#${m.ancre}` : href(m.path, locale)}
+                className="roles__item"
+                role="menuitem"
+                aria-current={m.path && chemin === m.path ? "page" : undefined}
+                onClick={fermer}
+              >
+                {contenu}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

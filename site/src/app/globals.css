@@ -1577,21 +1577,37 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   color: var(--text);
 }
 
-/* ⚠️ SUR TELEPHONE, PAS DE FENETRE D'APPLICATION DANS LE HERO. Reduite a
-   cette largeur, elle ne montrait plus que des barres grises illisibles et
-   repoussait la suite de la page d'un ecran entier. Le hero s'arrete a la
-   barre de saisie, qui est l'objet a essayer. Les regles .peek ci-dessous
-   ne servent donc plus qu'entre 761 et 1080px. */
+/* ⚠️ SUR TELEPHONE, LA FENETRE EST LA MEME, EN MINIATURE (14/10/2026).
+   Elle a d'abord ete REORGANISEE a cette largeur (barre laterale de 62px,
+   colonnes resserrees) : il n'en restait que des barres grises illisibles.
+   Puis MASQUEE : le hero s'arretait a la barre de saisie, suivi d'un grand
+   blanc, et l'effet du defilement (le titre qui passe SOUS la fenetre)
+   n'existait plus, la barre de saisie glissait seule sur le titre et le
+   texte ressortait dessous. Retour direct : « on ne voit pas l'image de la
+   plateforme, elle doit etre affichee en plus petit ».
+   Elle garde donc sa mise en page de bureau, 860px de large, et `zoom` la
+   ramene a la largeur de l'ecran (--k, pose par AppPeek.js). `zoom` et non
+   `transform: scale` : le zoom reduit aussi la place qu'elle occupe, une
+   echelle laisserait un trou de 860px de haut sous elle.
+   Plus haute que la place restante : c'est le bas du hero qui la coupe,
+   comme sur bureau, et le filet du hero tombe sur sa coupe. */
 @media (max-width: 760px) {
-  .stage__peek { display: none; }
-}
-@media (max-width: 760px) {
-  .peek { height: 268px; }
-  .peek__win { height: 470px; }
-  .peek__body { grid-template-columns: 62px minmax(0, 1fr); }
-  .peek__main { padding: 13px 13px; }
-  .peek__row { grid-template-columns: 20px minmax(0, 1fr) 54px 30px; }
-  .stage__peek { margin-top: -22px; }
+  .stage__peek { margin-top: -18px; }
+  /* 1000px de haut à l'échelle du bureau : assez pour atteindre le bas du
+     hero sur les grands téléphones (Pixel 7, 412 × 915). Le surplus est
+     coupé par le hero, il ne se voit jamais. */
+  .peek { height: calc(var(--k, 0.41) * 1000px); }
+  .peek__win { width: 860px; height: 1000px; zoom: var(--k, 0.41); }
+  /* ⚠️ Le hero a une hauteur IMPOSÉE et c'est une colonne flex : quand le
+     contenu dépasse (petit écran, sous-titre sur quatre lignes), le bloc du
+     titre RÉTRÉCISSAIT, et la scène remontait sur le bouton « Book a demo »
+     (iPhone SE). Il garde sa hauteur ; c'est la fenêtre, en bas, que le
+     hero coupe un peu plus tôt. */
+  .hero--full > .wrap { flex-shrink: 0; }
+  /* La plaque de verre déborde de 26px AU-DESSUS de la barre de saisie
+     (`.stage::before`) : avec l'écart de bureau, son bord coupait le bas du
+     bouton sur un petit écran. */
+  .hero--full .stage { margin-top: 46px; }
 }
 
 /* ─── 7. SURFACES EN VERRE ET BENTO ──────────────────────────────────────── */
@@ -3448,7 +3464,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 }
 /* Le contenu repasse au-dessus du calque. */
 .footer > .wrap { position: relative; z-index: 1; }
-.footer__grid { display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr; gap: 40px; }
+/* Six colonnes depuis « Resources » et « Comparisons » (15/10/2026). La
+   colonne de la marque rétrécit pour leur faire place ; « Comparisons »
+   est un peu plus large, ses liens sont les plus longs. */
+.footer__grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.25fr 1fr 1fr; gap: 32px; }
 .footer__tag { color: var(--text-3); font-size: 0.9375rem; margin-top: 14px; max-width: 28ch; }
 /* Les intitulés du pied de page prennent les mêmes crochets que les
    intitulés de section : c'est la seule typographie « étiquette » du site, et
@@ -3459,6 +3478,8 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .footer__links { display: grid; gap: 11px; }
 .footer__links a { font-size: 0.875rem; color: var(--text-2); transition: color 160ms ease; }
 .footer__links a:hover { color: var(--text); }
+.footer__place { display: inline-flex; align-items: center; gap: 8px; }
+.footer__place svg { border-radius: 1px; box-shadow: 0 0 0 1px rgba(7, 41, 75, 0.12); }
 .footer__bottom { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.6875rem; color: var(--text-4); }
 
 /* ─── 12. PAGES LÉGALES ──────────────────────────────────────────────────── */
@@ -3825,4 +3846,279 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   .cast__row { grid-template-columns: minmax(0, 1fr); gap: 3px; }
   .feed { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .feed__arrow svg { transform: rotate(90deg); }
+}
+
+/* ─── 17. TÉLÉPHONE : LE HERO ET LA COMPOSITION (14/10/2026) ─────────────── */
+
+/* ── Les tailles du hero, à l'échelle d'un téléphone ──────────────────────
+   Retour direct : le bouton et la barre de saisie paraissaient trop gros
+   sous un titre et un sous-titre déjà réduits. Sur bureau, tout le haut du
+   hero suit un même rapport (--s, plus haut) ; sur téléphone, c'est ici. La
+   barre perd surtout de la HAUTEUR (58 → 44px), c'est elle qui pesait. */
+@media (max-width: 760px) {
+  .hero--full .lede { font-size: 0.9375rem; line-height: 1.55; }
+  .hero--full .prompt__in { padding: 6px 8px; }
+  .hero--full .prompt__row,
+  .hero--full .play__step { gap: 9px; }
+  .hero--full .play__step { min-height: 26px; }
+  .hero--full .prompt__plus { width: 24px; height: 24px; }
+  .hero--full .prompt__go { width: 30px; height: 30px; }
+  /* Les boutons, partout sur le site : un cran plus petits. */
+  .btn { padding: 10px 18px; font-size: 0.875rem; }
+}
+
+/* ── La composition du candidat, IMBRIQUÉE aussi sur téléphone ────────────
+   Elle s'empilait sous 1080px : le tableur, puis l'e-mail, puis l'appel en
+   dernier et en plus petit. Trois captures l'une sous l'autre, c'est
+   exactement ce que la composition existe pour éviter (« plusieurs choses,
+   dans la même demi-heure »), et l'appel, qu'on met en avant, arrivait
+   bon dernier.
+   Maintenant : une TOILE de 520px où les trois se chevauchent. Le tableur
+   derrière en haut à droite, l'e-mail à gauche par-dessus lui, et l'APPEL
+   devant, en bas à droite, le plus grand des trois. La toile entière est
+   réduite par `zoom`, par paliers de largeur d'écran : les trois panneaux
+   rapetissent ensemble et gardent leurs proportions. */
+@media (max-width: 1080px) {
+  .compo {
+    display: block;
+    position: relative;
+    width: 520px;
+    height: 720px;
+    max-width: none;
+    margin-inline: auto;
+    padding: 0;
+  }
+  .compo__sheet { position: absolute; top: 0; right: 0; width: 300px; margin: 0; }
+  /* Le recouvrement de l'e-mail par l'appel reste vers 80px, comme sur
+     bureau : au-delà, l'appel cache la réponse qui s'écrit. */
+  .compo__mail { position: absolute; top: 74px; left: 0; width: 290px; margin: 0; }
+  .compo__call {
+    position: absolute;
+    /* Sous la somme du tableur (la ligne surlignée), jamais dessus. */
+    top: 332px;
+    right: 0;
+    width: 310px;
+    max-width: none;
+    aspect-ratio: 4 / 5;
+    margin: 0;
+    box-shadow: 0 30px 60px -28px rgba(7, 41, 75, 0.55), var(--edge);
+  }
+}
+/* Les paliers : la toile (520px) doit tenir dans la colonne, gouttières
+   déduites. Un palier par tranche d'écrans courants. */
+@media (max-width: 579px) { .compo { zoom: 0.8; } }
+@media (max-width: 459px) { .compo { zoom: 0.7; } }
+@media (max-width: 409px) { .compo { zoom: 0.64; } }
+@media (max-width: 369px) { .compo { zoom: 0.55; } }
+
+/* ── Bureau : une fenêtre de hero MOINS HAUTE (14/10/2026) ────────────────
+   Demande directe, constatée en 1920 × 1080 : la fenêtre faisait 372px et
+   finissait 130px avant le bas de l'écran, sur une bande blanche. Elle est
+   coupée plus tôt, sous les étapes (316px), et le hero s'arrête AVEC elle :
+   sa hauteur n'est plus imposée à l'écran, c'est son contenu qui la donne.
+   Le filet du hero tombe donc toujours sur la coupe de la fenêtre. Le
+   téléphone garde son propre réglage (bloc « 17. TÉLÉPHONE »). */
+@media (min-width: 761px) {
+  .hero--full { height: auto; min-height: 0; }
+  /* 316 et non 300 : la quatrième étape entière, et la coupe juste avant
+     l'intitulé des compétences. */
+  .peek { height: 316px; }
+}
+
+/* ─── 18. RESSOURCES : BLOG, COMPARAISONS (15/10/2026) ───────────────────── */
+/* Le modèle est spott.io/resources (demande directe) : des catégories en
+   onglets, une grille de cartes, et des articles en colonne de lecture.
+   Tout reste dans le vocabulaire du site : noir et blanc, filets, et le bleu
+   réservé aux boutons. */
+
+/* ── L'index ─────────────────────────────────────────────────────────────── */
+.rhero { padding-bottom: 40px; }
+.rlist { padding-top: 0; }
+.rtabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 44px; }
+.rtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: #fff;
+  font-size: 0.875rem;
+  color: var(--text-2);
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+.rtab:hover { border-color: var(--border-2); color: var(--text); }
+.rtab[aria-current="page"] { background: var(--text); border-color: var(--text); color: #fff; }
+.rtab--off { color: var(--text-4); cursor: default; }
+.rtab--off:hover { border-color: var(--border); color: var(--text-4); }
+
+.rgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px 22px; }
+.rempty { text-align: center; color: var(--text-3); }
+
+/* La carte : toute la carte est le lien. Au survol, la couverture prend un
+   filet plus franc et le titre se souligne ; rien ne bouge ni ne s'allume. */
+.rcard { display: grid; gap: 10px; align-content: start; color: inherit; }
+.rcard .rcov { transition: border-color 200ms ease, box-shadow 200ms ease; }
+.rcard:hover .rcov { border-color: var(--border-2); box-shadow: 0 18px 40px -26px rgba(7, 41, 75, 0.35); }
+.rcard:hover .rcard__title { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.rcard__meta,
+.art__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.rcard__meta { margin-top: 6px; }
+.rcard__cat { color: var(--text); border: 1px solid rgba(7, 41, 75, 0.22); background: rgba(7, 41, 75, 0.05); border-radius: var(--r-sm); padding: 2px 8px; }
+.rcard__title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; color: var(--text); text-wrap: balance; }
+.rcard__excerpt { font-size: 0.9375rem; line-height: 1.55; color: var(--text-3); }
+
+/* ── La couverture ───────────────────────────────────────────────────────
+   Deux tuiles blanches et « vs » entre les deux, sur une trame légère : le
+   gabarit fourni. Tout s'y mesure en `cqw` (largeur de la couverture) : la
+   même couverture sert sur une carte de 320px et en tête d'article à 980px,
+   et les logos doivent garder la même proportion dans les deux. */
+.rcov {
+  container-type: inline-size;
+  display: block;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.rcov--hero { aspect-ratio: 21 / 8; }
+.rcov__in {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4cqw;
+  height: 100%;
+  padding: 0 8cqw;
+  background-color: #f6f8fc;
+  background-image:
+    linear-gradient(rgba(7, 41, 75, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 41, 75, 0.06) 1px, transparent 1px);
+  background-size: 5.5cqw 5.5cqw;
+  background-position: center;
+}
+.rcov--hero .rcov__in { padding: 0 20cqw; gap: 3.4cqw; }
+.rcov__tile {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 34%;
+  display: grid;
+  place-items: center;
+  padding: 0 4cqw;
+  background: #fff;
+  border: 1px solid rgba(7, 41, 75, 0.06);
+  border-radius: 3.4cqw;
+  box-shadow: 0 1px 2px rgba(7, 41, 75, 0.06), 0 10px 24px -14px rgba(7, 41, 75, 0.25);
+}
+.rcov--hero .rcov__tile { height: 34%; border-radius: 1.8cqw; }
+.rcov__logo { width: auto; height: auto; max-width: 100%; max-height: 7cqw; }
+.rcov--hero .rcov__logo { max-height: 4.6cqw; }
+.rcov__onbord { display: inline-flex; align-items: center; gap: 0.3em; font-size: 5.4cqw; font-weight: 600; letter-spacing: -0.04em; color: var(--text); white-space: nowrap; }
+.rcov--hero .rcov__onbord { font-size: 3.2cqw; }
+.rcov__onbord svg { height: 0.95em; width: auto; }
+.rcov__vs { flex: none; font-size: 3.2cqw; font-weight: 600; letter-spacing: 0.02em; color: #8a95ab; }
+.rcov--hero .rcov__vs { font-size: 2cqw; }
+.rcov__vs--plus { display: grid; place-items: center; }
+.rcov__vs--plus svg { width: 3.6cqw; height: 3.6cqw; }
+.rcov--hero .rcov__vs--plus svg { width: 2.2cqw; height: 2.2cqw; }
+.rcov__ats { display: inline-flex; align-items: center; gap: 0.45em; font-size: 4.6cqw; font-weight: 600; letter-spacing: -0.03em; color: var(--text); white-space: nowrap; }
+.rcov--hero .rcov__ats { font-size: 2.8cqw; }
+.rcov__cols { display: inline-flex; align-items: flex-end; gap: 0.12em; }
+.rcov__cols i { display: block; width: 0.3em; height: 0.9em; border-radius: 2px; background: rgba(7, 41, 75, 0.2); }
+.rcov__cols i:nth-child(2) { height: 0.66em; }
+.rcov__cols i:nth-child(3) { height: 0.42em; }
+
+/* ── L'article ───────────────────────────────────────────────────────────
+   Une colonne de lecture de 720px : un texte long sur toute la largeur du
+   site ne se lit pas. La couverture déborde plus large que le texte. */
+.wrap.art__col { max-width: calc(720px + 2 * var(--gutter)); }
+.wrap.art__wide { max-width: calc(980px + 2 * var(--gutter)); margin-top: 44px; }
+.art__head { padding-bottom: 0; }
+.art__back { display: inline-flex; align-items: center; gap: 7px; font-size: 0.875rem; color: var(--text-3); transition: color 160ms ease; }
+.art__back:hover { color: var(--text); }
+.art__meta { margin-top: 30px; }
+.art__title { margin-top: 16px; font-size: clamp(2.25rem, 4.6vw, 3.4rem); line-height: 1.04; letter-spacing: -0.04em; font-weight: 600; text-wrap: balance; }
+.art__sub { margin-top: 10px; font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; color: var(--text-3); }
+.art__lede { margin-top: 20px; font-size: 1.125rem; line-height: 1.6; color: var(--text-2); }
+.art__reviewed { margin-top: 16px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.6875rem; letter-spacing: 0.04em; color: var(--text-4); }
+
+.art__body { padding-top: 56px; padding-bottom: 104px; }
+.art__body > * + * { margin-top: 18px; }
+.art__body h2 { margin-top: 56px; font-size: clamp(1.375rem, 2.3vw, 1.75rem); line-height: 1.2; letter-spacing: -0.028em; font-weight: 600; text-wrap: balance; }
+.art__body h3 { margin-top: 36px; font-size: 1.125rem; line-height: 1.3; letter-spacing: -0.02em; font-weight: 600; }
+.art__body p,
+.art__body li { font-size: 1.0625rem; line-height: 1.75; color: var(--text-2); }
+.art__body strong { font-weight: 600; color: var(--text); }
+.art__body p a,
+.art__body li a { color: var(--text); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.art__body p a:hover,
+.art__body li a:hover { text-decoration-thickness: 2px; }
+
+.art__callout { padding: 22px 24px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg-2); }
+/* « Bottom line: », un filet à gauche et pas une boîte : il y en a sept par
+   comparaison, sept boîtes feraient un damier. */
+.art__bottom { padding-left: 18px; border-left: 2px solid var(--text); }
+
+.art__list { list-style: none; display: grid; gap: 12px; padding: 0; }
+.art__list li { position: relative; padding-left: 22px; }
+.art__list li::before { content: ""; position: absolute; left: 4px; top: 0.72em; width: 6px; height: 6px; border-radius: 50%; background: var(--text); }
+.art__steps { list-style: none; display: grid; gap: 14px; padding: 0; }
+.art__steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; }
+.art__n { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.75rem; color: var(--text-4); padding-top: 0.4em; }
+
+/* Le tableau : il défile de côté sur téléphone plutôt que de s'écraser. */
+.art__body .art__table { margin-top: 28px; }
+.art__scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: #fff; }
+.art__table table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.art__table th,
+.art__table td { padding: 13px 16px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); font-size: 0.875rem; line-height: 1.5; }
+.art__table thead th { background: var(--bg-2); font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+.art__table tbody th { width: 22%; font-weight: 600; color: var(--text); }
+.art__table td { color: var(--text-2); }
+.art__table tbody tr:last-child th,
+.art__table tbody tr:last-child td { border-bottom: 0; }
+.art__table figcaption { margin-top: 10px; font-size: 0.8125rem; line-height: 1.55; color: var(--text-4); }
+
+.art__body .art__author { display: flex; align-items: center; gap: 14px; margin-top: 52px; padding-top: 28px; border-top: 1px solid var(--border); }
+.art__avatar { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+.art__author b { display: block; font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+.art__by { display: block; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); }
+.art__role { display: block; font-size: 0.8125rem; color: var(--text-3); }
+
+.art__body .art__faq { margin-top: 64px; }
+.art__faq h2 { margin: 0 0 18px; }
+.art__faq details { border-top: 1px solid var(--border); }
+.art__faq details:last-child { border-bottom: 1px solid var(--border); }
+.art__faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; padding: 18px 0; font-size: 1rem; font-weight: 600; letter-spacing: -0.012em; color: var(--text); }
+.art__faq summary::-webkit-details-marker { display: none; }
+.art__faq summary svg { flex: none; margin-top: 3px; color: var(--text-3); transition: transform 200ms ease; }
+.art__faq details[open] summary svg { transform: rotate(45deg); }
+.art__faq details p { padding-bottom: 20px; font-size: 0.9875rem; }
+.art__body .art__legal { margin-top: 44px; font-size: 0.8125rem; line-height: 1.6; color: var(--text-4); }
+
+.rrelated { padding-top: 0; }
+.rrelated .h3 { margin-bottom: 24px; }
+
+@media (max-width: 1080px) {
+  .rgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rcov--hero .rcov__in { padding: 0 10cqw; }
+}
+@media (max-width: 620px) {
+  .rgrid { grid-template-columns: minmax(0, 1fr); }
+  .rcov--hero { aspect-ratio: 16 / 9; }
+  .rcov--hero .rcov__in { padding: 0 8cqw; gap: 4cqw; }
+  .rcov--hero .rcov__tile { height: 34%; border-radius: 3cqw; }
+  .rcov--hero .rcov__logo { max-height: 7cqw; }
+  .rcov--hero .rcov__onbord { font-size: 5.4cqw; }
+  .rcov--hero .rcov__vs { font-size: 3.2cqw; }
+  .rcov--hero .rcov__ats { font-size: 4.6cqw; }
+  .art__body p, .art__body li { font-size: 1rem; }
 }

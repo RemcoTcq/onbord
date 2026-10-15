@@ -13,6 +13,14 @@ const common = {
     openMenu: "Ouvrir le menu",
     closeMenu: "Fermer le menu",
     skip: "Aller au contenu",
+    // Le menu « Produit » (15/10/2026) : les trois ancres de l'accueil,
+    // regroupées pour décharger la barre.
+    product: "Produit",
+    productItems: {
+      simulations: { title: "Simulations", desc: "Ce que font les candidats : le travail de votre poste." },
+      how: { title: "Comment ça marche", desc: "Vous collez une offre, Onbord construit la simulation, vous décidez." },
+      scoring: { title: "Notation", desc: "Chaque note appuyée sur les mots du candidat." },
+    },
     // Le menu « Métiers » (Header.js) : une page, et une entrée « bientôt » non cliquable.
     roles: "Cas d'usage",
     soon: "Bientôt",
@@ -20,18 +28,30 @@ const common = {
       business: { title: "Métiers business", desc: "Commercial, customer success, finance, RH, opérations. Disponible aujourd'hui." },
       tech: { title: "Métiers tech", desc: "Développeurs et profils techniques. Disponible plus tard." },
     },
+    // Le menu « Ressources » (15/10/2026) : blog et comparaisons, la
+    // documentation « bientôt », non cliquable.
+    resources: "Ressources",
+    resourcesItems: {
+      all: { title: "Toutes les ressources", desc: "Articles, comparaisons et documentation." },
+      blog: { title: "Blog", desc: "Comment les simulations s'intègrent à votre recrutement." },
+      comparisons: { title: "Comparaisons", desc: "Onbord face aux outils auxquels on le compare." },
+      docs: { title: "Documentation", desc: "Guides pour configurer et utiliser Onbord. Disponible plus tard." },
+    },
   },
 
   footer: {
     tagline: "Recrutez sur ce que les gens savent vraiment faire.",
     product: "Produit",
     company: "Entreprise",
+    resources: "Ressources",
+    comparisons: "Comparaisons",
     legal: "Légal",
     ai: "Transparence IA",
     terms: "Conditions",
     privacy: "Confidentialité",
     contact: "Contact",
     rights: "Tous droits réservés.",
+    place: "Gand, Belgique",
   },
 
   mocks: {

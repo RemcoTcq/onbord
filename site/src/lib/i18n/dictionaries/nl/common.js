@@ -16,6 +16,14 @@ const common = {
     openMenu: "Menu openen",
     closeMenu: "Menu sluiten",
     skip: "Naar de inhoud",
+    // Het menu « Product » (15/10/2026): de drie ankers van de homepage,
+    // gegroepeerd om de balk te ontlasten.
+    product: "Product",
+    productItems: {
+      simulations: { title: "Simulaties", desc: "Wat kandidaten doen: het werk van uw functie." },
+      how: { title: "Hoe het werkt", desc: "U plakt een vacature, Onbord bouwt de simulatie, u beslist." },
+      scoring: { title: "Beoordeling", desc: "Elke score onderbouwd met de woorden van de kandidaat." },
+    },
     // Het menu « Functies » (Header.js): één pagina, en een niet-klikbare « binnenkort ».
     roles: "Toepassingen",
     soon: "Binnenkort",
@@ -23,18 +31,30 @@ const common = {
       business: { title: "Businessfuncties", desc: "Sales, customer success, finance, HR, operations. Vandaag beschikbaar." },
       tech: { title: "Techfuncties", desc: "Developers en technische profielen. Later beschikbaar." },
     },
+    // Het menu « Resources » (15/10/2026): blog en vergelijkingen, de
+    // documentatie « binnenkort », niet klikbaar.
+    resources: "Resources",
+    resourcesItems: {
+      all: { title: "Alle resources", desc: "Artikels, vergelijkingen en documentatie." },
+      blog: { title: "Blog", desc: "Hoe werksimulaties in uw aanwerving passen." },
+      comparisons: { title: "Vergelijkingen", desc: "Onbord naast de tools waarmee teams het vergelijken." },
+      docs: { title: "Documentatie", desc: "Handleidingen om Onbord in te stellen en te gebruiken. Later beschikbaar." },
+    },
   },
 
   footer: {
     tagline: "Werf aan op wat mensen echt kunnen.",
     product: "Product",
     company: "Bedrijf",
+    resources: "Resources",
+    comparisons: "Vergelijkingen",
     legal: "Juridisch",
     ai: "AI-transparantie",
     terms: "Voorwaarden",
     privacy: "Privacy",
     contact: "Contact",
     rights: "Alle rechten voorbehouden.",
+    place: "Gent, België",
   },
 
   mocks: {

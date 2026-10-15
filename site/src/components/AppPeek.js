@@ -78,6 +78,24 @@ export default function AppPeek({ m, skills }) {
     const fenetre = hero.querySelector(".peek");
     if (!texte || !fenetre) return;
 
+    // ── SUR TÉLÉPHONE, LA MÊME FENÊTRE EN MINIATURE (14/10/2026) ──────────
+    // Elle y était masquée : réduite à 350px en se réorganisant, elle ne
+    // montrait que des barres grises. Elle garde maintenant sa mise en page
+    // de bureau (LARGEUR_BUREAU) et c'est son `zoom` qui rapetisse, comme une
+    // capture d'écran qu'on réduit. Le rapport ne s'écrit pas en CSS (une
+    // longueur divisée par une longueur), d'où ce calcul ; la feuille de
+    // style a un repli (--k: 0.41, un iPhone) pour le premier affichage.
+    const scene = hero.querySelector(".stage") || fenetre;
+    const petit = window.matchMedia("(max-width: 760px)");
+
+    const LARGEUR_BUREAU = 860;
+    const ajuster = () => {
+      const k = fenetre.clientWidth / LARGEUR_BUREAU;
+      if (k > 0) hero.style.setProperty("--k", k.toFixed(4));
+    };
+    ajuster();
+    window.addEventListener("resize", ajuster);
+
     let pret = true;
     const suivre = () => {
       if (!pret) return;
@@ -137,6 +155,23 @@ export default function AppPeek({ m, skills }) {
           return;
         }
         const t = texte.getBoundingClientRect();
+
+        // ⚠️ SUR TÉLÉPHONE, LE FONDU SUIT L'AVANCÉE DE LA SCÈNE SUR LE TEXTE.
+        // Le calage sur le bas de la fenêtre (ci-dessous) ne marche pas ici :
+        // la fenêtre en miniature est plus haute que la place et c'est le bas
+        // du hero qui la coupe, donc son bord bas est hors écran et le fondu
+        // ne se déclenchait jamais. La scène coupait alors le sous-titre en
+        // deux, net. Ici, le texte s'efface à mesure qu'elle le recouvre :
+        // plein tant qu'elle n'y touche pas, parti quand elle atteint son haut.
+        if (petit.matches) {
+          const haut = scene.getBoundingClientRect().top - 26; // le verre déborde de 26px
+          const r = Math.min(Math.max((haut - t.top) / t.height, 0), 1);
+          const f = r * r;
+          hero.style.setProperty("--fade", f.toFixed(3));
+          texte.style.visibility = f === 0 ? "hidden" : "";
+          return;
+        }
+
         const w = fenetre.getBoundingClientRect();
         const marge = (w.bottom - 40) - t.bottom;
         const f = Math.min(Math.max(marge / 120, 0), 1);
@@ -147,7 +182,10 @@ export default function AppPeek({ m, skills }) {
 
     suivre();
     window.addEventListener("scroll", suivre, { passive: true });
-    return () => window.removeEventListener("scroll", suivre);
+    return () => {
+      window.removeEventListener("scroll", suivre);
+      window.removeEventListener("resize", ajuster);
+    };
   }, []);
 
   // ⚠️ LA FENETRE NE SUIT PLUS LA SOURIS, et ce n est pas un oubli.

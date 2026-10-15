@@ -84,6 +84,23 @@ export const FileText = (p) => (<Svg {...p}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 
 export const Link = (p) => (<Svg {...p}><path d="M10 13a4 4 0 0 0 5.7.4l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.4 1.4" /><path d="M14 11a4 4 0 0 0-5.7-.4l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.4-1.4" /></Svg>);
 export const Bell = (p) => (<Svg {...p}><path d="M18 16H6l1.2-2V11a4.8 4.8 0 0 1 9.6 0v3z" /><path d="M10.5 19h3" /></Svg>);
 
+/** Le drapeau européen, au pied de page à côté de « Gent ». En SVG et non en
+ *  emoji : sous Windows, l'emoji 🇪🇺 s'affiche en deux lettres « EU ». Ses
+ *  couleurs sont celles du drapeau, pas celles du site : c'est un drapeau,
+ *  l'exception à la palette est voulue. Douze étoiles sur un cercle. */
+export function FlagEU({ height = 12 }) {
+  const etoiles = Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    return [9 + Math.sin(a) * 4, 6 - Math.cos(a) * 4];
+  });
+  return (
+    <svg width={(height * 3) / 2} height={height} viewBox="0 0 18 12" aria-hidden="true" focusable="false">
+      <rect width="18" height="12" rx="1" fill="#003399" />
+      {etoiles.map(([x, y], i) => <circle key={i} cx={x.toFixed(2)} cy={y.toFixed(2)} r="0.62" fill="#FFCC00" />)}
+    </svg>
+  );
+}
+
 /* ── Bénéfices ───────────────────────────────────────────────────────────── */
 
 /** Éclair : « prêt en secondes, pas en jours ». */

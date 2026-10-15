@@ -573,6 +573,41 @@ const pages = {
     },
   },
 
+  // La partie « Resources » (15/10/2026) : les LIBELLÉS autour des articles.
+  // Les articles eux-mêmes sont dans src/content/resources.js, en anglais.
+  resources: {
+    meta: {
+      title: "Resources: Onbord",
+      description: "Articles, honest comparisons and documentation about hiring on what people can actually do.",
+    },
+    eyebrow: "Resources",
+    title: "Resources",
+    lede: "Articles, honest comparisons and, soon, documentation. Everything about hiring on what people can actually do.",
+    tabsLabel: "Categories",
+    all: "All",
+    soon: "Soon",
+    cats: {
+      blog: { name: "Blog", title: "Blog", lede: "How job simulations fit into the way you already hire." },
+      comparisons: { name: "Comparisons", title: "Comparisons", lede: "Onbord next to the tools teams compare it with. Every claim about them is sourced." },
+      docs: { name: "Documentation" },
+    },
+    empty: "Nothing here yet.",
+    article: {
+      back: "All resources",
+      reviewed: "Last reviewed:",
+      bottomLine: "Bottom line:",
+      faq: "Frequently asked questions",
+      related: "Related",
+      by: "Written by",
+      vs: "vs",
+    },
+    closing: {
+      title: "See it on one of your roles.",
+      body: "Send us a job posting: in 20 minutes we build your first simulation together, free.",
+      cta: "Book a demo",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

@@ -544,6 +544,41 @@ const pages = {
     },
   },
 
+  // La partie « Ressources » (15/10/2026) : les LIBELLÉS autour des articles.
+  // Les articles eux-mêmes sont dans src/content/resources.js, en anglais.
+  resources: {
+    meta: {
+      title: "Ressources : Onbord",
+      description: "Articles, comparaisons honnêtes et documentation pour recruter sur ce que les gens savent vraiment faire.",
+    },
+    eyebrow: "Ressources",
+    title: "Ressources",
+    lede: "Des articles, des comparaisons honnêtes et, bientôt, la documentation. Tout pour recruter sur ce que les gens savent vraiment faire.",
+    tabsLabel: "Catégories",
+    all: "Tout",
+    soon: "Bientôt",
+    cats: {
+      blog: { name: "Blog", title: "Blog", lede: "Comment les simulations s'intègrent à votre façon de recruter." },
+      comparisons: { name: "Comparaisons", title: "Comparaisons", lede: "Onbord face aux outils auxquels on le compare. Chaque affirmation sur eux est sourcée." },
+      docs: { name: "Documentation" },
+    },
+    empty: "Rien ici pour l'instant.",
+    article: {
+      back: "Toutes les ressources",
+      reviewed: "Dernière revue :",
+      bottomLine: "En bref :",
+      faq: "Questions fréquentes",
+      related: "À lire aussi",
+      by: "Écrit par",
+      vs: "vs",
+    },
+    closing: {
+      title: "Voyez-le sur l'un de vos postes.",
+      body: "Envoyez-nous une offre : en 20 minutes, nous construisons votre première simulation ensemble, gratuitement.",
+      cta: "Réserver une démo",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

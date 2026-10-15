@@ -22,6 +22,14 @@ const common = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
     skip: "Skip to content",
+    // Le menu « Product » (15/10/2026) : les trois ancres de l'accueil,
+    // regroupées pour décharger la barre.
+    product: "Product",
+    productItems: {
+      simulations: { title: "Simulations", desc: "What candidates do: the work of your role." },
+      how: { title: "How it works", desc: "Paste a posting, Onbord builds the simulation, you decide." },
+      scoring: { title: "Scoring", desc: "Every score backed by the candidate's own words." },
+    },
     // Le menu « Roles » (Header.js) : une page, et une entrée « bientôt » non cliquable.
     roles: "Use cases",
     soon: "Soon",
@@ -29,18 +37,31 @@ const common = {
       business: { title: "Business roles", desc: "Sales, customer success, finance, HR, operations. Available today." },
       tech: { title: "Tech roles", desc: "Developers and technical profiles. Coming later." },
     },
+    // Le menu « Resources » (15/10/2026) : blog et comparaisons, la
+    // documentation « bientôt », non cliquable.
+    resources: "Resources",
+    resourcesItems: {
+      all: { title: "All resources", desc: "Articles, comparisons and documentation." },
+      blog: { title: "Blog", desc: "How job simulations fit the way you hire." },
+      comparisons: { title: "Comparisons", desc: "Onbord next to the tools teams compare it with." },
+      docs: { title: "Documentation", desc: "Guides to set up and run Onbord. Coming later." },
+    },
   },
 
   footer: {
     tagline: "Hire on what people can actually do.",
     product: "Product",
     company: "Company",
+    resources: "Resources",
+    comparisons: "Comparisons",
     legal: "Legal",
     ai: "AI transparency",
     terms: "Terms",
     privacy: "Privacy",
     contact: "Contact",
     rights: "All rights reserved.",
+    // Où l'on est : à droite de la ligne du bas, après le drapeau européen.
+    place: "Gent, Belgium",
   },
 
     // La composition de l'accueil : la consigne, l'e-mail, l'appel. Les deux

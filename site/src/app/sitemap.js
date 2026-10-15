@@ -1,5 +1,6 @@
 import { LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL } from "@/lib/i18n/config";
 import { CHEMINS, localiserChemin } from "@/lib/i18n/routes";
+import { ARTICLES, cheminArticle } from "@/content/resources";
 
 // Sitemap XML, servi sur /sitemap.xml.
 //
@@ -18,7 +19,16 @@ import { CHEMINS, localiserChemin } from "@/lib/i18n/routes";
 export default function sitemap() {
   const maj = new Date();
 
-  return LOCALES.flatMap((locale) =>
+  // Les articles des ressources : en anglais seulement, donc une seule URL
+  // chacun, sans alternatives de langue. Leur date est celle de l'article.
+  const articles = ARTICLES.map((a) => ({
+    url: `${SITE_URL}/en${cheminArticle(a)}`,
+    lastModified: new Date(a.date),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...articles, ...LOCALES.flatMap((locale) =>
     CHEMINS.map((chemin) => {
       const url = (l) =>
         chemin === "/" ? `${SITE_URL}/${l}` : `${SITE_URL}/${l}${localiserChemin(chemin, l)}`;
@@ -36,5 +46,5 @@ export default function sitemap() {
         },
       };
     })
-  );
+  )];
 }

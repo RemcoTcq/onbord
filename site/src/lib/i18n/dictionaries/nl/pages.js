@@ -544,6 +544,41 @@ const pages = {
     },
   },
 
+  // Het deel « Resources » (15/10/2026): de LABELS rond de artikels.
+  // De artikels zelf staan in src/content/resources.js, in het Engels.
+  resources: {
+    meta: {
+      title: "Resources: Onbord",
+      description: "Artikels, eerlijke vergelijkingen en documentatie over aanwerven op wat mensen echt kunnen.",
+    },
+    eyebrow: "Resources",
+    title: "Resources",
+    lede: "Artikels, eerlijke vergelijkingen en, binnenkort, documentatie. Alles over aanwerven op wat mensen echt kunnen.",
+    tabsLabel: "Categorieën",
+    all: "Alles",
+    soon: "Binnenkort",
+    cats: {
+      blog: { name: "Blog", title: "Blog", lede: "Hoe werksimulaties passen in de manier waarop u al aanwerft." },
+      comparisons: { name: "Vergelijkingen", title: "Vergelijkingen", lede: "Onbord naast de tools waarmee teams het vergelijken. Elke bewering over hen is gestaafd." },
+      docs: { name: "Documentatie" },
+    },
+    empty: "Hier staat nog niets.",
+    article: {
+      back: "Alle resources",
+      reviewed: "Laatst nagekeken:",
+      bottomLine: "Kortom:",
+      faq: "Veelgestelde vragen",
+      related: "Lees ook",
+      by: "Geschreven door",
+      vs: "vs",
+    },
+    closing: {
+      title: "Bekijk het op een van uw functies.",
+      body: "Stuur ons een vacature: in 20 minuten bouwen we samen uw eerste simulatie, gratis.",
+      cta: "Demo boeken",
+    },
+  },
+
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {

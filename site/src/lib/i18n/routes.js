@@ -44,6 +44,12 @@ const SEGMENTS = {
     fr: "/metiers-business",
     nl: "/business-functies",
   },
+  // Les ressources (15/10/2026) : la même orthographe dans toutes les
+  // langues. Les articles, en anglais seulement, n'ont pas d'entrée ici : le
+  // sitemap les prend dans src/content/resources.js.
+  "/resources": { en: "/resources", fr: "/resources", nl: "/resources" },
+  "/resources/blog": { en: "/resources/blog", fr: "/resources/blog", nl: "/resources/blog" },
+  "/resources/comparisons": { en: "/resources/comparisons", fr: "/resources/comparisons", nl: "/resources/comparisons" },
 };
 
 /** Index inverse, construit une fois : traduction → chemin canonique. */
