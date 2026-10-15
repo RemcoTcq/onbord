@@ -6,9 +6,9 @@
 
 const home = {
   meta: {
-    title: "Onbord — Recrutez sur les compétences. Pas sur le CV.",
+    title: "Onbord | Des simulations de poste pour recruter sur les compétences",
     description:
-      "Collez une offre d'emploi. Onbord la transforme en simulation de travail, l'envoie à vos candidats et les classe sur ce qu'ils ont réellement fait, avec la preuve derrière chaque chiffre.",
+      "Onbord transforme une offre d'emploi en simulation de poste. Les candidats font le vrai travail, et vous obtenez une évaluation des compétences, preuve à l'appui pour chaque note.",
   },
 
   hero: {

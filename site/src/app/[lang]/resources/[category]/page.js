@@ -22,7 +22,7 @@ export async function generateMetadata({ params }) {
   const { resources: p } = await getDictionary(locale, "pages");
   const chemin = `/resources/${category}`;
   return {
-    title: { absolute: `${p.cats[category].title}: Onbord` },
+    title: { absolute: `${p.cats[category].title} | Onbord` },
     description: p.cats[category].lede,
     alternates: {
       canonical: `/${locale}${chemin}`,

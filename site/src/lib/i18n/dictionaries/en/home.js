@@ -27,16 +27,16 @@
 
 const home = {
   meta: {
-    title: "Onbord — Hire on real skills. Not CVs.",
+    title: "Onbord | Job simulations to hire on real skills, not CVs",
     description:
-      "Paste a job posting. Onbord turns it into a work simulation, sends it to your candidates, and ranks them on what they actually did, with the proof behind every number.",
+      "Onbord turns any job posting into a job simulation. Candidates do the real work of the role, and you get a skills assessment with evidence behind every score.",
   },
 
   hero: {
     titleA: "Hire on",
     titleEm: "real skills.",
     titleB: "Not CVs.",
-    lede: "Paste a job posting. Onbord builds the simulation, sends it to your candidates, and ranks them on what they actually did.",
+    lede: "Paste a job posting. Onbord builds a job simulation, sends it to your candidates, and ranks them on what they actually did.",
     primary: "Book a demo",
 
     // Le contenu lisible de l'aperçu de plateforme (AppPeek.js) : l'offre et

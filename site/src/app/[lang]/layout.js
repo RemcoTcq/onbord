@@ -5,6 +5,7 @@ import { LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL, APP_URL, coerceLocale }
 import { demoHref } from "@/lib/contact";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { IMAGE_PARTAGE } from "@/lib/seo";
 import Reveal from "@/components/Reveal";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ export async function generateMetadata({ params }) {
       default: home.meta.title,
       // Les pages intérieures posent leur propre titre ; ce gabarit leur évite
       // de répéter la marque à la main, et de l'oublier une fois sur quatre.
-      template: "%s — Onbord",
+      template: "%s | Onbord",
     },
     description: home.meta.description,
     openGraph: {
@@ -64,8 +65,9 @@ export async function generateMetadata({ params }) {
       url: `${SITE_URL}/${locale}`,
       title: home.meta.title,
       description: home.meta.description,
+      images: [IMAGE_PARTAGE],
     },
-    twitter: { card: "summary_large_image" },
+    twitter: { card: "summary_large_image", images: [IMAGE_PARTAGE.url] },
   };
 }
 

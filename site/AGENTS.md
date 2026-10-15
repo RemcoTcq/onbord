@@ -610,6 +610,26 @@ Ce que ça change pour qui écrit ici :
 sitemap se construit à partir de ce fichier, et il annoncerait à Google des
 URL qui n'existent pas.
 
+### 0 sexies. Référencement : ce qui est en place (15/10/2026)
+
+Demande directe : « qu'on retrouve Onbord en tapant job simulation, hiring
+assessments ». Ce que le site fait pour ça, à ne pas défaire :
+
+- **les titres portent le mot-clé**, le slogan reste dans la page : accueil
+  « Onbord | Job simulations to hire on real skills, not CVs », métiers
+  « Job simulations for business roles | Onbord », tarifs « Pricing for job
+  simulations | Onbord ». Séparateur « | » partout ;
+- **la description de l'accueil dit « skills assessment »**. C'est une
+  EXCEPTION assumée à la règle 2 bis : dans les métadonnées et les pages de
+  référencement, on écrit les mots que les gens tapent. Le texte affiché du
+  site, lui, continue de dire « simulation » ;
+- **données structurées** : `WebSite` + `Organization` sur l'accueil (c'est
+  ce qui fait afficher « Onbord » et non « onbord.be » au-dessus des résultats
+  Google), `Article`/`BlogPosting` + `BreadcrumbList` sur chaque article ;
+- **image de partage** `public/og.png` (1200 × 630), déclarée par
+  `IMAGE_PARTAGE` (`src/lib/seo.js`) dans CHAQUE `openGraph` : une page qui
+  pose son propre `openGraph` remplace celui du layout, image comprise.
+
 ### 0 quinquies. La barre : trois menus et un lien (15/10/2026)
 
 Demande directe, « décharger la barre » : **Product ▾** (Simulations, How it
@@ -772,8 +792,14 @@ même chose sans faire hausser le sourcil. Même chose pour les listes à puces
 médianes (« Écrit · Jugement · Ton ») : des virgules.
 
 L'exception : les **maquettes**. Une vraie interface affiche « Étape 2 · Réponse
-par e-mail », et la lui retirer la ferait sonner faux. Le titre d'onglet
-« Onbord — … » reste lui aussi, c'est un séparateur de marque, pas une phrase.
+par e-mail », et la lui retirer la ferait sonner faux.
+
+**Les titres d'onglet séparent par « | »** (15/10/2026, demande directe) :
+« Onbord | Hire on real skills. Not CVs. » pour l'accueil, « Pricing | Onbord »
+pour les autres, et le gabarit du layout est « %s | Onbord ». Plus de tiret
+cadratin, plus de deux-points. Les titres de référencement des articles
+(`seoTitle`, src/content/resources.js) gardent leur forme : c'est le texte
+de Remco.
 
 ### 3. Aucun bouton ne mène à une inscription
 

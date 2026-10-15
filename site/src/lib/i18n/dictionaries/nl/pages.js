@@ -270,7 +270,7 @@ const pages = {
 
   pricing: {
     meta: {
-      title: "Tarieven: Onbord",
+      title: "Tarieven voor werksimulaties | Onbord",
       description:
         "Twee plannen, credits die aan vier dingen worden besteed, en de rekensom in de open lucht. Core vanaf € 100 per maand, jaarlijks gefactureerd.",
     },
@@ -410,7 +410,7 @@ const pages = {
   // als het Engels, zie het commentaar in en/pages.js.
   business: {
     meta: {
-      title: "Businessfuncties: Onbord",
+      title: "Werksimulaties voor businessfuncties | Onbord",
       description: "Werksimulaties voor sales, customer success, finance, HR en operations, gebouwd op uw bedrijf, uw vacature en de vaardigheden die u zoekt.",
     },
     titleA: "Simulaties voor",
@@ -548,7 +548,7 @@ const pages = {
   // De artikels zelf staan in src/content/resources.js, in het Engels.
   resources: {
     meta: {
-      title: "Resources: Onbord",
+      title: "Resources | Onbord",
       description: "Artikels, eerlijke vergelijkingen en documentatie over aanwerven op wat mensen echt kunnen.",
     },
     eyebrow: "Resources",
@@ -582,7 +582,7 @@ const pages = {
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {
-      title: "Demo boeken: Onbord",
+      title: "Demo boeken | Onbord",
       description: "Laat uw gegevens achter en kies een moment. We tonen u een echte simulatie, gebouwd op een van uw vacatures."
     },
     eyebrow: "30 seconden",

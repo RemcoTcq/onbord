@@ -8,6 +8,7 @@ import { ShortlistMock, ScoreCard } from "@/components/Mocks";
 import Steps from "@/components/Steps";
 import WorkScenes from "@/components/WorkScenes";
 import FeedbackTabs from "@/components/FeedbackTabs";
+import { IMAGE_PARTAGE } from "@/lib/seo";
 import { ArrowRight, Check, Close } from "@/components/Icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }) {
   const h = await getDictionary(locale, "home");
 
   return {
-    // `absolute` : l'accueil ne veut pas du gabarit « %s — Onbord », son titre
+    // `absolute` : l'accueil ne veut pas du gabarit « %s | Onbord », son titre
     // porte déjà la marque.
     title: { absolute: h.meta.title },
     description: h.meta.description,
@@ -64,9 +65,35 @@ export async function generateMetadata({ params }) {
         "x-default": `/${DEFAULT_LOCALE}`,
       },
     },
-    openGraph: { url: `${SITE_URL}/${locale}`, title: h.meta.title, description: h.meta.description },
+    openGraph: { url: `${SITE_URL}/${locale}`, title: h.meta.title, description: h.meta.description, images: [IMAGE_PARTAGE] },
   };
 }
+
+// ── Le NOM DU SITE dans Google (15/10/2026) ─────────────────────────────────
+// Au-dessus de chaque résultat, Google affiche un nom de site. Sans
+// indication, il prenait le domaine, « onbord.be ». Ce nom ne vient PAS du
+// <title> : Google le lit dans une donnée structurée `WebSite` posée sur la
+// page d'accueil (son `name`). L'`Organization` donne en plus le logo et
+// le site, pour la fiche de la marque.
+// Google met à jour ce nom au prochain passage de son robot, pas tout de
+// suite : on peut l'accélérer en demandant une réindexation de l'accueil
+// dans la Search Console.
+const DONNEES_STRUCTUREES = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Onbord",
+    alternateName: ["onbord.be"],
+    url: `${SITE_URL}/`,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Onbord",
+    url: `${SITE_URL}/`,
+    logo: `${SITE_URL}/logo-onbord.svg`,
+  },
+];
 
 export default async function Home({ params }) {
   const { lang } = await params;
@@ -79,6 +106,12 @@ export default async function Home({ params }) {
 
   return (
     <div className="home">
+      <script
+        type="application/ld+json"
+        // Le remplacement de « < » empêche une balise de fermer le script
+        // (recommandation de la doc Next, guide JSON-LD).
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(DONNEES_STRUCTUREES).replace(/</g, "\\u003c") }}
+      />
       {/* ── Hero, plein écran ──────────────────────────────────────────── */}
       <section className="section hero hero--full">
         <span className="glow glow--top" aria-hidden="true" />

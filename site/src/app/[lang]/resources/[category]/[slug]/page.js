@@ -4,6 +4,7 @@ import { coerceLocale, LOCALES, SITE_URL } from "@/lib/i18n/config";
 import { demoHref } from "@/lib/contact";
 import { Cta } from "@/components/Bits";
 import { Couverture, Carte, Corps, Auteur, Faq, Retour, dateCourte } from "@/components/Resources";
+import { IMAGE_PARTAGE } from "@/lib/seo";
 import { ARTICLES, AUTHOR, article, cheminArticle } from "@/content/resources";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }) {
     title: { absolute: a.seoTitle },
     description: a.description,
     alternates: { canonical: `/${locale}${cheminArticle(a)}` },
-    openGraph: { type: "article", title: a.seoTitle, description: a.description, publishedTime: a.date },
+    openGraph: { type: "article", title: a.seoTitle, description: a.description, publishedTime: a.date, images: [IMAGE_PARTAGE] },
   };
 }
 
@@ -49,8 +50,41 @@ export default async function Article({ params }) {
   const { resources: p } = await getDictionary(locale, "pages");
   const lies = (a.related || []).map((s) => ARTICLES.find((x) => x.slug === s)).filter(Boolean);
 
+  // Les données structurées (15/10/2026) : l'article lui-même, et le fil
+  // d'Ariane Resources > catégorie > article, que Google affiche à la place
+  // de l'URL dans ses résultats.
+  const url = `${SITE_URL}/${locale}${cheminArticle(a)}`;
+  const donnees = [
+    {
+      "@context": "https://schema.org",
+      "@type": a.category === "blog" ? "BlogPosting" : "Article",
+      headline: a.seoTitle,
+      description: a.description,
+      image: `${SITE_URL}${IMAGE_PARTAGE.url}`,
+      datePublished: a.date,
+      dateModified: a.date,
+      author: { "@type": "Person", name: AUTHOR.name, jobTitle: AUTHOR.role },
+      publisher: { "@type": "Organization", name: "Onbord", logo: { "@type": "ImageObject", url: `${SITE_URL}/logo-onbord.svg` } },
+      mainEntityOfPage: url,
+      inLanguage: "en",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: p.title, item: `${SITE_URL}/${locale}/resources` },
+        { "@type": "ListItem", position: 2, name: p.cats[a.category].title, item: `${SITE_URL}/${locale}/resources/${a.category}` },
+        { "@type": "ListItem", position: 3, name: a.title, item: url },
+      ],
+    },
+  ];
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(donnees).replace(/</g, "\\u003c") }}
+      />
       <article className="art">
         <header className="section hero art__head">
           <span className="glow glow--top" aria-hidden="true" />

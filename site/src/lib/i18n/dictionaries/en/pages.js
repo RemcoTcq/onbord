@@ -291,7 +291,7 @@ const pages = {
   // ── Tarifs ──────────────────────────────────────────────────────────────
   pricing: {
     meta: {
-      title: "Pricing: Onbord",
+      title: "Pricing for job simulations | Onbord",
       description:
         "Two plans, credits spent on four things only, and the arithmetic in the open. Core from €100 a month, billed annually.",
     },
@@ -439,7 +439,7 @@ const pages = {
   // code sont EN PAUSE côté application : ils n'apparaissent pas ici.
   business: {
     meta: {
-      title: "Business roles: Onbord",
+      title: "Job simulations for business roles | Onbord",
       description: "Work simulations for sales, customer success, finance, HR and operations roles, built from your company, your job posting and the skills you need.",
     },
     titleA: "Simulations for",
@@ -577,7 +577,7 @@ const pages = {
   // Les articles eux-mêmes sont dans src/content/resources.js, en anglais.
   resources: {
     meta: {
-      title: "Resources: Onbord",
+      title: "Resources | Onbord",
       description: "Articles, honest comparisons and documentation about hiring on what people can actually do.",
     },
     eyebrow: "Resources",
@@ -611,7 +611,7 @@ const pages = {
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {
-      title: "Book a demo: Onbord",
+      title: "Book a demo | Onbord",
       description: "Leave your details and pick a time. We walk you through a real simulation built from one of your job postings."
     },
     eyebrow: "Takes 30 seconds",

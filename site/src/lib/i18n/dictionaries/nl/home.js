@@ -6,9 +6,9 @@
 
 const home = {
   meta: {
-    title: "Onbord — Werf aan op echte vaardigheden. Niet op cv's.",
+    title: "Onbord | Werksimulaties om aan te werven op echte vaardigheden",
     description:
-      "Plak een vacature. Onbord maakt er een werksimulatie van, stuurt ze naar uw kandidaten en rangschikt hen op wat ze werkelijk deden, met het bewijs achter elk cijfer.",
+      "Onbord zet elke vacature om in een werksimulatie. Kandidaten doen het echte werk, en u krijgt een vaardigheidsbeoordeling met bewijs achter elke score.",
   },
 
   hero: {

@@ -53,7 +53,7 @@ export async function generateMetadata({ params }) {
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: `${page.title}: Onbord`,
+    title: `${page.title} | Onbord`,
     description: page.description,
     alternates: {
       canonical: `/${locale}/legal/${doc}`,

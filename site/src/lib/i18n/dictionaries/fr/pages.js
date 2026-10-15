@@ -270,7 +270,7 @@ const pages = {
 
   pricing: {
     meta: {
-      title: "Tarifs : Onbord",
+      title: "Tarifs des simulations de poste | Onbord",
       description:
         "Deux plans, des crédits dépensés sur quatre choses seulement, et l'arithmétique à découvert. Core à partir de 100 € par mois, facturé annuellement.",
     },
@@ -410,7 +410,7 @@ const pages = {
   // l'anglais, voir le commentaire de en/pages.js.
   business: {
     meta: {
-      title: "Métiers business : Onbord",
+      title: "Simulations de poste pour les métiers business | Onbord",
       description: "Des simulations de travail pour les métiers commerciaux, customer success, finance, RH et opérations, construites à partir de votre entreprise, de votre offre et des compétences recherchées.",
     },
     titleA: "Des simulations pour",
@@ -548,7 +548,7 @@ const pages = {
   // Les articles eux-mêmes sont dans src/content/resources.js, en anglais.
   resources: {
     meta: {
-      title: "Ressources : Onbord",
+      title: "Ressources | Onbord",
       description: "Articles, comparaisons honnêtes et documentation pour recruter sur ce que les gens savent vraiment faire.",
     },
     eyebrow: "Ressources",
@@ -582,7 +582,7 @@ const pages = {
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
   demo: {
     meta: {
-      title: "Réserver une démo : Onbord",
+      title: "Réserver une démo | Onbord",
       description: "Laissez vos coordonnées et choisissez un créneau. Nous vous montrons une vraie simulation construite à partir de l'une de vos offres."
     },
     eyebrow: "30 secondes",
