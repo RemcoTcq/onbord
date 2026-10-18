@@ -1,36 +1,61 @@
 "use client";
 
+// Rapport d'un candidat — maquette « D · Rapport » (octobre 2026).
+//
+// À gauche, la fiche du candidat et les décisions ; à droite, le score global,
+// le rapport d'évidence, puis une carte par étape : sa réponse (conversation,
+// vidéo, échanges avec l'assistant IA) et ses critères, chacun dépliable sur ses
+// points de contrôle. « Tout déplier » ouvre ou ferme tout d'un coup.
+//
+// Les sections héritées (analyse de CV, tests, entretien IA, entretien vidéo)
+// ne s'affichent que pour les candidats d'avant les simulations.
+
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { formatDateLong, formatDateNumeric } from "@/lib/i18n/format";
 import {
-  ArrowLeft, CheckCircle2, XCircle, Trash2, Mail,
-  Loader2, AlertTriangle, TrendingUp, Shield, Flag,
-  User, MapPin, Briefcase, GraduationCap, MessageSquare, ChevronDown, ChevronUp, Star,
-  FileText, Clock, Sparkles, Video, Bot
+  CheckCircle2, Trash2, Mail, Loader2, AlertTriangle, TrendingUp, MessageSquare, ChevronDown, ChevronRight, Star,
+  FileText, Clock, Sparkles, Video, Bot, ChevronsDownUp, ChevronsUpDown, Phone, Info,
 } from "lucide-react";
-
-const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
-
-// Les identifiants C1…C5 viennent des données du test et ne bougent pas ; seul
-// leur libellé se traduit, d'où la résolution au rendu.
-const categoryLabel = (t, code) =>
-  t(`dashboard.candidateDetail.aiCategories.${code}`);
 import {
   getCandidateDetail, updateCandidateStatus, deleteCandidate, getMailLogs
 } from "@/lib/actions/candidate";
 import { getFeedbackSentAt } from "@/lib/actions/candidateFeedback";
 import { submitManualVideoScore } from "@/lib/actions/assessment";
 import FeedbackModal from "@/components/candidates/FeedbackModal";
+import PageHeader from "@/components/layout/PageHeader";
+import { natureEtape } from "@/components/experience/BlocEtape";
 import { resolveEnabledModules } from "@/lib/scoring";
+import { repliques } from "@/lib/persona";
+import { scoreTone, initials as initialesDe, candidateStatusLabel } from "@/components/ui/ds";
+
+const AI_PROFICIENCY_TEST_ID = "1dac9ae1-d8ae-4cc5-82f3-a010c6bf6f11";
+
+// Couleurs d'un score selon son ton (scoreTone : 75 / 50).
+const TONS = {
+  high: { encre: "var(--ds-green-ink)", barre: "var(--ds-green)", piste: "#DCEFE6", fond: "var(--ds-green-bg)" },
+  mid: { encre: "var(--ds-amber-ink)", barre: "var(--ds-amber)", piste: "#F6E8D2", fond: "var(--ds-amber-bg)" },
+  low: { encre: "var(--ds-red)", barre: "#D9573F", piste: "#F4E1DD", fond: "var(--ds-red-bg)" },
+  wait: { encre: "var(--ds-ink-3)", barre: "var(--ds-ink-6)", piste: "var(--ds-line-2)", fond: "var(--ds-soft-2)" },
+};
+const ton = (score) => TONS[scoreTone(score)];
 
 function getScoreColor(t, score) {
-  if (score >= 75) return { bg: "#dcfce7", color: "#166534", label: t("dashboard.candidateDetail.scoreLevel.excellent") };
-  if (score >= 50) return { bg: "#fef3c7", color: "#92400e", label: t("dashboard.candidateDetail.scoreLevel.average") };
-  return { bg: "#fee2e2", color: "#991b1b", label: t("dashboard.candidateDetail.scoreLevel.weak") };
+  const tn = scoreTone(score);
+  const label = tn === "high"
+    ? t("dashboard.candidateDetail.scoreLevel.excellent")
+    : tn === "mid" ? t("dashboard.candidateDetail.scoreLevel.average") : t("dashboard.candidateDetail.scoreLevel.weak");
+  return { bg: TONS[tn].fond, color: TONS[tn].encre, label };
 }
+
+// Statut candidat → ton de la pastille.
+const TON_STATUT = {
+  invited: "blue", in_progress: "amber",
+  soumis: "green", scored: "green", shortlisted: "green", next_step: "green",
+  rejected: "red", disqualified: "red",
+};
 
 // Réponse intégrale du candidat pour un step du rapport d'expérience.
 //
@@ -64,6 +89,19 @@ function expAnswerText(t, step) {
 const expKindLabel = (t, kind) =>
   t(`dashboard.candidateDetail.expKind.${kind}`);
 
+/** Points obtenus et maximum d'un critère à checkpoints (0/1/2 chacun). */
+function pointsCritere(cs) {
+  if (cs.format !== "checkpoints") return null;
+  return { pts: cs.checkpoints.reduce((s, cp) => s + (cp.score || 0), 0), max: cs.checkpoints.length * 2 };
+}
+
+/** Points d'une liste de critères : somme des points, ou null sans checkpoints. */
+function pointsDe(criteres) {
+  const parts = criteres.map(pointsCritere).filter(Boolean);
+  if (!parts.length) return null;
+  return { pts: parts.reduce((s, p) => s + p.pts, 0), max: parts.reduce((s, p) => s + p.max, 0) };
+}
+
 // ─── Grille BARS : rendre la note lisible ────────────────────────────────────
 // Une note « N4 » ne veut rien dire seule. On affiche l'échelle telle qu'elle a
 // été définie à la génération, en marquant le niveau attribué. Les grilles sont
@@ -71,7 +109,7 @@ const expKindLabel = (t, kind) =>
 // pair est donc un intermédiaire, et on le dit plutôt que de le faire coïncider
 // de force avec une ancre.
 function BarsScale({ levels, attributed }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const ancres = [...(levels || [])].sort((a, b) => a.level - b.level);
   if (ancres.length === 0) return null;
   const exacte = ancres.some((a) => a.level === attributed);
@@ -79,29 +117,29 @@ function BarsScale({ levels, attributed }) {
   const sup = ancres.find((a) => a.level > attributed);
 
   return (
-    <div style={{ marginTop: "8px" }}>
-      <div style={{ fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--muted-foreground)", marginBottom: "5px" }}>
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)", marginBottom: 5 }}>
         {t("dashboard.candidateDetail.evaluationGrid")}
       </div>
-      <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+      <div style={{ border: "1px solid var(--ds-line-inset)", borderRadius: 9, overflow: "hidden" }}>
         {ancres.map((a, i) => {
           const atteinte = a.level === attributed;
           return (
             <div key={i} style={{
-              display: "flex", gap: "8px", padding: "6px 10px", fontSize: "11.5px", lineHeight: 1.45,
-              borderTop: i === 0 ? "none" : "1px solid var(--border)",
-              background: atteinte ? "#eff6ff" : "transparent",
+              display: "flex", gap: 8, padding: "7px 10px", fontSize: 12, lineHeight: 1.45,
+              borderTop: i === 0 ? "none" : "1px solid var(--ds-line-inset)",
+              background: atteinte ? "var(--ds-blue-06)" : "#FFFFFF",
             }}>
-              <span style={{ flexShrink: 0, fontWeight: 800, color: atteinte ? "#1d4ed8" : "var(--muted-foreground)", width: 62 }}>
+              <span className="ds-mono" style={{ flexShrink: 0, fontWeight: 500, color: atteinte ? "var(--ds-blue)" : "var(--ds-ink-4)", width: 70 }}>
                 {atteinte ? "▶ " : ""}N{a.level} {a.label ? `· ${a.label}` : ""}
               </span>
-              <span style={{ flex: 1, color: atteinte ? "var(--foreground)" : "var(--muted-foreground)" }}>{a.description}</span>
+              <span style={{ flex: 1, color: atteinte ? "var(--ds-ink)" : "var(--ds-ink-3)" }}>{a.description}</span>
             </div>
           );
         })}
       </div>
       {!exacte && inf && sup && (
-        <p style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "4px", fontStyle: "italic" }}>
+        <p className="ds-sub" style={{ fontSize: 12, marginTop: 4, fontStyle: "italic" }}>
           {t("dashboard.candidateDetail.levelBetween", { level: attributed, low: inf.level, lowLabel: inf.label, high: sup.level, highLabel: sup.label })}
         </p>
       )}
@@ -113,78 +151,79 @@ function BarsScale({ levels, attributed }) {
 // chacun avec sa justification et l'extrait qui le prouve. C'est la matière
 // même du feedback — un score seul ne dit pas quoi retravailler.
 const CHECKPOINT_MARQUES = {
-  2: { mark: "✓", color: "#166534", bg: "#f0fdf4" },
-  1: { mark: "◐", color: "#92400e", bg: "#fffbeb" },
-  0: { mark: "✗", color: "#991b1b", bg: "transparent" },
+  2: { mark: "✓", icone: { background: "var(--ds-green-bg)", color: "var(--ds-green-ink)" }, fond: "#FFFFFF" },
+  1: { mark: "◐", icone: { background: "#FDEBCB", color: "#8A5300" }, fond: "#FFFCF5" },
+  0: { mark: "✗", icone: { background: "var(--ds-red-bg)", color: "var(--ds-red)" }, fond: "#FFFFFF" },
 };
 
 function CheckpointList({ checkpoints }) {
   const { t } = useI18n();
   if (!checkpoints?.length) return null;
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden", marginTop: "6px" }}>
+    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", borderRadius: 9, border: "1px solid var(--ds-line-inset)", overflow: "hidden" }}>
       {checkpoints.map((cp, i) => {
         const m = CHECKPOINT_MARQUES[cp.score] || CHECKPOINT_MARQUES[0];
+        const niveau = t(`dashboard.candidateDetail.checkpointLevel.${cp.score ?? 0}`);
         return (
-          <div key={cp.id || i} style={{ display: "flex", gap: "8px", padding: "7px 10px", fontSize: "12px", lineHeight: 1.45, borderTop: i === 0 ? "none" : "1px solid var(--border)", background: m.bg }}>
-            <span style={{ flexShrink: 0, fontWeight: 800, width: 14, color: m.color }} title={t(`dashboard.candidateDetail.checkpointLevel.${cp.score ?? 0}`)}>{m.mark}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, color: "var(--foreground)" }}>
-                {cp.description}
-                <span style={{ marginLeft: 6, fontWeight: 500, fontSize: "11px", color: m.color }}>{t(`dashboard.candidateDetail.checkpointLevel.${cp.score ?? 0}`)}</span>
-              </div>
-              {cp.justification && <div style={{ color: "var(--muted-foreground)", marginTop: 2 }}>{cp.justification}</div>}
+          <li key={cp.id || i} style={{ display: "flex", gap: 10, padding: "11px 12px", borderTop: i ? "1px solid var(--ds-line-inset)" : 0, background: m.fond }}>
+            <span className="ds-mono" title={niveau} style={{ width: 20, height: 20, flex: "none", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, ...m.icone }}>{m.mark}</span>
+            <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 500 }}>{cp.description}</span>
+                <span style={{ fontSize: 11, fontWeight: 500, height: 20, display: "inline-flex", alignItems: "center", padding: "0 6px", borderRadius: 6, ...m.icone }}>{niveau}</span>
+              </span>
+              {cp.justification && <span className="ds-sub">{cp.justification}</span>}
               {cp.verbatim && (
-                <div style={{ marginTop: 4, fontStyle: "italic", color: "var(--foreground)", borderLeft: `3px solid ${cp.verbatim_verified ? "#22c55e" : "#f59e0b"}`, paddingLeft: 8 }}>
+                <span style={{ alignSelf: "flex-start", padding: "5px 9px", borderRadius: 7, background: "#F3F6FC", fontSize: 13, fontStyle: "italic", color: "var(--ds-ink-2)" }}>
                   « {cp.verbatim} »
                   {!cp.verbatim_verified && (
-                    <span style={{ fontStyle: "normal", fontSize: "10.5px", color: "#b45309", marginLeft: 6 }}>{t("dashboard.candidateDetail.verbatimNotFound")}</span>
+                    <span style={{ fontStyle: "normal", fontSize: 11, color: "var(--ds-amber-ink)", marginLeft: 6 }}>{t("dashboard.candidateDetail.verbatimNotFound")}</span>
                   )}
-                </div>
+                </span>
               )}
-            </div>
-          </div>
+            </span>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 
 // Corrigé QCM : les propositions telles que le candidat les a vues, avec son
 // choix et la bonne réponse. Sans ça, un « 0% » sur un QCM est illisible.
 function QcmCorrection({ step }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const options = step.config?.options || [];
   if (options.length === 0) return null;
   const choisi = step.response?.meta?.selected_index;
   const correct = step.config?.correct_index;
 
   return (
-    <div style={{ marginTop: "12px" }}>
-      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)", marginBottom: 6 }}>
         {t("dashboard.candidateDetail.proposalsAndKey")}
       </div>
-      <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+      <div style={{ border: "1px solid var(--ds-line)", borderRadius: 9, overflow: "hidden", background: "#FFFFFF" }}>
         {options.map((opt, i) => {
           const estCorrect = i === correct;
           const estChoisi = i === choisi;
           return (
             <div key={i} style={{
-              display: "flex", alignItems: "flex-start", gap: "8px", padding: "7px 10px", fontSize: "12px", lineHeight: 1.45,
-              borderTop: i === 0 ? "none" : "1px solid var(--border)",
-              background: estCorrect ? "#f0fdf4" : estChoisi ? "#fee2e2" : "transparent",
+              display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", fontSize: 13, lineHeight: 1.45,
+              borderTop: i === 0 ? "none" : "1px solid var(--ds-line-3)",
+              background: estCorrect ? "var(--ds-green-bg)" : estChoisi ? "var(--ds-red-bg)" : "transparent",
             }}>
-              <span style={{ flexShrink: 0, fontWeight: 800, width: 14, color: estCorrect ? "#166534" : estChoisi ? "#991b1b" : "var(--muted-foreground)" }}>
+              <span style={{ flexShrink: 0, fontWeight: 600, width: 14, color: estCorrect ? "var(--ds-green-ink)" : estChoisi ? "var(--ds-red)" : "var(--ds-ink-5)" }}>
                 {estCorrect ? "✓" : estChoisi ? "✗" : "·"}
               </span>
-              <span style={{ flex: 1, color: "var(--foreground)" }}>{opt}</span>
+              <span style={{ flex: 1 }}>{opt}</span>
               {estChoisi && (
-                <span style={{ flexShrink: 0, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: estCorrect ? "#166534" : "#991b1b", border: `1px solid ${estCorrect ? "#86efac" : "#fca5a5"}`, borderRadius: "99px", padding: "1px 6px" }}>
-                  choix du candidat
+                <span className={`ds-tag ${estCorrect ? "ds-tag-high" : "ds-tag-low"}`} style={{ fontFamily: "inherit", fontSize: 11 }}>
+                  {t("dashboard.candidateDetail.candidateChoice")}
                 </span>
               )}
               {estCorrect && !estChoisi && (
-                <span style={{ flexShrink: 0, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: "#166534", border: "1px solid #86efac", borderRadius: "99px", padding: "1px 6px" }}>
+                <span className="ds-tag ds-tag-high" style={{ fontFamily: "inherit", fontSize: 11 }}>
                   {t("dashboard.candidateDetail.correctAnswer")}
                 </span>
               )}
@@ -212,25 +251,6 @@ function groupScoresBySkill(scores) {
   return groups;
 }
 
-// Badge d'ÉTAT, pas d'action : « Validé », pas « Valider ». Les verbes vivent
-// dans candidateDetail.actions, sur les boutons qui déclenchent le changement.
-function getStatusBadge(t, status) {
-  const classNames = {
-    invited: "badge-primary",
-    in_progress: "badge-warning",
-    interview_completed: "badge-outline",
-    termine: "badge-outline",
-    soumis: "badge-success",
-    scored: "badge-success",
-    shortlisted: "badge-success",
-    next_step: "badge-success",
-    rejected: "badge-destructive",
-    disqualified: "badge-destructive",
-  };
-  if (!classNames[status]) return { label: status, className: "badge-muted" };
-  return { label: t(`dashboard.candidateStatus.${status}`), className: classNames[status] };
-}
-
 // Libellé de l'historique des mails, par type enregistré dans mail_logs.
 // `selected` / `rejected` restent lisibles : ce sont les envois de l'ancien
 // système de modèles, déjà en base.
@@ -240,6 +260,53 @@ const MAIL_LABEL = {
   rejected: "rejection",
   feedback: "feedback",
 };
+
+// ─── Petits éléments de mise en page ─────────────────────────────────────────
+
+/** Bouton chevron « réduire / agrandir » d'une carte. */
+function Chevron({ ouvert, onClick, label }) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      className="ds-icon-btn"
+      onClick={onClick}
+      aria-expanded={ouvert}
+      aria-label={t("dashboard.experienceEditor.ui.toggle", { title: label })}
+      title={t("dashboard.experienceEditor.ui.toggleShort")}
+      style={{ width: 30, height: 30 }}
+    >
+      <ChevronDown size={16} strokeWidth={2} style={{ transition: "transform .15s", transform: ouvert ? "none" : "rotate(-90deg)" }} />
+    </button>
+  );
+}
+
+/** Jauge circulaire du score global. */
+function Jauge({ score }) {
+  const c = ton(score);
+  const r = 36;
+  const tour = 2 * Math.PI * r;
+  const part = Math.max(0, Math.min(100, score || 0)) / 100;
+  return (
+    <span style={{ position: "relative", width: 84, height: 84, flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+        <circle cx="42" cy="42" r={r} fill="none" stroke={c.piste} strokeWidth="8" />
+        <circle cx="42" cy="42" r={r} fill="none" stroke={c.barre} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${tour * part} ${tour}`} />
+      </svg>
+      <span className="ds-mono" style={{ fontSize: 20, fontWeight: 500, color: c.encre }}>{score != null ? `${score}%` : "—"}</span>
+    </span>
+  );
+}
+
+/** Étiquette de score « 3/26 pts · 11% ». */
+function TagScore({ score, points }) {
+  const c = ton(score);
+  return (
+    <span className="ds-mono" style={{ height: 24, display: "inline-flex", alignItems: "center", padding: "0 8px", borderRadius: 7, background: c.fond, fontSize: 12, fontWeight: 500, color: c.encre, whiteSpace: "nowrap" }}>
+      {points ? `${points.pts}/${points.max} pts · ` : ""}{score != null ? `${score}%` : "—"}
+    </span>
+  );
+}
 
 export default function CandidateDetailPage() {
   const { t, locale } = useI18n();
@@ -257,10 +324,9 @@ export default function CandidateDetailPage() {
   const [feedbackSentAt, setFeedbackSentAt] = useState(null);
   const [manualScores, setManualScores] = useState({});
   const [submittingScore, setSubmittingScore] = useState(false);
-
-  useEffect(() => {
-    loadCandidate();
-  }, [candidatId]);
+  // Sections dépliées : clé → booléen. Une clé absente prend sa valeur par
+  // défaut (les cartes ouvertes, les détails fermés).
+  const [ouverts, setOuverts] = useState({});
 
   async function loadCandidate() {
     setLoading(true);
@@ -280,6 +346,11 @@ export default function CandidateDetailPage() {
     if (fbRes.success) setFeedbackSentAt(fbRes.sentAt);
     setLoading(false);
   }
+
+  useEffect(() => {
+    loadCandidate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidatId]);
 
   // La décision ne déclenche AUCUN envoi : elle choisit seulement quelle
   // version du brouillon de feedback la fenêtre affichera.
@@ -302,7 +373,7 @@ export default function CandidateDetailPage() {
     setActionLoading(true);
     const res = await deleteCandidate(candidatId);
     if (res.success) {
-      router.push(`/jobs/${jobId}`);
+      router.push(`/jobs/${jobId}?tab=candidats`);
     }
     setActionLoading(false);
   }
@@ -321,778 +392,541 @@ export default function CandidateDetailPage() {
     setSubmittingScore(false);
   }
 
-
+  const crumbs = [
+    { label: candidate?.jobs?.title || t("dashboard.nav.jobs"), href: `/jobs/${jobId}` },
+    { label: t("dashboard.jobDetail.tabs.candidats"), href: `/jobs/${jobId}?tab=candidats` },
+  ];
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-        <Loader2 size={32} className="spin" style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
-      </div>
+      <>
+        <PageHeader crumbs={crumbs} title="…" />
+        <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+          <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+        </div>
+      </>
     );
   }
 
   if (!candidate) {
     return (
-      <div style={{ textAlign: "center", padding: "4rem" }}>
-        <h2>{t("dashboard.candidateDetail.notFound")}</h2>
-        <button className="btn btn-primary" onClick={() => router.push(`/jobs/${jobId}`)}>{t("dashboard.candidateDetail.back")}</button>
-      </div>
+      <>
+        <PageHeader crumbs={crumbs} title="—" />
+        <div className="ds-empty" style={{ padding: "64px 20px" }}>
+          <span className="ds-empty-title">{t("dashboard.candidateDetail.notFound")}</span>
+          <button type="button" className="ds-btn ds-btn-md" onClick={() => router.push(`/jobs/${jobId}?tab=candidats`)} style={{ marginTop: 10 }}>{t("dashboard.candidateDetail.back")}</button>
+        </div>
+      </>
     );
   }
 
-  const scoreStyle = candidate.score_cv != null ? getScoreColor(t, candidate.score_cv) : null;
-  const interviewScoreStyle = candidate.score_interview != null ? getScoreColor(t, candidate.score_interview) : null;
-  const globalScoreStyle = candidate.score_global != null ? getScoreColor(t, candidate.score_global) : null;
-  const statusBadge = getStatusBadge(t, candidate.status);
-  const initials = `${(candidate.first_name || "?")[0]}${(candidate.last_name || "?")[0]}`.toUpperCase();
+  const nom = `${candidate.first_name || ""} ${candidate.last_name || ""}`.trim() || candidate.email;
+  const tonStatut = TON_STATUT[candidate.status];
   const jobCriteria = candidate.jobs?.extracted_criteria || {};
+  const rep = candidate.experience_report;
+
+  // Points de la simulation : la somme des points de contrôle de toutes les étapes.
+  const etapesNotees = (rep?.steps || []).filter((s) => s.criteria.length > 0);
+  const pointsTotaux = pointsDe(etapesNotees.flatMap((s) => s.criteria));
+
+  // ─── Dépliage ───
+  const cles = rep ? [
+    "score", "evidence",
+    ...rep.steps.flatMap((s) => [`step-${s.id}`, `reponse-${s.id}`, ...s.criteria.map((_, ci) => `crit-${s.id}-${ci}`)]),
+  ] : ["score"];
+  const defaut = (k) => k === "score" || k === "evidence" || k.startsWith("step-");
+  const estOuvert = (k) => (k in ouverts ? ouverts[k] : defaut(k));
+  const basculer = (k) => setOuverts((o) => ({ ...o, [k]: !estOuvert(k) }));
+  const toutOuvert = cles.every(estOuvert);
+  const toutBasculer = () => setOuverts(Object.fromEntries(cles.map((k) => [k, !toutOuvert])));
+
+  const modules = resolveEnabledModules(candidate.jobs);
+  const sousScores = [
+    modules.cv && { label: "CV", score: candidate.score_cv },
+    (candidate.jobs?.assessment_config?.modules?.skills_tests?.enabled ?? false) && { label: t("dashboard.candidateDetail.tests"), score: candidate.score_tests },
+    ((candidate.jobs?.assessment_config?.modules?.ai_interview?.enabled) || (candidate.jobs?.ai_interview_config?.enabled)) && { label: t("dashboard.candidateDetail.aiInterviewShort"), score: candidate.score_interview },
+    ((candidate.jobs?.assessment_config?.modules?.video_interview?.enabled) || (candidate.video_responses && candidate.video_responses.length > 0)) && { label: t("dashboard.candidateDetail.videoInterviewShort"), score: candidate.video_interview_score },
+  ].filter(Boolean);
 
   return (
-    <div className="fade-in" style={{ maxWidth: "1200px", margin: "0 auto", paddingBottom: "4rem" }}>
-      {/* Header / Actions */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
-        <button
-          className="btn btn-ghost"
-          onClick={() => router.push(`/jobs/${jobId}`)}
-          style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "600" }}
-        >
-          <ArrowLeft size={18} /> {t("dashboard.candidateDetail.backToCandidates")}
-        </button>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button
-            className={feedbackSentAt ? "btn btn-outline btn-sm" : "btn btn-primary btn-sm"}
-            onClick={() => setFeedbackModalOpen(true)}
-          >
-            {feedbackSentAt ? <CheckCircle2 size={16} /> : <Mail size={16} />}
-            {feedbackSentAt
-              ? t("dashboard.candidateDetail.feedbackSentOn", { date: formatDateNumeric(feedbackSentAt, locale) })
-              : t("dashboard.candidateDetail.feedback")}
-          </button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        crumbs={crumbs}
+        title={nom}
+        actions={
+          <>
+            <button type="button" className="ds-btn" onClick={toutBasculer}>
+              {toutOuvert ? <ChevronsDownUp size={15} /> : <ChevronsUpDown size={15} />}
+              {toutOuvert ? t("dashboard.candidateDetail.collapseAll") : t("dashboard.candidateDetail.expandAll")}
+            </button>
+            <button type="button" className={feedbackSentAt ? "ds-btn ds-btn-success" : "ds-btn"} onClick={() => setFeedbackModalOpen(true)}>
+              {feedbackSentAt ? <CheckCircle2 size={15} /> : <Mail size={15} />}
+              {feedbackSentAt
+                ? t("dashboard.candidateDetail.feedbackSentOn", { date: formatDateNumeric(feedbackSentAt, locale) })
+                : t("dashboard.candidateDetail.feedback")}
+            </button>
+          </>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "2rem", alignItems: "start" }}>
-        
-        {/* Sidebar */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ padding: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-              <div style={{
-                width: "48px", height: "48px", borderRadius: "8px",
-                background: "var(--foreground)", color: "white",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "16px", fontWeight: "700"
-              }}>
-                {initials}
-              </div>
-              <div style={{ overflow: "hidden" }}>
-                <h2 style={{ fontSize: "1.1rem", fontWeight: "bold", margin: 0, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                  {candidate.first_name} {candidate.last_name}
-                </h2>
-                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                  {candidate.email}
-                </p>
-              </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start", padding: "18px 20px 24px" }}>
+
+        {/* ── Fiche du candidat ── */}
+        <div style={{ flex: "1 1 250px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14, position: "sticky", top: 10 }}>
+          <section aria-label={t("dashboard.candidateDetail.candidateCard")} className="ds-panel">
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 10px 0" }}>
+              <span className="ds-avatar" style={{ width: 42, height: 42, borderRadius: 12, fontSize: 14 }}>{initialesDe(candidate.first_name, candidate.last_name, candidate.email)}</span>
+              <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span style={{ fontWeight: 600, fontSize: 16, letterSpacing: "-0.01em" }}>{nom}</span>
+                <span className="ds-sub" style={{ overflowWrap: "anywhere" }}>{candidate.email}</span>
+              </span>
             </div>
-            {candidate.cv_url && (
-              <a 
-                href={candidate.cv_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn btn-outline btn-sm"
-                style={{ width: "100%", marginTop: "0.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-              >
-                <FileText size={14} /> {t("dashboard.candidateDetail.viewOriginalCv")}
-              </a>
-            )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <dl className="ds-inset ds-kv" style={{ padding: 12 }}>
               <div>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>{t("dashboard.candidateDetail.status")}</p>
-                <span className={`badge ${statusBadge.className}`} style={{ fontSize: "11px" }}>{statusBadge.label}</span>
+                <dt>{t("dashboard.candidateDetail.status")}</dt>
+                <dd className={`ds-chip ${tonStatut ? `ds-chip-${tonStatut}` : ""}`}><span className={`ds-dot ds-dot-${tonStatut || "grey"}`} />{candidateStatusLabel(t, candidate.status)}</dd>
               </div>
               <div>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>{t("dashboard.candidateDetail.invitedOn")}</p>
-                <p style={{ fontSize: "13px", fontWeight: "500" }}>{candidate.created_at ? formatDateLong(candidate.created_at, locale) : "—"}</p>
+                <dt>{t("dashboard.candidateDetail.invitedOn")}</dt>
+                <dd className="ds-chip">{candidate.created_at ? formatDateLong(candidate.created_at, locale) : "—"}</dd>
               </div>
               <div>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>{t("dashboard.candidateDetail.completedOn")}</p>
-                <p style={{ fontSize: "13px", fontWeight: "500" }}>{candidate.assessment_submitted_at ? formatDateLong(candidate.assessment_submitted_at, locale) : t("dashboard.candidateDetail.pending")}</p>
+                <dt>{t("dashboard.candidateDetail.completedOn")}</dt>
+                <dd className="ds-chip">{candidate.assessment_submitted_at ? formatDateLong(candidate.assessment_submitted_at, locale) : t("dashboard.candidateDetail.pending")}</dd>
               </div>
-            </div>
-
-            <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <button className="btn btn-primary btn-sm" onClick={() => handleStatusChange("shortlisted")} disabled={actionLoading} style={{ width: "100%" }}>
-                {t("dashboard.candidateDetail.validateProfile")}
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={() => handleStatusChange("next_step")} disabled={actionLoading} style={{ width: "100%" }}>
-                {t("dashboard.candidateDetail.actions.nextStep")}
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={() => handleStatusChange("rejected")} disabled={actionLoading} style={{ width: "100%" }}>
-                {t("dashboard.candidateDetail.actions.reject")}
-              </button>
-
-              <button className="btn btn-ghost btn-sm" onClick={handleDelete} disabled={actionLoading} style={{ width: "100%", color: "#991b1b" }}>
-                <Trash2 size={14} /> {t("dashboard.candidateDetail.delete")}
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: "1.5rem" }}>
-            <h3 style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-              <Shield size={14} /> {t("dashboard.candidateDetail.integrityTracking")}
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                <span style={{ color: "var(--muted-foreground)" }}>{t("dashboard.candidateDetail.gdpr")}</span>
-                <span style={{ fontWeight: "600", color: candidate.gdpr_consent_at ? "#166534" : "#991b1b" }}>{candidate.gdpr_consent_at ? t("dashboard.candidateDetail.granted") : t("dashboard.candidateDetail.no")}</span>
+              <div>
+                <dt>{t("dashboard.candidateDetail.gdpr")}</dt>
+                <dd className={`ds-chip ${candidate.gdpr_consent_at ? "ds-chip-green" : "ds-chip-red"}`}>{candidate.gdpr_consent_at ? t("dashboard.candidateDetail.granted") : t("dashboard.candidateDetail.no")}</dd>
               </div>
               {Array.isArray(candidate.anti_cheat_metrics) && (
                 <>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                    <span style={{ color: "var(--muted-foreground)" }}>{t("dashboard.candidateDetail.windowExits")}</span>
-                    <span style={{ fontWeight: "600" }}>{candidate.anti_cheat_metrics.filter(e => e.type === 'window_blur' || e.type === 'tab_switch').length}</span>
+                  <div>
+                    <dt>{t("dashboard.candidateDetail.windowExits")}</dt>
+                    <dd className="ds-chip ds-mono">{candidate.anti_cheat_metrics.filter(e => e.type === 'window_blur' || e.type === 'tab_switch').length}</dd>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                    <span style={{ color: "var(--muted-foreground)" }}>Copier-coller</span>
-                    <span style={{ fontWeight: "600" }}>{candidate.anti_cheat_metrics.filter(e => e.type === 'paste').length}</span>
+                  <div>
+                    <dt>{t("dashboard.candidateDetail.pastes")}</dt>
+                    <dd className="ds-chip ds-mono">{candidate.anti_cheat_metrics.filter(e => e.type === 'paste').length}</dd>
                   </div>
                 </>
               )}
-            </div>
-          </div>
-
-          {mailLogs.length > 0 && (
-            <div className="card" style={{ padding: "1.25rem" }}>
-              <h3 style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "1rem" }}>{t("dashboard.candidateDetail.mailHistory")}</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {mailLogs.slice(0, 3).map(log => (
-                  <div key={log.id} style={{ fontSize: "12px" }}>
-                    <div style={{ fontWeight: "600" }}>{t(`dashboard.candidateDetail.mail.${MAIL_LABEL[log.mail_type] || "rejection"}`)}</div>
-                    <div style={{ color: "var(--muted-foreground)" }}>{formatDateNumeric(log.sent_at, locale)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
-
-        {/* Main Content */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          
-          {/* Overall Score Card */}
-          <div className="card" style={{ padding: "2rem", display: "flex", alignItems: "center", gap: "3rem" }}>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: "14px", fontWeight: "700", color: "var(--muted-foreground)", marginBottom: "1.5rem" }}>{t("dashboard.candidateDetail.globalScore")}</h3>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                <span style={{ fontSize: "3.5rem", fontWeight: "800", color: globalScoreStyle?.color || "var(--foreground)", letterSpacing: "-0.04em" }}>
-                  {candidate.score_global != null ? candidate.score_global : "—"}
-                </span>
-                <span style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--muted-foreground)" }}>%</span>
-              </div>
-              <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginTop: "0.5rem" }}>
-                {t("dashboard.candidateDetail.globalScoreHelp")}
-              </p>
-            </div>
-
-            <div style={{ display: "flex", gap: "1.5rem" }}>
-              {resolveEnabledModules(candidate.jobs).cv && (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: scoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_cv != null ? candidate.score_cv : "—"}%</div>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>CV</div>
+              {mailLogs.length > 0 && (
+                <div>
+                  <dt>{t("dashboard.candidateDetail.lastMail")}</dt>
+                  <dd className="ds-chip">{t(`dashboard.candidateDetail.mail.${MAIL_LABEL[mailLogs[0].mail_type] || "rejection"}`)} · {formatDateNumeric(mailLogs[0].sent_at, locale)}</dd>
                 </div>
               )}
-              {(candidate.jobs?.assessment_config?.modules?.skills_tests?.enabled ?? false) && (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.score_tests != null ? getScoreColor(t, candidate.score_tests).color : "var(--muted-foreground)" }}>{candidate.score_tests != null ? candidate.score_tests : "—"}%</div>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>{t("dashboard.candidateDetail.tests")}</div>
-                </div>
+            </dl>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 5px 5px" }}>
+              {candidate.cv_url && (
+                <a href={candidate.cv_url} target="_blank" rel="noopener noreferrer" className="ds-btn ds-btn-soft" style={{ height: 38 }}>
+                  <FileText size={15} /> {t("dashboard.candidateDetail.viewOriginalCv")}
+                </a>
               )}
-              {((candidate.jobs?.assessment_config?.modules?.ai_interview?.enabled) || (candidate.jobs?.ai_interview_config?.enabled)) && (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: interviewScoreStyle?.color || "var(--muted-foreground)" }}>{candidate.score_interview != null ? candidate.score_interview : "—"}%</div>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>Int. IA</div>
-                </div>
-              )}
-              {((candidate.jobs?.assessment_config?.modules?.video_interview?.enabled) || (candidate.video_responses && candidate.video_responses.length > 0)) && (
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", color: candidate.video_interview_score != null ? getScoreColor(t, candidate.video_interview_score).color : "var(--muted-foreground)" }}>{candidate.video_interview_score != null ? candidate.video_interview_score : "—"}%</div>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase" }}>{t("dashboard.candidateDetail.videoInterviewShort")}</div>
-                </div>
-              )}
+              <button type="button" className="ds-btn ds-btn-primary" style={{ height: 38 }} onClick={() => handleStatusChange("shortlisted")} disabled={actionLoading}>
+                {t("dashboard.candidateDetail.validateProfile")}
+              </button>
+              <button type="button" className="ds-btn" style={{ height: 38 }} onClick={() => handleStatusChange("next_step")} disabled={actionLoading}>
+                {t("dashboard.candidateDetail.actions.nextStep")}
+              </button>
+              <button type="button" className="ds-btn" style={{ height: 38 }} onClick={() => handleStatusChange("rejected")} disabled={actionLoading}>
+                {t("dashboard.candidateDetail.actions.reject")}
+              </button>
+              <button type="button" className="ds-btn ds-btn-ghost" onClick={handleDelete} disabled={actionLoading} style={{ height: 34, fontSize: 13, color: "var(--ds-red)" }}>
+                <Trash2 size={14} /> {t("dashboard.candidateDetail.deleteCandidate")}
+              </button>
             </div>
-          </div>
+          </section>
+        </div>
 
-          {/* CV Analysis Module */}
-          {candidate.ai_summary && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <FileText size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.cvAnalysis")}
-                </h3>
-              </div>
-              <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.5rem" }}>{candidate.ai_summary}</p>
-              
-              {/* Score Breakdown per Criterion */}
-              {candidate.cv_score_breakdown && candidate.cv_score_breakdown.length > 0 && (
-                <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>{t("dashboard.candidateDetail.perCriterion")}</h4>
-                  {candidate.cv_score_breakdown.map((item, idx) => {
-                    const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s => s.name === item.name);
-                    return (
-                      <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: '600' }}>
-                            {item.name}
-                            {skillFromJob && skillFromJob.taxonomy_id && (
-                              <span style={{ fontSize: '10px', background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }} title={t("dashboard.candidateDetail.taxonomyId")}>
-                                {skillFromJob.taxonomy_id}
-                              </span>
-                            )}
-                          </span>
-                          <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(t, item.score).color }}>{item.score}%</span>
-                        </div>
-                        {skillFromJob && skillFromJob.evidence && (
-                          <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, fontStyle: 'italic', marginBottom: '6px' }}>
-                            Attente : "{skillFromJob.evidence}"
-                          </div>
-                        )}
-                        {item.reason && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: '1.4' }}>{item.reason}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                {candidate.green_flags?.length > 0 && (
-                  <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "1px solid #dcfce7" }}>
-                    <p style={{ fontSize: "11px", fontWeight: "700", color: "#166534", textTransform: "uppercase", marginBottom: "8px" }}>{t("dashboard.candidateDetail.strengths")}</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      {candidate.green_flags.map((f, i) => <div key={i} style={{ fontSize: "12px", color: "#166534" }}>• {f}</div>)}
-                    </div>
-                  </div>
-                )}
-                {candidate.red_flags?.length > 0 && (
-                  <div style={{ background: "#fef2f2", padding: "12px", borderRadius: "8px", border: "1px solid #fee2e2" }}>
-                    <p style={{ fontSize: "11px", fontWeight: "700", color: "#991b1b", textTransform: "uppercase", marginBottom: "8px" }}>{t("dashboard.candidateDetail.watchPoints")}</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      {candidate.red_flags.map((f, i) => <div key={i} style={{ fontSize: "12px", color: "#991b1b" }}>• {f}</div>)}
-                    </div>
-                  </div>
-                )}
-              </div>
+        {/* ── Le rapport ── */}
+        <div style={{ flex: "3 1 600px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Score global */}
+          <section aria-labelledby="ds-score" className="ds-panel">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "5px 5px 0 10px" }}>
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <h2 id="ds-score" className="ds-h2">{t("dashboard.candidateDetail.globalScore")}</h2>
+                <span className="ds-sub">{t("dashboard.candidateDetail.globalScoreHelp")}</span>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {!estOuvert("score") && <TagScore score={candidate.score_global} />}
+                <Chevron ouvert={estOuvert("score")} onClick={() => basculer("score")} label={t("dashboard.candidateDetail.globalScore")} />
+              </span>
             </div>
-          )}
-
-          {/* Rapport de preuves complet — un bloc par step, dans l'ordre */}
-          {candidate.experience_report && (() => {
-            const rep = candidate.experience_report;
-            return (
-              <div className="card" style={{ padding: "1.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Sparkles size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.evidenceReport")}
-                  </h3>
-                  <span className={`badge ${rep.scored ? 'badge-success' : 'badge-warning'}`}>{rep.scored ? t("dashboard.candidateDetail.scored") : t("dashboard.candidateDetail.inProgress")}</span>
-                </div>
-
-                {rep.summary && <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--foreground)", marginBottom: "1.25rem" }}>{rep.summary}</p>}
-
-                {rep.ai_usage_used ? (
-                  <div style={{ marginBottom: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--primary)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> {t("dashboard.candidateDetail.aiUsage")}</span>
-                      {rep.ai_usage_score != null && <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(t, rep.ai_usage_score).color }}>{rep.ai_usage_score}%</span>}
-                    </div>
-                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>
-                      {/* Le mot mis en italique est au milieu de la phrase et ne
-                          tombe pas au même endroit en anglais : d'où tNodes()
-                          plutôt qu'un découpage en trois morceaux. */}
-                      {tNodes(t("dashboard.candidateDetail.aiUsageHelp"), {
-                        em: <em>{t("dashboard.candidateDetail.aiUsageHelpEm")}</em>,
+            {estOuvert("score") && (
+              <div className="ds-inset" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}>
+                <Jauge score={candidate.score_global} />
+                <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 200 }}>
+                  {pointsTotaux ? (
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>
+                      {tNodes(t("dashboard.candidateDetail.pointsOutOf"), {
+                        pts: <span key="p" className="ds-mono" style={{ fontWeight: 500 }}>{pointsTotaux.pts}</span>,
+                        max: <span key="m" className="ds-mono" style={{ fontWeight: 500 }}>{pointsTotaux.max}</span>,
                       })}
-                      {rep.ai_usage_prompts > 0 &&
-                        t("dashboard.candidateDetail.aiPrompts", { count: rep.ai_usage_prompts })}.
-                    </p>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>{candidate.score_global != null ? getScoreColor(t, candidate.score_global).label : t("dashboard.candidateDetail.pending")}</span>
+                  )}
+                  {rep && <span className="ds-sub">{t("dashboard.candidateDetail.stepsScored", { count: etapesNotees.length })}</span>}
+                </span>
+                {sousScores.length > 0 && (
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {sousScores.map((s) => (
+                      <span key={s.label} className="ds-chip ds-chip-lg" style={{ gap: 8 }}>
+                        {s.label}
+                        <span className="ds-mono" style={{ fontWeight: 500, color: s.score != null ? ton(s.score).encre : "var(--ds-ink-5)" }}>{s.score != null ? `${s.score}%` : "—"}</span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            )}
+          </section>
 
-                    {/* Les trois axes de jugement, énoncés au recruteur : ce sont
-                        ceux imposés à l'évaluateur dans le prompt de scoring. */}
-                    <div style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                      {["framing", "iteration", "criticalEye"].map((axe) => (
-                        <span key={axe} style={{ background: "var(--secondary)", borderRadius: "99px", padding: "2px 8px", fontWeight: 600 }}>{t(`dashboard.candidateDetail.aiAxes.${axe}`)}</span>
-                      ))}
-                    </div>
+          {/* CV Analysis Module (hérité) */}
+          {candidate.ai_summary && (
+            <section className="ds-panel">
+              <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
+                <FileText size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.candidateDetail.cvAnalysis")}
+              </h2>
+              <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ margin: 0, lineHeight: 1.65, color: "var(--ds-ink-2)" }}>{candidate.ai_summary}</p>
 
-                    {rep.ai_usage_justification ? (
-                      <p style={{ fontSize: "12px", color: "var(--foreground)", lineHeight: "1.55", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
-                        🧠 {rep.ai_usage_justification}
-                      </p>
-                    ) : (
-                      <p style={{ fontSize: "11px", color: "var(--muted-foreground)", fontStyle: "italic", marginTop: "10px", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
-                        {t("dashboard.candidateDetail.justificationUnavailable")}
-                      </p>
+                {/* Score Breakdown per Criterion */}
+                {candidate.cv_score_breakdown && candidate.cv_score_breakdown.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)" }}>{t("dashboard.candidateDetail.perCriterion")}</span>
+                    {candidate.cv_score_breakdown.map((item, idx) => {
+                      const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s => s.name === item.name);
+                      return (
+                        <div key={idx} className="ds-card" style={{ padding: 12, borderRadius: 10, boxShadow: "none" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
+                            <span style={{ fontWeight: 500 }}>
+                              {item.name}
+                              {skillFromJob && skillFromJob.taxonomy_id && (
+                                <span className="ds-chip ds-mono" style={{ height: 20, marginLeft: 6, fontSize: 11 }} title={t("dashboard.candidateDetail.taxonomyId")}>
+                                  {skillFromJob.taxonomy_id}
+                                </span>
+                              )}
+                            </span>
+                            <TagScore score={item.score} />
+                          </div>
+                          {skillFromJob && skillFromJob.evidence && (
+                            <div style={{ fontSize: 12, color: "var(--ds-blue)", fontStyle: "italic", marginBottom: 6 }}>
+                              {t("dashboard.candidateDetail.expectation", { text: skillFromJob.evidence })}
+                            </div>
+                          )}
+                          {item.reason && <p className="ds-sub" style={{ lineHeight: 1.45 }}>{item.reason}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {(candidate.green_flags?.length > 0 || candidate.red_flags?.length > 0) && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {candidate.green_flags?.length > 0 && (
+                      <div style={{ background: "var(--ds-green-bg)", padding: 12, borderRadius: 10 }}>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-green-ink)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.strengths")}</p>
+                        {candidate.green_flags.map((f, i) => <div key={i} style={{ fontSize: 13, color: "var(--ds-green-ink)" }}>• {f}</div>)}
+                      </div>
+                    )}
+                    {candidate.red_flags?.length > 0 && (
+                      <div style={{ background: "var(--ds-red-bg)", padding: 12, borderRadius: 10 }}>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-red)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.watchPoints")}</p>
+                        {candidate.red_flags.map((f, i) => <div key={i} style={{ fontSize: 13, color: "var(--ds-red)" }}>• {f}</div>)}
+                      </div>
                     )}
                   </div>
-                ) : rep.scored && (
-                  // Sans cette ligne, l'absence de note d'usage de l'IA ressemble
-                  // à une donnée manquante alors que c'est un choix assumé.
-                  <div style={{ marginBottom: "1.5rem", background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                    <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: "6px" }}><Bot size={14} /> {t("dashboard.candidateDetail.aiUsageNotScored")}</span>
-                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "6px" }}>
-                      {tNodes(t("dashboard.candidateDetail.aiUsageNotScoredHelp"), {
-                        em: <em>{t("dashboard.candidateDetail.aiUsageHelpEm")}</em>,
-                      })}
-                    </p>
-                  </div>
                 )}
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  {rep.steps.map((step, i) => (
-                    <div key={step.id} style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
-                      {/* En-tête étape */}
-                      <div style={{ padding: "10px 14px", background: "var(--background)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted-foreground)" }}>#{i + 1}</span>
-                        <span style={{ fontSize: "13px", fontWeight: 700 }}>{step.title || expKindLabel(t, step.kind)}</span>
-                        <span style={{ marginLeft: "auto", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", color: "var(--muted-foreground)", background: "var(--secondary)", padding: "2px 8px", borderRadius: "99px" }}>{expKindLabel(t, step.kind)}</span>
-                      </div>
-
-                      <div style={{ padding: "14px" }}>
-                        {step.prompt && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "10px", whiteSpace: "pre-wrap" }}>{step.prompt}</p>}
-
-                        {/* Réponse intégrale du candidat */}
-                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>{t("dashboard.candidateDetail.candidateAnswer")}</div>
-                        <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderLeft: "3px solid var(--primary)", borderRadius: "6px", padding: "10px 12px", fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", maxHeight: 360, overflowY: "auto" }}>
-                          {expAnswerText(t, step)}
-                        </div>
-                        {step.response?.video_url && (
-                          <video src={step.response.video_url} controls style={{ width: "100%", maxWidth: 400, marginTop: "10px", borderRadius: 8, border: "1px solid var(--border)", background: "black" }} />
-                        )}
-
-                        {/* QCM : propositions vues par le candidat + corrigé. */}
-                        {step.response_format === "qcm" && <QcmCorrection step={step} />}
-
-                        {/* Sous-dimensions notées, regroupées par compétence.
-                            Pas de score agrégé par compétence : chaque sous-dimension
-                            garde sa note et sa justification, le regroupement est
-                            purement visuel. */}
-                        {step.criteria.length > 0 && (
-                          <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "14px" }}>
-                            {groupScoresBySkill(step.criteria).map((group, gi) => (
-                            <div key={gi} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            {group.skill && (
-                              <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--muted-foreground)" }}>
-                                {group.skill}
-                              </div>
-                            )}
-                            {group.items.map((cs, ci) => (
-                              <div key={ci} style={{ background: "var(--background)", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", gap: 8 }}>
-                                  <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                                    {cs.sub_dimension_name || cs.criterion_name}
-                                    {/* Le tier pèse dans le score final : il se lit ici. Absent sur
-                                        un critère dont la compétence n'est pas dans la liste de l'offre. */}
-                                    {cs.tier && (
-                                      <span style={{ marginLeft: 8, fontSize: "10px", fontWeight: 700, textTransform: "uppercase", color: cs.tier === "must_have" ? "#3730a3" : "var(--muted-foreground)", border: `1px solid ${cs.tier === "must_have" ? "#c7d2fe" : "var(--border)"}`, borderRadius: "99px", padding: "1px 6px" }}>
-                                        {t(`dashboard.candidateDetail.tier.${cs.tier}`)}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span style={{ fontSize: "12px", fontWeight: 800, color: getScoreColor(t, cs.score).color, whiteSpace: "nowrap" }}>
-                                    {cs.format === "checkpoints"
-                                      ? t("dashboard.candidateDetail.checkpointPoints", {
-                                          points: cs.checkpoints.reduce((s, cp) => s + (cp.score || 0), 0),
-                                          max: cs.checkpoints.length * 2,
-                                          score: cs.score,
-                                        })
-                                      : `N${cs.bars_level} · ${cs.score}%`}
-                                  </span>
-                                </div>
-                                {cs.observations && <p style={{ fontSize: "12px", color: "var(--foreground)", lineHeight: "1.5", marginBottom: "4px" }}>{cs.observations}</p>}
-                                {cs.justification && <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5", marginBottom: cs.verbatim || cs.crm_details || cs.checkpoints ? "6px" : 0 }}>🧠 {cs.justification}</p>}
-
-                                {cs.format === "checkpoints" && <CheckpointList checkpoints={cs.checkpoints} />}
-
-                                {/* L'échelle sur laquelle cette note a été posée.
-                                    Absente pour le QCM et les champs factuels CRM,
-                                    qui sont corrigés sans grille (vrai/faux). */}
-                                {(() => {
-                                  const grille = (step.bars || []).find((b) => b.name === (cs.sub_dimension_name || cs.criterion_name));
-                                  return grille ? <BarsScale levels={grille.bars_levels} attributed={cs.bars_level} /> : null;
-                                })()}
-
-                                {/* Sandbox CRM — correction déterministe, champ par champ.
-                                    La ligne du piège est mise en évidence : c'est le
-                                    signal qui distingue "a lu" de "a croisé les sources". */}
-                                {cs.crm_details?.length > 0 && (
-                                  <div style={{ border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
-                                    {cs.crm_details.map((d, di) => (
-                                      <div key={di} style={{
-                                        display: "flex", alignItems: "flex-start", gap: "8px", padding: "7px 10px", fontSize: "12px",
-                                        borderTop: di === 0 ? "none" : "1px solid var(--border)",
-                                        background: d.is_trap ? "#fffbeb" : "transparent",
-                                      }}>
-                                        <span style={{ flexShrink: 0, fontWeight: 800, color: d.correct ? "#166534" : "#991b1b" }}>{d.correct ? "✓" : "✗"}</span>
-                                        <span style={{ flex: "0 0 34%", fontWeight: 600 }}>
-                                          {d.label}
-                                          {d.is_trap && <span style={{ marginLeft: 6, fontSize: "9.5px", fontWeight: 700, textTransform: "uppercase", color: "#b45309", border: "1px solid #fcd34d", borderRadius: "99px", padding: "1px 6px" }}>{t("dashboard.candidateDetail.trap")}</span>}
-                                        </span>
-                                        <span style={{ flex: 1, color: d.correct ? "var(--foreground)" : "#991b1b", overflowWrap: "anywhere" }}>
-                                          {d.given ?? <em style={{ color: "var(--muted-foreground)" }}>{t("dashboard.candidateDetail.notFilled")}</em>}
-                                        </span>
-                                        {!d.correct && (
-                                          <span style={{ flex: "0 0 28%", color: "var(--muted-foreground)", overflowWrap: "anywhere" }}>{t("dashboard.candidateDetail.expected")} {d.expected}</span>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {cs.verbatim && (
-                                  <div style={{ borderLeft: cs.verbatim_verified ? "3px solid #22c55e" : "3px solid #f59e0b", background: cs.verbatim_verified ? "#f0fdf4" : "#fffbeb", padding: "6px 10px", borderRadius: "0 6px 6px 0" }}>
-                                    <div style={{ fontSize: "10px", fontWeight: 600, color: cs.verbatim_verified ? "#166534" : "#b45309", marginBottom: "2px" }}>
-                                      {cs.verbatim_verified ? t("dashboard.candidateDetail.verbatimVerified") : t("dashboard.candidateDetail.verbatimNotFound")}
-                                    </div>
-                                    <p style={{ fontSize: "12px", fontStyle: "italic", color: "var(--foreground)" }}>« {cs.verbatim} »</p>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Log complet des échanges avec l'assistant IA sur CE step */}
-                        {step.ai_messages.length > 0 && (
-                          <div style={{ marginTop: "14px" }}>
-                            <div style={{ fontSize: "11px", fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-                              <Bot size={13} /> Échanges avec l'assistant IA ({step.ai_messages.filter((m) => m.role === "user").length} message{step.ai_messages.filter((m) => m.role === "user").length > 1 ? "s" : ""})
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: 320, overflowY: "auto", padding: "4px" }}>
-                              {step.ai_messages.map((m, mi) => (
-                                <div key={mi} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                                  <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: 10, fontSize: 12.5, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "break-word", background: m.role === "user" ? "var(--primary)" : "white", color: m.role === "user" ? "white" : "var(--foreground)", border: m.role === "user" ? "none" : "1px solid var(--border)" }}>
-                                    {m.content}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
-            );
-          })()}
+            </section>
+          )}
 
-          {/* Tests de compétences (Legacy) */}
+          {/* Rapport d'évidence : synthèse et usage de l'assistant IA */}
+          {rep && (
+            <section aria-labelledby="ds-evidence" className="ds-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "5px 5px 0 10px" }}>
+                <h2 id="ds-evidence" className="ds-h2">{t("dashboard.candidateDetail.evidenceReport")}</h2>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className={`ds-chip ${rep.scored ? "ds-chip-green" : "ds-chip-amber"}`}>
+                    <span className={`ds-dot ${rep.scored ? "ds-dot-green" : "ds-dot-amber"}`} />
+                    {rep.scored ? t("dashboard.candidateDetail.scored") : t("dashboard.candidateDetail.inProgress")}
+                  </span>
+                  <Chevron ouvert={estOuvert("evidence")} onClick={() => basculer("evidence")} label={t("dashboard.candidateDetail.evidenceReport")} />
+                </span>
+              </div>
+              {estOuvert("evidence") && (
+                <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {rep.summary && <p style={{ margin: 0, lineHeight: 1.65, color: "var(--ds-ink-2)" }}>{rep.summary}</p>}
+
+                  {rep.ai_usage_used ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 9, background: "#FFFFFF", border: "1px solid var(--ds-line)", fontSize: 13, color: "var(--ds-ink-2)" }}>
+                      <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 500, color: "var(--ds-ink)" }}><Bot size={15} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.candidateDetail.aiUsage")}</span>
+                        {rep.ai_usage_score != null && <TagScore score={rep.ai_usage_score} />}
+                      </span>
+                      <span>
+                        {/* Le mot mis en italique est au milieu de la phrase et ne
+                            tombe pas au même endroit en anglais : d'où tNodes()
+                            plutôt qu'un découpage en trois morceaux. */}
+                        {tNodes(t("dashboard.candidateDetail.aiUsageHelp"), {
+                          em: <em key="e">{t("dashboard.candidateDetail.aiUsageHelpEm")}</em>,
+                        })}
+                        {rep.ai_usage_prompts > 0 &&
+                          t("dashboard.candidateDetail.aiPrompts", { count: rep.ai_usage_prompts })}.
+                      </span>
+                      {/* Les trois axes de jugement, énoncés au recruteur : ce sont
+                          ceux imposés à l'évaluateur dans le prompt de scoring. */}
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {["framing", "iteration", "criticalEye"].map((axe) => (
+                          <span key={axe} className="ds-chip" style={{ background: "var(--ds-soft)" }}>{t(`dashboard.candidateDetail.aiAxes.${axe}`)}</span>
+                        ))}
+                      </span>
+                      {rep.ai_usage_justification ? (
+                        <p style={{ margin: 0, padding: "9px 11px", borderRadius: 9, background: "var(--ds-blue-10)", color: "#1E2D5E", fontWeight: 500 }}>{rep.ai_usage_justification}</p>
+                      ) : (
+                        <span className="ds-sub" style={{ fontStyle: "italic", fontSize: 12 }}>{t("dashboard.candidateDetail.justificationUnavailable")}</span>
+                      )}
+                    </div>
+                  ) : rep.scored && (
+                    // Sans cette ligne, l'absence de note d'usage de l'IA ressemble
+                    // à une donnée manquante alors que c'est un choix assumé.
+                    <p style={{ margin: 0, display: "flex", gap: 10, padding: "10px 12px", borderRadius: 9, background: "#FFFFFF", border: "1px solid var(--ds-line)", fontSize: 13, color: "var(--ds-ink-2)" }}>
+                      <Info size={15} style={{ flex: "none", marginTop: 2, color: "var(--ds-ink-4)" }} />
+                      <span>
+                        <span style={{ fontWeight: 500, color: "var(--ds-ink)" }}>{t("dashboard.candidateDetail.aiUsageNotScored")}.</span>{" "}
+                        {tNodes(t("dashboard.candidateDetail.aiUsageNotScoredHelp"), {
+                          em: <em key="e">{t("dashboard.candidateDetail.aiUsageHelpEm")}</em>,
+                        })}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Une carte par étape, dans l'ordre du parcours */}
+          {rep && rep.steps.map((step, i) => (
+            <CarteEtape
+              key={step.id}
+              step={step}
+              index={i}
+              nomCandidat={candidate.first_name || nom}
+              estOuvert={estOuvert}
+              basculer={basculer}
+            />
+          ))}
+
+          {/* Tests de compétences (hérité) */}
           {!candidate.experience_run && candidate.test_sessions && candidate.test_sessions.length > 0 && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.5rem" }}>
-                <TrendingUp size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.skillsTests")}
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <section className="ds-panel">
+              <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
+                <TrendingUp size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.candidateDetail.skillsTests")}
+              </h2>
+              <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {candidate.test_sessions.map((session) => {
-                  const sStyle = session.score != null ? getScoreColor(t, session.score) : { bg: "#f3f4f6", color: "#64748b" };
                   const isAiTest = session.test_id === AI_PROFICIENCY_TEST_ID;
                   const hasFeedback = isAiTest && session.ai_feedback?.evaluations?.length > 0;
                   const feedbackOpen = openAiFeedback[session.id];
+                  const c = ton(session.score);
                   return (
-                    <div key={session.id}>
-                      <div style={{
-                        padding: "1rem", background: "white", border: `1px solid ${isAiTest ? "#e0e7ff" : "var(--border)"}`,
-                        borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between",
-                        background: isAiTest ? "#fafafe" : "white",
-                      }}>
+                    <div key={session.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div className="ds-card" style={{ padding: 14, borderRadius: 10, boxShadow: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <div>
-                          <div style={{ fontWeight: "700", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-                            {isAiTest && <Sparkles size={14} style={{ color: "#6366f1" }} />}
+                          <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
+                            {isAiTest && <Sparkles size={14} style={{ color: "var(--ds-blue)" }} />}
                             {session.assessment_tests?.name}
                           </div>
-                          <div style={{ fontSize: "12px", color: "var(--muted-foreground)", textTransform: "capitalize" }}>
+                          <div className="ds-sub" style={{ fontSize: 12, textTransform: "capitalize" }}>
                             {session.assessment_tests?.category} • {session.completed_at ? t("dashboard.candidateDetail.completedOn") + " " + formatDateNumeric(session.completed_at, locale) : t("dashboard.candidateDetail.pending")}
                           </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           {hasFeedback && (
-                            <button
-                              onClick={() => setOpenAiFeedback(prev => ({ ...prev, [session.id]: !feedbackOpen }))}
-                              style={{
-                                fontSize: "11px", fontWeight: "700", padding: "5px 12px", borderRadius: "99px",
-                                background: feedbackOpen ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#ede9fe",
-                                color: feedbackOpen ? "white" : "#6366f1",
-                                border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px",
-                              }}
-                            >
-                              <Sparkles size={11} /> {t("dashboard.candidateDetail.aiAnalysis")}
+                            <button type="button" className={`ds-btn ds-btn-sm ${feedbackOpen ? "ds-btn-primary" : "ds-btn-soft"}`} onClick={() => setOpenAiFeedback(prev => ({ ...prev, [session.id]: !feedbackOpen }))}>
+                              <Sparkles size={12} /> {t("dashboard.candidateDetail.aiAnalysis")}
                             </button>
                           )}
                           {!isAiTest && session.cheat_flags?.slow_candidate && (
-                            <div style={{ background: "#fff7ed", color: "#c2410c", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ffedd5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Clock size={12} /> {t("dashboard.candidateDetail.slowerThanAverage")}
-                            </div>
+                            <span className="ds-chip ds-chip-amber"><Clock size={12} /> {t("dashboard.candidateDetail.slowerThanAverage")}</span>
                           )}
                           {!isAiTest && session.cheat_flags?.top_performer && (
-                            <div style={{ background: "#f5f5f5", color: "#0a0a0a", fontSize: "10px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Star size={12} fill="currentColor" /> {t("dashboard.candidateDetail.topPerformer")}
-                            </div>
+                            <span className="ds-chip"><Star size={12} fill="currentColor" /> {t("dashboard.candidateDetail.topPerformer")}</span>
                           )}
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontSize: "1.25rem", fontWeight: "800", color: sStyle.color }}>{session.score != null ? `${session.score}%` : "—"}</div>
-                            <div style={{ width: "100px", height: "6px", background: "#f1f5f9", borderRadius: "99px", overflow: "hidden", marginTop: "4px" }}>
-                              <div style={{ width: `${session.score || 0}%`, height: "100%", background: isAiTest ? "#6366f1" : sStyle.color }} />
-                            </div>
-                          </div>
+                          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span className="ds-meter" style={{ width: 80, height: 5, background: c.piste }}><span style={{ width: `${session.score || 0}%`, background: c.barre }} /></span>
+                            <span className="ds-mono" style={{ fontWeight: 500, color: c.encre }}>{session.score != null ? `${session.score}%` : "—"}</span>
+                          </span>
                         </div>
                       </div>
 
                       {/* AI Feedback panel */}
                       {hasFeedback && feedbackOpen && (
-                        <div style={{
-                          marginTop: "4px", padding: "1.25rem",
-                          background: "#fafafe", border: "1px solid #e0e7ff",
-                          borderRadius: "10px",
-                        }}>
-                          <p style={{ fontSize: "11px", fontWeight: "700", color: "#6366f1", textTransform: "uppercase", marginBottom: "1rem", letterSpacing: "0.05em" }}>
-                            Analyse IA — {session.ai_feedback.evaluations.length} questions évaluées
-                          </p>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                            {session.ai_feedback.evaluations.map((ev, idx) => {
-                              const scoreLabels = { 0: { label: t("dashboard.candidateDetail.scoreLevel.insufficient"), color: "#991b1b", bg: "#fee2e2" }, 1: { label: t("dashboard.candidateDetail.scoreLevel.average"), color: "#92400e", bg: "#fef3c7" }, 2: { label: t("dashboard.candidateDetail.scoreLevel.excellent"), color: "#166534", bg: "#dcfce7" } };
-                              const sl = scoreLabels[ev.score] || scoreLabels[0];
-                              // Find the question statement from the session
-                              const qIdx = session.answers?.findIndex(a => a.question_id === ev.question_id);
-                              const answer = qIdx >= 0 ? session.answers[qIdx]?.text_answer : null;
-                              return (
-                                <div key={idx} style={{ padding: "0.875rem", background: "white", borderRadius: "8px", border: "1px solid #e0e7ff" }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                                    <span style={{ fontSize: "12px", color: "var(--muted-foreground)", fontWeight: "600" }}>Question {idx + 1}</span>
-                                    <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "99px", background: sl.bg, color: sl.color }}>
-                                      {sl.label} ({ev.score}/2)
-                                    </span>
-                                  </div>
-                                  {answer && (
-                                    <p style={{ fontSize: "12px", color: "var(--foreground)", fontStyle: "italic", marginBottom: "6px", lineHeight: "1.5", borderLeft: "2px solid #c7d2fe", paddingLeft: "8px" }}>
-                                      « {answer} »
-                                    </p>
-                                  )}
-                                  {ev.justification && (
-                                    <p style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: "1.5" }}>
-                                      🧠 {ev.justification}
-                                    </p>
-                                  )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, borderRadius: 10, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-blue)" }}>
+                            {t("dashboard.candidateDetail.aiAnalysisCount", { count: session.ai_feedback.evaluations.length })}
+                          </span>
+                          {session.ai_feedback.evaluations.map((ev, idx) => {
+                            const niveaux = { 0: ["low", t("dashboard.candidateDetail.scoreLevel.insufficient")], 1: ["mid", t("dashboard.candidateDetail.scoreLevel.average")], 2: ["high", t("dashboard.candidateDetail.scoreLevel.excellent")] };
+                            const [tn, label] = niveaux[ev.score] || niveaux[0];
+                            const qIdx = session.answers?.findIndex(a => a.question_id === ev.question_id);
+                            const answer = qIdx >= 0 ? session.answers[qIdx]?.text_answer : null;
+                            return (
+                              <div key={idx} style={{ padding: 12, borderRadius: 9, border: "1px solid var(--ds-line-inset)", background: "var(--ds-soft)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                  <span className="ds-sub" style={{ fontSize: 12 }}>{t("dashboard.candidateDetail.questionN", { n: idx + 1 })}</span>
+                                  <span className={`ds-tag ds-tag-${tn}`}>{label} ({ev.score}/2)</span>
                                 </div>
-                              );
-                            })}
-                          </div>
+                                {answer && <p style={{ margin: "0 0 6px", fontSize: 13, fontStyle: "italic", lineHeight: 1.5 }}>« {answer} »</p>}
+                                {ev.justification && <p className="ds-sub" style={{ lineHeight: 1.5 }}>{ev.justification}</p>}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* AI Interview Module (Legacy) */}
+          {/* Entretien IA (hérité) */}
           {!candidate.experience_run && candidate.interview_summary && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <MessageSquare size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.aiInterview")}
-                </h3>
+            <section className="ds-panel">
+              <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
+                <MessageSquare size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.candidateDetail.aiInterview")}
+              </h2>
+              <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ margin: 0, lineHeight: 1.65, color: "var(--ds-ink-2)" }}>{candidate.interview_summary}</p>
 
-              </div>
-              <p style={{ fontSize: "14px", lineHeight: "1.6", marginBottom: "1.5rem" }}>{candidate.interview_summary}</p>
-              
-              {/* Interview Score Breakdown */}
-              {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 && (
-                <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <h4 style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "4px" }}>{t("dashboard.candidateDetail.perQuestion")}</h4>
-                  {candidate.interview_score_breakdown.map((item, idx) => {
-                    const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s => 
-                      s.name.toLowerCase() === (item.skill || '').toLowerCase() || 
-                      item.question.toLowerCase().includes(s.name.toLowerCase())
-                    );
-                    return (
-                      <div key={idx} style={{ background: 'var(--background)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '1rem' }}>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)' }}>Q: {item.question}</p>
-                            <p style={{ fontSize: '13px', color: 'var(--foreground)', fontStyle: 'italic' }}>R: {item.answer}</p>
+                {candidate.interview_score_breakdown && candidate.interview_score_breakdown.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)" }}>{t("dashboard.candidateDetail.perQuestion")}</span>
+                    {candidate.interview_score_breakdown.map((item, idx) => {
+                      const skillFromJob = [...(jobCriteria.hard_skills || []), ...(jobCriteria.soft_skills || [])].find(s =>
+                        s.name.toLowerCase() === (item.skill || '').toLowerCase() ||
+                        item.question.toLowerCase().includes(s.name.toLowerCase())
+                      );
+                      return (
+                        <div key={idx} className="ds-card" style={{ padding: 12, borderRadius: 10, boxShadow: "none" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: "0 0 4px", fontWeight: 500, color: "var(--ds-blue)" }}>Q : {item.question}</p>
+                              <p style={{ margin: 0, fontStyle: "italic" }}>R : {item.answer}</p>
+                            </div>
+                            <TagScore score={item.score * 10} />
                           </div>
-                          <div style={{ textAlign: 'right', minWidth: '45px' }}>
-                            <span style={{ fontSize: '14px', fontWeight: '800', color: getScoreColor(t, item.score * 10).color }}>{item.score}/10</span>
-                          </div>
+                          {skillFromJob && skillFromJob.evidence && (
+                            <div style={{ fontSize: 12, color: "var(--ds-blue)", fontStyle: "italic", marginBottom: 4 }}>
+                              {t("dashboard.candidateDetail.expectation", { text: skillFromJob.evidence })}
+                            </div>
+                          )}
+                          {item.explanation && <p className="ds-sub" style={{ lineHeight: 1.45, paddingTop: 8, borderTop: "1px dashed var(--ds-line)" }}>{item.explanation}</p>}
                         </div>
-                        {skillFromJob && skillFromJob.evidence && (
-                          <div style={{ fontSize: '11px', color: 'var(--primary)', opacity: 0.8, fontStyle: 'italic', marginBottom: '4px' }}>
-                            Attente : "{skillFromJob.evidence}"
-                          </div>
-                        )}
-                        {item.explanation && (
-                          <p style={{ 
-                            fontSize: '12px', 
-                            color: 'var(--muted-foreground)', 
-                            lineHeight: '1.4', 
-                            paddingTop: '8px', 
-                            borderTop: '1px dashed var(--border)',
-                            marginTop: '4px'
-                          }}>
-                            {item.explanation}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
 
-              {candidate.interview_messages?.length > 0 && (
-                <div style={{ display: "flex", gap: "1rem" }}>
-                  <button className="btn btn-outline btn-sm" onClick={() => setShowTranscript(!showTranscript)}>
+                {candidate.interview_messages?.length > 0 && (
+                  <button type="button" className="ds-btn ds-btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setShowTranscript(!showTranscript)}>
                     {showTranscript ? t("dashboard.candidateDetail.hideTranscript") : t("dashboard.candidateDetail.showTranscript")}
                   </button>
-                </div>
-              )}
-              {showTranscript && candidate.interview_messages?.length > 0 && (
-                <div style={{ marginTop: "1.5rem", padding: "1.25rem", background: "#f8fafc", borderRadius: "8px", maxHeight: "400px", overflowY: "auto", border: "1px solid var(--border)" }}>
-                   {candidate.interview_messages.map((msg, i) => (
-                    <div key={i} style={{ marginBottom: "16px", fontSize: "13px", lineHeight: "1.5" }}>
-                      <div style={{ fontWeight: "700", color: msg.role === 'assistant' ? 'var(--primary)' : 'var(--foreground)', marginBottom: "4px" }}>
-                        {msg.role === 'assistant' ? t("dashboard.candidateDetail.aiRecruiter") : `${candidate.first_name} ${candidate.last_name}`}
+                )}
+                {showTranscript && candidate.interview_messages?.length > 0 && (
+                  <div style={{ padding: 14, background: "#FFFFFF", borderRadius: 10, maxHeight: 400, overflowY: "auto", border: "1px solid var(--ds-line)" }}>
+                    {candidate.interview_messages.map((msg, i) => (
+                      <div key={i} style={{ marginBottom: 14, fontSize: 13, lineHeight: 1.5 }}>
+                        <div style={{ fontWeight: 500, color: msg.role === 'assistant' ? 'var(--ds-blue)' : 'var(--ds-ink)', marginBottom: 4 }}>
+                          {msg.role === 'assistant' ? t("dashboard.candidateDetail.aiRecruiter") : nom}
+                        </div>
+                        <div>{msg.content.replace("[INTERVIEW_TERMINÉE]", "").trim()}</div>
                       </div>
-                      <div style={{ color: "var(--foreground)" }}>{msg.content.replace("[INTERVIEW_TERMINÉE]", "").trim()}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Entretien Vidéo (Legacy) */}
-          {!candidate.experience_run && candidate.video_responses && candidate.video_responses.length > 0 && (
-            <div className="card" style={{ padding: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Video size={18} style={{ color: "var(--primary)" }} /> {t("dashboard.candidateDetail.videoInterview")}
-                </h3>
-                {candidate.video_interview_score != null && candidate.video_interview_score > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                    <span style={{
-                      fontSize: "1.1rem", fontWeight: "800",
-                      color: getScoreColor(t, candidate.video_interview_score).color
-                    }}>
-                      Score moyen : {candidate.video_interview_score}%
-                      {candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && "*"}
-                    </span>
-                    {candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && (
-                      <div style={{
-                        marginTop: "8px", display: "flex", alignItems: "center", gap: "6px",
-                        padding: "6px 12px", borderRadius: "8px",
-                        background: "#fff7ed", border: "1px solid #ffedd5",
-                        fontSize: "11px", color: "#c2410c", fontWeight: "600"
-                      }}>
-                        <AlertTriangle size={14} /> {candidate.video_score_completeness.evaluated}/{candidate.video_score_completeness.total} questions évaluées —
-                        {t("dashboard.candidateDetail.partialScore")}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
+            </section>
+          )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {/* Entretien vidéo (hérité) */}
+          {!candidate.experience_run && candidate.video_responses && candidate.video_responses.length > 0 && (
+            <section className="ds-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 10px 0" }}>
+                <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Video size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.candidateDetail.videoInterview")}
+                </h2>
+                {candidate.video_interview_score != null && candidate.video_interview_score > 0 && (
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    <span className="ds-chip ds-chip-lg" style={{ gap: 8 }}>
+                      {t("dashboard.candidateDetail.averageScore")}
+                      <span className="ds-mono" style={{ fontWeight: 500, color: ton(candidate.video_interview_score).encre }}>
+                        {candidate.video_interview_score}%{candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && "*"}
+                      </span>
+                    </span>
+                    {candidate.video_score_completeness && !candidate.video_score_completeness.is_complete && (
+                      <span className="ds-chip ds-chip-amber">
+                        <AlertTriangle size={13} /> {t("dashboard.candidateDetail.questionsScored", { scored: candidate.video_score_completeness.evaluated, total: candidate.video_score_completeness.total })} {t("dashboard.candidateDetail.partialScore")}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+
+              <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {candidate.video_responses.map((resp, idx) => {
-                  const statusLabels = {
-                    pending:      { label: t("dashboard.candidateDetail.pending"),      color: "#64748b",  bg: "#f1f5f9" },
-                    recorded:     { label: t("dashboard.candidateDetail.saved"),     color: "#1d4ed8",  bg: "#eff6ff" },
-                    transcribing: { label: t("dashboard.candidateDetail.transcribing"), color: "#92400e", bg: "#fef3c7" },
-                    evaluating:   { label: t("dashboard.candidateDetail.aiAnalyzing"),   color: "#6d28d9",  bg: "#ede9fe" },
-                    evaluated:    { label: t("dashboard.candidateDetail.analyzed"),        color: "#166534",  bg: "#dcfce7" },
-                    manual_review:{ label: t("dashboard.candidateDetail.manualReview"),   color: "#991b1b",  bg: "#fee2e2" },
-                  }[resp.status] || { label: resp.status, color: "#64748b", bg: "#f1f5f9" };
-
-                  const scoreStyle = resp.ai_score != null ? getScoreColor(t, resp.ai_score) : null;
+                  const statuts = {
+                    pending: ["", t("dashboard.candidateDetail.pending")],
+                    recorded: ["ds-chip-blue", t("dashboard.candidateDetail.saved")],
+                    transcribing: ["ds-chip-amber", t("dashboard.candidateDetail.transcribing")],
+                    evaluating: ["ds-chip-blue", t("dashboard.candidateDetail.aiAnalyzing")],
+                    evaluated: ["ds-chip-green", t("dashboard.candidateDetail.analyzed")],
+                    manual_review: ["ds-chip-red", t("dashboard.candidateDetail.manualReview")],
+                  };
+                  const [classe, libelle] = statuts[resp.status] || ["", resp.status];
 
                   return (
-                    <div key={resp.id} style={{
-                      border: "1px solid var(--border)", borderRadius: "10px",
-                      overflow: "hidden", background: "var(--background)"
-                    }}>
+                    <div key={resp.id} className="ds-card" style={{ borderRadius: 10, boxShadow: "none", overflow: "hidden" }}>
                       {/* En-tête question */}
-                      <div style={{
-                        padding: "1rem 1.25rem",
-                        background: "var(--card)",
-                        borderBottom: "1px solid var(--border)",
-                        display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem"
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <span style={{
-                            fontSize: "11px", fontWeight: "700", color: "#1d4ed8",
-                            background: "#eff6ff", padding: "2px 8px", borderRadius: "99px", marginRight: "8px"
-                          }}>Question {idx + 1}</span>
-                          <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--foreground)" }}>
-                            {resp.question_text}
-                          </span>
+                      <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--ds-line-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="ds-tag ds-tag-blue">{t("dashboard.candidateDetail.questionN", { n: idx + 1 })}</span>
+                          <span style={{ fontWeight: 500 }}>{resp.question_text}</span>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: "11px", fontWeight: "700",
-                            color: statusLabels.color, background: statusLabels.bg,
-                            padding: "3px 10px", borderRadius: "99px"
-                          }}>{statusLabels.label}</span>
-                          {scoreStyle && (
-                            <span style={{
-                              fontSize: "1rem", fontWeight: "800",
-                              color: scoreStyle.color
-                            }}>{resp.ai_score}%</span>
-                          )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                          <span className={`ds-chip ${classe}`}>{libelle}</span>
+                          {resp.ai_score != null && <TagScore score={resp.ai_score} />}
                         </div>
                       </div>
 
                       {/* Corps : transcription + analyse IA */}
                       {(resp.status === "evaluated" || resp.status === "manual_review") && (
-                        <div style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-                          {/* Video Player */}
+                        <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
                           {resp.video_url && (
-                            <div style={{ marginBottom: '1rem' }}>
-                              <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
-                                {t("dashboard.candidateDetail.videoRecording")}
-                              </p>
-                              <video 
-                                src={resp.video_url} 
-                                controls 
-                                style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'black' }}
-                              />
+                            <div>
+                              <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.videoRecording")}</p>
+                              <video src={resp.video_url} controls style={{ width: "100%", maxWidth: 400, borderRadius: 10, border: "1px solid var(--ds-line)", backgroundColor: "black" }} />
                             </div>
                           )}
 
-                          {/* Transcription */}
                           {resp.transcript && (
                             <div>
-                              <p style={{ fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "6px" }}>
-                                {t("dashboard.candidateDetail.candidateTranscript")}
-                              </p>
-                              <div style={{
-                                background: "#f8fafc", border: "1px solid var(--border)",
-                                borderLeft: "3px solid var(--primary)",
-                                borderRadius: "6px", padding: "0.875rem",
-                                fontSize: "13px", lineHeight: "1.6", color: "var(--foreground)",
-                                fontStyle: "italic"
-                              }}>
-                                « {resp.transcript} »
+                              <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.candidateTranscript")}</p>
+                              <div style={{ background: "var(--ds-soft)", border: "1px solid var(--ds-line-inset)", borderRadius: 9, padding: 12, fontSize: 13, lineHeight: 1.6, fontStyle: "italic" }}>
+                                « {resp.transcript} »
                               </div>
                             </div>
                           )}
 
                           {resp.status === "manual_review" && (
-                            <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "1rem" }}>
-                              <h4 style={{ fontSize: "13px", fontWeight: "700", color: "#991b1b", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                <AlertTriangle size={16} /> {t("dashboard.candidateDetail.manualReview")}
+                            <div style={{ background: "var(--ds-red-bg)", border: "1px solid var(--ds-red-inset)", borderRadius: 10, padding: 12 }}>
+                              <h4 style={{ fontSize: 13, fontWeight: 500, color: "var(--ds-red)", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 6 }}>
+                                <AlertTriangle size={15} /> {t("dashboard.candidateDetail.manualReview")}
                               </h4>
-                              <p style={{ fontSize: "13px", color: "#7f1d1d", lineHeight: "1.5" }}>
+                              <p style={{ fontSize: 13, color: "var(--ds-red-ink-2)", lineHeight: 1.5, margin: 0 }}>
                                 {resp.ai_feedback || t("dashboard.candidateDetail.transcriptTooShort")}
                               </p>
                             </div>
@@ -1100,126 +934,104 @@ export default function CandidateDetailPage() {
 
                           {/* Détail par critère */}
                           {resp.status === "evaluated" && resp.ai_criteria_scores && resp.ai_criteria_scores.length > 0 && (
-                            <div>
-                              <p style={{ fontSize: "11px", fontWeight: "700", color: "#6d28d9", textTransform: "uppercase", marginBottom: "10px", display: "flex", alignItems: "center", gap: "5px" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-blue)", display: "flex", alignItems: "center", gap: 5 }}>
                                 <Sparkles size={12} /> {t("dashboard.candidateDetail.criteriaDetail")}
-                              </p>
-                              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                                {resp.ai_criteria_scores.map((crit, cIdx) => (
-                                  <div key={cIdx} style={{
-                                    border: "1px solid var(--border)", borderRadius: "8px",
-                                    padding: "1rem", background: "white"
-                                  }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                      <span style={{ fontSize: "13px", fontWeight: "700" }}>{crit.criterion_name}</span>
-                                      <span style={{ fontSize: "14px", fontWeight: "800", color: getScoreColor(t, crit.score).color }}>{crit.score}%</span>
-                                    </div>
-                                    
-                                    {/* Justification IA */}
-                                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "var(--foreground)", marginBottom: "10px" }}>
-                                      <span style={{ marginRight: "6px" }}>🧠</span>
-                                      {crit.justification}
-                                    </p>
-
-                                    {/* Verbatim avec validation */}
-                                    <div style={{
-                                      borderLeft: crit.verbatim_verified ? "3px solid #22c55e" : "3px solid #f59e0b",
-                                      paddingLeft: "10px",
-                                      background: crit.verbatim_verified ? "#f0fdf4" : "#fffbeb",
-                                      padding: "8px 10px", borderRadius: "0 6px 6px 0"
-                                    }}>
-                                      {crit.verbatim_verified ? (
-                                        <div style={{ fontSize: "10px", color: "#166534", fontWeight: "600", marginBottom: "4px" }}>{t("dashboard.candidateDetail.quoteVerified")}</div>
-                                      ) : (
-                                        <div style={{ fontSize: "10px", color: "#b45309", fontWeight: "600", marginBottom: "4px" }}>{t("dashboard.candidateDetail.quoteNotVerified")}</div>
-                                      )}
-                                      <p style={{ fontStyle: "italic", fontSize: "13px", opacity: crit.verbatim_verified ? 1 : 0.7, color: "var(--foreground)" }}>
-                                        « {crit.verbatim || t("dashboard.candidateDetail.noQuote")} »
-                                      </p>
-                                    </div>
+                              </span>
+                              {resp.ai_criteria_scores.map((crit, cIdx) => (
+                                <div key={cIdx} style={{ border: "1px solid var(--ds-line)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontWeight: 500 }}>{crit.criterion_name}</span>
+                                    <TagScore score={crit.score} />
                                   </div>
-                                ))}
-                              </div>
+                                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{crit.justification}</p>
+                                  <div style={{ padding: "8px 10px", borderRadius: 8, background: crit.verbatim_verified ? "var(--ds-green-bg)" : "var(--ds-amber-bg)" }}>
+                                    <div style={{ fontSize: 11, fontWeight: 500, marginBottom: 4, color: crit.verbatim_verified ? "var(--ds-green-ink)" : "var(--ds-amber-ink)" }}>
+                                      {crit.verbatim_verified ? t("dashboard.candidateDetail.quoteVerified") : t("dashboard.candidateDetail.quoteNotVerified")}
+                                    </div>
+                                    <p style={{ margin: 0, fontStyle: "italic", fontSize: 13, opacity: crit.verbatim_verified ? 1 : 0.75 }}>
+                                      « {crit.verbatim || t("dashboard.candidateDetail.noQuote")} »
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           )}
 
                           {/* Points forts / Améliorations */}
                           {resp.status === "evaluated" && ((resp.ai_strengths?.length > 0) || (resp.ai_improvements?.length > 0)) && (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginTop: "10px" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                               {resp.ai_strengths?.length > 0 && (
-                                <div style={{ background: "#f0fdf4", border: "1px solid #dcfce7", borderRadius: "8px", padding: "0.875rem" }}>
-                                  <p style={{ fontSize: "11px", fontWeight: "700", color: "#166534", textTransform: "uppercase", marginBottom: "6px" }}>{t("dashboard.candidateDetail.strengths")}</p>
-                                  {resp.ai_strengths.map((s, i) => (
-                                    <div key={i} style={{ fontSize: "12px", color: "#166534", lineHeight: "1.5" }}>• {s}</div>
-                                  ))}
+                                <div style={{ background: "var(--ds-green-bg)", borderRadius: 10, padding: 12 }}>
+                                  <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-green-ink)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.strengths")}</p>
+                                  {resp.ai_strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: "var(--ds-green-ink)", lineHeight: 1.5 }}>• {s}</div>)}
                                 </div>
                               )}
                               {resp.ai_improvements?.length > 0 && (
-                                <div style={{ background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: "8px", padding: "0.875rem" }}>
-                                  <p style={{ fontSize: "11px", fontWeight: "700", color: "#c2410c", textTransform: "uppercase", marginBottom: "6px" }}>{t("dashboard.candidateDetail.improvementAreas")}</p>
-                                  {resp.ai_improvements.map((s, i) => (
-                                    <div key={i} style={{ fontSize: "12px", color: "#c2410c", lineHeight: "1.5" }}>• {s}</div>
-                                  ))}
+                                <div style={{ background: "var(--ds-amber-bg)", borderRadius: 10, padding: 12 }}>
+                                  <p style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-amber-ink)", margin: "0 0 6px" }}>{t("dashboard.candidateDetail.improvementAreas")}</p>
+                                  {resp.ai_improvements.map((s, i) => <div key={i} style={{ fontSize: 13, color: "var(--ds-amber-ink)", lineHeight: 1.5 }}>• {s}</div>)}
                                 </div>
                               )}
                             </div>
                           )}
 
-                          {/* Notation Manuelle */}
+                          {/* Notation manuelle */}
                           {(candidate.jobs?.assessment_config?.modules?.video_interview?.evaluation_mode === "manual" || resp.status === "manual_review") && (
-                            <div style={{ marginTop: "1rem", padding: "1rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                              <h4 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "12px" }}>
+                            <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              <h4 className="ds-h3">
                                 {resp.status === "evaluated" ? t("dashboard.candidateDetail.editScore") : t("dashboard.candidateDetail.scoreThisAnswer")}
                               </h4>
-                              <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", flexWrap: "wrap" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                  <div style={{ display: "flex", gap: "4px" }}>
+                              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <div style={{ display: "flex", gap: 4 }}>
                                     {[1, 2, 3, 4, 5].map(star => {
                                       const currentScore = manualScores[resp.id]?.score || (resp.ai_score ? Math.round(resp.ai_score / 20) : 0);
                                       const isSelected = currentScore >= star;
                                       return (
-                                        <button 
+                                        <button
                                           key={star}
+                                          type="button"
                                           onClick={() => setManualScores(prev => ({ ...prev, [resp.id]: { ...prev[resp.id], score: star } }))}
-                                          style={{ background: "transparent", border: "none", cursor: "pointer", color: isSelected ? "#f59e0b" : "#e2e8f0", padding: 0 }}
+                                          aria-label={`${star}/5`}
+                                          style={{ background: "transparent", border: "none", cursor: "pointer", color: isSelected ? "var(--ds-amber)" : "#D5DBE8", padding: 0 }}
                                         >
-                                          <Star size={24} fill={isSelected ? "#f59e0b" : "transparent"} />
+                                          <Star size={24} fill={isSelected ? "currentColor" : "transparent"} />
                                         </button>
                                       );
                                     })}
                                   </div>
-                                  <span style={{ fontSize: "11px", color: "var(--muted-foreground)", textAlign: "center" }}>{t("dashboard.candidateDetail.scoreOutOf5")}</span>
+                                  <span className="ds-sub" style={{ fontSize: 12, textAlign: "center" }}>{t("dashboard.candidateDetail.scoreOutOf5")}</span>
                                 </div>
-                                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px", minWidth: "250px" }}>
-                                  <textarea 
-                                    placeholder={t("dashboard.candidateDetail.justificationPlaceholder")} 
-                                    className="input-field" 
+                                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, minWidth: 250 }}>
+                                  <textarea
+                                    placeholder={t("dashboard.candidateDetail.justificationPlaceholder")}
+                                    className="ds-textarea"
                                     rows={2}
                                     value={manualScores[resp.id]?.justification !== undefined ? manualScores[resp.id].justification : (resp.status === "evaluated" && !resp.ai_criteria_scores ? resp.ai_feedback : "")}
                                     onChange={e => setManualScores(prev => ({ ...prev, [resp.id]: { ...prev[resp.id], justification: e.target.value } }))}
-                                    style={{ resize: "vertical", fontSize: "13px" }}
+                                    style={{ fontSize: 13 }}
                                   />
                                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                                    <button 
-                                      className="btn btn-primary btn-sm" 
+                                    <button
+                                      type="button"
+                                      className="ds-btn ds-btn-primary ds-btn-sm"
                                       disabled={!manualScores[resp.id]?.score && !resp.ai_score || submittingScore}
                                       onClick={() => handleManualVideoScore(resp.id)}
-                                      style={{ padding: "6px 12px", height: "auto" }}
                                     >
-                                      {submittingScore ? <Loader2 size={14} className="spin" /> : t("dashboard.candidateDetail.confirmScore")}
+                                      {submittingScore ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : t("dashboard.candidateDetail.confirmScore")}
                                     </button>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           )}
-
                         </div>
                       )}
 
                       {/* Statuts intermédiaires (pas encore analysé) */}
-                      {resp.status !== "evaluated" && resp.status !== "pending" && (
-                        <div style={{ padding: "1rem 1.25rem", fontSize: "13px", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
+                      {resp.status !== "evaluated" && resp.status !== "pending" && resp.status !== "manual_review" && (
+                        <div className="ds-sub" style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
                           <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
                           {t("dashboard.candidateDetail.analysisInProgress")}
                         </div>
@@ -1228,9 +1040,8 @@ export default function CandidateDetailPage() {
                   );
                 })}
               </div>
-            </div>
+            </section>
           )}
-
         </div>
       </div>
 
@@ -1239,11 +1050,231 @@ export default function CandidateDetailPage() {
           isOpen={feedbackModalOpen}
           onClose={() => setFeedbackModalOpen(false)}
           candidateId={candidatId}
-          candidateName={`${candidate.first_name} ${candidate.last_name}`}
+          candidateName={nom}
           onSent={handleFeedbackSent}
         />
       )}
-      
+    </>
+  );
+}
+
+// ─── Une étape du rapport ────────────────────────────────────────────────────
+// En-tête : numéro, titre, nature de l'étape, score. Dessous, la réponse du
+// candidat (repliée) puis ses critères, groupés par compétence.
+function CarteEtape({ step, index, nomCandidat, estOuvert, basculer }) {
+  const { t } = useI18n();
+  const { cle, Icone } = natureEtape(step);
+  const nature = cle === "call" || cle === "chat"
+    ? t(`dashboard.experienceEditor.overview.${cle}`)
+    : t(`dashboard.experienceEditor.coverage.format.${cle}`);
+  const points = pointsDe(step.criteria);
+  const score = points
+    ? Math.round((points.pts / Math.max(1, points.max)) * 100)
+    : step.criteria.length ? Math.round(step.criteria.reduce((s, c) => s + (c.score || 0), 0) / step.criteria.length) : null;
+  const persona = step.sandbox_kind === "persona" ? step.config?.persona : null;
+  const conversation = persona && step.response?.meta?.persona ? repliques(persona, step.response.meta.persona) : null;
+  const nbQuestionsIA = step.ai_messages.filter((m) => m.role === "user").length;
+  const cleEtape = `step-${step.id}`;
+  const cleReponse = `reponse-${step.id}`;
+  const titre = step.title || expKindLabel(t, step.kind);
+
+  return (
+    <section aria-labelledby={`ds-etape-${step.id}`} className="ds-panel">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "5px 5px 0 10px" }}>
+        <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <h2 id={`ds-etape-${step.id}`} className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span className="ds-mono" style={{ width: 24, height: 24, flex: "none", borderRadius: 7, background: "var(--ds-blue)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500 }}>{index + 1}</span>
+            {titre}
+          </h2>
+          <span className="ds-chip"><Icone size={13} /> {nature.charAt(0).toUpperCase() + nature.slice(1)}</span>
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {score != null && <TagScore score={score} points={points} />}
+          <Chevron ouvert={estOuvert(cleEtape)} onClick={() => basculer(cleEtape)} label={titre} />
+        </span>
+      </div>
+
+      {estOuvert(cleEtape) && (
+        <>
+          {/* La réponse du candidat : conversation, texte, vidéo, échanges avec l'assistant */}
+          <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10 }}>
+            <button
+              type="button"
+              onClick={() => basculer(cleReponse)}
+              aria-expanded={estOuvert(cleReponse)}
+              className="ds-critere-tete"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "4px 4px 4px 6px", border: 0, borderRadius: 8, background: "transparent", font: "inherit", textAlign: "left", color: "var(--ds-ink)", cursor: "pointer" }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)" }}>
+                {conversation ? <Phone size={14} /> : <FileText size={14} />}
+                {conversation ? t("dashboard.candidateDetail.conversationTitle") : t("dashboard.candidateDetail.candidateAnswer")}
+                {nbQuestionsIA > 0 && <span className="ds-chip" style={{ height: 20 }}><Bot size={12} /> {t("dashboard.candidateDetail.aiExchanges", { count: nbQuestionsIA })}</span>}
+              </span>
+              <ChevronDown size={15} style={{ color: "var(--ds-ink-5)", transition: "transform .15s", transform: estOuvert(cleReponse) ? "none" : "rotate(-90deg)" }} />
+            </button>
+
+            {estOuvert(cleReponse) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {step.prompt && <p className="ds-sub" style={{ whiteSpace: "pre-wrap", padding: "0 6px" }}>{step.prompt}</p>}
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ flex: "3 1 340px", minWidth: 0 }}>
+                    {conversation ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 360, overflowY: "auto", padding: 12, borderRadius: 10, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+                        {conversation.map((m, mi) => {
+                          const moi = m.role === "candidate";
+                          return (
+                            <div key={mi} style={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: "86%", alignSelf: moi ? "flex-end" : "flex-start", alignItems: moi ? "flex-end" : "flex-start" }}>
+                              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ds-ink-4)" }}>{moi ? nomCandidat : (persona?.name || t("dashboard.candidateDetail.interlocutor"))}</span>
+                              <span style={{
+                                padding: "9px 11px", borderRadius: 12, lineHeight: 1.5, fontSize: 13, whiteSpace: "pre-wrap",
+                                ...(moi
+                                  ? { background: "var(--ds-blue)", color: "#FFFFFF", borderBottomRightRadius: 4 }
+                                  : { background: "#FFFFFF", border: "1px solid var(--ds-line)", borderBottomLeftRadius: 4 }),
+                              }}>{m.content}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ background: "#FFFFFF", border: "1px solid var(--ds-line)", borderRadius: 10, padding: "10px 12px", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "break-word", maxHeight: 360, overflowY: "auto" }}>
+                        {expAnswerText(t, step)}
+                      </div>
+                    )}
+                  </div>
+                  {step.response?.video_url && (
+                    <div style={{ flex: "2 1 220px", minWidth: 0 }}>
+                      <video src={step.response.video_url} controls style={{ width: "100%", borderRadius: 10, background: "var(--ds-ink)" }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* QCM : propositions vues par le candidat + corrigé. */}
+                {step.response_format === "qcm" && <QcmCorrection step={step} />}
+
+                {/* Log complet des échanges avec l'assistant IA sur CE step */}
+                {step.ai_messages.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-blue)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Bot size={13} /> {t("dashboard.candidateDetail.aiExchangesTitle", { count: nbQuestionsIA })}
+                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflowY: "auto", padding: 12, borderRadius: 10, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+                      {step.ai_messages.map((m, mi) => (
+                        <div key={mi} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                          <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: 12, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "break-word", ...(m.role === "user" ? { background: "var(--ds-blue)", color: "#FFFFFF", borderBottomRightRadius: 4 } : { background: "var(--ds-soft)", border: "1px solid var(--ds-line-inset)", borderBottomLeftRadius: 4 }) }}>
+                            {m.content}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Les critères, regroupés par compétence. Pas de score agrégé par
+              compétence : chaque sous-dimension garde sa note et sa
+              justification, le regroupement est purement visuel. */}
+          {step.criteria.length > 0 && groupScoresBySkill(step.criteria).map((group, gi) => (
+            <div key={gi} className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10 }}>
+              {group.skill && <span style={{ padding: "2px 4px", fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)" }}>{t("dashboard.candidateDetail.skillCriteria", { skill: group.skill })}</span>}
+              {group.items.map((cs) => {
+                const ci = step.criteria.indexOf(cs);
+                const cleCritere = `crit-${step.id}-${ci}`;
+                return <CarteCritere key={ci} cs={cs} step={step} ouvert={estOuvert(cleCritere)} onToggle={() => basculer(cleCritere)} />;
+              })}
+            </div>
+          ))}
+        </>
+      )}
+    </section>
+  );
+}
+
+// ─── Un critère noté ─────────────────────────────────────────────────────────
+function CarteCritere({ cs, step, ouvert, onToggle }) {
+  const { t } = useI18n();
+  const nom = cs.sub_dimension_name || cs.criterion_name;
+  const points = pointsCritere(cs);
+  const c = ton(cs.score);
+  const grille = (step.bars || []).find((b) => b.name === nom);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", borderRadius: 10, background: "#FFFFFF", border: "1px solid var(--ds-line)", overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={ouvert}
+        className="ds-critere-tete"
+        style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 12px 12px 14px", border: 0, background: "transparent", font: "inherit", textAlign: "left", color: "var(--ds-ink)", cursor: "pointer" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontWeight: 600 }}>{nom}</span>
+          {/* Le tier pèse dans le score final : il se lit ici. Absent sur un
+              critère dont la compétence n'est pas dans la liste de l'offre. */}
+          {cs.tier && (
+            <span style={{ height: 20, display: "inline-flex", alignItems: "center", padding: "0 6px", borderRadius: 6, fontSize: 11, fontWeight: 500, ...(cs.tier === "must_have" ? { border: "1px solid var(--ds-blue-30)", color: "var(--ds-blue)" } : { border: "1px solid var(--ds-line)", color: "var(--ds-ink-3)" }) }}>
+              {t(`dashboard.candidateDetail.tier.${cs.tier}`)}
+            </span>
+          )}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="ds-meter" style={{ width: 80, height: 5, background: c.piste }}><span style={{ width: `${Math.max(cs.score || 0, 2)}%`, background: c.barre }} /></span>
+          <span className="ds-mono" style={{ fontSize: 13, fontWeight: 500, color: c.encre, minWidth: 104, textAlign: "right" }}>
+            {points ? `${points.pts}/${points.max} pts · ${cs.score}%` : cs.bars_level != null ? `N${cs.bars_level} · ${cs.score}%` : `${cs.score}%`}
+          </span>
+          <ChevronRight size={15} style={{ color: "var(--ds-ink-5)", transition: "transform .15s", transform: ouvert ? "rotate(90deg)" : "none" }} />
+        </span>
+      </button>
+
+      {ouvert && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 14px 14px" }}>
+          {cs.observations && <p style={{ margin: 0, lineHeight: 1.6, color: "var(--ds-ink-2)" }}>{cs.observations}</p>}
+          {cs.justification && <p style={{ margin: 0, padding: "9px 11px", borderRadius: 9, background: "var(--ds-blue-10)", color: "#1E2D5E", fontSize: 13, fontWeight: 500 }}>{cs.justification}</p>}
+
+          {cs.format === "checkpoints" && <CheckpointList checkpoints={cs.checkpoints} />}
+
+          {/* L'échelle sur laquelle cette note a été posée. Absente pour le QCM
+              et les champs factuels CRM, qui sont corrigés sans grille. */}
+          {grille && <BarsScale levels={grille.bars_levels} attributed={cs.bars_level} />}
+
+          {/* Sandbox CRM — correction déterministe, champ par champ. La ligne
+              du piège est mise en évidence : c'est le signal qui distingue
+              "a lu" de "a croisé les sources". */}
+          {cs.crm_details?.length > 0 && (
+            <div style={{ border: "1px solid var(--ds-line-inset)", borderRadius: 9, overflow: "hidden" }}>
+              {cs.crm_details.map((d, di) => (
+                <div key={di} style={{
+                  display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", fontSize: 13,
+                  borderTop: di === 0 ? "none" : "1px solid var(--ds-line-inset)",
+                  background: d.is_trap ? "#FFFCF5" : "#FFFFFF",
+                }}>
+                  <span style={{ flexShrink: 0, fontWeight: 600, color: d.correct ? "var(--ds-green-ink)" : "var(--ds-red)" }}>{d.correct ? "✓" : "✗"}</span>
+                  <span style={{ flex: "0 0 34%", fontWeight: 500 }}>
+                    {d.label}
+                    {d.is_trap && <span className="ds-tag ds-tag-mid" style={{ marginLeft: 6, fontFamily: "inherit", fontSize: 11 }}>{t("dashboard.candidateDetail.trap")}</span>}
+                  </span>
+                  <span style={{ flex: 1, color: d.correct ? "var(--ds-ink)" : "var(--ds-red)", overflowWrap: "anywhere" }}>
+                    {d.given ?? <em style={{ color: "var(--ds-ink-4)" }}>{t("dashboard.candidateDetail.notFilled")}</em>}
+                  </span>
+                  {!d.correct && (
+                    <span style={{ flex: "0 0 28%", color: "var(--ds-ink-3)", overflowWrap: "anywhere" }}>{t("dashboard.candidateDetail.expected")} {d.expected}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {cs.verbatim && (
+            <span style={{ alignSelf: "flex-start", padding: "5px 9px", borderRadius: 7, background: cs.verbatim_verified ? "#F3F6FC" : "var(--ds-amber-bg)", fontSize: 13, fontStyle: "italic", color: "var(--ds-ink-2)" }}>
+              « {cs.verbatim} »
+              <span style={{ fontStyle: "normal", fontSize: 11, color: cs.verbatim_verified ? "var(--ds-green-ink)" : "var(--ds-amber-ink)", marginLeft: 6 }}>
+                {cs.verbatim_verified ? t("dashboard.candidateDetail.verbatimVerified") : t("dashboard.candidateDetail.verbatimNotFound")}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

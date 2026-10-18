@@ -327,6 +327,29 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    collapseAll: "Tout replier",
+    expandAll: "Tout déplier",
+    candidateCard: "Candidat",
+    deleteCandidate: "Supprimer le candidat",
+    lastMail: "Dernier e-mail",
+    pastes: "Copier-coller",
+    pointsOutOf: "{pts} points sur {max}",
+    stepsScored_one: "{count} étape notée · le détail par critère est dans l'étape ci-dessous.",
+    stepsScored_other: "{count} étapes notées · le détail par critère est dans chaque étape ci-dessous.",
+    conversationTitle: "Transcription et enregistrement de l'échange",
+    interlocutor: "Interlocuteur",
+    aiExchanges_one: "{count} question à l'IA",
+    aiExchanges_other: "{count} questions à l'IA",
+    aiExchangesTitle_one: "Échanges avec l'assistant IA ({count} message)",
+    aiExchangesTitle_other: "Échanges avec l'assistant IA ({count} messages)",
+    skillCriteria: "{skill} · critères",
+    candidateChoice: "Choix du candidat",
+    expectation: "Attendu : « {text} »",
+    aiAnalysisCount_one: "Analyse IA — {count} question évaluée",
+    aiAnalysisCount_other: "Analyse IA — {count} questions évaluées",
+    questionN: "Question {n}",
+    averageScore: "Score moyen",
+    aiInterviewShort: "Entretien IA",
     integrityTracking: "Suivi de l'intégrité",
     manualReview: "À revoir manuellement",
     criteriaDetail: "Détail par critère",
@@ -353,9 +376,9 @@ const dashboard = {
     // ── Colonne d'identité ──────────────────────────────────────────────
     status: "Statut",
     invitedOn: "Invité le",
-    completedOn: "Complété le",
+    completedOn: "Terminé le",
     pending: "En attente",
-    validateProfile: "Valider le profil",
+    validateProfile: "Présélectionner",
     granted: "Accordé",
     windowExits: "Sorties de fenêtre",
     mailHistory: "Historique mails",
@@ -370,13 +393,13 @@ const dashboard = {
     actions: {
       shortlist: "Valider",
       nextStep: "Passer à l'étape suivante",
-      reject: "Rejeter",
+      reject: "Refuser",
       disqualify: "Disqualifier",
     },
 
     // ── Score global ────────────────────────────────────────────────────
-    globalScore: "Score global de l'assessment",
-    globalScoreHelp: "Moyenne pondérée basée sur les critères de sélection.",
+    globalScore: "Score global de l'évaluation",
+    globalScoreHelp: "Moyenne pondérée selon vos critères de sélection.",
     scoreLevel: {
       excellent: "Excellent",
       average: "Moyen",
@@ -392,7 +415,7 @@ const dashboard = {
     partialScore: "Score partiel, exclu du classement",
 
     // ── Usage de l'assistant IA ─────────────────────────────────────────
-    evidenceReport: "Rapport de preuves (Expérience)",
+    evidenceReport: "Rapport d'évidence",
     inProgress: "En cours",
     aiUsage: "Usage de l'Assistant IA",
     aiUsageHelp: "Mesure {em} le candidat a piloté l'IA, pas s'il l'a utilisée",
@@ -402,7 +425,7 @@ const dashboard = {
     aiUsageNotScoredHelp:
       "Le candidat n'a pas sollicité l'assistant. Cette dimension mesure {em} il l'aurait piloté : elle n'est pas notée en son absence, et ne pénalise pas le score global.",
     expected: "attendu :",
-    aiUsageNotScored: "Usage de l'Assistant IA — non noté",
+    aiUsageNotScored: "Usage de l'assistant IA : non noté",
     aiAxes: {
       framing: "Cadrage du problème",
       iteration: "Itération",
