@@ -468,6 +468,23 @@ const dashboard = {
   },
 
   experienceEditor: {
+    voices: {
+      title: "Character's voice",
+      titleNamed: "{name}'s voice",
+      help: "The voice of the AI playing the character during the call.",
+      loading: "Loading voices…",
+      male: "Man",
+      female: "Woman",
+      variant: "{lang} ({region})",
+      standard: "{genre} · standard voice ({lang})",
+      custom: "Custom voice",
+      forcedGender: "Only a {genre}'s voice exists for this language: the call will use it. Consider adapting the character's first name.",
+      lang: { fr: "French", nl: "Dutch", en: "English", de: "German", es: "Spanish", it: "Italian" },
+      region: {
+        nl_BE: "Flanders", nl_NL: "Netherlands", fr_BE: "Belgium", fr_FR: "France",
+        en_GB: "United Kingdom", en_US: "United States", de_DE: "Germany", es_ES: "Spain", it_IT: "Italy",
+      },
+    },
     ui: {
       toggle: "Collapse or expand: {title}",
       toggleShort: "Collapse / expand",
@@ -1357,42 +1374,6 @@ const dashboard = {
     },
   },
 
-  experiences: {
-    version: "Version {n}",
-    ready: "Ready when you are",
-    readyName: "Ready when you are, {name}",
-    titlePlaceholder: "e.g. Account Executive B2B",
-    title: "Experiences",
-    subtitle: "The candidate experiences generated for your roles.",
-    search: "Search for a job…",
-    none: "No experience created yet",
-    noResults: "No results",
-    noneHelp: "Create your first candidate experience for one of your roles.",
-    noResultsHelp: "Try a different search term.",
-    generated: "Experience generated — review it and publish",
-    jobDeleted: "Job deleted",
-    untitled: "Untitled",
-    create: "Create a candidate experience",
-
-    whichExperience: "Which candidate experience do you want to build?",
-    attachJob: "Attach an existing job",
-    attachJobHelp:
-      "Experiences linked to a job automatically use its posting and your company context.",
-    existingJob: "Existing job",
-    existingJobHelp: "Link a job you already created",
-    newJob: "New job",
-    newJobHelp: "Create one on the fly",
-    chooseJob: "Choose a job",
-    noJobYet: "No jobs yet. Create a new one.",
-
-    jobTitleRequired: "Add a title, or paste a posting (50 characters minimum).",
-    jobCreated: "Job created",
-    error: "Error",
-    jobTitle: "Job title",
-    jobDescription: "Job posting (optional, improves generation)",
-    jobDescriptionPlaceholder: "Paste the job posting here…",
-    createAndContinue: "Create and continue",
-  },
 
   chatCreator: {
     stepRewritten: "Step {n} rewritten",

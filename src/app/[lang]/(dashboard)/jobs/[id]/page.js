@@ -50,9 +50,9 @@ const TON_STATUT = {
 const ONGLETS = ["parcours", "candidats", "context", "parametres"];
 
 function ongletInitial() {
-  if (typeof window === "undefined") return "parcours";
+  if (typeof window === "undefined") return "candidats";
   const demande = new URLSearchParams(window.location.search).get("tab");
-  return ONGLETS.includes(demande) ? demande : "parcours";
+  return ONGLETS.includes(demande) ? demande : "candidats";
 }
 
 // ─── Component ───
@@ -134,7 +134,7 @@ export default function JobDetailPage() {
     setActiveTab(id);
     // Dans l'URL, pour qu'un retour arrière ou un lien partagé rouvre le bon onglet.
     const url = new URL(window.location.href);
-    if (id === "parcours") url.searchParams.delete("tab"); else url.searchParams.set("tab", id);
+    if (id === "candidats") url.searchParams.delete("tab"); else url.searchParams.set("tab", id);
     window.history.replaceState(null, "", url);
   }
 

@@ -6,12 +6,13 @@
 // rangés dans l'onglet « Scénario » de la page d'une étape. Chacun reçoit la
 // donnée de son type et un onChange : aucun n'écrit en base lui-même.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, X, ChevronDown } from "lucide-react";
 import { crmEstEspace, CRM_MISSIONS, CRM_ACTIVITY_TYPES } from "@/lib/crmScoring";
 import { lireNombre } from "@/lib/tableur";
 import { CANAUX } from "@/lib/boiteReception";
 import { MODES_PERSONA, DEFAUT_TOURS, MAX_TOURS } from "@/lib/persona";
+import { listerVoixDisponibles } from "@/lib/actions/voix";
 import { MODES as MODES_TABLEAU } from "@/lib/tableauCartes";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
@@ -580,12 +581,82 @@ function PipelineEditor({ crm, set }) {
 // Canal, langue, accent, genre, voix, nombre d'échanges : rarement à changer,
 // donc dans « Réglages avancés ». Le personnage lui-même (qui il est, ce qu'il
 // cache, ses objections) se lit et se modifie dans le récit de l'étape.
+const LANGUES_NOMMEES = ["fr", "nl", "en", "de", "es", "it"];
+
+// La voix qui sera VRAIMENT utilisée pendant l'appel, d'après les voix
+// configurées — même ordre que voixDuPersonnage (lib/constants/voix.js) :
+// l'accent d'abord, le genre ensuite, la voix standard en dernier.
+function voixEffective(p, variantes) {
+  if (p.voice_id) return { type: "custom" };
+  const langue = String(p.language || "fr").slice(0, 2).toLowerCase();
+  const accent = String(p.accent || "").toUpperCase();
+  const genre = p.gender === "m" ? "m" : "f";
+  const autre = genre === "m" ? "f" : "m";
+  const dispo = (cle) => variantes[cle] || [];
+  if (accent) {
+    for (const g of [genre, autre]) if (dispo(`${langue}-${accent}`).includes(g)) return { type: "variante", cle: `${langue}-${accent}`, genre: g };
+  }
+  const memeLangue = Object.keys(variantes).filter((k) => k.startsWith(`${langue}-`))
+    .sort((x, y) => (y.endsWith("-BE")) - (x.endsWith("-BE")));
+  for (const g of [genre, autre]) {
+    for (const k of memeLangue) if (dispo(k).includes(g)) return { type: "variante", cle: k, genre: g };
+  }
+  return { type: "standard", langue, genre };
+}
+
 export function PersonaReglages({ persona, onChange }) {
   const { t } = useI18n();
   const p = persona || {};
   const set = (patch) => onChange({ ...p, ...patch });
   const k = (cle) => t(`dashboard.experienceEditor.persona.${cle}`);
+  const v = (cle, vars) => t(`dashboard.experienceEditor.voices.${cle}`, vars);
   const tours = p.max_turns ?? DEFAUT_TOURS;
+  const appel = (p.mode || "call") === "call";
+
+  // Les voix configurées sur le serveur (langue, accent, genre — jamais l'identifiant).
+  const [variantes, setVariantes] = useState(null);
+  useEffect(() => {
+    let actif = true;
+    listerVoixDisponibles().then((r) => { if (actif) setVariantes(r?.success ? r.variantes : {}); });
+    return () => { actif = false; };
+  }, []);
+
+  const langue = String(p.language || "fr").slice(0, 2).toLowerCase();
+  // Langues et régions nommées dans les dictionnaires ; une autre s'affiche en code.
+  const nomLangue = (l) => (LANGUES_NOMMEES.includes(l) ? v(`lang.${l}`) : l.toUpperCase());
+  const nomVariante = (cle) => {
+    const [l, acc] = cle.split("-");
+    return v("variant", { lang: nomLangue(l), region: v(`region.${l}_${acc}`) });
+  };
+  const nomGenre = (g) => (g === "m" ? v("male") : v("female"));
+
+  // Options : les voix configurées, celles de la langue de la scène en tête ;
+  // les voix standard seulement si la langue n'en a aucune (sinon une voix
+  // configurée passerait devant au moment de l'appel).
+  const options = [];
+  if (variantes) {
+    const cles = Object.keys(variantes).sort((x, y) => (y.startsWith(`${langue}-`)) - (x.startsWith(`${langue}-`)) || x.localeCompare(y));
+    for (const cle of cles) for (const g of ["m", "f"]) {
+      if (variantes[cle].includes(g)) options.push({ valeur: `${cle}|${g}`, libelle: `${nomGenre(g)} · ${nomVariante(cle)}` });
+    }
+    if (!cles.some((c) => c.startsWith(`${langue}-`))) {
+      for (const g of ["m", "f"]) options.push({ valeur: `std|${g}`, libelle: v("standard", { genre: nomGenre(g), lang: nomLangue(langue) }) });
+    }
+  }
+  const effective = variantes ? voixEffective(p, variantes) : null;
+  const valeur = !effective ? "" : effective.type === "custom" ? "custom"
+    : effective.type === "variante" ? `${effective.cle}|${effective.genre}` : `std|${effective.genre}`;
+  // Le genre de la voix diffère de celui du personnage : seule l'autre voix existe.
+  const genreImpose = effective && effective.type === "variante" && effective.genre !== (p.gender === "m" ? "m" : "f");
+
+  function choisir(val) {
+    if (val === "custom") return;
+    const [cle, g] = val.split("|");
+    if (cle === "std") { set({ gender: g, accent: null, voice_id: null }); return; }
+    const [l, acc] = cle.split("-");
+    set({ language: l, accent: acc, gender: g, voice_id: null });
+  }
+
   // Une ligne par réglage, dans « Réglages avancés » (maquette « Étape – Scénario »).
   return (
     <>
@@ -597,23 +668,27 @@ export function PersonaReglages({ persona, onChange }) {
           options={MODES_PERSONA.map((m) => [m, t(`dashboard.experienceEditor.persona.modes.${m}`)])}
         />
       </LigneReglage>
-      <LigneReglage titre={k("voiceTitle")} aide={k("voiceHelp")}>
-        <input value={p.language || ""} onChange={(e) => set({ language: e.target.value })} placeholder="fr"
-          aria-label={k("language")} title={k("language")} className="ds-input ds-mono" style={{ width: 70, height: 36 }} />
-        <input value={p.accent || ""} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} placeholder="BE"
-          aria-label={k("accent")} title={k("accent")} className="ds-input ds-mono" style={{ width: 70, height: 36 }} />
-        <ChoixSegmente
-          label={k("gender")}
-          valeur={p.gender === "m" ? "m" : "f"}
-          onChange={(gender) => set({ gender })}
-          options={[["f", k("genders.f")], ["m", k("genders.m")]]}
-        />
-      </LigneReglage>
-      {(p.mode || "call") === "call" && (
-        <LigneReglage titre={k("voiceId")} aide={k("voiceIdHelp")}>
-          <input value={p.voice_id || ""} onChange={(e) => set({ voice_id: e.target.value.trim() })}
-            placeholder={k("voiceIdPlaceholder")} aria-label={k("voiceId")}
-            className="ds-input ds-mono" style={{ width: 260, height: 36, fontSize: 12.5 }} />
+      {appel && (
+        <LigneReglage titre={p.name ? v("titleNamed", { name: p.name }) : v("title")} aide={v("help")}>
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <select
+              value={valeur}
+              onChange={(e) => choisir(e.target.value)}
+              disabled={!variantes}
+              aria-label={v("title")}
+              className="ds-select"
+              style={{ height: 36, minWidth: 250, fontSize: 13 }}
+            >
+              {!variantes && <option value="">{v("loading")}</option>}
+              {valeur === "custom" && <option value="custom">{v("custom")}</option>}
+              {options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
+            </select>
+            {genreImpose && (
+              <span className="ds-help" style={{ color: "var(--ds-amber-ink)", maxWidth: 280, textAlign: "right" }}>
+                {v("forcedGender", { genre: nomGenre(effective.genre).toLowerCase() })}
+              </span>
+            )}
+          </span>
         </LigneReglage>
       )}
       <LigneReglage titre={k("maxTurns")} aide={k("turnsHelp")}>

@@ -142,56 +142,6 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
 }
 
 /**
- * Crée un poste "à la volée" depuis le hub Expériences : offre + infos de base.
- * L'analyse IA de l'offre est best-effort (enrichit extracted_criteria) et non
- * bloquante — la génération d'expérience fonctionne même sans critères extraits.
- */
-export async function createRoleQuick(title, description) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    let criteria = {};
-    if (description && description.trim().length >= 50) {
-      // 'fr' explicite : cet écran n'offre pas de choix de langue, le poste est
-      // donc créé avec le défaut de la colonne experience_locale. Analyser dans
-      // une autre langue que celle qui sera stockée n'aurait aucun sens.
-      // Rien n'est débité ici : les 6 crédits tombent quand l'agent aura créé
-      // la simulation. Seul un solde insuffisant — refusé par
-      // analyzeJobDescription avant d'appeler le modèle — doit remonter au
-      // recruteur, d'où le test sur le message. Toute autre panne d'analyse
-      // laisse créer l'offre, sans critères.
-      try {
-        criteria = await analyzeJobDescription(description, "fr");
-      } catch (e) {
-        if ((e.message || "").startsWith("Crédits insuffisants")) return { success: false, error: e.message };
-        console.error("analyse offre (non bloquant):", e.message);
-      }
-    }
-
-    const finalTitle = (title && title.trim()) || criteria?.title || "Nouveau poste";
-
-    const { data: job, error } = await supabase
-      .from("jobs")
-      .insert({
-        user_id: user.id,
-        title: finalTitle,
-        description: description || null,
-        extracted_criteria: criteria || {},
-        status: "active",
-      })
-      .select("id, title, extracted_criteria")
-      .single();
-    if (error) throw error;
-    return { success: true, job };
-  } catch (err) {
-    console.error("createRoleQuick error:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-/**
  * Logs unmapped skills to the unmapped_skills_log table for future taxonomy enrichment.
  * Non-blocking — errors are caught and logged, never thrown.
  */

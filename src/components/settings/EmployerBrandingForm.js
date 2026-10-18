@@ -110,9 +110,11 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
     );
   }
 
-  // La couleur d'entreprise n'est plus réglable depuis l'interface recruteur
-  // (refonte d'octobre 2026) : celle déjà enregistrée est conservée telle quelle
-  // à l'enregistrement, rien n'est effacé.
+  // Couleur de l'entreprise : elle habille l'expérience CANDIDAT (pages de
+  // candidature et simulation). L'interface recruteur, elle, garde la palette
+  // Onbord quelle que soit cette couleur.
+  const primaryText = getContrastColor(primaryColor);
+
   return (
     <form onSubmit={handleSave} className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {showContextWarning && (
@@ -129,28 +131,73 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-        <label className="ds-field">
-          <span className="ds-label">{t("dashboard.branding.displayName")}</span>
-          <input type="text" className="ds-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder={t("dashboard.branding.companyNamePlaceholder")} required />
-        </label>
-        <div className="ds-field">
-          <span className="ds-label">{t("dashboard.branding.logo")}</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={{ width: 40, height: 40, flex: "none", borderRadius: 10, border: "1px dashed #C9D3EA", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-              {logoUrl ? <img src={logoUrl} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <ImageIcon size={18} color="var(--ds-ink-5)" />}
-            </span>
-            <label className="ds-btn" style={{ height: 40 }}>
-              {uploading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <UploadCloud size={14} />}
-              {uploading ? t("dashboard.branding.uploading") : t("dashboard.branding.chooseImage")}
-              <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} style={{ display: "none" }} />
-            </label>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18, alignItems: "start" }}>
+        {/* Réglages */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <label className="ds-field">
+            <span className="ds-label">{t("dashboard.branding.displayName")}</span>
+            <input type="text" className="ds-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder={t("dashboard.branding.companyNamePlaceholder")} required />
+          </label>
+          <label className="ds-field">
+            <span className="ds-label">{t("dashboard.branding.shortPitch")}</span>
+            <textarea className="ds-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("dashboard.branding.taglinePlaceholder")} rows={3} />
+          </label>
+          <div className="ds-field">
+            <span className="ds-label">{t("dashboard.branding.logo")}</span>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ width: 40, height: 40, flex: "none", borderRadius: 10, border: "1px dashed #C9D3EA", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {logoUrl ? <img src={logoUrl} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <ImageIcon size={18} color="var(--ds-ink-5)" />}
+              </span>
+              <label className="ds-btn" style={{ height: 40 }}>
+                {uploading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <UploadCloud size={14} />}
+                {uploading ? t("dashboard.branding.uploading") : t("dashboard.branding.chooseImage")}
+                <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} style={{ display: "none" }} />
+              </label>
+            </div>
+          </div>
+          <div className="ds-field">
+            <span className="ds-label">{t("dashboard.branding.primaryColor")}</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} aria-label={t("dashboard.branding.primaryColor")}
+                style={{ width: 40, height: 40, padding: 3, border: "1px solid var(--ds-line)", borderRadius: 9, background: "#FFFFFF", cursor: "pointer" }} />
+              <input type="text" className="ds-input ds-mono" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} aria-label={t("dashboard.branding.primaryColor")} style={{ width: 120 }} />
+            </div>
+            <span className="ds-help">{t("dashboard.branding.primaryColorHelp")}</span>
           </div>
         </div>
-        <label className="ds-field" style={{ gridColumn: "1 / -1" }}>
-          <span className="ds-label">{t("dashboard.branding.shortPitch")}</span>
-          <textarea className="ds-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("dashboard.branding.taglinePlaceholder")} rows={3} />
-        </label>
+
+        {/* Aperçu de la page candidat, à la couleur de l'entreprise */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span className="ds-label">{t("dashboard.branding.preview")}</span>
+          <div className="ds-card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16, boxShadow: "var(--ds-shadow-pop)" }}>
+            <div style={{ borderBottom: "1px solid var(--ds-line-2)", paddingBottom: 10 }}>
+              {logoUrl
+                ? <img src={logoUrl} alt="" style={{ height: 24, maxWidth: 120, objectFit: "contain" }} />
+                : <span style={{ fontWeight: 600 }}>{companyName || t("dashboard.branding.previewCompanyName")}</span>}
+            </div>
+            {description && (
+              <div style={{ fontSize: 13, color: "var(--ds-ink-3)", lineHeight: 1.5, fontStyle: "italic", borderLeft: `3px solid ${primaryColor}`, paddingLeft: 10 }}>
+                « {description} »
+              </div>
+            )}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                <span style={{ color: "var(--ds-ink-3)" }}>{t("dashboard.branding.previewProgress")}</span>
+                <span className="ds-mono" style={{ fontWeight: 500, color: primaryColor }}>1/3</span>
+              </div>
+              <div style={{ height: 6, background: "var(--ds-line-2)", borderRadius: 999, overflow: "hidden" }}>
+                <div style={{ width: "33%", height: "100%", background: primaryColor, borderRadius: 999 }} />
+              </div>
+            </div>
+            <div style={{ border: `2px solid ${primaryColor}`, background: `${primaryColor}0c`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: primaryColor, color: primaryText, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>A</div>
+              <span style={{ fontSize: 13, fontWeight: 500 }}>{t("dashboard.branding.previewSelected")}</span>
+            </div>
+            <span style={{ background: primaryColor, color: primaryText, borderRadius: 9, padding: "10px 16px", fontSize: 13, fontWeight: 500, textAlign: "center" }}>
+              {t("dashboard.branding.previewContinue")}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>

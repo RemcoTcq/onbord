@@ -13,8 +13,9 @@
 // code, seulement de variable.
 //
 // Repli, dans l'ordre : la voix exacte (langue + accent + genre) → la même
-// langue et le même genre, quel que soit l'accent → une voix multilingue de
-// base d'ElevenLabs, du bon genre. Le modèle Flash v2.5 lui fait parler la
+// langue et le même accent, l'autre genre → la même langue, un autre accent
+// (le bon genre puis l'autre) → une voix multilingue de base d'ElevenLabs, du
+// genre du personnage. Le modèle Flash v2.5 lui fait parler la
 // langue demandée (language_code), avec un accent neutre.
 
 export const MODELE_VOIX = process.env.ELEVENLABS_MODEL || "eleven_flash_v2_5";
@@ -93,17 +94,26 @@ export function voixDuPersonnage(persona) {
   const accent = String(persona?.accent || "").toUpperCase();
   const genre = persona?.gender === "m" ? "M" : "F";
 
+  const autre = genre === "M" ? "F" : "M";
+
+  // L'accent d'abord, le genre ensuite (décision de Remco, 19/10/2026) : un
+  // personnage flamand garde une voix flamande. S'il n'existe qu'une voix
+  // flamande d'homme, l'appel se fait avec elle, même si le personnage a été
+  // pensé en femme — l'éditeur le signale au recruteur.
   if (accent) {
-    const exacte = voixEnv(langue, accent, genre);
+    const exacte = voixEnv(langue, accent, genre) || voixEnv(langue, accent, autre);
     if (exacte) return exacte;
   }
-  // Même langue et même genre, quel que soit l'accent — en commençant par
-  // l'accent belge, le marché d'Onbord.
+  // Même langue, quel que soit l'accent — en commençant par l'accent belge, le
+  // marché d'Onbord ; le bon genre d'abord, l'autre ensuite.
   const accents = COMBINAISONS.filter((c) => c.startsWith(`${langue}_`)).map((c) => c.split("_")[1])
     .sort((a, b) => (b === "BE") - (a === "BE"));
-  for (const a of accents) {
-    const v = voixEnv(langue, a, genre);
-    if (v) return v;
+  for (const g of [genre, autre]) {
+    for (const a of accents) {
+      const v = voixEnv(langue, a, g);
+      if (v) return v;
+    }
   }
+  // Aucune voix pour cette langue : la voix standard multilingue, du genre du personnage.
   return VOIX_DE_BASE[genre.toLowerCase()];
 }

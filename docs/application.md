@@ -41,7 +41,6 @@ explique la forme du routage.
 /[lang]/(auth)/login
 /[lang]/(dashboard)/accueil
                    /jobs        offres et leur expérience générée
-                   /assessments évaluations
                    /compte      profil, facturation
                    /admin       création de comptes, invitations
 ```

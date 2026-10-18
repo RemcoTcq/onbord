@@ -512,6 +512,24 @@ const dashboard = {
   // l'offre et ne doit jamais être traduit à l'affichage. Seuls les libellés
   // d'interface, les aides et les valeurs par défaut sont ci-dessous.
   experienceEditor: {
+    // Sélecteur de voix du personnage (appel).
+    voices: {
+      title: "Voix du personnage",
+      titleNamed: "Voix de {name}",
+      help: "La voix de l'IA qui joue le personnage pendant l'appel.",
+      loading: "Chargement des voix…",
+      male: "Homme",
+      female: "Femme",
+      variant: "{lang} ({region})",
+      standard: "{genre} · voix standard ({lang})",
+      custom: "Voix personnalisée",
+      forcedGender: "Seule une voix de {genre} existe pour cette langue : l'appel se fera avec elle. Pensez à adapter le prénom du personnage.",
+      lang: { fr: "français", nl: "néerlandais", en: "anglais", de: "allemand", es: "espagnol", it: "italien" },
+      region: {
+        nl_BE: "Flandre", nl_NL: "Pays-Bas", fr_BE: "Belgique", fr_FR: "France",
+        en_GB: "Royaume-Uni", en_US: "États-Unis", de_DE: "Allemagne", es_ES: "Espagne", it_IT: "Italie",
+      },
+    },
     // Éléments d'interface partagés (panneaux repliables).
     ui: {
       toggle: "Réduire ou agrandir : {title}",
@@ -1433,43 +1451,6 @@ const dashboard = {
   },
 
   // ── Bibliothèque des expériences ──────────────────────────────────────────
-  experiences: {
-    version: "Version {n}",
-    ready: "Prêt(e) quand vous voulez",
-    readyName: "Prêt(e) quand vous voulez, {name}",
-    titlePlaceholder: "Ex : Account Executive B2B",
-    title: "Expériences",
-    subtitle: "Les expériences candidat générées pour vos postes.",
-    search: "Rechercher un poste…",
-    none: "Aucune expérience créée",
-    noResults: "Aucun résultat",
-    noneHelp: "Créez votre première expérience candidat pour un de vos postes.",
-    noResultsHelp: "Essayez un autre terme de recherche.",
-    generated: "Expérience générée — relisez et publiez",
-    jobDeleted: "Poste supprimé",
-    untitled: "Sans titre",
-    create: "Créer une expérience candidat",
-
-    // ── Création : choix du poste ───────────────────────────────────────
-    whichExperience: "Quelle expérience candidat voulez-vous créer ?",
-    attachJob: "Attacher une offre existante",
-    attachJobHelp:
-      "Les expériences liées à un poste utilisent automatiquement son offre et son contexte entreprise.",
-    existingJob: "Poste existant",
-    existingJobHelp: "Lier un poste déjà créé",
-    newJob: "Nouveau poste",
-    newJobHelp: "En créer un à la volée",
-    chooseJob: "Choisir un poste",
-    noJobYet: "Aucun poste. Créez-en un nouveau.",
-
-    jobTitleRequired: "Ajoutez un titre ou collez une offre (≥ 50 caractères).",
-    jobCreated: "Poste créé",
-    error: "Erreur",
-    jobTitle: "Titre du poste",
-    jobDescription: "Offre d'emploi (optionnel, améliore la génération)",
-    jobDescriptionPlaceholder: "Collez l'offre d'emploi ici…",
-    createAndContinue: "Créer et continuer",
-  },
 
   // ── Chat de conception d'expérience ───────────────────────────────────────
   // Ce chat parle au RECRUTEUR : il suit la langue du dashboard. Les réponses
