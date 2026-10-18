@@ -16,7 +16,7 @@ import { MODES as MODES_TABLEAU } from "@/lib/tableauCartes";
 import { CODE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/constants/codeLanguages";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import AutoTextarea from "@/components/ui/AutoTextarea";
-import { inputStyle, selectStyle, labelStyle } from "./ui";
+import { inputStyle, selectStyle, labelStyle, LigneReglage, ChoixSegmente, Compteur } from "./ui";
 
 // `chat` est la valeur stockée, `message` la clé de traduction : les deux
 // diffèrent historiquement, on ne renomme pas la donnée pour autant.
@@ -584,42 +584,42 @@ export function PersonaReglages({ persona, onChange }) {
   const { t } = useI18n();
   const p = persona || {};
   const set = (patch) => onChange({ ...p, ...patch });
+  const k = (cle) => t(`dashboard.experienceEditor.persona.${cle}`);
+  const tours = p.max_turns ?? DEFAUT_TOURS;
+  // Une ligne par réglage, dans « Réglages avancés » (maquette « Étape – Scénario »).
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      <div style={{ flex: "1 1 160px" }}>
-        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.mode")}</label>
-        <select value={p.mode || "call"} onChange={(e) => set({ mode: e.target.value })} style={selectStyle}>
-          {MODES_PERSONA.map((m) => <option key={m} value={m}>{t(`dashboard.experienceEditor.persona.modes.${m}`)}</option>)}
-        </select>
-      </div>
-      <div style={{ flex: "0 0 90px" }}>
-        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.language")}</label>
-        <input value={p.language || ""} onChange={(e) => set({ language: e.target.value })} placeholder="fr" style={inputStyle} />
-      </div>
-      <div style={{ flex: "0 0 90px" }}>
-        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.accent")}</label>
-        <input value={p.accent || ""} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} placeholder="BE" style={inputStyle} />
-      </div>
-      <div style={{ flex: "0 0 110px" }}>
-        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.gender")}</label>
-        <select value={p.gender === "m" ? "m" : "f"} onChange={(e) => set({ gender: e.target.value })} style={selectStyle}>
-          <option value="f">{t("dashboard.experienceEditor.persona.genders.f")}</option>
-          <option value="m">{t("dashboard.experienceEditor.persona.genders.m")}</option>
-        </select>
-      </div>
-      <div style={{ flex: "0 0 110px" }}>
-        <label style={labelStyle}>{t("dashboard.experienceEditor.persona.maxTurns")}</label>
-        <input type="number" min={2} max={MAX_TOURS} value={p.max_turns ?? DEFAUT_TOURS}
-          onChange={(e) => set({ max_turns: Math.max(2, Math.min(MAX_TOURS, parseInt(e.target.value, 10) || DEFAUT_TOURS)) })} style={inputStyle} />
-      </div>
+    <>
+      <LigneReglage titre={k("mode")} aide={k("modeHelp")}>
+        <ChoixSegmente
+          label={k("mode")}
+          valeur={p.mode || "call"}
+          onChange={(mode) => set({ mode })}
+          options={MODES_PERSONA.map((m) => [m, t(`dashboard.experienceEditor.persona.modes.${m}`)])}
+        />
+      </LigneReglage>
+      <LigneReglage titre={k("voiceTitle")} aide={k("voiceHelp")}>
+        <input value={p.language || ""} onChange={(e) => set({ language: e.target.value })} placeholder="fr"
+          aria-label={k("language")} title={k("language")} className="ds-input ds-mono" style={{ width: 70, height: 36 }} />
+        <input value={p.accent || ""} onChange={(e) => set({ accent: e.target.value.toUpperCase() })} placeholder="BE"
+          aria-label={k("accent")} title={k("accent")} className="ds-input ds-mono" style={{ width: 70, height: 36 }} />
+        <ChoixSegmente
+          label={k("gender")}
+          valeur={p.gender === "m" ? "m" : "f"}
+          onChange={(gender) => set({ gender })}
+          options={[["f", k("genders.f")], ["m", k("genders.m")]]}
+        />
+      </LigneReglage>
       {(p.mode || "call") === "call" && (
-        <div style={{ flex: "1 1 100%" }}>
-          <label style={labelStyle}>{t("dashboard.experienceEditor.persona.voiceId")}</label>
+        <LigneReglage titre={k("voiceId")} aide={k("voiceIdHelp")}>
           <input value={p.voice_id || ""} onChange={(e) => set({ voice_id: e.target.value.trim() })}
-            placeholder={t("dashboard.experienceEditor.persona.voiceIdPlaceholder")} style={{ ...inputStyle, fontFamily: "monospace", fontSize: "12.5px" }} />
-        </div>
+            placeholder={k("voiceIdPlaceholder")} aria-label={k("voiceId")}
+            className="ds-input ds-mono" style={{ width: 260, height: 36, fontSize: 12.5 }} />
+        </LigneReglage>
       )}
-    </div>
+      <LigneReglage titre={k("maxTurns")} aide={k("turnsHelp")}>
+        <Compteur valeur={tours} min={2} max={MAX_TOURS} onChange={(max_turns) => set({ max_turns })} moins={k("turnsLess")} plus={k("turnsMore")} />
+      </LigneReglage>
+    </>
   );
 }
 

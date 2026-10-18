@@ -374,14 +374,14 @@ export default function JobDetailPage() {
       />
 
       <div className="ds-tabbar">
-        <nav aria-label={t("dashboard.jobDetail.sectionsLabel")} className="ds-tabs">
+        <div role="tablist" aria-label={t("dashboard.jobDetail.sectionsLabel")} className="ds-tabs">
           {ONGLETS.map(id => (
-            <button key={id} type="button" className="ds-tab" aria-selected={activeTab === id} onClick={() => changerOnglet(id)}>
+            <button key={id} type="button" role="tab" className="ds-tab" aria-selected={activeTab === id} onClick={() => changerOnglet(id)}>
               {t(`dashboard.jobDetail.tabs.${id}`)}
               {id === "candidats" && candidates.length > 0 && <span className="ds-tab-count">{candidates.length}</span>}
             </button>
           ))}
-        </nav>
+        </div>
         <span style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 9 }}>
           {job?.location && <span className="ds-chip ds-chip-lg">{job.location}</span>}
           {modeTravail && <span className="ds-chip ds-chip-lg">{t(`dashboard.jobDetail.workMode.${modeTravail}`)}</span>}

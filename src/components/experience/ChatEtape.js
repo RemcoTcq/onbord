@@ -1,6 +1,7 @@
 "use client";
 
-// Le chat de la page d'une étape — un expert de la simulation (12/10/2026).
+// Le chat de la page d'une étape — un expert de la simulation (12/10/2026),
+// présenté en « Simulation Copilot » (maquettes « D · Étape », octobre 2026).
 //
 // Il RÉPOND aux questions du recruteur (gratuit) à partir de l'étape entière,
 // de ses voisines et de l'offre (route /api/chat/etape). Quand le recruteur
@@ -14,28 +15,33 @@
 // fait foi de rien ; l'étape enregistrée, si.
 
 import { useRef, useState, useEffect } from "react";
-import { Send, Loader2, Check, AlertTriangle, Sparkles } from "lucide-react";
+import { Send, Loader2, Check, AlertTriangle, Sparkles, RotateCcw, PanelRightClose, Copy, RefreshCw } from "lucide-react";
 import { regenerateStep } from "@/lib/actions/experience";
-import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 
 const SUGGESTIONS = ["scoring", "level", "harder"];
 
-export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMessages }) {
+function Avatar() {
+  return (
+    <span style={{ width: 26, height: 26, flex: "none", borderRadius: 8, background: "var(--ds-blue)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Sparkles size={13} strokeWidth={2} />
+    </span>
+  );
+}
+
+export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMessages, prenom, jobTitle, onReplier }) {
   const { t } = useI18n();
   const [saisie, setSaisie] = useState("");
   const [reflexion, setReflexion] = useState(false);   // le chat répond
   const [reecriture, setReecriture] = useState(false); // une réécriture tourne
+  const [copie, setCopie] = useState(null);
   const finRef = useRef(null);
   const occupe = reflexion || reecriture;
   const k = (cle, vars) => t(`dashboard.experienceEditor.stepChat.${cle}`, vars);
 
   useEffect(() => { finRef.current?.scrollIntoView({ block: "end" }); }, [messages, occupe]);
 
-  async function envoyer(texte) {
-    const question = String(texte || "").trim();
-    if (!question || occupe) return;
-    setSaisie("");
-    const fil = [...messages, { role: "user", text: question }];
+  async function demander(fil) {
     setMessages(fil);
     setReflexion(true);
     try {
@@ -56,6 +62,27 @@ export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMes
       setMessages((m) => [...m, { role: "assistant", note: true, ok: false, text: k("failedAnswer", { error: err.message || "" }) }]);
     }
     setReflexion(false);
+  }
+
+  function envoyer(texte) {
+    const question = String(texte || "").trim();
+    if (!question || occupe) return;
+    setSaisie("");
+    demander([...messages, { role: "user", text: question }]);
+  }
+
+  // Redemande la dernière réponse : le fil repart de la dernière question.
+  function regenerer(index) {
+    if (occupe) return;
+    const fil = messages.slice(0, index);
+    if (!fil.some((m) => m.role === "user")) return;
+    demander(fil);
+  }
+
+  function copier(index, texte) {
+    navigator.clipboard.writeText(texte || "");
+    setCopie(index);
+    setTimeout(() => setCopie(null), 2000);
   }
 
   // Le clic du recruteur sur « Appliquer » : c'est ici, et seulement ici,
@@ -80,106 +107,148 @@ export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMes
   }
 
   const ecarter = (index) => setMessages((m) => m.map((x, i) => (i === index ? { ...x, proposition: { ...x.proposition, statut: "ecartee" } } : x)));
+  const dernierAssistant = messages.map((m) => m.role).lastIndexOf("assistant");
 
   return (
-    <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0, overflow: "hidden", height: "100%" }}>
-      <div style={{ padding: "0.9rem 1.1rem", borderBottom: "1px solid var(--border)" }}>
-        <h3 style={{ fontSize: "13.5px", fontWeight: 800, margin: 0 }}>{k("title")}</h3>
-        <p style={{ fontSize: "11.5px", color: "var(--muted-foreground)", margin: "4px 0 0" }}>{k("cost")}</p>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 160, overflowY: "auto", padding: "0.9rem 1.1rem", display: "flex", flexDirection: "column", gap: 10 }}>
-        {!messages.length && (
-          <>
-            <p style={{ fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>{k("intro")}</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => envoyer(k(`suggestions.${s}`))}
-                  disabled={occupe}
-                  className="btn btn-ghost btn-sm"
-                  style={{ justifyContent: "flex-start", textAlign: "left", fontSize: "12.5px", border: "1px dashed var(--border)", whiteSpace: "normal", height: "auto", padding: "6px 10px" }}
-                >
-                  {k(`suggestions.${s}`)}
-                </button>
-              ))}
-            </div>
-          </>
+    <div className="ds-card" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", boxShadow: "0 1px 2px rgba(20,32,74,0.04), 0 12px 32px rgba(20,32,74,0.06)" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 10px 12px 14px", borderBottom: "1px solid var(--ds-line-2)" }}>
+        <span style={{ width: 32, height: 32, flex: "none", borderRadius: 10, background: "var(--ds-blue)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 4px var(--ds-blue-10)" }}>
+          <Sparkles size={15} strokeWidth={2} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{k("title")}</h2>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--ds-ink-3)" }}>
+            <span className="ds-dot ds-dot-green" />{k("knows")}
+          </span>
+        </span>
+        <button type="button" className="ds-icon-btn" onClick={() => setMessages([])} disabled={occupe || !messages.length} aria-label={k("newConversation")} title={k("newConversation")}>
+          <RotateCcw size={15} strokeWidth={2} />
+        </button>
+        {onReplier && (
+          <button type="button" className="ds-icon-btn" onClick={onReplier} aria-label={k("collapse")} aria-expanded="true" title={k("collapse")}>
+            <PanelRightClose size={16} strokeWidth={1.8} />
+          </button>
         )}
+      </header>
+
+      <div role="log" aria-label={k("logLabel")} style={{ flex: 1, minHeight: 160, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, padding: "16px 14px", background: "#FBFCFE" }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Avatar />
+          <p style={{ margin: 0, paddingTop: 3, fontSize: 13, lineHeight: 1.6 }}>
+            {tNodes(k(prenom ? "greeting" : "greetingNoName", { name: prenom }), { job: <span key="j" style={{ fontWeight: 500 }}>{jobTitle || "—"}</span> })}
+          </p>
+        </div>
 
         {messages.map((m, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
-            {m.text && (
-              <div style={{
-                maxWidth: "92%", fontSize: "13px", lineHeight: 1.55, padding: "8px 11px", borderRadius: 10,
-                background: m.role === "user" ? "var(--primary)" : (m.ok === false ? "#fef2f2" : "var(--secondary)"),
-                color: m.role === "user" ? "var(--primary-foreground, #fff)" : (m.ok === false ? "#991b1b" : "var(--foreground)"),
-                display: "flex", gap: 6, alignItems: "flex-start",
-              }}>
-                {m.note && (m.ok
-                  ? <Check size={14} style={{ color: "#166534", flexShrink: 0, marginTop: 3 }} />
-                  : <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 3 }} />)}
-                <span style={{ whiteSpace: "pre-wrap" }}>{m.text}</span>
-              </div>
-            )}
+          m.role === "user" ? (
+            <div key={i} style={{ alignSelf: "flex-end", maxWidth: "85%", padding: "9px 12px", borderRadius: "14px 14px 4px 14px", background: "var(--ds-blue)", color: "#FFFFFF", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              {m.text}
+            </div>
+          ) : (
+            <div key={i} style={{ display: "flex", gap: 10 }}>
+              <Avatar />
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10, paddingTop: 3 }}>
+                {m.text && (
+                  m.note ? (
+                    <p style={{ margin: 0, display: "flex", gap: 6, alignItems: "flex-start", fontSize: 13, lineHeight: 1.55, padding: "8px 10px", borderRadius: 8, background: m.ok ? "#F2FAF6" : "var(--ds-red-bg)", color: m.ok ? "var(--ds-green-ink)" : "var(--ds-red)" }}>
+                      {m.ok ? <Check size={14} style={{ flexShrink: 0, marginTop: 3 }} /> : <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 3 }} />}
+                      <span style={{ whiteSpace: "pre-wrap" }}>{m.text}</span>
+                    </p>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{m.text}</p>
+                  )
+                )}
 
-            {m.proposition && (
-              <div style={{ maxWidth: "92%", width: "100%", border: "1px solid var(--primary)", borderRadius: 10, padding: "9px 11px", background: "var(--background)" }}>
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".04em", display: "flex", alignItems: "center", gap: 5 }}>
-                  <Sparkles size={12} /> {k("proposal")}
-                </div>
-                <p style={{ fontSize: "13px", lineHeight: 1.5, margin: "4px 0 8px" }}>{m.proposition.resume}</p>
-                {m.proposition.statut === "ouverte" && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => appliquer(i)} disabled={occupe} style={{ fontSize: "12px" }}>
-                      {k("apply")}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => ecarter(i)} disabled={occupe} style={{ fontSize: "12px" }}>
-                      {k("dismiss")}
-                    </button>
+                {m.proposition && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: 10, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 500, color: "var(--ds-blue)" }}>
+                      <Sparkles size={12} /> {k("proposal")}
+                    </span>
+                    <p style={{ margin: 0, padding: "8px 10px", borderRadius: 8, background: "#F2FAF6", borderLeft: "3px solid var(--ds-green)", fontSize: 13, lineHeight: 1.55 }}>
+                      {m.proposition.resume}
+                    </p>
+                    {m.proposition.statut === "ouverte" && (
+                      <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button type="button" className="ds-btn ds-btn-primary" onClick={() => appliquer(i)} disabled={occupe} style={{ height: 30, padding: "0 12px", borderRadius: 8, fontSize: 12 }}>
+                          {k("apply")}
+                        </button>
+                        <button type="button" className="ds-btn" onClick={() => ecarter(i)} disabled={occupe} style={{ height: 30, padding: "0 12px", borderRadius: 8, fontSize: 12, color: "var(--ds-ink-2)" }}>
+                          {k("dismiss")}
+                        </button>
+                      </span>
+                    )}
+                    {m.proposition.statut === "en_cours" && (
+                      <span style={{ fontSize: 12, color: "var(--ds-ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> {k("working")}
+                      </span>
+                    )}
+                    {m.proposition.statut === "appliquee" && <span style={{ fontSize: 12, color: "var(--ds-green-ink)", fontWeight: 500 }}>{k("applied")}</span>}
+                    {m.proposition.statut === "ecartee" && <span style={{ fontSize: 12, color: "var(--ds-ink-4)" }}>{k("dismissed")}</span>}
                   </div>
                 )}
-                {m.proposition.statut === "en_cours" && (
-                  <div style={{ fontSize: "12px", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> {k("working")}
-                  </div>
+
+                {!m.note && m.text && (
+                  <span style={{ display: "flex", gap: 2 }}>
+                    <button type="button" className={`ds-icon-btn ${copie === i ? "is-copied" : ""}`} style={{ width: 26, height: 26, borderRadius: 7 }} onClick={() => copier(i, m.text)} aria-label={k("copy")} title={k("copy")}>
+                      {copie === i ? <Check size={13} /> : <Copy size={13} />}
+                    </button>
+                    {i === dernierAssistant && (
+                      <button type="button" className="ds-icon-btn" style={{ width: 26, height: 26, borderRadius: 7 }} onClick={() => regenerer(i)} disabled={occupe} aria-label={k("regenerate")} title={k("regenerate")}>
+                        <RefreshCw size={13} />
+                      </button>
+                    )}
+                  </span>
                 )}
-                {m.proposition.statut === "appliquee" && <div style={{ fontSize: "12px", color: "#166534", fontWeight: 600 }}>{k("applied")}</div>}
-                {m.proposition.statut === "ecartee" && <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{k("dismissed")}</div>}
               </div>
-            )}
-          </div>
+            </div>
+          )
         ))}
 
         {reflexion && (
-          <div style={{ alignSelf: "flex-start", fontSize: "12.5px", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> {k("thinking")}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, color: "var(--ds-ink-3)" }}>
+            <Avatar /> <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> {k("thinking")}
           </div>
         )}
         <div ref={finRef} />
       </div>
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); envoyer(saisie); }}
-        style={{ display: "flex", gap: 8, padding: "0.75rem", borderTop: "1px solid var(--border)" }}
-      >
-        <textarea
-          value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(saisie); } }}
-          placeholder={k("placeholder")}
-          rows={2}
-          disabled={occupe}
-          style={{
-            flex: 1, resize: "none", fontSize: "13px", fontFamily: "inherit", padding: "8px 10px", borderRadius: 8,
-            border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)",
-          }}
-        />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={occupe || !saisie.trim()} title={k("send")} style={{ alignSelf: "flex-end", padding: "8px 10px" }}>
-          <Send size={15} />
-        </button>
-      </form>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px 12px", borderTop: "1px solid var(--ds-line-2)" }}>
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => envoyer(k(`suggestions.${s}`))}
+              disabled={occupe}
+              style={{ flex: "none", height: 30, padding: "0 10px", border: "1px solid var(--ds-line)", borderRadius: 999, background: "var(--ds-soft)", font: "inherit", fontSize: 12, color: "var(--ds-ink-2)", cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              {k(`suggestions.${s}`)}
+            </button>
+          ))}
+        </div>
+        <form
+          onSubmit={(e) => { e.preventDefault(); envoyer(saisie); }}
+          style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 8px 8px 12px", borderRadius: 12, border: "1px solid #D6DDEC", background: "#FFFFFF", boxShadow: "var(--ds-shadow-xs)" }}
+        >
+          <label htmlFor="ds-copilot-saisie" className="sr-only">{k("inputLabel")}</label>
+          <textarea
+            id="ds-copilot-saisie"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(saisie); } }}
+            placeholder={k("placeholder")}
+            rows={2}
+            disabled={occupe}
+            style={{ width: "100%", resize: "none", border: 0, padding: "2px 0 0", font: "inherit", fontSize: 13, lineHeight: 1.5, color: "var(--ds-ink)", background: "transparent", outline: 0 }}
+          />
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "var(--ds-ink-4)" }}>{k("cost")}</span>
+            <button type="submit" disabled={occupe || !saisie.trim()} aria-label={k("send")} title={k("send")} className="ds-btn ds-btn-primary" style={{ width: 32, height: 32, padding: 0, borderRadius: 9 }}>
+              <Send size={14} />
+            </button>
+          </span>
+        </form>
+      </div>
     </div>
   );
 }

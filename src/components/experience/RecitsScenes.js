@@ -10,19 +10,19 @@
 //     restent derrière « Voir et modifier les données ».
 
 import { useState } from "react";
-import { Phone, MessageSquare, Pencil, Check } from "lucide-react";
+import { Phone, MessageSquare, Pencil, Check, EyeOff } from "lucide-react";
 import { crmEstEspace } from "@/lib/crmScoring";
 import { CODE_LANGUAGES } from "@/lib/constants/codeLanguages";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { SectionRecit } from "./Recit";
 import { CHAMPS_SCENE } from "./EditeursScene";
-import { inputStyle, labelStyle } from "./ui";
+import { Panneau } from "./ui";
 
 // ─── Personnage ──────────────────────────────────────────────────────────────
 // Deux temps : ce que vit le candidat (qui il appelle, ce qu'il sait, ce qu'il
 // entend en premier), puis ce qui se passe dans la tête du personnage — que le
 // candidat ne voit jamais, et que le recruteur lit dans sa langue.
-export function RecitPersona({ persona, onChange, stepId, toast }) {
+export function RecitPersona({ persona, onChange }) {
   const { t } = useI18n();
   const p = persona || {};
   const set = (patch) => onChange({ ...p, ...patch });
@@ -30,54 +30,58 @@ export function RecitPersona({ persona, onChange, stepId, toast }) {
   const appel = (p.mode || "call") === "call";
   const Icone = appel ? Phone : MessageSquare;
   const k = (cle) => `dashboard.experienceEditor.recit.persona.${cle}`;
-  const commun = { stepId, toast };
+  const sousTitre = [t(k(appel ? "call" : "chat")), [p.role, p.company].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  const libelleIdentite = identite ? t("dashboard.experienceEditor.recit.done") : t("dashboard.experienceEditor.recit.edit");
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: "0.6rem" }}>
-        <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icone size={17} style={{ color: "var(--primary)" }} />
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: ".04em" }}>
-            {t(k(appel ? "call" : "chat"))}
+      {/* Ce que vit le candidat : qui il rencontre, ce qu'il sait, ce qu'il entend en premier. */}
+      <Panneau
+        id="ds-personnage"
+        icone={<Icone size={16} strokeWidth={2} />}
+        titre={p.name || "—"}
+        sousTitre={sousTitre}
+        actions={
+          <button
+            type="button"
+            className="ds-icon-btn"
+            onClick={() => setIdentite((v) => !v)}
+            aria-label={libelleIdentite}
+            title={libelleIdentite}
+            style={{ width: 30, height: 30, ...(identite ? { background: "var(--ds-blue-10)", color: "var(--ds-blue)" } : {}) }}
+          >
+            {identite ? <Check size={15} strokeWidth={2.2} /> : <Pencil size={14} strokeWidth={1.8} />}
+          </button>
+        }
+      >
+        {identite && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "12px 14px" }}>
+            {["name", "role", "company"].map((cle) => (
+              <input key={cle} value={p[cle] || ""} onChange={(e) => set({ [cle]: e.target.value })}
+                placeholder={t(`dashboard.experienceEditor.persona.${cle}`)}
+                aria-label={t(`dashboard.experienceEditor.persona.${cle}`)}
+                className="ds-input" style={{ flex: "1 1 160px" }} />
+            ))}
           </div>
-          {identite ? (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-              {[["name", "name"], ["role", "role"], ["company", "company"]].map(([cle, libelle]) => (
-                <input key={cle} value={p[cle] || ""} onChange={(e) => set({ [cle]: e.target.value })}
-                  placeholder={t(`dashboard.experienceEditor.persona.${libelle}`)}
-                  style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px", fontSize: "13px" }} />
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: "15px", fontWeight: 800, lineHeight: 1.35 }}>
-              {p.name || "—"}
-              {(p.role || p.company) && (
-                <span style={{ fontWeight: 500, color: "var(--muted-foreground)" }}>
-                  {" · "}{[p.role, p.company].filter(Boolean).join(t(k("at")))}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIdentite((v) => !v)} style={{ padding: 3, color: identite ? "var(--primary)" : "var(--muted-foreground)" }}>
-          {identite ? <Check size={14} /> : <Pencil size={13} />}
-        </button>
-      </div>
-
-      <SectionRecit {...commun} titre={t(k("knows"))} valeur={p.context} onChange={(v) => set({ context: v })} />
-      <SectionRecit {...commun} titre={t(k("opening"))} valeur={p.opening_message} vide={t(k("openingEmpty"))} lignes={2} onChange={(v) => set({ opening_message: v })} />
+        )}
+        <SectionRecit titre={t(k("knows"))} valeur={p.context} onChange={(v) => set({ context: v })} />
+        <SectionRecit titre={t(k("opening"))} valeur={p.opening_message} vide={t(k("openingEmpty"))} lignes={2} citation onChange={(v) => set({ opening_message: v })} />
+      </Panneau>
 
       {/* Dans la tête du personnage : jamais montré au candidat. */}
-      <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "0.2rem 0.9rem 0.4rem", marginTop: "0.6rem" }}>
-        <p style={{ fontSize: "11.5px", color: "#92400e", margin: "0.55rem 0 0.15rem", lineHeight: 1.45 }}>{t(k("hiddenNote"))}</p>
-        <SectionRecit {...commun} accent="#92400e" titre={t(k("personality"))} valeur={p.personality} lignes={2} onChange={(v) => set({ personality: v })} />
-        <SectionRecit {...commun} accent="#92400e" titre={t(k("goals"))} valeur={p.goals} lignes={2} onChange={(v) => set({ goals: v })} />
-        <SectionRecit {...commun} accent="#92400e" titre={t(k("hidden"))} valeur={p.hidden_info} liste onChange={(v) => set({ hidden_info: v })} />
-        <SectionRecit {...commun} accent="#92400e" titre={t(k("objections"))} valeur={p.objections} liste onChange={(v) => set({ objections: v })} />
-        <SectionRecit {...commun} accent="#92400e" titre={t(k("redLines"))} valeur={p.red_lines} liste onChange={(v) => set({ red_lines: v })} />
-      </div>
+      <Panneau
+        id="ds-coulisses"
+        pointilles
+        icone={<EyeOff size={16} strokeWidth={2} />}
+        titre={t(k("hiddenTitle"))}
+        sousTitre={t(k("hiddenSub"))}
+      >
+        <SectionRecit fort titre={t(k("personality"))} valeur={p.personality} lignes={2} onChange={(v) => set({ personality: v })} />
+        <SectionRecit fort titre={t(k("goals"))} valeur={p.goals} lignes={2} onChange={(v) => set({ goals: v })} />
+        <SectionRecit fort titre={t(k("hidden"))} aide={t(k("hiddenHint"))} valeur={p.hidden_info} liste onChange={(v) => set({ hidden_info: v })} />
+        <SectionRecit fort titre={t(k("objections"))} valeur={p.objections} liste onChange={(v) => set({ objections: v })} />
+        <SectionRecit fort titre={t(k("redLines"))} valeur={p.red_lines} liste onChange={(v) => set({ red_lines: v })} />
+      </Panneau>
     </>
   );
 }
@@ -166,13 +170,13 @@ export function ResumeDonnees({ kind, config }) {
 
   if (!lignes.length) return null;
   return (
-    <div style={{ padding: "0.7rem 0", borderTop: "1px solid var(--border)" }}>
-      <div style={{ ...labelStyle, margin: "0 0 4px", textTransform: "none", letterSpacing: 0, fontSize: "12px", fontWeight: 800 }}>
+    <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ds-ink-3)" }}>
         {t("dashboard.experienceEditor.recit.data.title")}
-      </div>
-      {lignes.map((l, i) => <p key={i} style={{ fontSize: "13.5px", lineHeight: 1.55, margin: "0 0 2px" }}>{l}</p>)}
+      </span>
+      {lignes.map((l, i) => <p key={i} style={{ lineHeight: 1.6, margin: 0, color: "var(--ds-ink-2)" }}>{l}</p>)}
       {puces.length > 0 && (
-        <ul style={{ margin: "4px 0 0", paddingLeft: "1.1rem", fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: 1.55 }}>
+        <ul style={{ margin: "4px 0 0", paddingLeft: "1.1rem", fontSize: 13, color: "var(--ds-ink-3)", lineHeight: 1.55 }}>
           {puces.map((x, i) => <li key={i}>{x}</li>)}
         </ul>
       )}

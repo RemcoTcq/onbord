@@ -10,7 +10,7 @@
 // note se lit sur son bloc et se règle sur sa page (onglet Scoring).
 
 import { useState } from "react";
-import { Loader2, Sparkles, ChevronDown } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, ListChecks, AlertTriangle } from "lucide-react";
 import { EXERCICES_CIBLE_MAX, MUST } from "@/lib/competences";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
@@ -20,7 +20,7 @@ export default function NotationGlobale({ steps, competences, couverture, coveri
 
   if (!competences.length) {
     return (
-      <div className="card" style={{ padding: "0.9rem 1.25rem", fontSize: "12.5px", color: "var(--muted-foreground)" }}>
+      <div className="ds-card ds-sub" style={{ padding: "14px 16px" }}>
         {t("dashboard.experienceEditor.coverage.noSkills")}
       </div>
     );
@@ -41,59 +41,60 @@ export default function NotationGlobale({ steps, competences, couverture, coveri
   }
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+    <div className="ds-card" style={{ overflow: "hidden" }}>
       <button
         type="button"
         onClick={() => setOuvert((o) => !o)}
+        aria-expanded={ouvert}
+        className="ds-critere-tete"
         style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "1rem 1.3rem",
-          background: "none", border: "none", cursor: "pointer", font: "inherit", color: "var(--foreground)", textAlign: "left",
+          width: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "14px 16px",
+          background: "transparent", border: 0, cursor: "pointer", font: "inherit", color: "var(--ds-ink)", textAlign: "left",
         }}
       >
-        <ChevronDown size={16} style={{ transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s", color: "var(--muted-foreground)", flexShrink: 0 }} />
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: "15px", fontWeight: 800 }}>{t("dashboard.experienceEditor.notation.title")}</span>
-          <span style={{ display: "block", fontSize: "12.5px", color: "var(--muted-foreground)", marginTop: 2 }}>
-            {t("dashboard.experienceEditor.notation.summary", { count: lignes.length })}
-          </span>
+        <span className="ds-icon-tile ds-icon-tile-soft" style={{ width: 32, height: 32, borderRadius: 9 }}><ListChecks size={15} strokeWidth={2} /></span>
+        <span style={{ flex: "1 1 260px", display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>{t("dashboard.experienceEditor.notation.title")}</span>
+          <span className="ds-sub">{t("dashboard.experienceEditor.notation.summary", { count: lignes.length })}</span>
         </span>
-        <span style={{
-          fontSize: "11.5px", fontWeight: 700, borderRadius: 99, padding: "3px 10px", whiteSpace: "nowrap",
-          background: manquantes ? "#fee2e2" : "#dcfce7", color: manquantes ? "#991b1b" : "#166534",
-        }}>
+        <span className="ds-chip ds-chip-lg" style={manquantes
+          ? { borderColor: "var(--ds-red-line)", background: "#FFF6F4", color: "var(--ds-red)", fontWeight: 500, fontSize: 12 }
+          : { color: "var(--ds-green-ink)", fontWeight: 500, fontSize: 12 }}>
+          {manquantes ? <AlertTriangle size={13} /> : <span className="ds-dot ds-dot-green" />}
           {manquantes
             ? t("dashboard.experienceEditor.coverage.missing", { count: manquantes })
             : t("dashboard.experienceEditor.coverage.allCovered")}
         </span>
+        <ChevronDown size={16} style={{ transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s", color: "var(--ds-ink-3)", flexShrink: 0 }} />
       </button>
 
       {ouvert && (
-        <div style={{ padding: "0 1.3rem 1.1rem" }}>
-          <p style={{ fontSize: "13px", color: "var(--muted-foreground)", lineHeight: 1.55, margin: "0 0 0.8rem" }}>
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <p className="ds-sub" style={{ lineHeight: 1.55 }}>
             {t("dashboard.experienceEditor.notation.intro")}
           </p>
 
           {couverture.depasseDuree && (
-            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: 8, padding: "8px 12px", fontSize: "12.5px", lineHeight: 1.5, marginBottom: "0.8rem" }}>
+            <div className="ds-inset" style={{ background: "var(--ds-amber-bg)", borderColor: "#F3DDB8", color: "var(--ds-amber-ink)", fontSize: 13, lineHeight: 1.5, padding: "10px 12px" }}>
               {t("dashboard.experienceEditor.coverage.overDuration", {
                 steps: couverture.nbEtapes, max: EXERCICES_CIBLE_MAX, count: couverture.must.length,
               })}
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div className="ds-inset ds-rows">
             {lignes.map((c) => {
               const must = c.tier === MUST;
               const manque = must && !c.refs.length;
               const etapes = etapesDe(c);
               return (
                 <div key={c.id} style={{
-                  display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                  padding: "0.65rem 0.75rem", borderTop: "1px solid var(--border)",
-                  background: manque ? "#fef2f2" : undefined, borderRadius: manque ? 8 : 0,
+                  display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px",
+                  background: manque ? "var(--ds-red-soft)" : undefined,
                 }}>
-                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-                    <div style={{ fontSize: "13.5px", fontWeight: 700 }}>{c.name}</div>
+                  <div style={{ flex: "1 1 220px", minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className={`ds-dot ${must ? "ds-dot-blue" : "ds-dot-grey"}`} title={must ? t("dashboard.experienceEditor.coverage.must") : t("dashboard.experienceEditor.coverage.nice")} />
+                    <span style={{ fontWeight: 500 }}>{c.name}</span>
                   </div>
 
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -103,13 +104,11 @@ export default function NotationGlobale({ steps, competences, couverture, coveri
                         type="button"
                         onClick={() => onOpenStep(indexDe.get(i)?.id)}
                         title={indexDe.get(i)?.title || ""}
-                        style={{
-                          fontSize: "11.5px", fontWeight: 600, borderRadius: 99, padding: "3px 10px", cursor: "pointer",
-                          border: "1px solid var(--border)", background: "var(--background)", color: "var(--foreground)",
-                        }}
+                        className="ds-chip"
+                        style={{ cursor: "pointer", font: "inherit", fontSize: 12 }}
                       >
                         {t("dashboard.experienceEditor.notation.inStep", { n: i + 1 })}
-                        <span style={{ color: "var(--muted-foreground)" }}>
+                        <span style={{ color: "var(--ds-ink-4)" }}>
                           {" · "}{info.checkpoints
                             ? t("dashboard.experienceEditor.coverage.checkpointCount", { count: info.checkpoints })
                             : t("dashboard.experienceEditor.notation.auto")}
@@ -118,18 +117,19 @@ export default function NotationGlobale({ steps, competences, couverture, coveri
                     ))}
                     {manque && (
                       <button
-                        className="btn btn-outline btn-sm"
+                        type="button"
+                        className="ds-btn ds-btn-sm"
                         onClick={() => onCover(c.id)}
                         disabled={!!covering}
                         title={t("dashboard.experienceEditor.coverage.coverHelp")}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "12px" }}
+                        style={{ height: 28, fontSize: 12, color: "var(--ds-blue)" }}
                       >
                         {covering === c.id ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={13} />}
                         {covering === c.id ? t("dashboard.experienceEditor.coverage.covering") : t("dashboard.experienceEditor.coverage.cover")}
                       </button>
                     )}
                     {!c.refs.length && !must && (
-                      <span style={{ fontSize: "11.5px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.coverage.uncoveredNice")}</span>
+                      <span style={{ fontSize: 12, color: "var(--ds-ink-4)" }}>{t("dashboard.experienceEditor.coverage.uncoveredNice")}</span>
                     )}
                   </div>
                 </div>

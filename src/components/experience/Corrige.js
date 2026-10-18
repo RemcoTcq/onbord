@@ -12,7 +12,7 @@
 // bougé ; la donnée et la notation sont inchangées.
 
 import { useState } from "react";
-import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronDown, KeyRound } from "lucide-react";
 import { crmToutesSources } from "@/lib/crmScoring";
 import { PRIORITES } from "@/lib/boiteReception";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -40,21 +40,22 @@ export default function Corrige({ step, setConfig, stepId, toast }) {
   const [ouvert, setOuvert] = useState(false);
 
   return (
-    <section className="card" style={{ padding: "0.9rem 1.2rem" }}>
+    <section className="ds-card" style={{ display: "flex", flexDirection: "column", gap: ouvert ? 12 : 0, padding: ouvert ? 5 : 0 }}>
       <button
         type="button"
         onClick={() => setOuvert((o) => !o)}
-        style={{ width: "100%", display: "flex", alignItems: "flex-start", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", color: "var(--foreground)", textAlign: "left" }}
+        aria-expanded={ouvert}
+        className="ds-critere-tete"
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: ouvert ? "9px 11px 0" : "14px 16px", border: 0, borderRadius: 14, background: "transparent", cursor: "pointer", font: "inherit", color: "var(--ds-ink)", textAlign: "left" }}
       >
-        <ChevronDown size={16} style={{ marginTop: 2, transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s", color: "var(--muted-foreground)", flexShrink: 0 }} />
-        <span>
-          <span style={{ display: "block", fontSize: "13.5px", fontWeight: 800 }}>{t("dashboard.experienceEditor.corrige.title")}</span>
-          <span style={{ display: "block", fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: 1.55, marginTop: 2 }}>
-            {t("dashboard.experienceEditor.corrige.help")}
-          </span>
+        <span className="ds-icon-tile ds-icon-tile-soft" style={{ width: 32, height: 32, borderRadius: 9 }}><KeyRound size={15} strokeWidth={2} /></span>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+          <span style={{ fontWeight: 600 }}>{t("dashboard.experienceEditor.corrige.title")}</span>
+          <span className="ds-sub">{t("dashboard.experienceEditor.corrige.help")}</span>
         </span>
+        <ChevronDown size={16} style={{ transform: ouvert ? "none" : "rotate(-90deg)", transition: "transform .15s", color: "var(--ds-ink-3)", flexShrink: 0 }} />
       </button>
-      {ouvert && (<div style={{ marginTop: "0.5rem" }}>
+      {ouvert && (<div className="ds-inset ds-rows">
 
       {step.sandbox_kind === "persona" && (
         <SectionRecit
@@ -118,15 +119,15 @@ function TriAttendu({ elements, notes, cle, choix, onChange }) {
   };
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.7rem" }}>
-      <div style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted-foreground)", marginBottom: 6 }}>
+    <div style={{ padding: "12px 14px" }}>
+      <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--ds-ink-3)", marginBottom: 6 }}>
         {t("dashboard.experienceEditor.corrige.triage")}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {elements.map((el) => {
           const note = noteDe(el.id);
           return (
-            <div key={el.id} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${note.trap ? "#f97316" : "var(--border)"}`, borderRadius: 8, padding: "0.55rem 0.7rem" }}>
+            <div key={el.id} style={{ background: "#FFFFFF", border: "1px solid var(--ds-line)", borderLeft: `3px solid ${note.trap ? "var(--ds-amber)" : "var(--ds-line)"}`, borderRadius: 8, padding: "0.55rem 0.7rem" }}>
               <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 5 }}>{el.titre}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <select
@@ -137,7 +138,7 @@ function TriAttendu({ elements, notes, cle, choix, onChange }) {
                   <option value="">—</option>
                   {choix.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", color: "#92400e" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", color: "var(--ds-amber-ink)" }}>
                   <input type="checkbox" checked={!!note.trap} onChange={(e) => setNote(el.id, { trap: e.target.checked })} />
                   {t("dashboard.experienceEditor.inbox.trap")}
                 </label>
@@ -185,8 +186,8 @@ function CorrigeCrm({ crm, onChange }) {
 
   return (
     <>
-      <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.7rem" }}>
-        <div style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted-foreground)", marginBottom: 6 }}>
+      <div style={{ padding: "12px 14px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--ds-ink-3)", marginBottom: 6 }}>
           {t("dashboard.experienceEditor.corrige.crmExpected")}
         </div>
         {!fields.some((f) => f.nature === "factual") && (
@@ -194,10 +195,10 @@ function CorrigeCrm({ crm, onChange }) {
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {fields.map((f, i) => f.nature !== "factual" ? null : (
-            <div key={f.key || i} style={{ border: "1px solid #bae6fd", background: "#f0f9ff", borderRadius: 8, padding: "0.55rem 0.7rem" }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 5, color: "#0c4a6e" }}>{f.label || f.key}</div>
+            <div key={f.key || i} style={{ border: "1px solid var(--ds-line)", background: "#FFFFFF", borderRadius: 10, padding: "0.55rem 0.7rem" }}>
+              <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: 5, color: "var(--ds-ink)" }}>{f.label || f.key}</div>
               {introuvable(f) && (
-                <div style={{ fontSize: "11.5px", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "5px 8px", marginBottom: 6, lineHeight: 1.45 }}>
+                <div style={{ fontSize: "11.5px", color: "var(--ds-amber-ink)", background: "var(--ds-amber-bg)", border: "1px solid #F3DDB8", borderRadius: 7, padding: "5px 8px", marginBottom: 6, lineHeight: 1.45 }}>
                   {t("dashboard.experienceEditor.crm.expectedMissing")}
                 </div>
               )}
@@ -216,9 +217,9 @@ function CorrigeCrm({ crm, onChange }) {
         </div>
       </div>
 
-      <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.7rem", marginTop: "0.7rem" }}>
+      <div style={{ padding: "12px 14px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.corrige.crmTraps")}</span>
+          <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--ds-ink-3)" }}>{t("dashboard.experienceEditor.corrige.crmTraps")}</span>
           <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: 4 }}
             onClick={() => set({ traps: [...traps, { id: `trap_${traps.length + 1}`, kind: "contradiction", fields: [], description: "", resolution: "", expected_signal: "" }] })}>
             <Plus size={13} /> {t("dashboard.experienceEditor.addTrap")}
@@ -226,7 +227,7 @@ function CorrigeCrm({ crm, onChange }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {traps.map((trap, i) => (
-            <div key={i} style={{ border: "1px solid #fed7aa", background: "#fffbeb", borderRadius: 8, padding: "0.65rem" }}>
+            <div key={i} style={{ border: "1px solid #F3DDB8", background: "var(--ds-amber-bg)", borderRadius: 10, padding: "0.65rem" }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                 <select value={(trap.fields || [])[0] || ""} onChange={(e) => setTrap(i, { fields: e.target.value ? [e.target.value] : [] })}
                   style={{ ...selectStyle, marginBottom: 0, flex: "1 1 auto" }}>
@@ -234,7 +235,7 @@ function CorrigeCrm({ crm, onChange }) {
                   {factualKeys.map((k) => <option key={k} value={k}>{fields.find((f) => f.key === k)?.label || k}</option>)}
                 </select>
                 <button className="btn btn-ghost btn-sm" onClick={() => set({ traps: traps.filter((_, j) => j !== i) })}
-                  style={{ padding: 4, color: "#dc2626" }}><Trash2 size={14} /></button>
+                  style={{ padding: 4, color: "var(--ds-red)" }}><Trash2 size={14} /></button>
               </div>
               <label style={{ ...labelStyle, marginTop: 0 }}>{t("dashboard.experienceEditor.crm.trapSourcesPlaceholder")}</label>
               <AutoTextarea value={trap.description || ""} onChange={(e) => setTrap(i, { description: e.target.value })} rows={2}

@@ -724,3 +724,11 @@ html.ds, html.ds body { background: var(--ds-page); }
 .ds-btn-soft { border: 0; background: var(--ds-blue-10); color: var(--ds-blue); }
 .ds-btn-soft:hover { background: var(--ds-blue-16); }
 .ds-dot-blue { background: var(--ds-blue); }
+
+/* Encart découpé en lignes (sections d'une étape, réglages) */
+.ds-rows { padding: 0; display: flex; flex-direction: column; }
+.ds-rows > * + * { border-top: 1px solid #E8ECF4; }
+
+/* Lien d'action en texte bleu (« Afficher plus »…) */
+.ds-link { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--ds-blue); cursor: pointer; align-self: flex-start; }
+.ds-link:hover { text-decoration: underline; text-underline-offset: 3px; }

@@ -1,7 +1,7 @@
 "use client";
 
 // Page d'UNE étape de la simulation : deux onglets à gauche — « Scénario » (ce
-// que le candidat reçoit) et « Scoring » (ce que l'IA vérifie, et ce que
+// que le candidat reçoit) et « Notation » (ce que l'IA vérifie, et ce que
 // l'étape pèse dans la note) —, et à droite le chat qui ne retouche QUE cette
 // étape. On y arrive depuis un bloc de la vue d'ensemble ; les flèches
 // passent à l'étape voisine sans repasser par elle.
@@ -13,7 +13,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
-import { Loader2, ArrowLeft, ChevronLeft, ChevronRight, Trash2, Check } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Trash2, Check, Sparkles } from "lucide-react";
 import { getExperienceForJob, deleteStep, harmoniserNotesRecruteur, decrireCriteres } from "@/lib/actions/experience";
 import { getJobDetail } from "@/lib/actions/candidate";
 import { listerCompetences, partsDeLaNote } from "@/lib/competences";
@@ -22,6 +22,8 @@ import ChatEtape from "@/components/experience/ChatEtape";
 import { StatusBadge, BandeauEphemere } from "@/components/experience/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import PageHeader from "@/components/layout/PageHeader";
+import { useShell } from "@/components/layout/ShellContext";
 
 export default function StepPage() {
   const { t } = useI18n();
@@ -65,9 +67,12 @@ export default function StepPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "5rem" }}>
-        <Loader2 size={28} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
-      </div>
+      <>
+        <PageHeader title="…" />
+        <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+          <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+        </div>
+      </>
     );
   }
 
@@ -77,10 +82,13 @@ export default function StepPage() {
 
   if (!step) {
     return (
-      <div style={{ maxWidth: 640, margin: "3rem auto", textAlign: "center" }}>
-        <p style={{ fontSize: "14px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>{t("dashboard.experienceEditor.stepPage.notFound")}</p>
-        <button className="btn btn-outline btn-sm" onClick={retour}>{t("dashboard.experienceEditor.stepPage.back")}</button>
-      </div>
+      <>
+        <PageHeader crumbs={[{ label: job?.title || t("dashboard.nav.jobs"), href: `/jobs/${jobId}` }]} title={t("dashboard.jobDetail.journeyCard.simulation")} />
+        <div className="ds-empty" style={{ padding: "64px 20px" }}>
+          <span>{t("dashboard.experienceEditor.stepPage.notFound")}</span>
+          <button type="button" className="ds-btn ds-btn-md" onClick={retour} style={{ marginTop: 10 }}>{t("dashboard.experienceEditor.stepPage.back")}</button>
+        </div>
+      </>
     );
   }
 
@@ -90,6 +98,7 @@ export default function StepPage() {
       // de ce qui est en base, sans effet de resynchronisation.
       key={`${step.id}:${step.updated_at || ""}`}
       job={job}
+      jobId={jobId}
       experience={experience}
       steps={steps}
       index={index}
@@ -109,16 +118,25 @@ export default function StepPage() {
   );
 }
 
-function EspaceEtape({ job, experience, steps, index, onglet, setOnglet, fil, setFil, onSaved, onVersion, onRetour, onAller, toast }) {
+function EspaceEtape({ job, jobId, experience, steps, index, onglet, setOnglet, fil, setFil, onSaved, onVersion, onRetour, onAller, toast }) {
   const { t } = useI18n();
+  const { user } = useShell();
   const step = steps[index];
   const competences = listerCompetences(job?.extracted_criteria || {});
   // Réaffiche le bandeau d'état après un enregistrement (BandeauEphemere).
   const [signal, setSignal] = useState(0);
+  // Le copilote se replie en bouton flottant ; le choix tient le temps de la session.
+  const [copilote, setCopilote] = useState(() => {
+    try { return sessionStorage.getItem("onbord_copilote") !== "0"; } catch { return true; }
+  });
+  function basculerCopilote(v) {
+    setCopilote(v);
+    try { sessionStorage.setItem("onbord_copilote", v ? "1" : "0"); } catch {}
+  }
 
   // Ce qu'évalue chaque critère, rédigé par l'IA et mis en cache
   // (lib/descriptionsCriteres.js). Rechargé à chaque version enregistrée de
-  // l'étape ; l'onglet Scoring ne montre une description que si le nom du
+  // l'étape ; l'onglet Notation ne montre une description que si le nom du
   // critère correspond encore.
   const [descriptions, setDescriptions] = useState([]);
   const [descriptionsEnCours, setDescriptionsEnCours] = useState(true);
@@ -144,7 +162,8 @@ function EspaceEtape({ job, experience, steps, index, onglet, setOnglet, fil, se
   const [suppression, setSuppression] = useState(false);
 
   // Quitter la page avec des modifications non enregistrées : le navigateur
-  // prévient (fermeture, rechargement) ; nos boutons demandent confirmation.
+  // prévient (fermeture, rechargement) ; nos boutons et le fil d'Ariane
+  // demandent confirmation.
   useEffect(() => {
     if (!edition.dirty) return;
     const avertir = (e) => { e.preventDefault(); e.returnValue = ""; };
@@ -152,10 +171,8 @@ function EspaceEtape({ job, experience, steps, index, onglet, setOnglet, fil, se
     return () => window.removeEventListener("beforeunload", avertir);
   }, [edition.dirty]);
 
-  const quitter = (aller) => () => {
-    if (edition.dirty && !confirm(t("dashboard.experienceEditor.stepPage.leaveUnsaved"))) return;
-    aller();
-  };
+  const peutQuitter = () => !edition.dirty || confirm(t("dashboard.experienceEditor.stepPage.leaveUnsaved"));
+  const quitter = (aller) => () => { if (peutQuitter()) aller(); };
 
   async function supprimer() {
     if (!confirm(t("dashboard.experienceEditor.deleteStepConfirm"))) return;
@@ -169,121 +186,120 @@ function EspaceEtape({ job, experience, steps, index, onglet, setOnglet, fil, se
 
   const precedente = steps[index - 1];
   const suivante = steps[index + 1];
-  const ongletBtn = (id, label) => (
-    <button
-      onClick={() => setOnglet(id)}
-      style={{
-        display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", border: "none", background: "none", cursor: "pointer",
-        font: "inherit", fontSize: "13.5px", fontWeight: 700,
-        color: onglet === id ? "var(--foreground)" : "var(--muted-foreground)",
-        borderBottom: `2px solid ${onglet === id ? "var(--primary)" : "transparent"}`, marginBottom: -1,
-      }}
-    >
-      {label}
-    </button>
-  );
+  const navBtn = { width: 30, height: 30, border: 0, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", paddingBottom: edition.dirty ? "6rem" : "3rem" }}>
+    <>
       <style>{`
-        .checkpoint-ligne:hover { background: var(--secondary); }
-        .groupe-competence-tete:hover { background: var(--secondary); }
-        .tuile-competence:hover { border-color: var(--primary) !important; }
-        .carte-critere-corps { display: grid; grid-template-columns: minmax(0, 1fr) 230px; }
-        .carte-critere-note { border-left: 1px solid var(--border); }
-        @media (max-width: 760px) {
-          .carte-critere-corps { grid-template-columns: minmax(0, 1fr); }
-          .carte-critere-note { border-left: none; border-top: 1px solid var(--border); }
-        }
-        .bloc-etape-attente { animation: pulse-attente 1.4s ease-in-out infinite; }
-        @keyframes pulse-attente { 50% { opacity: .45; } }
+        .ds-critere-tete:hover { background: var(--ds-hover-row); }
         .checkpoint-actions { opacity: 0; transition: opacity .12s; }
         .checkpoint-ligne:hover .checkpoint-actions, .checkpoint-ligne:focus-within .checkpoint-actions { opacity: 1; }
-        .texte-editable:hover { text-decoration: underline dotted var(--muted-foreground); text-underline-offset: 3px; }
-        .etape-grille { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.25rem; align-items: start; }
-        .etape-chat { position: sticky; top: 1rem; height: calc(100vh - 2rem); max-height: 760px; }
-        @media (max-width: 1050px) {
-          .etape-grille { grid-template-columns: minmax(0, 1fr); }
-          .etape-chat { position: static; height: 480px; }
-        }
+        .texte-editable:hover { text-decoration: underline dotted var(--ds-ink-5); text-underline-offset: 3px; }
+        .bloc-etape-attente { animation: pulse-attente 1.4s ease-in-out infinite; }
+        @keyframes pulse-attente { 50% { opacity: .45; } }
+        .etape-copilote { position: sticky; top: 10px; height: calc(100vh - 40px); max-height: 760px; }
       `}</style>
 
-      {/* ── Navigation ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "0.9rem", flexWrap: "wrap" }}>
-        <button className="btn btn-ghost btn-sm" onClick={quitter(onRetour)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <ArrowLeft size={16} /> {t("dashboard.experienceEditor.stepPage.back")}
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button className="btn btn-ghost btn-sm" disabled={!precedente} onClick={quitter(() => onAller(precedente.id))} title={t("dashboard.experienceEditor.stepPage.previous")} style={{ padding: 6 }}>
-            <ChevronLeft size={16} />
-          </button>
-          <span style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--muted-foreground)" }}>
-            {t("dashboard.experienceEditor.stepPage.stepOf", { n: index + 1, total: steps.length })}
+      <PageHeader
+        garde={peutQuitter}
+        crumbs={[
+          { label: job?.title || t("dashboard.nav.jobs"), href: `/jobs/${jobId}` },
+          { label: t("dashboard.jobDetail.journeyCard.simulation"), href: `/jobs/${jobId}/experience` },
+        ]}
+        title={
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span className="ds-mono" style={{ width: 24, height: 24, flex: "none", borderRadius: 7, background: "var(--ds-blue)", color: "#FFFFFF", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500 }}>{index + 1}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{edition.local.title || "—"}</span>
           </span>
-          <button className="btn btn-ghost btn-sm" disabled={!suivante} onClick={quitter(() => onAller(suivante.id))} title={t("dashboard.experienceEditor.stepPage.next")} style={{ padding: 6 }}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            <span style={{ display: "flex", alignItems: "center", height: 32, borderRadius: 9, border: "1px solid var(--ds-line)" }}>
+              <button type="button" disabled={!precedente} onClick={quitter(() => onAller(precedente.id))} aria-label={t("dashboard.experienceEditor.stepPage.previous")} title={t("dashboard.experienceEditor.stepPage.previous")} style={{ ...navBtn, color: precedente ? "var(--ds-ink-2)" : "#C2C9DA" }}>
+                <ChevronLeft size={16} strokeWidth={2} />
+              </button>
+              <span className="ds-mono" style={{ fontSize: 12, color: "var(--ds-ink-2)" }}>{index + 1} / {steps.length}</span>
+              <button type="button" disabled={!suivante} onClick={quitter(() => onAller(suivante.id))} aria-label={t("dashboard.experienceEditor.stepPage.next")} title={t("dashboard.experienceEditor.stepPage.next")} style={{ ...navBtn, color: suivante ? "var(--ds-ink-2)" : "#C2C9DA" }}>
+                <ChevronRight size={16} strokeWidth={2} />
+              </button>
+            </span>
+            <StatusBadge status={experience?.status} />
+            <button type="button" className="ds-btn ds-btn-danger ds-btn-sm" onClick={supprimer} disabled={suppression} style={{ borderColor: "var(--ds-red-line)" }}>
+              {suppression ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
+              {t("dashboard.experienceEditor.stepPage.delete")}
+            </button>
+          </>
+        }
+      />
 
-      {/* ── En-tête de l'étape ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontSize: "1.3rem", fontWeight: 800, lineHeight: 1.3, margin: 0 }}>
-            <span style={{ color: "var(--muted-foreground)", marginRight: 8 }}>{index + 1}.</span>{edition.local.title || "—"}
-          </h1>
-          {part < 100 && (
-            <p style={{ fontSize: "12.5px", color: "var(--muted-foreground)", margin: "4px 0 0" }}>
-              {part ? t("dashboard.experienceEditor.overview.share", { part }) : t("dashboard.experienceEditor.overview.noShare")}
-            </p>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <StatusBadge status={experience?.status} />
-          <button className="btn btn-ghost btn-sm" onClick={supprimer} disabled={suppression} style={{ color: "#dc2626", display: "flex", alignItems: "center", gap: 6 }}>
-            {suppression ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-            {t("dashboard.experienceEditor.stepPage.delete")}
-          </button>
+      <div className="ds-tabbar">
+        <div role="tablist" aria-label={t("dashboard.experienceEditor.stepPage.viewsLabel")} className="ds-tabs">
+          <button type="button" role="tab" className="ds-tab" aria-selected={onglet === "scenario"} onClick={() => setOnglet("scenario")}>{t("dashboard.experienceEditor.stepPage.tabScenario")}</button>
+          <button type="button" role="tab" className="ds-tab" aria-selected={onglet === "scoring"} onClick={() => setOnglet("scoring")}>{t("dashboard.experienceEditor.stepPage.tabScoring")}</button>
         </div>
       </div>
 
       {experience?.locked_at && (
-        <BandeauEphemere key={`verrou-${signal}`} ton="alerte" style={{ fontSize: "12.5px", padding: "8px 12px" }}>
+        <BandeauEphemere key={`verrou-${signal}`} ton="alerte" bande>
           {t("dashboard.experienceEditor.stepPage.lockedShort")}
         </BandeauEphemere>
       )}
 
-      <div className="etape-grille">
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: "1rem" }}>
-            {ongletBtn("scenario", t("dashboard.experienceEditor.stepPage.tabScenario"))}
-            {ongletBtn("scoring", t("dashboard.experienceEditor.stepPage.tabScoring"))}
-          </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start", padding: "18px 20px", paddingBottom: edition.dirty ? 96 : 24 }}>
+        <div style={{ flex: "2 1 560px", minWidth: 0 }}>
           {onglet === "scenario"
             ? <OngletScenario edition={edition} toast={toast} />
             : <OngletScoring edition={edition} competences={competences} part={part} toast={toast} descriptions={descriptions} descriptionsEnCours={descriptionsEnCours} />}
         </div>
 
-        <aside className="etape-chat">
-          <ChatEtape stepId={step.id} dirty={edition.dirty} onRewritten={onVersion} messages={fil} setMessages={setFil} />
-        </aside>
+        {copilote && (
+          <aside className="etape-copilote" style={{ flex: "1 1 340px", minWidth: 0 }}>
+            <ChatEtape
+              stepId={step.id}
+              dirty={edition.dirty}
+              onRewritten={onVersion}
+              messages={fil}
+              setMessages={setFil}
+              prenom={user?.first_name}
+              jobTitle={job?.title}
+              onReplier={() => basculerCopilote(false)}
+            />
+          </aside>
+        )}
       </div>
+
+      {!copilote && (
+        <button
+          type="button"
+          onClick={() => basculerCopilote(true)}
+          aria-label={t("dashboard.experienceEditor.stepChat.open")}
+          aria-expanded="false"
+          className="ds-btn ds-btn-primary"
+          style={{ position: "fixed", right: 24, bottom: edition.dirty ? 84 : 24, zIndex: 40, height: 48, padding: "0 18px 0 8px", borderRadius: 999, boxShadow: "0 10px 28px var(--ds-blue-30), inset 0 1px 0 rgba(255,255,255,0.2)" }}
+        >
+          <span style={{ width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Sparkles size={16} strokeWidth={2} />
+          </span>
+          {t("dashboard.experienceEditor.stepChat.title")}
+        </button>
+      )}
 
       {/* ── Barre d'enregistrement, tant qu'il y a des modifications ── */}
       {edition.dirty && (
         <div style={{
-          position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", zIndex: 20,
-          display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12,
-          background: "var(--card, var(--background))", border: "1px solid var(--border)", boxShadow: "0 10px 30px rgba(15, 23, 42, .15)",
+          position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", zIndex: 41,
+          display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 14,
+          background: "#FFFFFF", border: "1px solid var(--ds-line)", boxShadow: "var(--ds-shadow-modal)",
         }}>
-          <span style={{ fontSize: "13px", fontWeight: 600 }}>{t("dashboard.experienceEditor.stepPage.unsaved")}</span>
-          <button className="btn btn-ghost btn-sm" onClick={edition.annuler} disabled={edition.saving}>{t("dashboard.experienceEditor.stepPage.discard")}</button>
-          <button className="btn btn-primary btn-sm" onClick={edition.save} disabled={edition.saving} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="ds-dot ds-dot-amber" style={{ width: 7, height: 7 }} />
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{t("dashboard.experienceEditor.stepPage.unsaved")}</span>
+          <button type="button" className="ds-btn ds-btn-ghost ds-btn-sm" onClick={edition.annuler} disabled={edition.saving}>{t("dashboard.experienceEditor.stepPage.discard")}</button>
+          <button type="button" className="ds-btn ds-btn-primary ds-btn-sm" onClick={edition.save} disabled={edition.saving}>
             {edition.saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />}
             {t("dashboard.experienceEditor.save")}
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -1,62 +1,50 @@
 "use client";
 
-import { useEffect } from "react";
-import { ArrowLeft, Briefcase } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import AssessmentChatCreator from "./AssessmentChatCreator";
+import PageHeader from "@/components/layout/PageHeader";
 
-// Enveloppe plein écran du chat de conception d'expérience.
+// Écran du chat de conception d'expérience.
 //
-// Le conteneur est fixé au viewport pour échapper au padding et au maxWidth
-// 1200 du layout dashboard : le chat n'est enfermé dans aucune carte, comme un
-// vrai assistant. Il démarre après la sidebar, qui reste accessible (elle est
-// au-dessus, z-index 50).
+// Il occupe toute la carte de page du tableau de bord, sous l'en-tête commun :
+// le chat n'est enfermé dans aucune autre carte, comme un vrai assistant. Le
+// menu de gauche reste accessible.
 //
 // Un seul composant pour tous les points d'entrée (hub Expériences, conception
 // et ajustement depuis une offre) : c'est ce qui garantit que le chat est le
 // même écran partout.
+//
+// `crumbs` + `pageTitle` : fil d'Ariane de l'en-tête (depuis un job). Sans eux,
+// l'en-tête affiche `title` et un bouton retour (`backLabel`, `onBack`).
 export default function ExperienceChatScreen({
   jobId,
   jobData,
   title,
   backLabel,
   onBack,
+  crumbs,
+  pageTitle,
   actions = null,
   initialPrompt = "",
   onGenerated,
   onStepRegenerated,
   onUserMessage,
 }) {
-  // La page dessous ne doit pas défiler derrière l'overlay — sinon la molette
-  // fait bouger la relecture pendant qu'on lit la conversation.
-  useEffect(() => {
-    const precedent = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = precedent; };
-  }, []);
+  const retour = !crumbs && onBack ? (
+    <button type="button" onClick={onBack} className="ds-btn ds-btn-ghost ds-btn-sm">
+      <ArrowLeft size={15} /> {backLabel}
+    </button>
+  ) : null;
 
   return (
-    <div style={{
-      position: "fixed", top: 0, right: 0, bottom: 0, left: "var(--sidebar-collapsed-width)",
-      display: "flex", flexDirection: "column", background: "var(--background)", zIndex: 30,
-    }}>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 12, padding: "12px 24px",
-        borderBottom: "1px solid var(--border)", flexShrink: 0,
-      }}>
-        <button onClick={onBack} className="btn btn-ghost btn-sm"
-          style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <ArrowLeft size={16} /> {backLabel}
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--muted-foreground)", minWidth: 0 }}>
-          <Briefcase size={15} style={{ flexShrink: 0 }} />
-          <strong style={{ color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</strong>
-        </div>
-        {actions && (
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {actions}
-          </div>
-        )}
-      </div>
+    // Hauteur de la carte de page (100vh moins le cadre) : la zone de messages
+    // défile seule, la saisie reste en bas.
+    <div style={{ height: "calc(100vh - 22px)", display: "flex", flexDirection: "column" }}>
+      <PageHeader
+        crumbs={crumbs}
+        title={pageTitle || title}
+        actions={(retour || actions) ? <>{retour}{actions}</> : null}
+      />
 
       {/* minHeight:0 : sans ça, l'enfant flex ne rétrécit pas et la zone de
           messages déborde au lieu de scroller. */}

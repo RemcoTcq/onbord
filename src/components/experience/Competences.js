@@ -30,12 +30,12 @@ export function SkillChip({ id, competence, onRemove }) {
   const { t } = useI18n();
   const must = competence?.tier === MUST;
   const style = !competence
-    ? { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }
+    ? { background: "var(--ds-amber-bg)", color: "var(--ds-amber-ink)", border: "1px solid #F3DDB8" }
     : must
-      ? { background: "#eef2ff", color: "#3730a3", border: "1px solid #c7d2fe" }
-      : { background: "var(--secondary)", color: "var(--muted-foreground)", border: "1px solid var(--border)" };
+      ? { background: "var(--ds-blue-06)", color: "var(--ds-blue)", border: "1px solid var(--ds-blue-16)" }
+      : { background: "var(--ds-soft)", color: "var(--ds-ink-2)", border: "1px solid var(--ds-line)" };
   return (
-    <span style={{ ...style, display: "inline-flex", alignItems: "center", gap: 4, fontSize: "11px", fontWeight: 600, borderRadius: "99px", padding: "2px 8px" }}>
+    <span style={{ ...style, display: "inline-flex", alignItems: "center", gap: 4, height: 22, fontSize: "12px", borderRadius: 6, padding: "0 7px" }}>
       {competence ? competence.name : t("dashboard.experienceEditor.coverage.offList", { id })}
       {onRemove && (
         <button type="button" onClick={onRemove} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
@@ -54,9 +54,9 @@ export function SkillPicker({ ids, competences, onChange }) {
   const disponibles = (competences || []).filter((c) => !ids.includes(c.id));
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", margin: "0 0 8px" }}>
-      <span style={{ fontSize: "11px", color: "var(--muted-foreground)", fontWeight: 600 }}>{t("dashboard.experienceEditor.criterionSkills")}</span>
+      <span style={{ fontSize: 12, color: "var(--ds-ink-3)", fontWeight: 500 }}>{t("dashboard.experienceEditor.criterionSkills")}</span>
       {ids.length === 0 && (
-        <span style={{ fontSize: "11px", color: "#b45309" }}>{t("dashboard.experienceEditor.noSkill")}</span>
+        <span style={{ fontSize: 12, color: "var(--ds-amber-ink)" }}>{t("dashboard.experienceEditor.noSkill")}</span>
       )}
       {ids.map((id) => (
         <SkillChip key={id} id={id} competence={parId.get(id)} onRemove={() => onChange(ids.filter((x) => x !== id))} />
@@ -65,7 +65,7 @@ export function SkillPicker({ ids, competences, onChange }) {
         <select
           value=""
           onChange={(e) => e.target.value && onChange([...ids, e.target.value])}
-          style={{ fontSize: "11px", padding: "2px 6px", borderRadius: "99px", border: "1px dashed var(--border)", background: "transparent", color: "var(--muted-foreground)", cursor: "pointer" }}
+          style={{ height: 24, fontSize: 12, padding: "0 6px", borderRadius: 6, border: "1px dashed #C9D3EA", background: "transparent", color: "var(--ds-blue)", cursor: "pointer", font: "inherit" }}
         >
           <option value="">{t("dashboard.experienceEditor.addSkill")}</option>
           {disponibles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

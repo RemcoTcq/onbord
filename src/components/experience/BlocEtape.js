@@ -38,6 +38,7 @@ export default function BlocEtape({ step, index, total, recap, recapEnCours, par
     ? t(`dashboard.experienceEditor.overview.${cle}`)
     : t(`dashboard.experienceEditor.coverage.format.${cle}`);
   const minutes = minutesEtape(step);
+  const o = (k, vars) => t(`dashboard.experienceEditor.overview.${k}`, vars);
 
   return (
     <div
@@ -45,52 +46,61 @@ export default function BlocEtape({ step, index, total, recap, recapEnCours, par
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }}
-      className="card bloc-etape"
-      style={{ padding: "1rem 1.05rem", cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, minHeight: 190 }}
+      className="ds-panel bloc-etape"
+      style={{ cursor: "pointer", minHeight: 200 }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{
-          width: 24, height: 24, borderRadius: 99, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "12px", fontWeight: 800, background: "var(--primary)", color: "var(--primary-foreground, #fff)",
-        }}>{index + 1}</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "11.5px", fontWeight: 700, color: "var(--muted-foreground)", textTransform: "capitalize" }}>
-          <Icone size={14} /> {libelle}
-        </span>
-      </div>
-
-      <div style={{ fontSize: "14px", fontWeight: 800, lineHeight: 1.35, ...lignes(2) }}>{step.title || "—"}</div>
-
-      <div style={{ fontSize: "12.5px", lineHeight: 1.5, color: "var(--muted-foreground)", flex: 1, ...lignes(3) }}>
-        {recap || (recapEnCours
-          ? <span className="bloc-etape-attente">{t("dashboard.experienceEditor.overview.recapLoading")}</span>
-          : null)}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "11.5px", color: "var(--muted-foreground)", borderTop: "1px solid var(--border)", paddingTop: 8, flexWrap: "wrap" }}>
-        {minutes > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Clock size={12} /> {t("dashboard.experienceEditor.overview.minutes", { minutes })}</span>}
-        <span>{t("dashboard.experienceEditor.overview.skills", { count: nbCompetences })}</span>
-        {part < 100 && (
-          <span style={{ fontWeight: 700, color: part ? "var(--foreground)" : undefined }}>
-            {part ? t("dashboard.experienceEditor.overview.share", { part }) : t("dashboard.experienceEditor.overview.noShare")}
+      <span style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 7px 0 9px" }}>
+        <span className="ds-mono" style={{ width: 26, height: 26, flex: "none", borderRadius: 8, background: "var(--ds-blue)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{index + 1}</span>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ fontWeight: 500, ...lignes(2) }}>{step.title || "—"}</span>
+          <span style={{ fontSize: 13, color: "var(--ds-ink-3)", lineHeight: 1.5, ...lignes(3) }}>
+            {recap || (recapEnCours ? <span className="bloc-etape-attente">{o("recapLoading")}</span> : null)}
           </span>
-        )}
-        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 2 }}>
+        </span>
+        <span style={{ display: "inline-flex", gap: 0, flex: "none", marginTop: -4 }}>
           <button
-            className="btn btn-ghost btn-sm"
+            type="button"
+            className="ds-icon-btn"
             disabled={index === 0}
             onClick={(e) => { e.stopPropagation(); onMove("up"); }}
-            title={t("dashboard.experienceEditor.overview.moveEarlier")}
-            style={{ padding: 2 }}
+            aria-label={o("moveEarlier")}
+            title={o("moveEarlier")}
+            style={{ width: 26, height: 26, opacity: index === 0 ? 0.35 : 1 }}
           ><ChevronLeft size={15} /></button>
           <button
-            className="btn btn-ghost btn-sm"
+            type="button"
+            className="ds-icon-btn"
             disabled={index === total - 1}
             onClick={(e) => { e.stopPropagation(); onMove("down"); }}
-            title={t("dashboard.experienceEditor.overview.moveLater")}
-            style={{ padding: 2 }}
+            aria-label={o("moveLater")}
+            title={o("moveLater")}
+            style={{ width: 26, height: 26, opacity: index === total - 1 ? 0.35 : 1 }}
           ><ChevronRight size={15} /></button>
         </span>
-      </div>
+      </span>
+
+      <dl className="ds-inset ds-kv" style={{ padding: 12, marginTop: "auto" }}>
+        <div>
+          <dt>{o("type")}</dt>
+          <dd className="ds-chip"><Icone size={13} /> {libelle.charAt(0).toUpperCase() + libelle.slice(1)}</dd>
+        </div>
+        {minutes > 0 && (
+          <div>
+            <dt>{o("duration")}</dt>
+            <dd className="ds-chip"><Clock size={12} /> {o("minutes", { minutes })}</dd>
+          </div>
+        )}
+        <div>
+          <dt>{o("skillsAssessed")}</dt>
+          <dd className="ds-chip">{nbCompetences}</dd>
+        </div>
+        {part < 100 && (
+          <div>
+            <dt>{o("gradeShare")}</dt>
+            <dd className="ds-chip" style={part ? { color: "var(--ds-ink)", fontWeight: 500 } : undefined}>{part ? `${part} %` : o("noShare")}</dd>
+          </div>
+        )}
+      </dl>
     </div>
   );
 }

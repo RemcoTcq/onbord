@@ -18,7 +18,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
-import { Loader2, Check, ArrowLeft, Plus } from "lucide-react";
+import { Loader2, Check, Plus, RefreshCw, CircleCheck } from "lucide-react";
 import {
   getExperienceForJob, addStep, moveStep, publishExperience, couvrirCompetence, resumerEtapes,
   harmoniserNotesRecruteur,
@@ -33,6 +33,7 @@ import { CvRequisCard, FilRougeCard } from "@/components/experience/Parametres";
 import { StatusBadge, BandeauEphemere } from "@/components/experience/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
+import PageHeader from "@/components/layout/PageHeader";
 import { estimerMinutes } from "@/lib/experienceDuree";
 
 export default function ExperienceReviewPage() {
@@ -183,11 +184,19 @@ export default function ExperienceReviewPage() {
     if (res.success) { annoncerVersion(res); await load(); } else { toast(res.error || t("dashboard.experienceEditor.error"), "error"); }
   }
 
+  const crumbs = [
+    { label: t("dashboard.nav.jobs"), href: "/jobs" },
+    { label: job?.title || t("dashboard.jobs.untitled"), href: `/jobs/${jobId}` },
+  ];
+
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "5rem" }}>
-        <Loader2 size={28} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
-      </div>
+      <>
+        <PageHeader crumbs={crumbs} title={t("dashboard.jobDetail.journeyCard.simulation")} />
+        <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+          <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+        </div>
+      </>
     );
   }
 
@@ -199,6 +208,8 @@ export default function ExperienceReviewPage() {
         jobId={jobId}
         jobData={job}
         title={job?.title || t("dashboard.experienceEditor.designWithAssistant")}
+        crumbs={crumbs}
+        pageTitle={t("dashboard.jobDetail.journeyCard.simulation")}
         backLabel={t("dashboard.experienceEditor.backToJob")}
         onBack={() => router.push(`/jobs/${jobId}`)}
         onGenerated={handleChatGenerated}
@@ -207,7 +218,7 @@ export default function ExperienceReviewPage() {
         actions={!chatStarted ? (
           // Le raccourci disparaît dès qu’on engage la conversation : un seul
           // chemin de génération à la fois.
-          <button className="btn btn-ghost btn-sm" onClick={handleGenerate} style={{ color: "var(--muted-foreground)" }}>
+          <button type="button" className="ds-btn ds-btn-ghost ds-btn-sm" onClick={handleGenerate}>
             {t("dashboard.experienceEditor.generateDirectly")}
           </button>
         ) : null}
@@ -218,80 +229,86 @@ export default function ExperienceReviewPage() {
   // Compétences notées par chaque étape, pour les blocs.
   const nbCompetences = (stepIndex) =>
     [...couverture.must, ...couverture.nice].filter((c) => c.refs.some((r) => r.stepIndex === stepIndex)).length;
+  const minutes = estimerMinutes(steps);
+  const langue = { fr: "french", en: "english", nl: "dutch" }[job?.experience_locale];
 
   return (
-    <div style={{ maxWidth: "1100px", margin: "0 auto", paddingBottom: "4rem" }}>
+    <>
       <style>{`
-        .bloc-etape { transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
-        .bloc-etape:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15, 23, 42, .08); border-color: var(--primary); }
-        .bloc-etape:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .bloc-etape { transition: border-color .12s ease, box-shadow .12s ease; }
+        .bloc-etape:hover { border-color: #CCD6EE; }
+        .bloc-etape:focus-visible { outline: 2px solid var(--ds-blue); outline-offset: 2px; }
         .bloc-etape-attente { animation: pulse-recap 1.4s ease-in-out infinite; }
+        .ds-critere-tete:hover { background: var(--ds-hover-row); }
         @keyframes pulse-recap { 50% { opacity: .45; } }
       `}</style>
 
-      <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/jobs/${jobId}`)} style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
-        <ArrowLeft size={16} /> {t("dashboard.experienceEditor.backToJob")}
-      </button>
+      <PageHeader
+        crumbs={crumbs}
+        title={t("dashboard.jobDetail.journeyCard.simulation")}
+        actions={experience && (
+          <>
+            <StatusBadge status={experience.status} />
+            {experience.status !== "published" ? (
+              <button type="button" className="ds-btn ds-btn-primary" onClick={handlePublish} disabled={publishing}>
+                {publishing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={15} />}
+                {t("dashboard.experienceEditor.publish")}
+              </button>
+            ) : (
+              <button type="button" className="ds-btn" onClick={handleGenerate} disabled={generating}>
+                <RefreshCw size={15} strokeWidth={2} />
+                {t("dashboard.experienceEditor.regenerate")}
+              </button>
+            )}
+          </>
+        )}
+      />
+
+      {/* Bandeaux d'état : lus à l'ouverture et après une modification,
+          puis effacés (BandeauEphemere). */}
+      {experience?.status === "published" && (
+        <BandeauEphemere key={`publiee-${signal}`} ton="succes" bande>
+          <CircleCheck size={15} style={{ flex: "none" }} />
+          {t("dashboard.experienceEditor.publishedNotice")}
+        </BandeauEphemere>
+      )}
+      {experience?.locked_at && (
+        <BandeauEphemere key={`verrou-${signal}`} ton="alerte" bande>
+          <span>
+            {tNodes(t("dashboard.experienceEditor.lockedWarning"), {
+              next: <strong key="n">{t("dashboard.experienceEditor.lockedWarningNext")}</strong>,
+            })}
+          </span>
+        </BandeauEphemere>
+      )}
 
       {/* Génération directe (raccourci) → flux réel du pipeline serveur, étape par étape */}
       {generating && (
-        <div className="card" style={{ padding: "1.75rem 2rem", marginBottom: "1.5rem" }}>
-          <GenerationFeed events={genEvents} active={generating} />
-        </div>
+        <section className="ds-section">
+          <div className="ds-card" style={{ padding: "24px 28px" }}>
+            <GenerationFeed events={genEvents} active={generating} />
+          </div>
+        </section>
       )}
 
       {experience && (
         <>
-          {/* En-tête + gate de publication */}
-          <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-            <div>
-              <h1 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{t("dashboard.experienceEditor.overview.title")}</h1>
-              <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-                {job?.title ? `${job.title} · ` : ""}
-                {t("dashboard.experienceEditor.stepCount", { count: steps.length })}
+          {/* ── Le parcours ── */}
+          <section aria-labelledby="ds-etapes" className="ds-section">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <h2 id="ds-etapes" className="ds-h2">{t("dashboard.experienceEditor.overview.steps")}</h2>
+                <span className="ds-sub">{t("dashboard.experienceEditor.overview.stepsHelp")}</span>
+              </span>
+              <span style={{ display: "flex", gap: 6 }}>
+                <span className="ds-chip ds-chip-lg" style={{ fontSize: 12 }}>{t("dashboard.jobDetail.journeyCard.steps", { count: steps.length })}</span>
                 {/* Calculée ici, pas lue en base : elle doit suivre l'ajout et
                     le retrait d'étapes à l'écran, sans attendre un rechargement. */}
-                {estimerMinutes(steps) ? t("dashboard.experienceEditor.estimatedMinutes", { minutes: estimerMinutes(steps) }) : ""}
-              </p>
+                {minutes > 0 && <span className="ds-chip ds-chip-lg" style={{ fontSize: 12 }}>~{minutes} min</span>}
+                {langue && <span className="ds-chip ds-chip-lg" style={{ fontSize: 12 }}>{t(`dashboard.jobForm.languageNames.${langue}`)}</span>}
+              </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <StatusBadge status={experience.status} />
-              {experience.status !== "published" ? (
-                <button className="btn btn-primary btn-sm" onClick={handlePublish} disabled={publishing} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  {publishing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={14} />}
-                  {t("dashboard.experienceEditor.publish")}
-                </button>
-              ) : (
-                <button className="btn btn-outline btn-sm" onClick={handleGenerate} disabled={generating}>
-                  {t("dashboard.experienceEditor.regenerate")}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Bandeaux d'état : lus à l'ouverture et après une modification,
-              puis effacés (BandeauEphemere). */}
-          {experience.status === "published" && (
-            <BandeauEphemere key={`publiee-${signal}`} ton="succes">
-              {t("dashboard.experienceEditor.publishedNotice")}
-            </BandeauEphemere>
-          )}
-
-          {experience.locked_at && (
-            <BandeauEphemere key={`verrou-${signal}`} ton="alerte">
-              {tNodes(t("dashboard.experienceEditor.lockedWarning"), {
-                next: <strong>{t("dashboard.experienceEditor.lockedWarningNext")}</strong>,
-              })}
-            </BandeauEphemere>
-          )}
-
-          {/* ── Le parcours ── */}
-          <section style={{ marginBottom: "2rem" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-              <h2 style={{ fontSize: "15px", fontWeight: 800, margin: 0 }}>{t("dashboard.experienceEditor.overview.journey")}</h2>
-              <span style={{ fontSize: "12.5px", color: "var(--muted-foreground)" }}>{t("dashboard.experienceEditor.overview.journeyHelp")}</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: "0.9rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
               {steps.map((s, i) => (
                 <BlocEtape
                   key={s.id}
@@ -306,22 +323,15 @@ export default function ExperienceReviewPage() {
                   onMove={(direction) => handleMove(s.id, direction)}
                 />
               ))}
-              <button
-                onClick={handleAddStep}
-                className="bloc-etape"
-                style={{
-                  minHeight: 190, borderRadius: 12, border: "2px dashed var(--border)", background: "transparent",
-                  color: "var(--muted-foreground)", cursor: "pointer", font: "inherit", fontSize: "13px", fontWeight: 700,
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
-                }}
-              >
-                <Plus size={20} /> {t("dashboard.experienceEditor.addStep")}
+              <button type="button" onClick={handleAddStep} className="ds-add" style={{ flexDirection: "column", gap: 8, height: "auto", minHeight: 200, borderRadius: 14 }}>
+                <span className="ds-icon-tile ds-icon-tile-soft" style={{ width: 34, height: 34, borderRadius: 10 }}><Plus size={17} strokeWidth={2.2} /></span>
+                {t("dashboard.experienceEditor.addStep")}
               </button>
             </div>
           </section>
 
           {/* ── Comment le candidat est noté ── */}
-          <section style={{ marginBottom: "2rem" }}>
+          <section className="ds-section">
             <NotationGlobale
               steps={steps}
               competences={competences}
@@ -333,28 +343,31 @@ export default function ExperienceReviewPage() {
           </section>
 
           {/* ── Paramètres de la simulation entière ── */}
-          <section>
-            <h2 style={{ fontSize: "15px", fontWeight: 800, margin: "0 0 0.75rem" }}>{t("dashboard.experienceEditor.overview.settings")}</h2>
-            {job && (
-              <CvRequisCard
-                jobId={jobId}
-                cvRequis={job.cv_requis === true}
-                toast={toast}
-                onSaved={(valeur) => { setJob((j) => ({ ...j, cv_requis: valeur })); setSignal((n) => n + 1); }}
-              />
-            )}
-            {experience.generated_from?.fil_rouge && (
-              <FilRougeCard
-                key={experience.id}
-                experienceId={experience.id}
-                filRouge={experience.generated_from.fil_rouge}
-                toast={toast}
-                onSaved={async (res) => { annoncerVersion(res); await load(); }}
-              />
-            )}
+          <section aria-labelledby="ds-reglages-simulation" className="ds-section">
+            <h2 id="ds-reglages-simulation" className="ds-h2">{t("dashboard.experienceEditor.overview.settings")}</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 12, alignItems: "start" }}>
+              {job && (
+                <CvRequisCard
+                  jobId={jobId}
+                  cvRequis={job.cv_requis === true}
+                  toast={toast}
+                  onSaved={(valeur) => { setJob((j) => ({ ...j, cv_requis: valeur })); setSignal((n) => n + 1); }}
+                />
+              )}
+              {experience.generated_from?.fil_rouge && (
+                <FilRougeCard
+                  key={experience.id}
+                  experienceId={experience.id}
+                  filRouge={experience.generated_from.fil_rouge}
+                  jobTitle={job?.title}
+                  toast={toast}
+                  onSaved={async (res) => { annoncerVersion(res); await load(); }}
+                />
+              )}
+            </div>
           </section>
         </>
       )}
-    </div>
+    </>
   );
 }

@@ -14,15 +14,18 @@ import { initials } from "@/components/ui/ds";
  *
  *   <PageHeader title="Jobs" actions={<Link className="ds-btn ds-btn-primary">…} />
  *   <PageHeader crumbs={[{ label: "Jobs", href: "/jobs" }]} title={job.title} />
+ *
+ * `garde` : appelée avant de suivre un lien du fil d'Ariane ; renvoyer false
+ * l'annule (modifications non enregistrées).
  */
-export default function PageHeader({ title, crumbs, actions }) {
+export default function PageHeader({ title, crumbs, actions, garde }) {
   return (
     <header className="ds-header">
       {crumbs?.length ? (
         <nav aria-label="breadcrumb" className="ds-crumbs">
           {crumbs.map((c) => (
             <span key={c.href} style={{ display: "contents" }}>
-              <Link href={c.href}>{c.label}</Link>
+              <Link href={c.href} onClick={(e) => { if (garde && !garde()) e.preventDefault(); }}>{c.label}</Link>
               <ChevronRight size={16} strokeWidth={2} />
             </span>
           ))}
