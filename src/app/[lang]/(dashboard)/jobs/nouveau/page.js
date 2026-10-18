@@ -2,23 +2,19 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "@/lib/i18n/navigation";
-import { Check, ChevronRight, Wand2, Briefcase, FileCheck2, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, Sparkles, ClipboardList, X, Users, Search, Link as LinkIcon, Copy, CheckCircle2, AlignLeft, Globe, Info } from "lucide-react";
+import { ArrowRight, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, AlignLeft, Globe, Info } from "lucide-react";
 import { analyzeJobDescription } from "@/lib/actions/job";
 import { parseFile } from "@/lib/actions/parse-file";
 import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
 import { createClient } from "@/lib/supabase/client";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
 import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
-import JobLocaleSelector from "@/components/jobs/JobLocaleSelector";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
-import { coerceExperienceLocale } from "@/lib/i18n/config";
-
-import CvScoringCriteria from "@/components/jobs/CvScoringCriteria";
-import QualifyingQuestionsConfig from "@/components/jobs/QualifyingQuestionsConfig";
+import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/layout/PageHeader";
 import { updateJobAiConfig } from "@/lib/actions/job";
 import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
-import { generateRecommendation } from "@/lib/recommendationEngine";
 
 export default function NouvelleDemandePage() {
   const { t, locale: uiLocale } = useI18n();
@@ -41,11 +37,10 @@ export default function NouvelleDemandePage() {
   // Input mode: 'text' | 'file' | 'url'
   const [inputMode, setInputMode] = useState('text');
   const [jobUrl, setJobUrl] = useState("");
+  const [survolDepot, setSurvolDepot] = useState(false);
 
   
   const fileInputRef = useRef(null);
-  const cvInputRef = useRef(null);
-  const textRef = useRef(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -76,8 +71,10 @@ export default function NouvelleDemandePage() {
   }, []);
 
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (e) => handleFile(e.target.files?.[0]);
+
+  // Fichier choisi au clic ou déposé sur la zone : même traitement.
+  const handleFile = async (file) => {
     if (!file) return;
 
     setIsParsingFile(true);
@@ -382,272 +379,219 @@ export default function NouvelleDemandePage() {
     setJobData(prev => ({ ...prev, [field]: value }));
   };
 
+  const occupe = isAnalyzing || isParsingFile || isFetchingUrl;
+  const etapes = [
+    { n: 1, label: t("dashboard.jobCreate.steps.job") },
+    { n: 2, label: t("dashboard.jobCreate.steps.details") },
+    { n: 3, label: t("dashboard.jobCreate.steps.journey") },
+  ];
+
+  // Le bouton principal suit la source choisie : analyser le texte, ouvrir le
+  // sélecteur de fichier, ou récupérer la page de l'offre.
+  const extraire = () => {
+    if (inputMode === "file") fileInputRef.current?.click();
+    else if (inputMode === "url") handleFetchUrl();
+    else handleAnalyze();
+  };
+  const extractionImpossible = occupe
+    || (inputMode === "text" && rawDescription.trim().length === 0)
+    || (inputMode === "url" && !jobUrl.trim());
+
   return (
-    <div style={currentStep === 3 ? { 
-      position: 'fixed', 
-      top: 0, bottom: 0, right: 0, left: 'var(--sidebar-collapsed-width)', 
-      zIndex: 40,
-      background: '#f8fafc',
-      display: 'flex', flexDirection: 'column'
-    } : { maxWidth: '900px', margin: '0 auto' }}>
-      
-      <div style={{ padding: currentStep === 3 ? '1rem 1.5rem 0' : '0 0 1rem 0' }}>
-        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {currentStep === 1 ? t("dashboard.jobCreate.steps.job")
-            : currentStep === 2 ? t("dashboard.jobCreate.steps.details")
-            : t("dashboard.jobCreate.steps.journey")}
-        </span>
-      </div>
+    <>
+      <PageHeader
+        crumbs={[{ label: t("dashboard.nav.jobs"), href: "/jobs" }]}
+        title={t("dashboard.nav.newJob")}
+        actions={
+          <ol aria-label={t("dashboard.jobCreate.stepsLabel")} className="ds-seg" style={{ listStyle: "none", margin: 0, fontSize: 13 }}>
+            {etapes.map((e) => (
+              <li key={e.n} aria-current={currentStep === e.n ? "step" : undefined} className="ds-seg-item" aria-selected={currentStep === e.n} style={{ cursor: "default", gap: 6 }}>
+                <span className="ds-mono" style={{ fontSize: 11, color: currentStep === e.n ? "var(--ds-blue)" : "var(--ds-ink-5)" }}>{e.n}</span>
+                {e.label}
+              </li>
+            ))}
+          </ol>
+        }
+      />
 
-      {/* Step Content */}
-      <div className={currentStep === 3 ? "" : "card"} style={{ display: 'flex', flexDirection: 'column', minHeight: '350px', height: currentStep === 3 ? '100%' : 'auto' }}>
-        {currentStep === 1 && (
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.25rem', color: 'var(--foreground)' }}>{t("dashboard.jobCreate.heading")}</h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '1.5rem' }}>
-              {t("dashboard.jobCreate.intro")}
-            </p>
-
-            {/* Mode selector */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '1.25rem', background: 'var(--secondary)', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
-              {[
-                { key: 'text', icon: AlignLeft, label: t('dashboard.jobCreate.modePaste') },
-                { key: 'file', icon: Paperclip, label: t('dashboard.jobCreate.modeFile') },
-                { key: 'url', icon: Globe, label: t('dashboard.jobCreate.modeUrl') },
-              ].map(({ key, icon: Icon, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => { setInputMode(key); setError(null); }}
-                  disabled={isAnalyzing || isParsingFile || isFetchingUrl}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '6px 14px', borderRadius: '6px', border: 'none',
-                    fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    background: inputMode === key ? 'white' : 'transparent',
-                    color: inputMode === key ? 'var(--foreground)' : 'var(--muted-foreground)',
-                    boxShadow: inputMode === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                  }}
-                >
-                  <Icon size={14} />
-                  {label}
-                </button>
-              ))}
+      {/* ── Étape 1 : l'offre ── */}
+      {currentStep === 1 && (
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", padding: "48px 20px 40px" }}>
+          <div style={{ width: "100%", maxWidth: 780, display: "flex", flexDirection: "column", gap: 22 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <h2 style={{ margin: 0, fontWeight: 600, fontSize: 28, letterSpacing: "-0.03em", lineHeight: 1.15 }}>{t("dashboard.jobCreate.heading")}</h2>
+              <p style={{ margin: 0, color: "var(--ds-ink-3)", fontSize: 15 }}>{t("dashboard.jobCreate.intro")}</p>
             </div>
 
             {error && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
-                <AlertCircle size={18} />
-                <span style={{ fontSize: '14px' }}>{error}</span>
+              <div className="ds-inset" role="alert" style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--ds-red-bg)", borderColor: "var(--ds-red-inset)", color: "var(--ds-red)", fontSize: 13, padding: 12 }}>
+                <AlertCircle size={16} style={{ flex: "none" }} /> {error}
               </div>
             )}
 
-            {/* MODE FILE */}
-            {inputMode === 'file' && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isParsingFile || isAnalyzing}
+            <section aria-label={t("dashboard.jobCreate.jobOffer")} className="ds-panel" style={{ gap: 0, borderRadius: 16, boxShadow: "0 1px 2px rgba(20,32,74,0.04), 0 12px 32px rgba(20,32,74,0.05)" }}>
+              <div role="tablist" aria-label={t("dashboard.jobCreate.sourceLabel")} style={{ display: "flex", gap: 2, padding: "4px 4px 0" }}>
+                {[
+                  { key: "text", icon: AlignLeft, label: t("dashboard.jobCreate.modePaste") },
+                  { key: "file", icon: Paperclip, label: t("dashboard.jobCreate.modeFile") },
+                  { key: "url", icon: Globe, label: t("dashboard.jobCreate.modeUrl") },
+                ].map(({ key, icon: Icon, label }) => {
+                  const actif = inputMode === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={actif}
+                      onClick={() => { setInputMode(key); setError(null); }}
+                      disabled={occupe}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 7, height: 34, padding: "0 12px", border: 0, borderRadius: 9,
+                        background: actif ? "var(--ds-soft-2)" : "transparent", font: "inherit", fontWeight: actif ? 500 : 400,
+                        color: actif ? "var(--ds-ink)" : "var(--ds-ink-3)", cursor: "pointer",
+                      }}
+                    >
+                      <Icon size={15} strokeWidth={1.8} /> {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {inputMode === "text" && (
+                <div>
+                  <label htmlFor="ds-offre" className="sr-only">{t("dashboard.jobCreate.textLabel")}</label>
+                  <textarea
+                    id="ds-offre"
+                    rows={11}
+                    placeholder={t("dashboard.jobCreate.descriptionPlaceholder")}
+                    value={rawDescription}
+                    onChange={(e) => { setRawDescription(e.target.value); if (error) setError(null); }}
+                    style={{ width: "100%", display: "block", resize: "vertical", border: 0, padding: "14px 16px", font: "inherit", fontSize: 15, lineHeight: 1.6, color: "var(--ds-ink)", background: "transparent", outline: 0 }}
+                  />
+                </div>
+              )}
+
+              {inputMode === "file" && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !occupe && fileInputRef.current?.click()}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !occupe) fileInputRef.current?.click(); }}
+                  onDragOver={(e) => { e.preventDefault(); setSurvolDepot(true); }}
+                  onDragLeave={() => setSurvolDepot(false)}
+                  onDrop={(e) => { e.preventDefault(); setSurvolDepot(false); if (!occupe) handleFile(e.dataTransfer.files?.[0]); }}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    gap: '0.75rem', width: '100%', minHeight: '200px',
-                    border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
-                    background: 'var(--secondary)', cursor: isParsingFile ? 'default' : 'pointer',
-                    marginBottom: '1.5rem', transition: 'border-color 0.2s'
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, height: 262, margin: 8,
+                    border: `1.5px dashed ${survolDepot ? "var(--ds-blue)" : "#CCD5E8"}`, borderRadius: 12,
+                    background: survolDepot ? "var(--ds-blue-06)" : "var(--ds-soft)", textAlign: "center", cursor: occupe ? "default" : "pointer",
                   }}
                 >
-                  {isParsingFile ? (
-                    <><Loader2 size={24} className="spin" style={{ color: 'var(--primary)' }} />
-                    <span style={{ fontSize: '14px', color: 'var(--muted-foreground)' }}>{t("dashboard.jobCreate.readingFile")}</span></>
-                  ) : fileName ? (
-                    <><FileText size={24} style={{ color: 'var(--primary)' }} />
-                    <span style={{ fontSize: '14px', fontWeight: '600' }}>{fileName}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>{t("dashboard.jobCreate.changeFile")}</span></>
-                  ) : (
-                    <><UploadCloud size={24} style={{ color: 'var(--muted-foreground)' }} />
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--foreground)' }}>{t("dashboard.jobCreate.importFile")}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>PDF, DOCX ou TXT — max 2 Mo</span></>
-                  )}
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".pdf,.docx,.txt"
-                  style={{ display: 'none' }}
-                />
-              </div>
-            )}
-
-            {/* MODE URL */}
-            {inputMode === 'url' && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                {/* Conseil */}
-                <div style={{
-                  display: 'flex', gap: '10px', alignItems: 'flex-start',
-                  background: '#eff6ff', border: '1px solid #bfdbfe',
-                  borderRadius: '8px', padding: '12px 14px', marginBottom: '1rem'
-                }}>
-                  <Info size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <p style={{ fontSize: '12.5px', color: '#1e40af', margin: 0, lineHeight: '1.6' }}>
-                    {tNodes(t("dashboard.jobCreate.urlHint"), {
-                      tip: <strong key="t">{t("dashboard.jobCreate.tipLabel")}</strong>,
-                      sites: <strong key="s">{t("dashboard.jobCreate.protectedSites")}</strong>,
-                    })}
-                  </p>
+                  <span style={{ width: 40, height: 40, borderRadius: 11, background: "#FFFFFF", border: "1px solid var(--ds-line)", color: "var(--ds-blue)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {isParsingFile ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : fileName ? <FileText size={18} /> : <UploadCloud size={18} />}
+                  </span>
+                  <span style={{ fontWeight: 500 }}>
+                    {isParsingFile ? t("dashboard.jobCreate.readingFile") : fileName || t("dashboard.jobCreate.dropFile")}
+                  </span>
+                  <span style={{ fontSize: 13, color: "var(--ds-ink-3)" }}>
+                    {fileName && !isParsingFile
+                      ? t("dashboard.jobCreate.changeFile")
+                      : tNodes(t("dashboard.jobCreate.fileFormats"), { browse: <span key="b" style={{ color: "var(--ds-blue)", fontWeight: 500 }}>{t("dashboard.jobCreate.browse")}</span> })}
+                  </span>
+                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf,.docx,.txt" style={{ display: "none" }} />
                 </div>
+              )}
 
-                <div style={{
-                  display: 'flex', gap: '8px',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                  background: 'white', padding: '4px 4px 4px 14px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                  <Globe size={16} style={{ color: 'var(--muted-foreground)', alignSelf: 'center', flexShrink: 0 }} />
+              {inputMode === "url" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "16px 16px 40px" }}>
+                  <label htmlFor="ds-lien" style={{ fontWeight: 500 }}>{t("dashboard.jobCreate.urlLabel")}</label>
                   <input
+                    id="ds-lien"
                     type="url"
+                    className="ds-input"
                     value={jobUrl}
                     onChange={(e) => { setJobUrl(e.target.value); if (error) setError(null); }}
-                    placeholder="https://careers.acme.com/job/account-manager"
-                    disabled={isFetchingUrl || isAnalyzing}
-                    style={{
-                      flex: 1, border: 'none', outline: 'none',
-                      fontSize: '14px', color: 'var(--foreground)', background: 'transparent',
-                      padding: '10px 0'
-                    }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleFetchUrl(); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleFetchUrl(); }}
+                    placeholder="https://…"
+                    disabled={occupe}
+                    style={{ height: 42, borderRadius: 10, fontSize: 15, background: "var(--ds-soft)" }}
                   />
-                  <button
-                    type="button"
-                    onClick={handleFetchUrl}
-                    disabled={isFetchingUrl || isAnalyzing || !jobUrl.trim()}
-                    style={{
-                      background: '#0f172a', border: 'none', color: 'white',
-                      cursor: jobUrl.trim() ? 'pointer' : 'default',
-                      display: 'flex', alignItems: 'center', gap: '6px',
-                      padding: '8px 16px', borderRadius: '6px',
-                      fontSize: '13px', fontWeight: '600',
-                      opacity: jobUrl.trim() ? 1 : 0.4, transition: 'opacity 0.2s',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {isFetchingUrl
-                      ? <><Loader2 size={14} className="spin" /> {t("dashboard.jobCreate.loading")}</>
-                      : <><Sparkles size={14} /> {t("dashboard.jobCreate.analyze")}</>}
-                  </button>
+                  <span style={{ display: "flex", gap: 8, fontSize: 13, color: "var(--ds-ink-3)", lineHeight: 1.55 }}>
+                    <Info size={14} style={{ flex: "none", marginTop: 3 }} />
+                    <span>
+                      {tNodes(t("dashboard.jobCreate.urlHint"), {
+                        tip: <strong key="t" style={{ fontWeight: 500, color: "var(--ds-ink-2)" }}>{t("dashboard.jobCreate.tipLabel")}</strong>,
+                        sites: <strong key="s" style={{ fontWeight: 500, color: "var(--ds-ink-2)" }}>{t("dashboard.jobCreate.protectedSites")}</strong>,
+                      })}
+                    </span>
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* MODE TEXT (default) */}
-            {inputMode === 'text' && (
-              <div style={{
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                backgroundColor: 'white',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                marginBottom: '1.5rem',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <textarea
-                  style={{
-                    width: '100%',
-                    minHeight: '300px',
-                    border: 'none',
-                    outline: 'none',
-                    fontSize: '15px',
-                    color: 'var(--foreground)',
-                    background: 'transparent',
-                    padding: '1.25rem',
-                    resize: 'vertical'
-                  }}
-                  placeholder={t("dashboard.jobCreate.descriptionPlaceholder")}
-                  value={rawDescription}
-                  onChange={(e) => {
-                    setRawDescription(e.target.value);
-                    if (error) setError(null);
-                  }}
-                />
-                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleAnalyze()}
-                    disabled={isAnalyzing || rawDescription.trim().length === 0}
-                    style={{ background: '#0f172a', border: 'none', color: 'white', cursor: rawDescription.trim().length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', borderRadius: '8px', opacity: rawDescription.trim().length > 0 ? 1 : 0.5, transition: 'opacity 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}
-                  >
-                    {isAnalyzing ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-                  </button>
+              {/* Langue de l'offre — posée AVANT l'analyse, pas après.
+                  Elle conditionne tout l'aval : extraction des compétences,
+                  génération de l'expérience, e-mails au candidat. Et elle se
+                  verrouille dès la première génération (migration 026), donc
+                  mieux vaut la choisir sciemment maintenant. */}
+              <div className="ds-inset" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 10px 10px 14px", borderRadius: 11 }}>
+                <div role="radiogroup" aria-label={t("dashboard.jobCreate.languageLabel")} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13, color: "var(--ds-ink-2)" }}>{t("dashboard.jobCreate.languageShort")}</span>
+                  <span style={{ display: "inline-flex", padding: 3, gap: 2, borderRadius: 9, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+                    {EXPERIENCE_LOCALES.map((code) => {
+                      const actif = code === experienceLocale;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          role="radio"
+                          aria-checked={actif}
+                          aria-label={LOCALE_LABELS[code]}
+                          title={LOCALE_LABELS[code]}
+                          onClick={() => setExperienceLocale(code)}
+                          disabled={occupe}
+                          style={{
+                            minWidth: 40, height: 28, padding: "0 8px", border: 0, borderRadius: 7, font: "inherit", fontSize: 12, cursor: "pointer",
+                            background: actif ? "var(--ds-blue)" : "transparent", color: actif ? "#FFFFFF" : "var(--ds-ink-2)", fontWeight: actif ? 500 : 400,
+                          }}
+                        >
+                          {code.toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </span>
                 </div>
+                <button type="button" className="ds-btn ds-btn-primary" style={{ height: 38, padding: "0 16px" }} onClick={extraire} disabled={extractionImpossible}>
+                  {occupe ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                  {t("dashboard.jobCreate.extract")}
+                  {!occupe && <ArrowRight size={15} strokeWidth={2} />}
+                </button>
               </div>
-            )}
+            </section>
 
-            {/* Langue de l'offre — posée AVANT l'analyse, pas après.
-                Elle conditionne tout l'aval : extraction des compétences,
-                génération de l'expérience, e-mails au candidat. Et elle se
-                verrouille dès la première génération (migration 026), donc
-                mieux vaut la choisir sciemment maintenant. */}
-            <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
-              <JobLocaleSelector value={experienceLocale} onChange={setExperienceLocale} />
-            </div>
+            <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ds-ink-3)" }}>
+              <Info size={14} style={{ flex: "none" }} />
+              {t("dashboard.jobCreate.languageNote")}
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {currentStep === 2 && jobData && (
-          <div style={{ flex: 1 }}>
+      {/* ── Étape 2 : les compétences ── */}
+      {currentStep === 2 && jobData && (
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", padding: "32px 20px 40px" }}>
+          <div style={{ width: "100%", maxWidth: 900, display: "flex", flexDirection: "column", gap: 16 }}>
+            {error && (
+              <div className="ds-inset" role="alert" style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--ds-red-bg)", borderColor: "var(--ds-red-inset)", color: "var(--ds-red)", fontSize: 13, padding: 12 }}>
+                <AlertCircle size={16} style={{ flex: "none" }} /> {error}
+              </div>
+            )}
             <JobFormStep2 jobData={jobData} setJobData={setJobData} />
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fade-in">
-            {/* On retire le padding global de la carte pour l'étape 3 afin que le Flow prenne toute la place */}
-            <JobFormStepRecommendation 
-              jobData={jobData} 
-              experienceLocale={experienceLocale}
-              savedJobId={savedJobId || savedJob?.id}
-              onSave={handleSaveFlow}
-              isSaving={isSaving}
-              onBack={(currentFlow) => {
-                setJobData(prev => ({ ...prev, saved_flow_nodes: currentFlow }));
-                setCurrentStep(2);
-              }}
-            />
-          </div>
-        )}
-        {/* Navigation - Seulement pour l'étape 1 et 2 */}
-        {currentStep < 3 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '2rem' }}>
-            {currentStep > 1 ? (
-              <button 
-                className="btn btn-ghost" 
-                style={{ fontWeight: '600' }}
-                onClick={() => setCurrentStep(prev => prev - 1)}
-              >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <button type="button" className="ds-btn ds-btn-ghost" onClick={() => setCurrentStep(1)}>
                 {t("dashboard.jobCreate.back")}
               </button>
-            ) : (
-              <div></div>
-            )}
-            
-            {currentStep === 1 && inputMode !== 'url' && (
               <button
-                className="btn btn-primary"
-                style={{ padding: '12px 24px', fontWeight: '600' }}
-                onClick={() => inputMode === 'file' ? fileInputRef.current?.click() : handleAnalyze()}
-                disabled={isAnalyzing || isParsingFile || (inputMode === 'text' && rawDescription.trim().length === 0)}
-              >
-                {(isAnalyzing || isParsingFile) ? <Loader2 size={18} className="spin" /> : <ChevronRight size={18} />}
-                {t("dashboard.jobCreate.next")}
-              </button>
-            )}
-
-            {currentStep === 2 && (
-              <button
-                className="btn btn-primary"
-                style={{ padding: '12px 24px', fontWeight: '600' }}
+                type="button"
+                className="ds-btn ds-btn-primary"
                 disabled={isSaving}
                 // Enregistre les compétences ajustées avant d'ouvrir la pipeline.
                 // Ce passage ne faisait qu'un setCurrentStep(3) : la sélection du
@@ -656,41 +600,48 @@ export default function NouvelleDemandePage() {
                 // dont dépend justement la pipeline proposée.
                 onClick={() => handleSave(true, 'draft')}
               >
+                {isSaving ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : null}
                 {isSaving ? t("common.states.saving") : t("dashboard.jobCreate.next")}
+                {!isSaving && <ArrowRight size={15} strokeWidth={2} />}
               </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Overlay d'analyse de l'offre */}
-      {(isAnalyzing || isParsingFile || isFetchingUrl) && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 999,
-          background: 'rgba(255, 255, 255, 0.97)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem', textAlign: 'center'
-        }}>
-          <div style={{ maxWidth: '480px', width: '100%' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.75rem', color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
-              {isFetchingUrl ? t("dashboard.jobCreate.fetchingTitle") : t("dashboard.jobCreate.analyzingTitle")}
-            </h2>
-            <p style={{ color: 'var(--muted-foreground)', marginBottom: '2.5rem', lineHeight: '1.7', fontSize: '15px' }}>
-              {isFetchingUrl
-                ? t("dashboard.jobCreate.fetchingHelp")
-                : t("dashboard.jobCreate.analyzingHelp")}
-            </p>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center' }}>
-              <Loader2 className="spin" size={18} style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--foreground)' }}>
-                {isFetchingUrl ? t("dashboard.jobCreate.fetchingStatus") : t("dashboard.jobCreate.analyzingStatus")}
-              </span>
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* ── Étape 3 : le parcours ── occupe toute la carte. */}
+      {currentStep === 3 && (
+        <div className="fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "calc(100vh - 20px - 67px)", borderRadius: "0 0 18px 18px", overflow: "hidden", background: "var(--ds-soft)" }}>
+          <JobFormStepRecommendation
+            jobData={jobData}
+            experienceLocale={experienceLocale}
+            savedJobId={savedJobId || savedJob?.id}
+            onSave={handleSaveFlow}
+            isSaving={isSaving}
+            onBack={(currentFlow) => {
+              setJobData(prev => ({ ...prev, saved_flow_nodes: currentFlow }));
+              setCurrentStep(2);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Écran d'attente pendant l'analyse de l'offre */}
+      {occupe && (
+        <div className="ds-overlay" style={{ background: "rgba(238, 241, 247, 0.92)", backdropFilter: "blur(8px)", flexDirection: "column", textAlign: "center" }}>
+          <div className="ds-card" style={{ maxWidth: 460, width: "100%", padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <span className="ds-icon-tile ds-icon-tile-soft" style={{ width: 44, height: 44, borderRadius: 12 }}>
+              <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+            </span>
+            <h2 className="ds-h1" style={{ whiteSpace: "normal" }}>
+              {isFetchingUrl ? t("dashboard.jobCreate.fetchingTitle") : t("dashboard.jobCreate.analyzingTitle")}
+            </h2>
+            <p className="ds-sub" style={{ fontSize: 14, lineHeight: 1.6 }}>
+              {isFetchingUrl ? t("dashboard.jobCreate.fetchingHelp") : t("dashboard.jobCreate.analyzingHelp")}
+            </p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

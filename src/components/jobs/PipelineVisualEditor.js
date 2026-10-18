@@ -123,14 +123,14 @@ function SortableNodeCard({
         style={{
           minWidth: '170px',
           maxWidth: '220px',
-          padding: '16px 20px',
-          border: `1px solid ${isSelected ? 'var(--foreground)' : isLocked ? '#e8e8e8' : 'var(--border)'}`,
-          borderRadius: '8px',
-          background: isLocked ? '#fafafa' : 'white',
+          padding: '14px 16px',
+          border: `1px solid ${isSelected ? 'var(--ds-blue)' : isLocked ? 'var(--ds-line-inset)' : 'var(--ds-line)'}`,
+          borderRadius: '12px',
+          background: isLocked ? 'var(--ds-soft)' : 'white',
           cursor: isLocked || !isEditable ? 'default' : (!isDeletable ? 'pointer' : 'grab'),
           transition: 'all 150ms',
           opacity: isLocked ? 0.7 : 1,
-          boxShadow: isSelected ? '0 0 0 1px var(--foreground)' : (isDragging ? '0 12px 24px rgba(0,0,0,0.1)' : 'none'),
+          boxShadow: isSelected ? '0 0 0 3px var(--ds-blue-10)' : (isDragging ? 'var(--ds-shadow-pop)' : 'var(--ds-shadow-xs)'),
           position: 'relative',
         }}
       >
@@ -168,17 +168,17 @@ function SortableNodeCard({
             <X size={12} />
           </button>
         )}
-        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '16px' }}>
+        <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--ds-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '16px' }}>
           {label}
         </div>
         {subtitle && (
-          <div style={{ fontSize: '11px', color: 'var(--muted-foreground)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: '12px', color: 'var(--ds-ink-4)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {subtitle}
           </div>
         )}
       </div>
       {!isLast && (
-        <ChevronRight size={18} style={{ color: 'var(--muted-foreground)', flexShrink: 0, margin: '0 8px' }} />
+        <ChevronRight size={18} style={{ color: 'var(--ds-ink-6)', flexShrink: 0, margin: '0 8px' }} />
       )}
     </div>
   );
@@ -239,35 +239,23 @@ export default function PipelineVisualEditor({
   };
 
   return (
-    <div style={{
-      border: '1px solid var(--border)', borderRadius: '8px',
-      padding: '24px', background: 'white',
-      maxWidth: '100%'
-    }}>
+    <div className="ds-card" style={{ padding: '18px 20px', maxWidth: '100%' }}>
       {/* Pipeline header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)', margin: 0 }}>{t("dashboard.pipeline.title")}</h3>
+          <h3 className="ds-h2">{t("dashboard.pipeline.title")}</h3>
           {headerActions}
         </div>
         {isEditable && (
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowAddMenu(!showAddMenu)}
-              className="btn btn-outline"
-              style={{ fontSize: '12px', padding: '6px 12px' }}
+              className="ds-btn ds-btn-sm"
             >
               <Plus size={14} /> {t("dashboard.pipeline.addStep")}
             </button>
             {showAddMenu && (
-              <div className="fade-in" style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                background: 'white', border: '1px solid var(--border)', borderRadius: '8px',
-                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '240px', overflow: 'hidden', zIndex: 20
-              }}>
-                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: 'var(--muted-foreground)', textTransform: 'uppercase', background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  {t("dashboard.pipeline.addStep")}
-                </div>
+              <div className="ds-menu fade-in" style={{ top: 'calc(100% + 6px)', right: 0, width: 240 }}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {Object.entries(NODE_TYPES).map(([type, meta]) => {
                     const isUnique = type === 'qualifying_questions' || type === 'experience';
@@ -282,11 +270,12 @@ export default function PipelineVisualEditor({
                             setShowAddMenu(false);
                           }
                         }} 
-                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', cursor: exists ? 'not-allowed' : 'pointer', opacity: exists ? 0.4 : 1, textAlign: 'left', width: '100%' }}
+                        className="ds-menu-item"
+                        style={{ cursor: exists ? 'not-allowed' : 'pointer', opacity: exists ? 0.45 : 1 }}
                       >
-                        <Icon size={16} color={meta.color} />
-                        <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--foreground)' }}>{t(meta.labelKey)}</span>
-                        {exists && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
+                        <Icon size={15} color="var(--ds-blue)" />
+                        <span>{t(meta.labelKey)}</span>
+                        {exists && <Check size={14} style={{ marginLeft: 'auto', color: 'var(--ds-blue)' }} />}
                       </button>
                     );
                   })}

@@ -1490,17 +1490,29 @@ const dashboard = {
   },
 
   jobCreate: {
+    stepsLabel: "Creation steps",
+    jobOffer: "Job posting",
+    sourceLabel: "Job posting source",
+    textLabel: "Job posting text",
+    dropFile: "Drop the job posting file here",
+    fileFormats: "PDF, DOCX or TXT · {browse}",
+    browse: "browse",
+    urlLabel: "Link to the published job posting",
+    languageLabel: "Language of the job and the candidate journey",
+    languageShort: "Journey language",
+    extract: "Extract skills",
+    languageNote: "Questions, exercises, AI assistant and candidate emails will be written in the chosen language.",
     tipLabel: "Tip:",
     protectedSites: "LinkedIn, Indeed or Glassdoor",
     urlHint: "{tip} This works with your own careers site or with ATSs such as Greenhouse, Lever or Workable. It may not work with {sites}, which protect their pages. In that case, paste the job text directly.",
-    steps: { job: "1. Job posting", details: "2. Details", journey: "3. Pipeline" },
+    steps: { job: "Job posting", details: "Skills", journey: "Journey" },
     heading: "Let's start with your job posting",
-    intro:
-      "Onbord reads your posting and pulls out the skills to assess. You approve them, and we build the screening pipeline.",
+    intro: 
+      "Onbord reads it and extracts the skills to assess. You approve them, then we build the simulation.",
 
     modePaste: "Paste the text",
     modeFile: "Import a file",
-    modeUrl: "Posting URL",
+    modeUrl: "Job posting link",
     readingFile: "Reading the file…",
     changeFile: "Click to change file",
     importFile: "Click to import your posting",

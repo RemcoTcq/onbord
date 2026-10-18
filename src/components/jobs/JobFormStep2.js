@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, X, ArrowRightLeft } from "lucide-react";
+import { Plus, X, ArrowRightLeft, AlertTriangle } from "lucide-react";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useT } from "@/lib/i18n/I18nProvider";
 
@@ -100,39 +100,36 @@ export default function JobFormStep2({ jobData, setJobData }) {
 
   const renderSkillBox = (type, priority, title) => {
     const skills = (jobData[type] || []).filter(s => s.priority === priority);
+    const must = priority === 'must_have';
     return (
-      <div style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1rem', background: '#f8fafc', minHeight: '120px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <h4 style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', color: 'var(--muted-foreground)', letterSpacing: '0.05em' }}>{title}</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div className="ds-inset" style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column', gap: 10, padding: 12 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 500, color: 'var(--ds-ink-2)' }}>
+          <span className={`ds-dot ${must ? 'ds-dot-blue' : 'ds-dot-grey'}`} />
+          {title}
+          <span className="ds-muted" style={{ fontWeight: 400 }}>{skills.length}</span>
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {skills.map(skill => (
-            <div key={skill.name} style={{
-              display: 'flex', flexDirection: 'column',
-              background: priority === 'must_have' ? 'var(--primary)' : 'white',
-              color: priority === 'must_have' ? 'white' : 'var(--primary)',
-              border: priority === 'must_have' ? '1px solid var(--primary)' : '1px solid var(--primary)',
-              padding: '8px 12px', borderRadius: '6px', fontSize: '13px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {skill.name}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button type="button" onClick={() => handleTogglePriority(type, skill.name)} style={{ color: priority === 'must_have' ? 'rgba(255,255,255,0.8)' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer' }} title={t("dashboard.jobForm.changePriority")}>
+            <div key={skill.name} className="ds-card" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 8px 8px 12px', borderRadius: 10, borderColor: must ? 'var(--ds-blue-30)' : undefined }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontWeight: 500, fontSize: 13 }}>{skill.name}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 'none' }}>
+                  <button type="button" className="ds-icon-btn" style={{ width: 28, height: 28 }} onClick={() => handleTogglePriority(type, skill.name)} title={t("dashboard.jobForm.changePriority")} aria-label={t("dashboard.jobForm.changePriority")}>
                     <ArrowRightLeft size={14} />
                   </button>
-                  <button type="button" onClick={() => handleRemoveSkill(type, skill.name)} style={{ color: priority === 'must_have' ? 'white' : 'var(--primary)', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', padding: '2px', cursor: 'pointer' }} title={t("dashboard.jobForm.remove")}>
+                  <button type="button" className="ds-icon-btn is-danger" style={{ width: 28, height: 28 }} onClick={() => handleRemoveSkill(type, skill.name)} title={t("dashboard.jobForm.remove")} aria-label={t("dashboard.jobForm.remove")}>
                     <X size={14} />
                   </button>
-                </div>
+                </span>
               </div>
               {skill.evidence && (
-                <div style={{ marginTop: '6px', fontSize: '11px', opacity: priority === 'must_have' ? 0.8 : 0.6, fontStyle: 'italic', borderTop: `1px solid ${priority === 'must_have' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`, paddingTop: '6px' }}>
-                  "{skill.evidence}"
+                <div style={{ fontSize: 12, color: 'var(--ds-ink-4)', fontStyle: 'italic', lineHeight: 1.45 }}>
+                  « {skill.evidence} »
                 </div>
               )}
             </div>
           ))}
-          {skills.length === 0 && <span style={{ color: 'var(--muted-foreground)', fontSize: '13px', fontStyle: 'italic' }}>{t("dashboard.jobForm.noSkillsIn", { label: title })}</span>}
+          {skills.length === 0 && <span className="ds-muted" style={{ fontSize: 13 }}>{t("dashboard.jobForm.noSkillsIn", { label: title })}</span>}
         </div>
       </div>
     );
@@ -141,37 +138,39 @@ export default function JobFormStep2({ jobData, setJobData }) {
   const renderAmbiguityZone = (type) => {
     const ambiguousSkills = (jobData[type] || []).filter(s => s.priority === 'ambiguous');
     if (ambiguousSkills.length === 0) return null;
-    
+
     return (
-      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem' }}>
-        <h4 style={{ color: '#b45309', fontWeight: '600', fontSize: '14px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '16px' }}>⚠️</span> {t("dashboard.jobForm.uncertaintyZone")}
-        </h4>
-        <p style={{ fontSize: '13px', color: '#92400e', marginBottom: '1rem' }}>{t("dashboard.jobForm.confirmPriority")}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div className="ds-inset" style={{ background: 'var(--ds-amber-bg)', borderColor: '#F3DDB8', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, color: 'var(--ds-amber-ink)' }}>
+            <AlertTriangle size={15} /> {t("dashboard.jobForm.uncertaintyZone")}
+          </div>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--ds-amber-ink)' }}>{t("dashboard.jobForm.confirmPriority")}</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {ambiguousSkills.map(skill => (
-            <div key={skill.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #fde68a' }}>
-              <div>
-                <span style={{ fontWeight: '500', fontSize: '13px' }}>{skill.name}</span>
-                {skill.evidence && <div style={{ fontSize: '11px', color: '#92400e', opacity: 0.8 }}>"{skill.evidence}"</div>}
+            <div key={skill.name} className="ds-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 8px 8px 12px', borderRadius: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <span style={{ fontWeight: 500, fontSize: 13 }}>{skill.name}</span>
+                {skill.evidence && <div style={{ fontSize: 12, color: 'var(--ds-ink-4)', fontStyle: 'italic' }}>« {skill.evidence} »</div>}
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  type="button" 
+              <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                <button
+                  type="button"
+                  className="ds-btn ds-btn-sm"
                   onClick={() => {
                     const current = jobData[type] || [];
                     updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'must_have' } : s));
-                  }}
-                  style={{ padding: '4px 8px', fontSize: '12px', background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  }}>
                   {t("dashboard.jobForm.mustHave")}
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
+                  className="ds-btn ds-btn-sm"
                   onClick={() => {
                     const current = jobData[type] || [];
                     updateField(type, current.map(s => s.name === skill.name ? { ...s, priority: 'nice_to_have' } : s));
-                  }}
-                  style={{ padding: '4px 8px', fontSize: '12px', background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '4px', cursor: 'pointer' }}>
+                  }}>
                   {t("dashboard.jobForm.niceToHave")}
                 </button>
               </div>
@@ -182,43 +181,54 @@ export default function JobFormStep2({ jobData, setJobData }) {
     );
   };
 
+  // Champ « ajouter » + bouton, commun aux compétences et aux langues.
+  const champAjout = (valeur, setValeur, placeholder, ajouter) => (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input
+        className="ds-input"
+        placeholder={placeholder}
+        value={valeur}
+        onChange={e => setValeur(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (valeur.trim()) { ajouter(valeur.trim()); setValeur(''); } } }}
+      />
+      <button type="button" className="ds-btn" style={{ height: 40, width: 40, padding: 0, flex: 'none' }} aria-label={placeholder} onClick={() => { if (valeur.trim()) { ajouter(valeur.trim()); setValeur(''); } }}>
+        <Plus size={16} />
+      </button>
+    </div>
+  );
+
+  const titrePanneau = (titre, aide) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 10px 0' }}>
+      <h3 className="ds-h2">{titre}</h3>
+      {aide && <p className="ds-sub">{aide}</p>}
+    </div>
+  );
+
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Détails du poste */}
-      <div>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>{t("dashboard.jobForm.section")}</h3>
-        <p style={{ color: 'var(--muted-foreground)', fontSize: '14px', marginBottom: '1.5rem' }}>{t("dashboard.jobForm.sectionHelp")}</p>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label className="form-label">{t("dashboard.jobForm.jobTitle")}</label>
-            <input className="input-field" value={jobData.title || ""} onChange={e => updateField('title', e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">{t("dashboard.jobForm.shortDescription")}</label>
-            <textarea className="input-field" style={{ minHeight: '120px' }} value={jobData.clean_description || ""} onChange={e => updateField('clean_description', e.target.value)} />
-          </div>
-          <div>
-            <label className="form-label">{t("dashboard.jobForm.jobFamily")}</label>
-            <input 
-              className="input-field" 
-              placeholder={t("dashboard.jobForm.categoryPlaceholder")} 
-              value={jobData.category || ""}
-              onChange={e => updateField('category', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label">{t("dashboard.jobForm.subFamily")}</label>
-            <input 
-              className="input-field" 
-              placeholder={t("dashboard.jobForm.subFamilyPlaceholder")} 
-              value={jobData.sub_family || ""}
-              onChange={e => updateField('sub_family', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label">{t("dashboard.jobForm.roleType")}</label>
-            <CustomSelect 
+      <section className="ds-panel">
+        {titrePanneau(t("dashboard.jobForm.section"), t("dashboard.jobForm.sectionHelp"))}
+        <div className="ds-inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+          <label className="ds-field" style={{ gridColumn: '1 / -1' }}>
+            <span className="ds-label">{t("dashboard.jobForm.jobTitle")}</span>
+            <input className="ds-input" value={jobData.title || ""} onChange={e => updateField('title', e.target.value)} />
+          </label>
+          <label className="ds-field" style={{ gridColumn: '1 / -1' }}>
+            <span className="ds-label">{t("dashboard.jobForm.shortDescription")}</span>
+            <textarea className="ds-textarea" style={{ minHeight: 120 }} value={jobData.clean_description || ""} onChange={e => updateField('clean_description', e.target.value)} />
+          </label>
+          <label className="ds-field">
+            <span className="ds-label">{t("dashboard.jobForm.jobFamily")}</span>
+            <input className="ds-input" placeholder={t("dashboard.jobForm.categoryPlaceholder")} value={jobData.category || ""} onChange={e => updateField('category', e.target.value)} />
+          </label>
+          <label className="ds-field">
+            <span className="ds-label">{t("dashboard.jobForm.subFamily")}</span>
+            <input className="ds-input" placeholder={t("dashboard.jobForm.subFamilyPlaceholder")} value={jobData.sub_family || ""} onChange={e => updateField('sub_family', e.target.value)} />
+          </label>
+          <div className="ds-field" style={{ gridColumn: '1 / -1' }}>
+            <span className="ds-label">{t("dashboard.jobForm.roleType")}</span>
+            <CustomSelect
               value={jobData.role_type || ""}
               onChange={value => updateField('role_type', value)}
               options={[
@@ -235,143 +245,127 @@ export default function JobFormStep2({ jobData, setJobData }) {
             />
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Hard Skills */}
-      <div>
-        <label className="form-label">{t("dashboard.jobForm.hardSkills")}</label>
-        {renderAmbiguityZone('hard_skills')}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          <input 
-            className="input-field" 
-            placeholder={t("dashboard.jobForm.addCustomSkill")} 
-            value={customHardSkill}
-            onChange={e => setCustomHardSkill(e.target.value)}
-            onKeyDown={e => { if(e.key === 'Enter') { e.preventDefault(); handleAddSkill('hard_skills', customHardSkill); setCustomHardSkill(''); } }}
-          />
-          <button type="button" className="btn btn-secondary" onClick={() => { handleAddSkill('hard_skills', customHardSkill); setCustomHardSkill(''); }}><Plus size={18} /></button>
+      <section className="ds-panel">
+        {titrePanneau(t("dashboard.jobForm.hardSkills"))}
+        <div className="ds-inset" style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#FFFFFF' }}>
+          {renderAmbiguityZone('hard_skills')}
+          {champAjout(customHardSkill, setCustomHardSkill, t("dashboard.jobForm.addCustomSkill"), (nom) => handleAddSkill('hard_skills', nom))}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {renderSkillBox('hard_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
+            {renderSkillBox('hard_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
+          </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          {renderSkillBox('hard_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
-          {renderSkillBox('hard_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
-        </div>
-      </div>
+      </section>
 
       {/* Soft Skills */}
-      <div>
-        <label className="form-label">{t("dashboard.jobForm.softSkills")}</label>
-        {renderAmbiguityZone('soft_skills')}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', marginTop: '1rem' }}>
-          <input 
-            className="input-field" 
-            placeholder={t("dashboard.jobForm.addSoftSkill")} 
-            value={customSoftSkill}
-            onChange={e => setCustomSoftSkill(e.target.value)}
-            onKeyDown={e => { if(e.key === 'Enter') { e.preventDefault(); handleAddSkill('soft_skills', customSoftSkill); setCustomSoftSkill(''); } }}
-          />
-          <button type="button" className="btn btn-secondary" onClick={() => { handleAddSkill('soft_skills', customSoftSkill); setCustomSoftSkill(''); }}><Plus size={18} /></button>
+      <section className="ds-panel">
+        {titrePanneau(t("dashboard.jobForm.softSkills"))}
+        <div className="ds-inset" style={{ display: 'flex', flexDirection: 'column', gap: 12, background: '#FFFFFF' }}>
+          {renderAmbiguityZone('soft_skills')}
+          {champAjout(customSoftSkill, setCustomSoftSkill, t("dashboard.jobForm.addSoftSkill"), (nom) => handleAddSkill('soft_skills', nom))}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {renderSkillBox('soft_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
+            {renderSkillBox('soft_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
+          </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          {renderSkillBox('soft_skills', 'must_have', t("dashboard.jobForm.mustHave"))}
-          {renderSkillBox('soft_skills', 'nice_to_have', t("dashboard.jobForm.niceToHave"))}
-        </div>
-      </div>
+      </section>
 
       {/* Langues */}
-      <div>
-        <label className="form-label">{t("dashboard.jobForm.languages")}</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-          {DEFAULT_LANGUAGES.map(lang => {
-            const isSelected = (jobData.languages || []).find(l => l.name === lang);
-            return (
-              <span 
-                key={lang} 
-                onClick={() => isSelected ? handleRemoveLanguage(lang) : handleAddLanguage(lang)}
-                style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '20px', border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--primary)' : 'white', color: isSelected ? 'white' : 'var(--muted-foreground)', cursor: 'pointer', transition: 'all 0.2s' }}
-              >
-                {CLES_LANGUES[lang] ? t(`dashboard.jobForm.languageNames.${CLES_LANGUES[lang]}`) : lang}
-              </span>
-            );
-          })}
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          <input 
-            className="input-field" 
-            placeholder={t("dashboard.jobForm.addLanguage")} 
-            value={customLanguage}
-            onChange={e => setCustomLanguage(e.target.value)}
-            onKeyDown={e => { if(e.key === 'Enter') { e.preventDefault(); handleAddLanguage(customLanguage); setCustomLanguage(''); } }}
-          />
-          <button type="button" className="btn btn-secondary" onClick={() => { handleAddLanguage(customLanguage); setCustomLanguage(''); }}><Plus size={18} /></button>
-        </div>
-
-        {(jobData.languages || []).length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.5rem', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            {(jobData.languages || []).map(lang => (
-              <div key={lang.name} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ width: '100px', fontWeight: '500', fontSize: '14px' }}>{CLES_LANGUES[lang.name] ? t(`dashboard.jobForm.languageNames.${CLES_LANGUES[lang.name]}`) : lang.name}</span>
-                {/* Le curseur reste sur 1-5 (c'est ce qui est stocké) ; l'échelle
-                    CECR en dessous dit au recruteur ce que chaque cran veut dire. */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <input
-                    type="range"
-                    min="1"
-                    max="5"
-                    value={lang.level}
-                    onChange={(e) => handleUpdateLanguageLevel(lang.name, e.target.value)}
-                    style={{ width: '100%', accentColor: 'var(--primary)' }}
-                  />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                    {NIVEAUX_LANGUE.map(n => (
-                      <span
-                        key={n}
-                        onClick={() => handleUpdateLanguageLevel(lang.name, n)}
-                        style={{ cursor: 'pointer', color: n === Number(lang.level) ? 'var(--primary)' : 'var(--muted-foreground)', fontWeight: n === Number(lang.level) ? '700' : '400' }}
-                      >
-                        {niveauCecr(n)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ width: '130px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.2 }}>
-                  <span style={{ fontSize: '14px', fontWeight: '700' }}>{niveauCecr(lang.level)}</span>
-                  <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'right' }}>{t(`dashboard.jobForm.languageLevels.${lang.level}`)}</span>
-                </div>
-                <button type="button" onClick={() => handleRemoveLanguage(lang.name)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer' }}><X size={16} /></button>
-              </div>
-            ))}
+      <section className="ds-panel">
+        {titrePanneau(t("dashboard.jobForm.languages"))}
+        <div className="ds-inset" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {DEFAULT_LANGUAGES.map(lang => {
+              const isSelected = (jobData.languages || []).find(l => l.name === lang);
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  aria-pressed={!!isSelected}
+                  onClick={() => isSelected ? handleRemoveLanguage(lang) : handleAddLanguage(lang)}
+                  className="ds-btn ds-btn-sm"
+                  style={isSelected ? { background: 'var(--ds-blue)', borderColor: 'var(--ds-blue)', color: '#FFFFFF' } : undefined}
+                >
+                  {CLES_LANGUES[lang] ? t(`dashboard.jobForm.languageNames.${CLES_LANGUES[lang]}`) : lang}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+          {champAjout(customLanguage, setCustomLanguage, t("dashboard.jobForm.addLanguage"), handleAddLanguage)}
 
-      {/* Diplôme */}
-      <div>
-        <label className="form-label">{t("dashboard.jobForm.degree")}</label>
-        <CustomSelect 
-          value={jobData.education_level || ""}
-          onChange={value => updateField('education_level', value)}
-          options={[
-            { value: "Master", label: t("dashboard.jobForm.degrees.master") },
-            { value: "Bachelier", label: t("dashboard.jobForm.degrees.bachelor") },
-            { value: "Indifférent", label: t("dashboard.jobForm.degrees.any") }
-          ]}
-          placeholder={t("dashboard.jobForm.selectPlaceholder")}
-        />
-      </div>
+          {(jobData.languages || []).length > 0 && (
+            <div className="ds-card" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 16, borderRadius: 10 }}>
+              {(jobData.languages || []).map(lang => (
+                <div key={lang.name} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <span style={{ width: 100, fontWeight: 500 }}>{CLES_LANGUES[lang.name] ? t(`dashboard.jobForm.languageNames.${CLES_LANGUES[lang.name]}`) : lang.name}</span>
+                  {/* Le curseur reste sur 1-5 (c'est ce qui est stocké) ; l'échelle
+                      CECR en dessous dit au recruteur ce que chaque cran veut dire. */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={lang.level}
+                      onChange={(e) => handleUpdateLanguageLevel(lang.name, e.target.value)}
+                      style={{ width: '100%', accentColor: 'var(--ds-blue)' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                      {NIVEAUX_LANGUE.map(n => (
+                        <span
+                          key={n}
+                          className="ds-mono"
+                          onClick={() => handleUpdateLanguageLevel(lang.name, n)}
+                          style={{ cursor: 'pointer', color: n === Number(lang.level) ? 'var(--ds-blue)' : 'var(--ds-ink-5)', fontWeight: n === Number(lang.level) ? 500 : 400 }}
+                        >
+                          {niveauCecr(n)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ width: 130, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25 }}>
+                    <span className="ds-mono" style={{ fontWeight: 500 }}>{niveauCecr(lang.level)}</span>
+                    <span style={{ fontSize: 12, color: 'var(--ds-ink-4)', textAlign: 'right' }}>{t(`dashboard.jobForm.languageLevels.${lang.level}`)}</span>
+                  </div>
+                  <button type="button" className="ds-icon-btn is-danger" onClick={() => handleRemoveLanguage(lang.name)} aria-label={t("dashboard.jobForm.remove")} title={t("dashboard.jobForm.remove")}>
+                    <X size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Expérience requise */}
-      <div>
-        <label className="form-label">{t("dashboard.jobForm.experienceRequired")}</label>
-        <input 
-          className="input-field" 
-          placeholder={t("dashboard.jobForm.yearsPlaceholder")} 
-          value={jobData.years_of_experience || ""} 
-          onChange={e => updateField('years_of_experience', e.target.value)} 
-        />
-      </div>
-
+      {/* Diplôme et expérience */}
+      <section className="ds-panel">
+        <div className="ds-inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+          <div className="ds-field">
+            <span className="ds-label">{t("dashboard.jobForm.degree")}</span>
+            <CustomSelect
+              value={jobData.education_level || ""}
+              onChange={value => updateField('education_level', value)}
+              options={[
+                { value: "Master", label: t("dashboard.jobForm.degrees.master") },
+                { value: "Bachelier", label: t("dashboard.jobForm.degrees.bachelor") },
+                { value: "Indifférent", label: t("dashboard.jobForm.degrees.any") }
+              ]}
+              placeholder={t("dashboard.jobForm.selectPlaceholder")}
+            />
+          </div>
+          <label className="ds-field">
+            <span className="ds-label">{t("dashboard.jobForm.experienceRequired")}</span>
+            <input
+              className="ds-input"
+              placeholder={t("dashboard.jobForm.yearsPlaceholder")}
+              value={jobData.years_of_experience || ""}
+              onChange={e => updateField('years_of_experience', e.target.value)}
+            />
+          </label>
+        </div>
+      </section>
     </div>
   );
 }

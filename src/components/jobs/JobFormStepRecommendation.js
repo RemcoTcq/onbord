@@ -121,8 +121,8 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
       
       <div className="no-pan" style={{
         background: 'white',
-        borderBottom: '1px solid var(--border)',
-        padding: '0.75rem 2rem',
+        borderBottom: '1px solid var(--ds-line-2)',
+        padding: '12px 20px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         zIndex: 50
       }}>
@@ -130,22 +130,17 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
           {onBack && (
             <button 
               onClick={() => onBack(flowNodes)}
-              style={{ 
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '32px', height: '32px', borderRadius: '8px',
-                border: '1px solid var(--border)', background: 'transparent',
-                cursor: 'pointer', color: 'var(--foreground)'
-              }}
+              className="ds-icon-btn ds-icon-btn-outline"
               title={t("dashboard.recommendation.backToSkills")}
             >
               <ChevronLeft size={16} />
             </button>
           )}
           <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--foreground)', margin: 0, marginBottom: '2px' }}>
+            <h2 className="ds-h2" style={{ marginBottom: 2 }}>
               {jobData?.title || t("dashboard.recommendation.fallbackTitle")}
             </h2>
-            <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--muted-foreground)' }}>
+            <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--ds-ink-4)' }}>
               <span>{jobData?.category || 'Vente'}</span>
               <span>•</span>
               <span>{jobData?.sub_family || jobData?.role_type?.split(' — ')[0] || t("dashboard.recommendation.fallbackRoleType")}</span>
@@ -154,24 +149,23 @@ export default function JobFormStepRecommendation({ jobData, savedJobId, onSave,
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--foreground)' }}>
-            <Clock size={14} style={{ color: totalTime > 30 ? '#ef4444' : 'var(--foreground)' }} />
-            <span style={{ fontWeight: '800', color: totalTime > 30 ? '#ef4444' : 'var(--foreground)' }}>{totalTime} min</span>
-          </div>
+          <span className={`ds-chip ds-chip-lg ${totalTime > 30 ? 'ds-chip-red' : ''}`}>
+            <Clock size={13} />
+            <span className="ds-mono">{totalTime} min</span>
+          </span>
           <button 
-            className="btn btn-primary"
-            style={{ padding: '8px 24px', fontWeight: '600', background: 'var(--foreground)', borderColor: 'var(--foreground)', color: 'var(--background)', borderRadius: '6px', opacity: (!isFlowValid || isSaving) ? 0.5 : 1, cursor: (!isFlowValid || isSaving) ? 'not-allowed' : 'pointer' }}
+            className="ds-btn ds-btn-primary"
         onClick={handleSaveFlow}
             disabled={!isFlowValid || isSaving}
             title={!isFlowValid ? t("dashboard.recommendation.configureAllModules") : ""}
           >
-            {isSaving ? <Loader2 size={16} className="spin" /> : t("dashboard.recommendation.validate")}
+            {isSaving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : t("dashboard.recommendation.validate")}
           </button>
         </div>
       </div>
       
       {/* PIPELINE CARD LAYOUT */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '2rem', background: '#f8fafc' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '20px', background: 'var(--ds-soft)' }}>
         <PipelineVisualEditor 
           nodes={flowNodes}
           isEditable={true}

@@ -1580,17 +1580,29 @@ const dashboard = {
 
 // ── Création d'une offre ──────────────────────────────────────────────────
   jobCreate: {
+    stepsLabel: "Étapes de création",
+    jobOffer: "Offre d'emploi",
+    sourceLabel: "Source de l'offre",
+    textLabel: "Texte de l'offre",
+    dropFile: "Glissez le fichier de l'offre ici",
+    fileFormats: "PDF, DOCX ou TXT · {browse}",
+    browse: "parcourir",
+    urlLabel: "Lien vers l'offre publiée",
+    languageLabel: "Langue de l'offre et du parcours candidat",
+    languageShort: "Langue du parcours",
+    extract: "Extraire les compétences",
+    languageNote: "Questions, exercices, assistant IA et e-mails aux candidats seront rédigés dans la langue choisie.",
     tipLabel: "Conseil :",
     protectedSites: "LinkedIn, Indeed ou Glassdoor",
     urlHint: "{tip} Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable. Elle peut ne pas fonctionner avec {sites} qui protègent leurs pages. Dans ce cas, copiez-collez le texte de l'offre directement.",
-    steps: { job: "1. Offre d'emploi", details: '2. Détails', journey: '3. Parcours' },
+    steps: { job: "Offre", details: "Compétences", journey: "Parcours" },
     heading: "Commençons par votre offre d'emploi",
-    intro:
-      "Onbord lit votre offre d'emploi et en extrait automatiquement les compétences à évaluer. Vous validez, on construit le parcours de screening.",
+    intro: 
+      "Onbord la lit et en extrait les compétences à évaluer. Vous les validez, puis on construit la simulation.",
 
     modePaste: 'Coller le texte',
     modeFile: 'Importer un fichier',
-    modeUrl: "URL de l'offre",
+    modeUrl: "Lien de l'offre",
     readingFile: 'Lecture du fichier…',
     changeFile: 'Cliquez pour changer de fichier',
     importFile: 'Cliquez pour importer votre offre',
