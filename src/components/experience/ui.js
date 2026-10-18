@@ -27,14 +27,15 @@ export const labelStyle = {
 export function StatusBadge({ status }) {
   const { t } = useI18n();
   const map = {
-    draft: { label: t("dashboard.experienceEditor.status.draft"), bg: "#f1f5f9", color: "#475569" },
-    pending_review: { label: t("dashboard.experienceEditor.status.pending_review"), bg: "#fef3c7", color: "#92400e" },
-    published: { label: t("dashboard.experienceEditor.status.published"), bg: "#dcfce7", color: "#166534" },
-    archived: { label: t("dashboard.experienceEditor.status.archived"), bg: "#f1f5f9", color: "#94a3b8" },
+    draft: { label: t("dashboard.experienceEditor.status.draft"), ton: "", dot: "ds-dot-grey" },
+    pending_review: { label: t("dashboard.experienceEditor.status.pending_review"), ton: "ds-chip-amber", dot: "ds-dot-amber" },
+    published: { label: t("dashboard.experienceEditor.status.published"), ton: "ds-chip-green", dot: "ds-dot-green" },
+    archived: { label: t("dashboard.experienceEditor.status.archived"), ton: "", dot: "ds-dot-grey" },
   };
   const s = map[status] || map.draft;
   return (
-    <span style={{ fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "99px", background: s.bg, color: s.color }}>
+    <span className={`ds-chip ${s.ton}`}>
+      <span className={`ds-dot ${s.dot}`} />
       {s.label}
     </span>
   );

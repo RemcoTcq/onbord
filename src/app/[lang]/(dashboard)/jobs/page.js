@@ -1,89 +1,114 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
-import { useRouter } from "@/lib/i18n/navigation";
-import { Briefcase, Loader2, Trash2, MapPin, Users, Plus, Search, MessageSquare, RotateCcw } from "lucide-react";
+import { Loader2, Trash2, Plus, Search, MoreHorizontal } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatDateShort } from "@/lib/i18n/format";
-import { deleteJob, listDeletedJobs, restoreJob, purgeJobNow } from "@/lib/actions/candidate";
+import { deleteJob } from "@/lib/actions/candidate";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/layout/PageHeader";
+import { useShell } from "@/components/layout/ShellContext";
+import CopyJobLink from "@/components/jobs/CopyJobLink";
+import { jobDot } from "@/components/ui/ds";
+
+// Onglets de la maquette. La corbeille n'a plus d'écran : un job supprimé reste
+// effacé automatiquement au bout du délai (cron de purge, migration 024).
+const ONGLETS = [
+  { id: "active", label: "dashboard.jobs.tabOpen", vide: "dashboard.jobs.noActiveJobs", aide: "dashboard.jobs.createFirst", pied: "dashboard.jobs.footerOpen" },
+  { id: "draft", label: "dashboard.jobs.tabDrafts", vide: "dashboard.jobs.noDrafts", aide: "dashboard.jobs.draftsAppearHere", pied: "dashboard.jobs.footerDrafts" },
+  { id: "closed", label: "dashboard.jobs.tabClosed", vide: "dashboard.jobs.noClosed", aide: "dashboard.jobs.closedAppearHere", pied: "dashboard.jobs.footerClosed" },
+];
+
+function aTermine(c) {
+  return !!c.assessment_submitted_at || c.score_global != null;
+}
+
+function metaJob(t, job) {
+  const mode = { remote: "remote", hybrid: "hybrid", onsite: "fullTime" }[job.work_mode];
+  return [job.location, job.contract_type, mode && t(`dashboard.jobDetail.workMode.${mode}`)].filter(Boolean).join(" · ");
+}
+
+/** Menu « plus d'actions » d'une ligne. Une seule action aujourd'hui : supprimer. */
+function ActionsJob({ job, onDelete, busy }) {
+  const { t } = useI18n();
+  // Position en `fixed`, calée sur le bouton : le tableau défile en largeur et
+  // couperait un menu en `absolute` sous la dernière ligne.
+  const [pos, setPos] = useState(null);
+  const ref = useRef(null);
+  const open = !!pos;
+
+  useEffect(() => {
+    if (!open) return;
+    const fermer = (e) => { if (ref.current && !ref.current.contains(e.target)) setPos(null); };
+    const quitter = () => setPos(null);
+    document.addEventListener("mousedown", fermer);
+    window.addEventListener("scroll", quitter, true);
+    return () => {
+      document.removeEventListener("mousedown", fermer);
+      window.removeEventListener("scroll", quitter, true);
+    };
+  }, [open]);
+
+  function basculer(e) {
+    if (open) { setPos(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+  }
+
+  return (
+    <span ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="ds-icon-btn"
+        aria-label={t("dashboard.jobs.moreActionsFor", { title: job.title || t("dashboard.jobs.untitled") })}
+        title={t("dashboard.jobs.moreActions")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={basculer}
+      >
+        {busy ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <MoreHorizontal size={16} strokeWidth={2} />}
+      </button>
+      {open && (
+        <div role="menu" className="ds-menu" style={{ position: "fixed", top: pos.top, right: pos.right, minWidth: 180 }}>
+          <button type="button" role="menuitem" className="ds-menu-item is-danger" onClick={(e) => { setPos(null); onDelete(e, job.id); }}>
+            <Trash2 size={15} strokeWidth={1.8} /> {t("dashboard.jobs.delete")}
+          </button>
+        </div>
+      )}
+    </span>
+  );
+}
 
 export default function JobsPage() {
   const { t, locale } = useI18n();
+  const { refreshJobs } = useShell();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [deletedJobs, setDeletedJobs] = useState([]);
-  const [restoringId, setRestoringId] = useState(null);
-  const [purgingId, setPurgingId] = useState(null);
   const [tab, setTab] = useState("active");
   const [search, setSearch] = useState("");
+  const [tri, setTri] = useState("recent");
   const { toast } = useToast();
-  const router = useRouter();
-
-  useEffect(() => { loadJobs(); }, []);
 
   async function loadJobs() {
-    setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
       const { data } = await supabase
         .from("jobs")
-        .select("*, candidates(id, status, score_cv)")
+        .select("*, candidates(id, status, score_cv, score_global, assessment_submitted_at)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (data) setJobs(data);
-
-      // La corbeille ne peut PAS venir de la requête ci-dessus : la policy de
-      // lecture exclut les offres supprimées, quel que soit le filtre demandé.
-      // Elle passe par une action serveur (cf. migration 024).
-      const res = await listDeletedJobs();
-      if (res.success) setDeletedJobs(res.jobs);
     }
     setLoading(false);
   }
 
-  async function handleRestore(e, jobId) {
-    e.preventDefault();
-    e.stopPropagation();
-    setRestoringId(jobId);
-    const res = await restoreJob(jobId);
-    if (res.success) {
-      const reste = deletedJobs.filter(j => j.id !== jobId);
-      setDeletedJobs(reste);
-      if (reste.length === 0) setTab("active");
-      await loadJobs();
-      toast(t("dashboard.jobs.restored"));
-    } else {
-      toast(res.error || t("dashboard.jobs.restoreError"), "error");
-    }
-    setRestoringId(null);
-  }
-
-  // Effacement définitif demandé depuis la corbeille : on court-circuite le
-  // délai de 7 jours. Rien ne sera restaurable ensuite — d'où la confirmation
-  // explicite, plus alarmante que celle de la mise en corbeille.
-  async function handlePurge(e, jobId) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!confirm(t("dashboard.jobs.purgeNowConfirm"))) return;
-    setPurgingId(jobId);
-    const res = await purgeJobNow(jobId);
-    if (res.success) {
-      const reste = deletedJobs.filter(j => j.id !== jobId);
-      setDeletedJobs(reste);
-      if (reste.length === 0) setTab("active");
-      toast(t("dashboard.jobs.purged"));
-    } else {
-      toast(res.error || t("dashboard.jobs.purgeError"), "error");
-    }
-    setPurgingId(null);
-  }
+  useEffect(() => { loadJobs(); }, []);
 
   async function handleDelete(e, jobId) {
     e.preventDefault();
@@ -94,8 +119,8 @@ export default function JobsPage() {
       const res = await deleteJob(jobId);
       if (res.success) {
         setJobs(prev => prev.filter(j => j.id !== jobId));
-        await loadJobs(); // recharge la corbeille, où l'offre vient d'atterrir
-        toast(`Offre déplacée dans la corbeille — restaurable ${res.delaiJours} jours`);
+        refreshJobs();
+        toast(t("dashboard.jobs.deleted"));
       } else {
         toast(res.error || t("dashboard.jobs.deleteError"), "error");
       }
@@ -105,223 +130,138 @@ export default function JobsPage() {
     setDeletingId(null);
   }
 
-  const filteredJobs = jobs.filter(j => {
-    const matchTab = tab === "active" ? j.status === "active" : j.status === "draft";
-    const matchSearch = !search || j.title?.toLowerCase().includes(search.toLowerCase());
-    return matchTab && matchSearch;
-  });
+  const compte = (id) => jobs.filter(j => j.status === id).length;
+  const onglet = ONGLETS.find(o => o.id === tab);
 
-  const activeJobs = jobs.filter(j => j.status === "active");
-  const allCandidates = activeJobs.flatMap(j => j.candidates || []);
-  const interviewsDone = allCandidates.filter(c => c.status === "interview_completed").length;
-  const draftsCount = jobs.filter(j => j.status === "draft").length;
+  const terme = search.trim().toLowerCase();
+  const filteredJobs = jobs
+    .filter(j => j.status === tab && (!terme || (j.title || "").toLowerCase().includes(terme)))
+    .sort((a, b) => {
+      if (tri === "oldest") return new Date(a.created_at) - new Date(b.created_at);
+      if (tri === "candidates") return (b.candidates?.length || 0) - (a.candidates?.length || 0);
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+  const header = (
+    <PageHeader
+      title={t("dashboard.nav.jobs")}
+      actions={
+        <Link href="/jobs/nouveau" className="ds-btn ds-btn-primary">
+          <Plus size={15} strokeWidth={2.2} /> {t("dashboard.nav.newJob")}
+        </Link>
+      }
+    />
+  );
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-        <Loader2 size={24} style={{ color: "var(--muted-foreground)", animation: "spin 1s linear infinite" }} />
-      </div>
+      <>
+        {header}
+        <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+          <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>{t("dashboard.jobs.title")}</h1>
-          <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>{t("dashboard.jobs.subtitle")}</p>
-        </div>
-        <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
-          <Plus size={15} />
-          {t("dashboard.nav.newJob")}
-        </Link>
-      </div>
-
-
-
-      {/* Tabs + Search */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
-        <div className="tabs" style={{ marginBottom: 0, borderBottom: "none", gap: "0" }}>
-          <button
-            className={`tab ${tab === "active" ? "active" : ""}`}
-            onClick={() => setTab("active")}
-            style={{ borderBottom: tab === "active" ? "2px solid var(--foreground)" : "2px solid transparent" }}
-          >
-            {t("dashboard.jobs.tabActive")} {activeJobs.length > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({activeJobs.length})</span>}
-          </button>
-          <button
-            className={`tab ${tab === "drafts" ? "active" : ""}`}
-            onClick={() => setTab("drafts")}
-            style={{ borderBottom: tab === "drafts" ? "2px solid var(--foreground)" : "2px solid transparent" }}
-          >
-            {t("dashboard.jobs.tabDrafts")} {draftsCount > 0 && <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({draftsCount})</span>}
-          </button>
-          {deletedJobs.length > 0 && (
-            <button
-              className={`tab ${tab === "trash" ? "active" : ""}`}
-              onClick={() => setTab("trash")}
-              style={{ borderBottom: tab === "trash" ? "2px solid var(--foreground)" : "2px solid transparent" }}
-            >
-              {t("dashboard.jobs.tabTrash")} <span style={{ marginLeft: "4px", color: "var(--muted-foreground)", fontSize: "12px" }}>({deletedJobs.length})</span>
-            </button>
-          )}
-        </div>
-        <div style={{ position: "relative", width: "220px" }}>
-          <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
-          <input
-            type="text"
-            className="input-field"
-            placeholder={t("common.actions.search")}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: "32px", fontSize: "12px" }}
-          />
-        </div>
-      </div>
-
-      <div style={{ height: "1px", background: "var(--border)", marginTop: "-16px" }} />
-
-      {/* Corbeille : offres supprimées, encore restaurables */}
-      {tab === "trash" ? (
-        <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
-          <div style={{ padding: "10px 14px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>
-            {t("dashboard.jobs.trashNotice")}
+    <>
+      {header}
+      <div className="ds-body">
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div role="tablist" aria-label={t("dashboard.jobs.filterLabel")} className="ds-seg">
+            {ONGLETS.map(o => {
+              const n = compte(o.id);
+              return (
+                <button key={o.id} type="button" role="tab" aria-selected={tab === o.id} onClick={() => setTab(o.id)} className="ds-seg-item">
+                  {t(o.label)}
+                  {n > 0 && <span className="ds-seg-count">{n}</span>}
+                </button>
+              );
+            })}
           </div>
-          {deletedJobs.map(job => (
-            <div
-              key={job.id}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: "12px", padding: "12px 14px", borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {job.title || t("dashboard.jobs.untitled")}
-                </div>
-                <div style={{ fontSize: "12px", color: job.joursRestants <= 1 ? "var(--destructive)" : "var(--muted-foreground)" }}>
-                  {job.joursRestants === 0
-                    ? t("dashboard.jobs.purgeSoon")
-                    : t("dashboard.jobs.purgeIn", { count: job.joursRestants })}
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-                <button
-                  onClick={(e) => handleRestore(e, job.id)}
-                  disabled={purgingId === job.id}
-                  className="btn btn-ghost btn-sm"
-                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap" }}
-                >
-                  {restoringId === job.id
-                    ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                    : <RotateCcw size={14} />}
-                  {t("dashboard.jobs.restore")}
-                </button>
-                <button
-                  onClick={(e) => handlePurge(e, job.id)}
-                  disabled={purgingId === job.id || restoringId === job.id}
-                  className="btn btn-ghost btn-sm"
-                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", whiteSpace: "nowrap", color: "var(--destructive)" }}
-                >
-                  {purgingId === job.id
-                    ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                    : <Trash2 size={14} />}
-                  {t("dashboard.jobs.purgeNow")}
-                </button>
-              </div>
-            </div>
-          ))}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <label className="ds-search" style={{ minWidth: 240 }}>
+              <Search size={15} strokeWidth={2} />
+              <span className="sr-only">{t("dashboard.jobs.filterLabel")}</span>
+              <input type="search" placeholder={t("dashboard.jobs.filterLabel")} value={search} onChange={e => setSearch(e.target.value)} />
+            </label>
+            <label className="ds-sort">
+              {t("dashboard.jobs.sort")}
+              <select value={tri} onChange={e => setTri(e.target.value)}>
+                <option value="recent">{t("dashboard.jobs.sortRecent")}</option>
+                <option value="oldest">{t("dashboard.jobs.sortOldest")}</option>
+                <option value="candidates">{t("dashboard.jobs.sortCandidates")}</option>
+              </select>
+            </label>
+          </div>
         </div>
-      ) : filteredJobs.length === 0 ? (
-        <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
-          <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
-            {tab === "active" ? t("dashboard.jobs.noActiveJobs") : t("dashboard.jobs.noDrafts")}
-          </p>
-          <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
-            {tab === "active" ? t("dashboard.jobs.createFirst") : t("dashboard.jobs.draftsAppearHere")}
-          </p>
-          {tab === "active" && (
-            <Link href="/jobs/nouveau" className="btn btn-primary" style={{ textDecoration: "none" }}>
-              <Plus size={14} /> {t("dashboard.jobs.create")}
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
-          {filteredJobs.map(job => {
-            const candidateCount = job.candidates?.length || 0;
-            const isDeleting = deletingId === job.id;
-            return (
-              <div
-                key={job.id}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "14px 20px", background: "var(--card)",
-                  borderBottom: "1px solid var(--border)", cursor: "pointer",
-                  transition: "background 100ms ease",
-                  opacity: isDeleting ? 0.5 : 1,
-                  pointerEvents: isDeleting ? "none" : "auto"
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
-                onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
-                onClick={() => router.push(`/jobs/${job.id}`)}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    width: "32px", height: "32px", borderRadius: "4px",
-                    background: tab === "active" ? "var(--foreground)" : "var(--secondary)",
-                    color: tab === "active" ? "var(--background)" : "var(--muted-foreground)",
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-                  }}>
-                    <Briefcase size={14} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {job.title || t("dashboard.jobs.untitledShort")}
-                    </p>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "2px" }}>
-                      {job.location && (
-                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
-                          <MapPin size={11} /> {job.location}
-                        </span>
-                      )}
-                      {job.contract_type && (
-                        <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                          {job.contract_type}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "20px", flexShrink: 0 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                    <Users size={12} /> {candidateCount}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                    {formatDateShort(job.created_at, locale)}
-                  </span>
-                  <button
-                    onClick={(e) => handleDelete(e, job.id)}
-                    title={t("dashboard.jobs.delete")}
-                    style={{
-                      background: "transparent", border: "none", padding: "4px",
-                      color: "var(--muted-foreground)", cursor: "pointer",
-                      borderRadius: "2px", transition: "all 120ms", display: "flex"
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.color = "var(--destructive)"; e.currentTarget.style.background = "#fee2e2"; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = "var(--muted-foreground)"; e.currentTarget.style.background = "transparent"; }}
-                  >
-                    {isDeleting ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={14} />}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+        {filteredJobs.length === 0 ? (
+          <div className="ds-card ds-empty">
+            <span className="ds-empty-title">{terme ? t("dashboard.search.noResults") : t(onglet.vide)}</span>
+            {!terme && <span>{t(onglet.aide)}</span>}
+            {!terme && tab === "active" && (
+              <Link href="/jobs/nouveau" className="ds-btn ds-btn-primary ds-btn-md" style={{ marginTop: 10 }}>
+                <Plus size={15} strokeWidth={2.2} /> {t("dashboard.nav.newJob")}
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="ds-table-wrap">
+            <table className="ds-table" style={{ minWidth: 660 }}>
+              <thead>
+                <tr>
+                  <th scope="col">{t("dashboard.jobs.colJob")}</th>
+                  <th scope="col" style={{ width: 110 }}>{t("dashboard.jobs.colCreated")}</th>
+                  <th scope="col" style={{ width: 120 }}>{t("dashboard.jobs.colCandidates")}</th>
+                  <th scope="col" className="ds-num" style={{ width: 150 }}>{t("dashboard.jobs.colCompleted")}</th>
+                  <th scope="col" style={{ width: 84 }}><span className="sr-only">{t("dashboard.jobs.colActions")}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredJobs.map(job => {
+                  const cands = job.candidates || [];
+                  const termines = cands.filter(aTermine).length;
+                  const pct = cands.length ? Math.round((termines / cands.length) * 100) : 0;
+                  const meta = metaJob(t, job);
+                  return (
+                    <tr key={job.id} style={{ opacity: deletingId === job.id ? 0.5 : 1 }}>
+                      <th scope="row">
+                        <Link href={`/jobs/${job.id}`} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 500, color: "var(--ds-ink)", fontSize: 14 }}>
+                            <span className="ds-square" style={{ background: jobDot(job.id) }} />
+                            {job.title || t("dashboard.jobs.untitled")}
+                          </span>
+                          {meta && <span style={{ fontSize: 13, color: "var(--ds-ink-3)", paddingLeft: 16 }}>{meta}</span>}
+                        </Link>
+                      </th>
+                      <td>{formatDateShort(job.created_at, locale)}</td>
+                      <td><span className="ds-chip">{t("dashboard.home.candidatesCount", { count: cands.length })}</span></td>
+                      <td>
+                        <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+                          <span className="ds-meter" style={{ width: 56, height: 5, background: "#E6EBF4" }}><span style={{ width: `${pct}%` }} /></span>
+                          <span className="ds-mono" style={{ fontWeight: 500, minWidth: 28, textAlign: "right", color: "var(--ds-ink)" }}>{termines}/{cands.length}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+                          {job.status === "active" && <CopyJobLink jobId={job.id} />}
+                          <ActionsJob job={job} onDelete={handleDelete} busy={deletingId === job.id} />
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {filteredJobs.length > 0 && (
+          <span style={{ fontSize: 13, color: "var(--ds-ink-4)" }}>{t(onglet.pied, { count: filteredJobs.length })}</span>
+        )}
+      </div>
+    </>
   );
 }

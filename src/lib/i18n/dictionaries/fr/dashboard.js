@@ -74,41 +74,39 @@ const dashboard = {
 
   // ── Liste des offres ──────────────────────────────────────────────────────
   jobs: {
-    tabActive: "Actifs",
+    tabOpen: "Ouverts",
     tabDrafts: "Brouillons",
-    tabTrash: "Corbeille",
-    title: "Offres d'emploi",
-    subtitle: "Gérez vos offres d'emploi et suivez vos candidats.",
-    untitled: "Offre sans titre",
-    untitledShort: "Sans titre",
-    noActiveJobs: "Aucune offre active",
+    tabClosed: "Fermés",
+    untitled: "Job sans titre",
+    noActiveJobs: "Aucun job ouvert",
     noDrafts: "Aucun brouillon",
-    createFirst: "Créez votre première offre pour démarrer.",
-    draftsAppearHere: "Vos offres non publiées apparaîtront ici.",
-
-    create: "Créer une offre",
+    noClosed: "Aucun job fermé",
+    createFirst: "Créez votre premier job pour démarrer.",
+    draftsAppearHere: "Vos jobs non publiés apparaîtront ici.",
+    closedAppearHere: "Les jobs dont vous fermez les candidatures apparaîtront ici.",
+    filterLabel: "Filtrer les jobs",
+    sort: "Trier",
+    sortRecent: "Plus récents",
+    sortOldest: "Plus anciens",
+    sortCandidates: "Nombre de candidats",
+    colJob: "Job",
+    colCreated: "Créé le",
+    colCandidates: "Candidats",
+    colCompleted: "Terminé par",
+    colActions: "Actions",
+    moreActions: "Plus d'actions",
+    moreActionsFor: "Plus d'actions pour {title}",
+    footerOpen_one: "{count} job ouvert",
+    footerOpen_other: "{count} jobs ouverts",
+    footerDrafts_one: "{count} brouillon",
+    footerDrafts_other: "{count} brouillons",
+    footerClosed_one: "{count} job fermé",
+    footerClosed_other: "{count} jobs fermés",
 
     delete: "Supprimer",
-    deleteConfirm: "Supprimer cette offre et tous ses candidats ?",
+    deleteConfirm: "Supprimer ce job et tous ses candidats ?",
     deleteError: "Erreur lors de la suppression",
-    restore: "Restaurer",
-    restored: "Offre restaurée",
-    restoreError: "Restauration impossible",
-
-    // ── Corbeille de 7 jours (migration 024) ──────────────────────────────
-    trashNotice:
-      "Ces offres et tous leurs candidats seront définitivement effacés à l'échéance — CV et vidéos compris. La restauration reste possible jusque-là.",
-    purgeSoon: "Effacement imminent",
-    purgeIn_one: "Effacement définitif dans {count} jour",
-    purgeIn_other: "Effacement définitif dans {count} jours",
-
-    // Le délai protège de la fausse manœuvre, il ne doit pas retenir le geste
-    // volontaire : l'effacement immédiat reste possible depuis la corbeille.
-    purgeNow: "Supprimer définitivement",
-    purgeNowConfirm:
-      "Effacer définitivement cette offre, ses candidats, leurs CV et leurs vidéos ?\n\nCette action est IRRÉVERSIBLE : elle n'attend pas les 7 jours et rien ne pourra être restauré.",
-    purged: "Offre définitivement effacée",
-    purgeError: "Effacement impossible",
+    deleted: "Job supprimé",
   },
 
   // ── Statuts d'un candidat ─────────────────────────────────────────────────
@@ -146,6 +144,68 @@ const dashboard = {
 
   // ── Fiche offre ───────────────────────────────────────────────────────────
   jobDetail: {
+    tabs: {
+      parcours: "Parcours candidat",
+      candidats: "Candidats",
+      context: "Contexte",
+      parametres: "Paramètres",
+    },
+    sectionsLabel: "Sections du job",
+    applicationsOpenChip: "Candidatures ouvertes",
+    applicationsClosedChip: "Candidatures fermées",
+    draftChip: "Brouillon",
+    dangerZone: "Zone de danger",
+    contextTitle: "Description du poste",
+    viewReport: "Voir le rapport",
+    selectAll: "Sélectionner tous les candidats",
+    selectOne: "Sélectionner {name}",
+    deleteOne: "Supprimer {name}",
+    deleteSelected_one: "Supprimer ({count})",
+    deleteSelected_other: "Supprimer ({count})",
+    bulkDeleteConfirm_one: "Supprimer {count} candidat ?",
+    bulkDeleteConfirm_other: "Supprimer {count} candidats ?",
+    bulkDeleted_one: "{count} candidat supprimé",
+    bulkDeleted_other: "{count} candidats supprimés",
+
+    // ── Onglet Parcours candidat ────────────────────────────────────────
+    journeyCard: {
+      title: "Parcours du candidat",
+      subtitle: "Le candidat répond d'abord aux questions de présélection, puis passe la simulation.",
+      step: "Étape {n}",
+      questionsCount_one: "{count} question fermée, avec la réponse attendue",
+      questionsCount_other: "{count} questions fermées, avec la réponse attendue",
+      noQuestions: "Aucune question pour l'instant",
+      noQuestionsHelp: "Ajoutez des questions fermées pour écarter d'emblée les profils hors critères.",
+      editQuestions: "Modifier les questions",
+      addQuestions: "Ajouter des questions",
+      simulation: "Simulation",
+      steps_one: "{count} étape",
+      steps_other: "{count} étapes",
+      noSimulation: "Pas encore de simulation",
+      editSimulation: "Modifier la simulation",
+      designSimulation: "Concevoir la simulation",
+      cvRequired: "CV demandé",
+      coverage: "Couverture des compétences",
+      coverageValue: "{covered} sur {total}",
+      in: { fr: "en français", en: "en anglais", nl: "en néerlandais" },
+    },
+
+    // ── Panneau des questions de présélection ───────────────────────────
+    questions: {
+      title: "Questions de présélection",
+      subtitle: "{job} · étape 1 du parcours candidat",
+      intro: "Des questions fermées, avec la réponse que vous attendez de chaque candidat.",
+      question: "Question",
+      questionN: "Question {n}",
+      expected: "Réponse attendue",
+      expectedN: "Réponse attendue à la question {n}",
+      placeholder: "Nouvelle question…",
+      deleteN: "Supprimer la question {n}",
+      count_one: "{count} question",
+      count_other: "{count} questions",
+      done: "Terminé",
+      saved: "Questions enregistrées",
+    },
     delete: "Supprimer",
     colCandidate: "Candidat",
     colScore: "Score global",
@@ -154,20 +214,13 @@ const dashboard = {
     back: "Retour",
     jobLabel: "Offre d'emploi",
 
-    tabs: {
-      pipelines: "Parcours (Pipeline)",
-      evaluations: "Évaluations",
-      candidats: "Candidats",
-      context: "Contexte",
-      parametres: "Paramètres",
-    },
 
     // ── Lien public ─────────────────────────────────────────────────────
     copyPublicLink: "Copier le lien public",
     linkCopied: "Lien copié !",
     publicLinkCopied: "Lien public copié !",
-    publishFirst:
-      "Publiez d'abord l'expérience — le lien enverrait les candidats sur un écran d'attente.",
+    publishFirst: 
+      "Publiez d'abord la simulation : le lien enverrait les candidats sur un écran d'attente.",
     publishFirstShort:
       "Publiez d'abord l'expérience : sans elle, le lien mène à un écran d'attente.",
 
@@ -180,9 +233,9 @@ const dashboard = {
     settingsSaved: "Paramètres sauvegardés",
     error: "Erreur",
     applicationsNowClosed: "Les candidatures sont maintenant fermées",
-    deleteJobConfirm:
-      "Êtes-vous sûr de vouloir supprimer cette offre ? Cette action est irréversible.",
-    jobDeleted: "Offre supprimée",
+    deleteJobConfirm: 
+      "Êtes-vous sûr de vouloir supprimer ce job ? Cette action est irréversible.",
+    jobDeleted: "Job supprimé",
     stepDeleted: "Étape supprimée",
     stepAdded: "Étape ajoutée",
     contextSaved: "Contexte sauvegardé",
@@ -210,14 +263,14 @@ const dashboard = {
     aiEvaluation: "Évaluation IA (Expérience)",
 
     // ── Liste des candidats ─────────────────────────────────────────────
-    searchCandidate: "Rechercher un candidat…",
+    searchCandidate: "Rechercher un candidat",
     noCandidates: "Aucun candidat",
     shareLinkToStart:
       "Partagez le lien public pour commencer à recevoir des candidatures.",
     sort: {
       score: "Score",
-      scoreDesc: "Décroissant",
-      scoreAsc: "Croissant",
+      scoreDesc: "Score décroissant",
+      scoreAsc: "Score croissant",
       date: "Date d'ajout",
       dateDesc: "Récent en premier",
       dateAsc: "Ancien en premier",
@@ -229,19 +282,19 @@ const dashboard = {
     },
 
     // ── Onglet Contexte ─────────────────────────────────────────────────
-    contextHelp:
-      "Sert de contexte à cette offre. Modifiable à tout moment : il nourrit la conception des évaluations.",
-    markdownContent: "Contenu Markdown",
+    contextHelp: 
+      "Sert de contexte à ce job. Modifiable à tout moment : elle guide la rédaction des évaluations.",
+    markdownContent: "Contenu",
     sourcesHelp:
       "Sources rattachées à cette offre. Désactivez-en une pour la garder attachée tout en l'excluant du contexte utilisé pour concevoir les évaluations.",
     jobDescriptionUrl: "Description du poste — URL",
 
     // ── Onglet Paramètres ───────────────────────────────────────────────
-    details: "DÉTAILS",
+    details: "Détails du poste",
     title: "Titre",
-    location: "Localisation",
+    location: "Lieu",
     contractType: "Type de contrat",
-    employmentType: "Type d'emploi",
+    employmentType: "Mode de travail",
     contract: {
       freelance: "Freelance",
       internship: "Stage",
@@ -251,20 +304,20 @@ const dashboard = {
     workMode: {
       remote: "Télétravail",
       hybrid: "Hybride",
-      fullTime: "Temps plein",
+      fullTime: "Sur site",
     },
 
-    visibility: "VISIBILITÉ",
+    visibility: "Visibilité",
     applicationsClosed: "Les candidatures sont fermées",
     applicationsOpen: "Les candidatures sont ouvertes",
     applicationsClosedHelp: "Les candidats ne peuvent plus postuler à cette offre.",
     applicationsOpenHelp:
       "Les candidats peuvent être invités et suivre les différentes étapes du processus de recrutement.",
 
-    closeApplications: "Terminé",
-    deleteJob: "Supprimer l'offre",
-    deleteJobHelp:
-      "Supprime l'annonce et la dissocie de ses candidats. Les évaluations restent dans votre bibliothèque. Cette action ne peut pas être annulée.",
+    closeApplications: "Fermer les candidatures",
+    deleteJob: "Supprimer ce job",
+    deleteJobHelp: 
+      "Supprime le job et le dissocie de ses candidats. Les évaluations restent dans votre bibliothèque. Cette action ne peut pas être annulée.",
   },
 
   // ── Fiche candidat : le rapport de preuves ────────────────────────────────

@@ -675,3 +675,52 @@ html.ds, html.ds body { background: var(--ds-page); }
   border: 1px solid var(--ds-line);
   box-shadow: var(--ds-shadow-sm);
 }
+
+/* ==================== PANNEAU LATÉRAL ==================== */
+/* Maquette « Questions de présélection » : une carte qui glisse à droite. */
+
+.ds-drawer-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(20, 32, 74, 0.22); }
+.ds-drawer {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1001;
+  width: min(640px, calc(100% - 20px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #FFFFFF;
+  border: 1px solid var(--ds-line);
+  box-shadow: 0 24px 64px rgba(20, 32, 74, 0.22);
+  animation: ds-drawer-in 160ms ease-out;
+}
+@keyframes ds-drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ds-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 14px 20px; border-bottom: 1px solid var(--ds-line-2); }
+.ds-drawer-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
+.ds-drawer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 12px 20px; border-top: 1px solid var(--ds-line-2); background: var(--ds-soft); }
+
+/* Bouton d'ajout en pointillés */
+.ds-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border: 1px dashed #C9D3EA;
+  border-radius: 9px;
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ds-blue);
+  cursor: pointer;
+}
+.ds-add:hover { background: var(--ds-blue-06); }
+
+.ds input[type="checkbox"], .ds input[type="radio"] { accent-color: var(--ds-blue); }
+
+/* Lien « Voir le rapport » */
+.ds-btn-soft { border: 0; background: var(--ds-blue-10); color: var(--ds-blue); }
+.ds-btn-soft:hover { background: var(--ds-blue-16); }
+.ds-dot-blue { background: var(--ds-blue); }

@@ -29,6 +29,8 @@ function natureEtape(step) {
   return { cle, Icone: ICONES[cle] || Type };
 }
 
+export { natureEtape };
+
 export default function BlocEtape({ step, index, total, recap, recapEnCours, part, nbCompetences, onOpen, onMove }) {
   const { t } = useI18n();
   const { cle, Icone } = natureEtape(step);
