@@ -1,12 +1,11 @@
 "use client";
 import { formatDateShort, formatDateLong } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useLocaleHref } from "@/lib/i18n/navigation";
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { adminAddCredits, adminChangePlan, adminChangeCycle, adminListUserUsage } from "@/lib/actions/usage";
-import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
+import { Loader2, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import AdminEnTete, { AccesRefuse } from "../AdminEnTete";
@@ -23,7 +22,6 @@ const PLAN_COLORS = {
 
 export default function AdminBillingPage() {
   const { t, locale } = useI18n();
-  const href = useLocaleHref();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -126,10 +124,10 @@ export default function AdminBillingPage() {
           const pc = PLAN_COLORS[key] || PLAN_COLORS.core;
           return (
             <div key={key} className="ds-card ds-card-pad" style={{ padding: "1rem", textAlign: "center" }}>
-              <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: pc.bg, color: pc.color }}>
+              <span style={{ fontSize: "11px", fontWeight: "600", padding: "3px 10px", borderRadius: "99px", background: pc.bg, color: pc.color }}>
                 {p.labelInterne}
               </span>
-              <div style={{ fontSize: "2rem", fontWeight: "900", marginTop: "8px" }}>{count}</div>
+              <div style={{ fontSize: "2rem", fontWeight: "600", marginTop: "8px" }}>{count}</div>
               <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>utilisateur{count !== 1 ? "s" : ""}</div>
             </div>
           );
@@ -149,7 +147,7 @@ export default function AdminBillingPage() {
                 t("dashboard.admin.columns.reset"),
                 t("dashboard.admin.columns.actions"),
               ].map(h => (
-                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -186,7 +184,7 @@ export default function AdminBillingPage() {
                       onChange={e => handleChangePlan(u.user_id, e.target.value)}
                       disabled={isPlanLoading}
                       style={{
-                        padding: "5px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700",
+                        padding: "5px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "600",
                         background: pc.bg, color: pc.color, border: "none", cursor: "pointer",
                         appearance: "none", paddingRight: "20px",
                       }}
@@ -228,7 +226,7 @@ export default function AdminBillingPage() {
                   {/* Crédits restants */}
                   <td style={{ padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontWeight: "700", color: creditColor, fontSize: "14px" }}>{u.credits_balance}</span>
+                      <span style={{ fontWeight: "600", color: creditColor, fontSize: "14px" }}>{u.credits_balance}</span>
                       <div style={{ width: "60px", height: "4px", background: "var(--border)", borderRadius: "99px", overflow: "hidden" }}>
                         <div style={{ width: `${creditPct}%`, height: "100%", background: creditColor }} />
                       </div>
@@ -267,7 +265,7 @@ export default function AdminBillingPage() {
                           disabled={isCreditsLoading}
                           title={`+${pack.credits} crédits`}
                           style={{
-                            padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700",
+                            padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "600",
                             background: "var(--secondary)", color: "var(--foreground)",
                             border: "1px solid var(--border)", cursor: "pointer",
                             display: "flex", alignItems: "center", gap: "3px",

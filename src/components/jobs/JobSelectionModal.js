@@ -76,7 +76,7 @@ export default function JobSelectionModal({ isOpen, onClose, onSelect }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.5rem", borderBottom: "1px solid var(--border)", background: "#fafafa" }}>
           <div>
-            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>{t("dashboard.jobSelection.title")}</h3>
+            <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0, color: "var(--foreground)" }}>{t("dashboard.jobSelection.title")}</h3>
             <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
               {t("dashboard.jobSelection.subtitle")}
             </p>

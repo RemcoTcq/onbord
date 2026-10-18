@@ -79,7 +79,7 @@ export default function CvScoringCriteria({ criteria, onChange }) {
                 onChange={(e) => handleChange(index, "weight", parseInt(e.target.value))}
                 style={{ flex: 1, accentColor: "var(--primary)" }}
               />
-              <span style={{ fontSize: "13px", fontWeight: "700", minWidth: "35px", textAlign: "right" }}>
+              <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "35px", textAlign: "right" }}>
                 {criterion.weight}%
               </span>
             </div>

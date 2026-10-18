@@ -75,12 +75,12 @@ export function CodeExerciseEditor({ code, onChange }) {
 
       {/* Les deux façons de rendre l'exercice inexploitable, signalées sans bloquer. */}
       {!visibles && (
-        <p style={{ fontSize: "11.5px", color: "#b45309", marginBottom: "0.5rem" }}>
+        <p style={{ fontSize: "11.5px", color: "var(--ds-amber-ink)", marginBottom: "0.5rem" }}>
           {t("dashboard.experienceEditor.code.warnNoVisible")}
         </p>
       )}
       {!caches && (
-        <p style={{ fontSize: "11.5px", color: "#b45309", marginBottom: "0.5rem" }}>
+        <p style={{ fontSize: "11.5px", color: "var(--ds-amber-ink)", marginBottom: "0.5rem" }}>
           {t("dashboard.experienceEditor.code.warnNoHidden")}
         </p>
       )}
@@ -101,7 +101,7 @@ export function CodeExerciseEditor({ code, onChange }) {
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => set({ tests: tests.filter((_, j) => j !== i) })}
-              style={{ padding: "4px", color: "#dc2626" }}
+              style={{ padding: "4px", color: "var(--ds-red)" }}
             ><Trash2 size={14} /></button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -210,7 +210,7 @@ export function CrmEditor({ crm, onChange }) {
               <input value={s.title || ""} onChange={(e) => setSource(i, { title: e.target.value })}
                 placeholder={t("dashboard.experienceEditor.crm.tabLabelPlaceholder")} style={{ ...inputStyle, marginBottom: 0 }} />
               <button className="btn btn-ghost btn-sm" onClick={() => set({ sources: sources.filter((_, j) => j !== i) })}
-                style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+                style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
             </div>
             {s.type === "email" && (
               <div style={{ display: "flex", gap: "8px", marginBottom: "6px" }}>
@@ -239,7 +239,7 @@ export function CrmEditor({ crm, onChange }) {
         {fields.map((f, i) => {
           const isFactual = f.nature === "factual";
           return (
-            <div key={i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${isFactual ? "#0ea5e9" : "#a855f7"}`, borderRadius: "8px", padding: "0.75rem" }}>
+            <div key={i} style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${isFactual ? "var(--ds-blue)" : "#4C74E0"}`, borderRadius: "8px", padding: "0.75rem" }}>
               <div style={{ display: "flex", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
                 <input value={f.label || ""} onChange={(e) => setField(i, { label: e.target.value })} placeholder={t("dashboard.experienceEditor.fieldLabel")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontWeight: 600 }} />
                 <input value={f.key || ""} onChange={(e) => setField(i, { key: e.target.value })} placeholder={t("dashboard.experienceEditor.fieldKey")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 130px", fontFamily: "monospace", fontSize: "12px" }} />
@@ -251,7 +251,7 @@ export function CrmEditor({ crm, onChange }) {
                   <option value="judgment">{t("dashboard.experienceEditor.crm.natureJudgment")}</option>
                 </select>
                 <button className="btn btn-ghost btn-sm" onClick={() => set({ fields: fields.filter((_, j) => j !== i) })}
-                  style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+                  style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
               </div>
 
               {f.type === "select" && (
@@ -314,7 +314,7 @@ function OngletEditor({ onglet, onChange, onRemove }) {
         <input value={onglet?.name || ""} onChange={(e) => onChange({ ...onglet, name: e.target.value })}
           placeholder={t("dashboard.experienceEditor.sheet.tabName")} style={{ ...inputStyle, marginBottom: 0, fontWeight: 600 }} />
         {onRemove && (
-          <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+          <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
         )}
       </div>
       <AutoTextarea
@@ -324,7 +324,7 @@ function OngletEditor({ onglet, onChange, onRemove }) {
         rows={8}
         style={{ ...inputStyle, marginBottom: 0, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "12px", lineHeight: 1.5, whiteSpace: "pre", overflowX: "auto" }}
       />
-      <p style={{ fontSize: "11px", color: inegales ? "#b45309" : "var(--muted-foreground)", marginTop: 4 }}>
+      <p style={{ fontSize: "11px", color: inegales ? "var(--ds-amber-ink)" : "var(--muted-foreground)", marginTop: 4 }}>
         {inegales
           ? t("dashboard.experienceEditor.sheet.unevenRows")
           : t("dashboard.experienceEditor.sheet.dataSize", { rows: (onglet?.rows || []).length, cols: (onglet?.columns || []).length })}
@@ -425,7 +425,7 @@ export function InboxEditor({ inbox, onChange }) {
                 </select>
                 <input value={m.from || ""} onChange={(e) => setItem(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.from")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px" }} />
                 <input value={m.from_role || ""} onChange={(e) => setItem(i, { from_role: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.fromRole")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px" }} />
-                <button className="btn btn-ghost btn-sm" onClick={() => retirer(i)} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+                <button className="btn btn-ghost btn-sm" onClick={() => retirer(i)} style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                 <input value={m.subject || ""} onChange={(e) => setItem(i, { subject: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.subject")} style={{ ...inputStyle, marginBottom: 0 }} />
@@ -479,7 +479,7 @@ function FicheCrmEditor({ record, onChange, onRemove }) {
         <span style={{ fontSize: "11.5px", color: "var(--muted-foreground)" }}>
           {[record.stage, t("dashboard.experienceEditor.crm.activityCount", { count: timeline.length })].filter(Boolean).join(" · ")}
         </span>
-        <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+        <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
       </div>
       {ouvert && (
         <div style={{ marginTop: "0.6rem" }}>
@@ -516,7 +516,7 @@ function FicheCrmEditor({ record, onChange, onRemove }) {
                   <input value={a.from || ""} onChange={(e) => setActivite(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceFrom")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px", fontSize: "12.5px" }} />
                   <input value={a.subject || a.title || ""} onChange={(e) => setActivite(i, a.type === "email" ? { subject: e.target.value } : { title: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceSubject")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px", fontSize: "12.5px" }} />
                   <input value={a.date || ""} onChange={(e) => setActivite(i, { date: e.target.value })} placeholder={t("dashboard.experienceEditor.sourceReceived")} style={{ ...inputStyle, marginBottom: 0, flex: "0 0 120px", fontSize: "12.5px" }} />
-                  <button className="btn btn-ghost btn-sm" onClick={() => set({ timeline: timeline.filter((_, j) => j !== i) })} style={{ padding: "4px", color: "#dc2626" }}><X size={13} /></button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => set({ timeline: timeline.filter((_, j) => j !== i) })} style={{ padding: "4px", color: "var(--ds-red)" }}><X size={13} /></button>
                 </div>
                 <AutoTextarea value={a.body || ""} onChange={(e) => setActivite(i, { body: e.target.value })} rows={3}
                   style={{ ...inputStyle, marginBottom: 0, fontSize: "12.5px", lineHeight: 1.5 }} />
@@ -668,7 +668,7 @@ export function BoardEditor({ board, onChange }) {
               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", alignSelf: "center", fontFamily: "monospace" }}>{c.id}</span>
                 <input value={c.title || ""} onChange={(e) => setCard(i, { title: e.target.value })} placeholder={t("dashboard.experienceEditor.board.cardTitle")} style={{ ...inputStyle, marginBottom: 0, fontWeight: 600 }} />
-                <button className="btn btn-ghost btn-sm" onClick={() => set({ cards: cards.filter((_, j) => j !== i), triage_notes: notes.filter((n) => n.card !== c.id) })} style={{ padding: "4px", color: "#dc2626" }}><Trash2 size={14} /></button>
+                <button className="btn btn-ghost btn-sm" onClick={() => set({ cards: cards.filter((_, j) => j !== i), triage_notes: notes.filter((n) => n.card !== c.id) })} style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
               </div>
               <AutoTextarea value={c.body || ""} onChange={(e) => setCard(i, { body: e.target.value })} rows={2} style={{ ...inputStyle, marginBottom: 6, fontSize: "13px", lineHeight: 1.5 }} />
               <MetaEditor meta={c.meta} onChange={(meta) => setCard(i, { meta })} />

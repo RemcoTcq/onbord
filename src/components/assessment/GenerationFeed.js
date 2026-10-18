@@ -207,7 +207,7 @@ export default function GenerationFeed({ events, active }) {
   const t = useT();
   return (
     <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', marginBottom: 2 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', marginBottom: 2 }}>
         {active ? <Loader2 size={15} className="spin" /> : <Check size={15} />}
         {active
           ? t("dashboard.generationFeed.generating")

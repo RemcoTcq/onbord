@@ -1,11 +1,10 @@
 "use client";
 import { formatDateShort, formatDateLong } from "@/lib/i18n/format";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useLocaleHref } from "@/lib/i18n/navigation";
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Copy, Check, Link2, Trash2, Loader2, Shield, UserPlus, KeyRound, Users, RotateCcw } from "lucide-react";
+import { Copy, Check, Link2, Trash2, Loader2, UserPlus, KeyRound, Users, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { PLANS, PLANS_ATTRIBUABLES } from "@/lib/constants/plans";
 import AdminEnTete, { AccesRefuse } from "./AdminEnTete";
@@ -32,7 +31,7 @@ const CHAMP = {
 };
 
 const CELLULE_ENTETE = {
-  padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "700",
+  padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "600",
   color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em",
 };
 
@@ -55,7 +54,7 @@ function EncartIdentifiants({ email, motDePasse, t }) {
         <strong style={{ fontSize: "14px", color: "var(--ds-green-ink)" }}>{email}</strong>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-        <code style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "0.03em", background: "white", padding: "8px 12px", borderRadius: "8px", border: "1px solid #D4EEE1", color: "#14532d" }}>
+        <code style={{ fontSize: "15px", fontWeight: 600, letterSpacing: "0.03em", background: "white", padding: "8px 12px", borderRadius: "8px", border: "1px solid #D4EEE1", color: "#14532d" }}>
           {motDePasse}
         </code>
         <button
@@ -80,7 +79,6 @@ function EncartIdentifiants({ email, motDePasse, t }) {
 
 export default function AdminPage() {
   const { t, locale } = useI18n();
-  const href = useLocaleHref();
   const [plan, setPlan] = useState("core");
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +244,7 @@ export default function AdminPage() {
       <div className="ds-card ds-card-pad" style={{ marginBottom: "2rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
           <UserPlus size={18} style={{ color: "var(--primary)" }} />
-          <h2 style={{ fontSize: "16px", fontWeight: 700 }}>{t("dashboard.admin.createAccount")}</h2>
+          <h2 style={{ fontSize: "16px", fontWeight: 600 }}>{t("dashboard.admin.createAccount")}</h2>
         </div>
         <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
           {t("dashboard.admin.createAccountHelp")}
@@ -308,7 +306,7 @@ export default function AdminPage() {
       <div className="ds-card ds-card-pad" style={{ marginBottom: "2rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
           <Users size={18} style={{ color: "var(--primary)" }} />
-          <h2 style={{ fontSize: "16px", fontWeight: 700 }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 600 }}>
             {t("dashboard.admin.accountsTitle")} ({comptes.length})
           </h2>
         </div>
@@ -345,7 +343,7 @@ export default function AdminPage() {
                     </td>
                     <td style={{ padding: "14px 20px" }}>
                       {pc ? (
-                        <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", background: pc.bg, color: pc.color }}>
+                        <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", background: pc.bg, color: pc.color }}>
                           {PLANS[c.plan]?.labelInterne || c.plan}
                         </span>
                       ) : (
@@ -426,11 +424,11 @@ export default function AdminPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.token")}</th>
-              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.plan")}</th>
-              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.status")}</th>
-              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.expires")}</th>
-              <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.actions")}</th>
+              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.token")}</th>
+              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.plan")}</th>
+              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.status")}</th>
+              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.expires")}</th>
+              <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: "600", color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("dashboard.admin.columns.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -448,7 +446,7 @@ export default function AdminPage() {
                     </code>
                   </td>
                   <td style={{ padding: "14px 20px" }}>
-                    <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", background: pc.bg, color: pc.color }}>
+                    <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", background: pc.bg, color: pc.color }}>
                       {PLANS[tok.plan]?.labelInterne || tok.plan}
                     </span>
                   </td>
