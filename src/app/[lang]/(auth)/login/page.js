@@ -42,46 +42,47 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-card fade-in">
+    <div className="ds-auth-card fade-in">
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
+        <img src="/logo.png" alt="Onbord" style={{ height: 28, width: "auto" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <h1 className="ds-h1" style={{ whiteSpace: "normal" }}>{t("common.auth.loginTitle")}</h1>
+          <p className="ds-sub">{t("common.auth.loginSubtitle")}</p>
+        </div>
+      </div>
+
       {callbackFailed && (
-        <div style={{ color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '12px', borderRadius: 'var(--radius-sm)', fontSize: '14px', marginBottom: '20px' }}>
+        <div className="ds-inset" style={{ background: "var(--ds-amber-bg)", borderColor: "#F3DDB8", color: "var(--ds-amber-ink)", fontSize: 13, padding: 12 }}>
           {t("common.auth.confirmLinkFailed")}
         </div>
       )}
-      <div className="auth-header">
-        <div className="auth-logo">
-          <img src="/logo.png" alt="Onbord" style={{ height: "40px", width: "auto" }} />
-        </div>
-        <h2 className="auth-title">{t("common.auth.loginTitle")}</h2>
-        <p className="auth-subtitle">{t("common.auth.loginSubtitle")}</p>
-      </div>
 
-      <form onSubmit={handleLogin}>
+      <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {error && (
-          <div style={{ color: 'var(--destructive)', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: 'var(--radius-sm)', fontSize: '14px', marginBottom: '20px' }}>
+          <div className="ds-inset" style={{ background: "var(--ds-red-bg)", borderColor: "var(--ds-red-inset)", color: "var(--ds-red)", fontSize: 13, padding: 12 }}>
             {error}
           </div>
         )}
-        
-        <div className="auth-form-group">
-          <label className="form-label" htmlFor="email-address">{t("common.auth.fields.workEmail")}</label>
+
+        <label className="ds-field" htmlFor="email-address">
+          <span className="ds-label">{t("common.auth.fields.workEmail")}</span>
           <input
             id="email-address"
             name="email"
             type="email"
             autoComplete="email"
             required
-            className="input-field"
+            className="ds-input"
             placeholder={t("common.auth.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </div>
-        
-        <div className="auth-form-group" style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label className="form-label" htmlFor="password" style={{ marginBottom: 0 }}>{t("common.auth.fields.password")}</label>
-            <Link href="#" style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>{t("common.auth.forgotPassword")}</Link>
+        </label>
+
+        <div className="ds-field">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label className="ds-label" htmlFor="password">{t("common.auth.fields.password")}</label>
+            <Link href="#" style={{ fontSize: 12, color: "var(--ds-ink-3)" }}>{t("common.auth.forgotPassword")}</Link>
           </div>
           <input
             id="password"
@@ -89,7 +90,7 @@ function LoginPage() {
             type="password"
             autoComplete="current-password"
             required
-            className="input-field"
+            className="ds-input"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -98,14 +99,14 @@ function LoginPage() {
 
         <button
           type="submit"
-          className="btn btn-primary"
-          style={{ width: '100%', padding: '12px' }}
+          className="ds-btn ds-btn-primary"
+          style={{ width: "100%", height: 40, marginTop: 6 }}
           disabled={loading}
         >
           {loading ? t("common.auth.loginPending") : t("common.auth.loginSubmit")}
         </button>
       </form>
-      
+
       {/* Le lien vers /register est retiré : l'inscription publique est fermée
           (réglage Supabase), la page ne fait plus que rediriger ici. */}
     </div>

@@ -1,414 +1,390 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
-import { useI18n, useT } from "@/lib/i18n/I18nProvider";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatDateShort } from "@/lib/i18n/format";
 import { createClient } from "@/lib/supabase/client";
 import { getUserCreditInfo } from "@/lib/actions/usage";
-import { 
-  Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
-  Home, Users, Settings2, BarChart2, Star
-} from "lucide-react";
+import { Plus, Briefcase, Users, CircleArrowUp, Maximize2, ChevronRight, Calendar, Loader2 } from "lucide-react";
+import PageHeader from "@/components/layout/PageHeader";
+import { useShell } from "@/components/layout/ShellContext";
+import CopyJobLink from "@/components/jobs/CopyJobLink";
+import { jobDot, scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
 
-const ICON_MAP = {
-  Plus, Settings, ChevronRight, Briefcase, FileText, Edit3, X, Check,
-  Home, Users, Settings2, BarChart2, Star
-};
+const NB_JOBS = 4;
+const NB_CANDIDATS = 5;
+const SEUIL_CREDITS_BAS = 10;
 
-// Les raccourcis prédéfinis sont identifiés par un `id` STABLE, et leur libellé
-// est résolu au rendu depuis cet id — pas stocké.
-//
-// C'est nécessaire parce que les raccourcis vivent dans le localStorage du
-// navigateur : ceux qu'un recruteur a enregistrés avant la traduction portent un
-// libellé français figé. Résoudre par id les remet dans la bonne langue sans
-// migration ni perte. Les raccourcis vers une offre (`job_<uuid>`) gardent leur
-// libellé stocké : c'est un titre de poste, il ne se traduit pas.
-const SHORTCUT_LABELS = {
-  home: "dashboard.nav.home",
-  new_job: "dashboard.nav.newJob",
-  jobs: "dashboard.nav.jobs",
-  assessments: "dashboard.nav.assessments",
-  settings: "dashboard.nav.settings",
-};
-
-/** Libellé d'un raccourci : traduit s'il est prédéfini, stocké sinon. */
-function shortcutLabel(t, shortcut) {
-  const key = SHORTCUT_LABELS[shortcut.id];
-  return key ? t(key) : shortcut.label;
+/** Un candidat a-t-il terminé sa simulation ? */
+function aTermine(c) {
+  return !!c.assessment_submitted_at || c.score_global != null;
 }
 
-const DEFAULT_SHORTCUTS = [
-  { id: 'new_job', iconName: 'Plus', href: "/jobs/nouveau" },
-  { id: 'jobs', iconName: 'Briefcase', href: "/jobs" },
-  { id: 'assessments', iconName: 'FileText', href: "/assessments" },
-];
-
-function ActionButton({ iconName, label, href, isEditing, onRemove }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const Icon = ICON_MAP[iconName] || FileText;
-  
-  const content = (
-    <div 
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: "10px",
-        padding: "12px 24px",
-        border: isEditing ? "1px dashed var(--muted-foreground)" : "1px solid var(--border)", 
-        borderRadius: "8px",
-        fontSize: "15px",
-        fontWeight: "600", color: "var(--foreground)",
-        background: "white", transition: "all 0.15s ease",
-        position: "relative",
-        cursor: isEditing ? "default" : "pointer"
-      }} 
-      className={isEditing ? "" : "hover-bg-secondary"}
-    >
-      {Icon && <Icon size={18} color="var(--muted-foreground)" />}
-      {label}
-      {isEditing && isHovered && (
-        <button 
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
-          style={{
-            position: "absolute", top: "-10px", right: "-10px", 
-            width: "24px", height: "24px", borderRadius: "12px",
-            background: "white", color: "var(--muted-foreground)",
-            border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", padding: 0, boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-            transition: "all 0.15s ease", zIndex: 10
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-        >
-          <X size={14} strokeWidth={2.5} />
-        </button>
-      )}
-    </div>
-  );
-
-  return isEditing ? content : <Link href={href} style={{ textDecoration: "none" }}>{content}</Link>;
+/** Libellé de lieu d'un job : « Gent · CDI · Hybride ». */
+function metaJob(t, job) {
+  const mode = { remote: "remote", hybrid: "hybrid", onsite: "fullTime" }[job.work_mode];
+  return [job.location, job.contract_type, mode && t(`dashboard.jobDetail.workMode.${mode}`)].filter(Boolean).join(" · ");
 }
 
-function AddShortcutModal({ onClose, onAdd, activeJobs }) {
-  const t = useT();
-  const PREDEFINED = [
-    { id: 'home', iconName: 'Home', href: "/accueil" },
-    { id: 'new_job', iconName: 'Plus', href: "/jobs/nouveau" },
-    { id: 'jobs', iconName: 'Briefcase', href: "/jobs" },
-    { id: 'assessments', iconName: 'FileText', href: "/assessments" },
-    { id: 'settings', iconName: 'Settings2', href: "/compte/profil" },
-  ];
+// ── Dates de la période ─────────────────────────────────────────────────────
 
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div className="fade-in" style={{
-        background: 'white', borderRadius: '12px', width: '600px', maxWidth: '90vw',
-        maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
-      }}>
-        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>{t("dashboard.home.addShortcut")}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--muted-foreground)' }}><X size={24} /></button>
-        </div>
-        <div style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
-          <div style={{ marginBottom: '40px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--muted-foreground)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t("dashboard.home.mainPages")}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {PREDEFINED.map(item => {
-                const Icon = ICON_MAP[item.iconName] || FileText;
-                return (
-                  <button 
-                    key={item.id} 
-                    onClick={() => { onAdd(item); onClose(); }}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', 
-                      border: '1px solid var(--border)', borderRadius: '10px', background: 'white', 
-                      cursor: 'pointer', textAlign: 'left'
-                    }}
-                    className="hover-border-foreground"
-                  >
-                    <Icon size={20} color="var(--muted-foreground)" />
-                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)' }}>{shortcutLabel(t, item)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          
-          {activeJobs && activeJobs.length > 0 && (
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--muted-foreground)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t("dashboard.home.activeJobs")}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {activeJobs.map(job => (
-                  <button 
-                    key={job.id} 
-                    onClick={() => { 
-                      onAdd({ id: `job_${job.id}`, iconName: 'Star', label: job.title, href: `/jobs/${job.id}` }); 
-                      onClose(); 
-                    }}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', 
-                      border: '1px solid var(--border)', borderRadius: '10px', background: 'white', 
-                      cursor: 'pointer', textAlign: 'left'
-                    }}
-                    className="hover-border-foreground"
-                  >
-                    <div style={{ width: '10px', height: '10px', borderRadius: '5px', background: '#22c55e' }}></div>
-                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--foreground)' }}>{job.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function debutJour(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
-function CompactJobCard({ job }) {
-  const t = useT();
-  const candidates = job.candidates || [];
-  return (
-    <Link href={`/jobs/${job.id}`} style={{ textDecoration: "none" }}>
-      <div style={{
-        padding: "20px 24px", border: "1px solid var(--border)", borderRadius: "10px",
-        marginBottom: "16px", background: "white", transition: "border-color 0.15s ease"
-      }} className="hover-border-foreground">
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <div style={{ fontWeight: "700", fontSize: "16px", color: "var(--foreground)" }}>
-            {job.title}
-          </div>
-          <span style={{
-            fontSize: "12px", fontWeight: "700", color: "#22c55e", background: "#22c55e15",
-            padding: "4px 10px", borderRadius: "6px"
-          }}>{t("dashboard.home.open")}</span>
-        </div>
-        <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>
-          {job.location || t("dashboard.home.noLocation")} &nbsp;&nbsp; {t("dashboard.home.candidatesCount", { count: candidates.length })}
-        </div>
-      </div>
-    </Link>
-  );
+/** Jours de la période affichée : la semaine (lundi → dimanche) ou le mois. */
+function joursDe(periode, maintenant = new Date()) {
+  const aujourdhui = debutJour(maintenant);
+  if (periode === "month") {
+    const premier = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), 1);
+    const nb = new Date(aujourdhui.getFullYear(), aujourdhui.getMonth() + 1, 0).getDate();
+    return Array.from({ length: nb }, (_, i) => new Date(premier.getFullYear(), premier.getMonth(), i + 1));
+  }
+  const lundi = new Date(aujourdhui);
+  lundi.setDate(aujourdhui.getDate() - ((aujourdhui.getDay() + 6) % 7));
+  return Array.from({ length: 7 }, (_, i) => new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + i));
+}
+
+function cleJour(d) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function majuscule(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
 export default function Accueil() {
   const { t, locale } = useI18n();
-  const [userName, setUserName] = useState("");
-  const [activeJobs, setActiveJobs] = useState([]);
-  const [stats, setStats] = useState({ totalJobs: 0, testsDone: 0, candidates: 0 });
+  const { user } = useShell();
+  const [jobs, setJobs] = useState([]);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  const [customShortcuts, setCustomShortcuts] = useState(DEFAULT_SHORTCUTS);
-  const [showActionEdit, setShowActionEdit] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [periode, setPeriode] = useState("week");
+  const [jourActif, setJourActif] = useState(null);
 
   useEffect(() => {
-    loadData();
-    const savedShortcuts = localStorage.getItem("onbord_custom_shortcuts");
-    if (savedShortcuts) {
-      try {
-        // Le raccourci « Talents » a été retiré avec la fonctionnalité. Il vit
-        // dans le localStorage du navigateur, pas en base : sans ce filtre, un
-        // recruteur qui l'avait ajouté garderait un bouton sans libellé
-        // pointant vers une route qui n'existe plus.
-        setCustomShortcuts(JSON.parse(savedShortcuts).filter((s) => s.id !== "talents"));
-      } catch (e) {}
+    async function loadData() {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) { setLoading(false); return; }
+
+      const [credits, { data }] = await Promise.all([
+        getUserCreditInfo(),
+        supabase
+          .from("jobs")
+          .select("id, title, status, location, contract_type, work_mode, created_at, candidates(id, first_name, last_name, email, status, score_global, created_at, assessment_submitted_at)")
+          .eq("user_id", authUser.id)
+          .order("created_at", { ascending: false }),
+      ]);
+      setUsage(credits);
+      setJobs(data || []);
+      setLoading(false);
     }
+    loadData();
   }, []);
 
-  const removeShortcut = (id) => {
-    const next = customShortcuts.filter(s => s.id !== id);
-    setCustomShortcuts(next);
-    localStorage.setItem("onbord_custom_shortcuts", JSON.stringify(next));
-  };
+  const jobsOuverts = useMemo(() => jobs.filter((j) => j.status === "active"), [jobs]);
+  const candidats = useMemo(
+    () => jobs.flatMap((j) => (j.candidates || []).map((c) => ({ ...c, job: j }))),
+    [jobs]
+  );
+  const derniersCandidats = useMemo(
+    () => [...candidats].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, NB_CANDIDATS),
+    [candidats]
+  );
 
-  const addShortcut = (shortcut) => {
-    if (customShortcuts.find(s => s.id === shortcut.id)) return;
-    const next = [...customShortcuts, shortcut];
-    setCustomShortcuts(next);
-    localStorage.setItem("onbord_custom_shortcuts", JSON.stringify(next));
-  };
-
-  async function loadData() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-
-    setUserName(user.user_metadata?.first_name || user.email?.split("@")[0] || "");
-    
-    setUsage(await getUserCreditInfo());
-
-    const { data: jobs } = await supabase
-      .from("jobs")
-      .select("*, candidates(id, status)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (jobs) {
-      const allCandidates = jobs.flatMap(j => j.candidates || []);
-      const active = jobs.filter(j => j.status === "active");
-      setActiveJobs(active.slice(0, 3));
-
-      setStats({
-        totalJobs: jobs.length,
-        testsDone: allCandidates.filter(c => c.status === "interview_completed" || c.status === "shortlisted").length,
-        candidates: allCandidates.length,
-      });
-    }
-    setLoading(false);
-  }
+  // Activité : invités (création du candidat) et terminées (soumission), par jour.
+  const jours = useMemo(() => joursDe(periode), [periode]);
+  const activite = useMemo(() => {
+    const compter = (champ) => {
+      const n = {};
+      for (const c of candidats) {
+        if (!c[champ]) continue;
+        const k = cleJour(new Date(c[champ]));
+        n[k] = (n[k] || 0) + 1;
+      }
+      return n;
+    };
+    const invites = compter("created_at");
+    const termines = compter("assessment_submitted_at");
+    return jours.map((d) => ({ date: d, inv: invites[cleJour(d)] || 0, done: termines[cleJour(d)] || 0 }));
+  }, [jours, candidats]);
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
-        <div style={{ fontSize: "16px", color: "var(--muted-foreground)" }}>Loading...</div>
-      </div>
+      <>
+        <PageHeader title={t("dashboard.nav.home")} />
+        <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+          <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+        </div>
+      </>
     );
   }
 
   const illimite = !!usage?.illimite;
-  const planLabel = usage?.planLabel || "—";
-  const maxCredits = usage?.credits_allocated ?? 0;
-  const creditsLeft = usage?.credits_balance ?? 0;
-  const creditsUsed = Math.max(0, maxCredits - creditsLeft);
-  const creditsPercent = maxCredits > 0 ? Math.min(100, Math.max(0, (creditsUsed / maxCredits) * 100)) : 0;
+  const total = usage?.credits_allocated ?? 0;
+  const restants = usage?.credits_balance ?? 0;
+  const utilises = Math.max(0, total - restants);
+  const pctUtilises = total > 0 ? Math.min(100, Math.round((utilises / total) * 100)) : 0;
+
+  const prenom = user?.first_name || user?.email?.split("@")[0] || "";
+
+  // Graphique
+  const max = Math.max(4, ...activite.map((a) => Math.max(a.inv, a.done)));
+  const aujourdhui = cleJour(new Date());
+  const indexActif = jourActif ?? Math.max(0, activite.findIndex((a) => cleJour(a.date) === aujourdhui));
+  const totalTermines = activite.reduce((s, a) => s + a.done, 0);
+  const mois = periode === "month";
+  const fmtCourt = new Intl.DateTimeFormat(locale, { weekday: "short" });
+  const fmtLong = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric" });
+  const fmtPlage = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const plage = fmtPlage.formatRange(jours[0], jours[jours.length - 1]);
+  const etiquette = (d, i) => {
+    if (!mois) return majuscule(fmtCourt.format(d).replace(".", ""));
+    return i % 7 === 0 ? String(d.getDate()) : "";
+  };
+  const largeurBarre = mois ? 6 : 14;
 
   return (
-    <div className="fade-in" style={{ width: "100%", maxWidth: "1600px", margin: "0 auto", padding: "24px 32px", boxSizing: "border-box", overflowX: "hidden" }}>
-      
-      {showAddModal && (
-        <AddShortcutModal 
-          onClose={() => setShowAddModal(false)} 
-          onAdd={addShortcut}
-          activeJobs={activeJobs}
-        />
-      )}
+    <>
+      <PageHeader
+        title={t("dashboard.nav.home")}
+        actions={
+          <Link href="/jobs/nouveau" className="ds-btn ds-btn-primary">
+            <Plus size={15} strokeWidth={2.2} /> {t("dashboard.nav.newJob")}
+          </Link>
+        }
+      />
 
-      {/* 1. Header (Logo + Welcome) */}
-      <div style={{ textAlign: "center", marginBottom: "32px" }}>
-        <img src="/logo.png" alt="Onbord" style={{ height: "80px", marginBottom: "12px", objectFit: "contain" }} />
-        <div style={{ fontSize: "16px", color: "var(--muted-foreground)" }}>
-          {t("dashboard.home.greeting", { name: userName })}
-        </div>
-      </div>
-
-      {/* 2. Action Bar */}
-      <div style={{ 
-        background: "white", borderRadius: "12px", border: "1px solid var(--border)",
-        padding: "20px", marginBottom: "32px", position: "relative",
-        display: "flex", justifyContent: "center", alignItems: "center"
-      }}>
-        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", justifyContent: "center" }}>
-          {customShortcuts.map(shortcut => (
-            <ActionButton 
-              key={shortcut.id} 
-              iconName={shortcut.iconName} 
-              label={shortcutLabel(t, shortcut)} 
-              href={shortcut.href} 
-              isEditing={showActionEdit}
-              onRemove={() => removeShortcut(shortcut.id)}
-            />
-          ))}
-          
-          {showActionEdit && (
-            <button 
-              onClick={() => setShowAddModal(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: "10px",
-                padding: "12px 24px", border: "2px dashed var(--border)", borderRadius: "8px",
-                fontSize: "15px", fontWeight: "600", color: "var(--muted-foreground)",
-                background: "transparent", cursor: "pointer"
-              }} className="hover-bg-secondary"
-            >
-              <Plus size={18} /> {t("dashboard.home.addShortcut")}
-            </button>
-          )}
-
-          {!showActionEdit && customShortcuts.length === 0 && <span style={{fontSize: "15px", color: "var(--muted-foreground)"}}>{t("dashboard.home.noShortcuts")}</span>}
-        </div>
-        
-        <div style={{ position: "absolute", right: "32px", top: "50%", transform: "translateY(-50%)" }}>
-          <button 
-            onClick={() => setShowActionEdit(!showActionEdit)} 
-            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--foreground)", display: "flex", padding: "6px" }}
-          >
-            {showActionEdit ? <Check size={22} color="var(--foreground)" /> : <Edit3 size={22} />}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
-        
-        {/* 3. Organization Card */}
-        <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", padding: "32px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>{t("dashboard.home.company")}</h3>
-            <Link href="/compte/profil" style={{ color: "var(--muted-foreground)" }}>
-              <Settings size={22} />
-            </Link>
-          </div>
-          
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "24px" }}>
-            <span>{t("dashboard.home.plan")}</span>
-            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>{planLabel}</span>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "var(--muted-foreground)", marginBottom: "20px" }}>
-            <span>{t("dashboard.home.creditsUsed")}</span>
-            <span style={{ fontWeight: "700", color: "var(--foreground)" }}>
-              {illimite ? "∞" : `${creditsUsed} / ${maxCredits}`}
+      {/* ── Chiffres clés ── */}
+      <section aria-label={t("dashboard.home.keyFigures")} className="ds-section">
+        <span className="ds-chip ds-chip-lg" style={{ alignSelf: "flex-start", height: 30, padding: "0 11px", borderRadius: 8 }}>
+          <span className="ds-dot ds-dot-green" style={{ width: 7, height: 7 }} />
+          {t("dashboard.home.hello", { name: prenom })}
+        </span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 500 }}>
+              <span className="ds-icon-tile"><Briefcase size={13} strokeWidth={2.2} /></span>
+              {t("dashboard.nav.jobs")}
+            </span>
+            <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="ds-stat">{jobsOuverts.length}</span>
+              <span className="ds-muted" style={{ fontSize: 12 }}>{t("dashboard.home.openJobs", { count: jobsOuverts.length })}</span>
             </span>
           </div>
-          
-          <div style={{ height: "8px", background: "var(--secondary)", borderRadius: "4px", overflow: "hidden", marginBottom: "32px" }}>
-            <div style={{ height: "100%", width: `${creditsPercent}%`, background: "var(--foreground)", borderRadius: "4px" }} />
+
+          <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 500 }}>
+              <span className="ds-icon-tile" style={{ background: "#4C74E0" }}><Users size={13} strokeWidth={2.2} /></span>
+              {t("dashboard.home.candidates")}
+            </span>
+            <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="ds-stat">{candidats.length}</span>
+              <span className="ds-muted" style={{ fontSize: 12 }}>{t("dashboard.home.inTotal")}</span>
+            </span>
           </div>
 
-          <div style={{ height: "1px", background: "var(--border)", margin: "0 -32px 32px -32px" }} />
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", textAlign: "center" }}>
-            <div>
-              <div style={{ fontSize: "22px", fontWeight: "800", color: "var(--foreground)", marginBottom: "8px" }}>{stats.totalJobs}</div>
-              <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>{t("dashboard.nav.jobs")}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: "22px", fontWeight: "800", color: "var(--foreground)", marginBottom: "8px" }}>{stats.candidates}</div>
-              <div style={{ fontSize: "14px", color: "var(--muted-foreground)" }}>{t("dashboard.home.candidates")}</div>
-            </div>
+          <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, fontWeight: 500 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <span className="ds-icon-tile" style={{ background: "#7FA0F0" }}><CircleArrowUp size={13} strokeWidth={2.2} /></span>
+                {t("dashboard.home.credits")}
+              </span>
+              {!illimite && (
+                <span className="ds-muted" style={{ fontSize: 12, fontWeight: 400 }}>
+                  {t("dashboard.home.creditsUsedOf", { used: utilises, total })}
+                </span>
+              )}
+            </span>
+            {illimite ? (
+              <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span className="ds-stat">∞</span>
+                <span className="ds-muted" style={{ fontSize: 12 }}>{usage?.planLabel}</span>
+              </span>
+            ) : (
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ display: "flex", alignItems: "baseline", gap: 8, flex: "none" }}>
+                  <span className="ds-stat">{restants}</span>
+                  <span className="ds-muted" style={{ fontSize: 12 }}>{t("dashboard.home.creditsLeft")}</span>
+                </span>
+                <span role="meter" aria-label={t("dashboard.home.credits")} aria-valuemin={0} aria-valuemax={total} aria-valuenow={utilises} className="ds-meter" style={{ flex: 1 }}>
+                  <span style={{ width: `${pctUtilises}%`, background: restants <= SEUIL_CREDITS_BAS ? "var(--ds-amber)" : undefined }} />
+                </span>
+              </span>
+            )}
           </div>
         </div>
+      </section>
 
-        {/* 4. Postings Card */}
-        <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", padding: "32px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "var(--foreground)" }}>{t("dashboard.home.latestJobs")}</h3>
-            <Link href="/jobs" style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "6px", textDecoration: "none" }}>
-              Voir tout <ChevronRight size={16} />
+      {/* ── Vos jobs ── */}
+      <section aria-labelledby="ds-vos-jobs" className="ds-section">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 id="ds-vos-jobs" className="ds-h2">{t("dashboard.home.yourJobs")}</h2>
+          <Link href="/jobs" aria-label={t("dashboard.home.seeAllJobs")} title={t("dashboard.home.seeAllJobs")} className="ds-icon-btn ds-icon-btn-outline">
+            <Maximize2 size={15} strokeWidth={2} />
+          </Link>
+        </div>
+
+        {jobsOuverts.length === 0 ? (
+          <div className="ds-card ds-empty">
+            <span className="ds-empty-title">{t("dashboard.home.noActiveJobs")}</span>
+            <Link href="/jobs/nouveau" className="ds-btn ds-btn-primary ds-btn-md" style={{ marginTop: 8 }}>
+              <Plus size={15} strokeWidth={2.2} /> {t("dashboard.nav.newJob")}
             </Link>
           </div>
-          
-          {activeJobs.length > 0 ? (
-            <div>
-              {activeJobs.map(job => (
-                <CompactJobCard key={job.id} job={job} />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+            {jobsOuverts.slice(0, NB_JOBS).map((job) => {
+              const cands = job.candidates || [];
+              const termines = cands.filter(aTermine).length;
+              const pct = cands.length ? Math.round((termines / cands.length) * 100) : 0;
+              return (
+                <div key={job.id} className="ds-panel">
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 7px 0 9px" }}>
+                    <Link href={`/jobs/${job.id}`} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 500 }}>
+                        <span className="ds-square" style={{ background: jobDot(job.id) }} />
+                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job.title || t("dashboard.jobs.untitled")}</span>
+                      </span>
+                      <span style={{ fontSize: 13, color: "var(--ds-ink-3)", paddingLeft: 16, minHeight: 19 }}>{metaJob(t, job)}</span>
+                    </Link>
+                    <CopyJobLink jobId={job.id} style={{ width: 30, height: 30, marginTop: -4 }} />
+                  </div>
+                  <dl className="ds-inset ds-kv" style={{ padding: 12 }}>
+                    <div>
+                      <dt>{t("dashboard.home.status")}</dt>
+                      <dd className="ds-chip ds-chip-green"><span className="ds-dot ds-dot-green" />{t("dashboard.home.statusOpen")}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("dashboard.home.candidates")}</dt>
+                      <dd className="ds-chip">{t("dashboard.home.candidatesCount", { count: cands.length })}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("dashboard.home.completed")}</dt>
+                      <dd className="ds-chip" style={{ gap: 8 }}>
+                        <span className="ds-meter ds-meter-thin" style={{ width: 36 }}><span style={{ width: `${pct}%` }} /></span>
+                        {termines}/{cands.length}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t("dashboard.home.createdOn")}</dt>
+                      <dd className="ds-chip">{formatDateShort(job.created_at, locale)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "stretch", padding: "18px 20px 24px" }}>
+
+        {/* ── Derniers candidats ── */}
+        <section aria-labelledby="ds-derniers" className="ds-card" style={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 32, padding: "14px 14px 10px 16px" }}>
+            <h2 id="ds-derniers" className="ds-h2">{t("dashboard.home.latestCandidates")}</h2>
+          </div>
+          {derniersCandidats.length === 0 ? (
+            <div className="ds-empty" style={{ flex: 1 }}>{t("dashboard.home.noCandidates")}</div>
+          ) : (
+            <ul style={{ margin: 0, padding: "0 8px 8px", listStyle: "none", display: "flex", flexDirection: "column" }}>
+              {derniersCandidats.map((c) => {
+                const nom = `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email;
+                const tone = scoreTone(c.score_global);
+                const rejete = c.status === "rejected" || c.status === "disqualified";
+                return (
+                  <li key={c.id} style={{ borderTop: "1px solid var(--ds-line-3)" }}>
+                    <Link href={`/jobs/${c.job.id}/candidats/${c.id}`} className="ds-row-link">
+                      <span className="ds-avatar">{initials(c.first_name, c.last_name, c.email)}</span>
+                      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: 500 }}>{nom}</span>
+                        <span style={{ fontSize: 12, color: "var(--ds-ink-4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {c.job.title}{rejete ? ` · ${candidateStatusLabel(t, c.status)}` : ""}
+                        </span>
+                      </span>
+                      <span className={`ds-tag ds-tag-${tone}`}>
+                        {c.score_global != null ? `${c.score_global} %` : candidateStatusLabel(t, c.status)}
+                      </span>
+                      <ChevronRight size={14} strokeWidth={2} color="var(--ds-ink-6)" style={{ flex: "none" }} />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* ── Activité ── */}
+        <section aria-labelledby="ds-activite" className="ds-card" style={{ flex: "2 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14, padding: "14px 16px 16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <h2 id="ds-activite" className="ds-h2">{mois ? t("dashboard.home.activityMonth") : t("dashboard.home.activityWeek")}</h2>
+            <span style={{ display: "flex", alignItems: "center", height: 32, borderRadius: 9, border: "1px solid var(--ds-line)", fontSize: 13, color: "var(--ds-ink-2)", overflow: "hidden" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, height: "100%", padding: "0 4px 0 10px", borderRight: "1px solid var(--ds-line)" }}>
+                <Calendar size={14} strokeWidth={1.8} />
+                <span className="sr-only">{t("dashboard.home.period")}</span>
+                <select value={periode} onChange={(e) => { setPeriode(e.target.value); setJourActif(null); }} style={{ border: 0, background: "transparent", font: "inherit", color: "var(--ds-ink)", paddingRight: 2, outline: 0 }}>
+                  <option value="week">{t("dashboard.home.week")}</option>
+                  <option value="month">{t("dashboard.home.month")}</option>
+                </select>
+              </label>
+              <span style={{ padding: "0 10px" }}>{plage}</span>
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="ds-stat">{totalTermines}</span>
+              <span style={{ color: "var(--ds-ink-3)" }}>
+                {mois ? t("dashboard.home.completedThisMonth", { count: totalTermines }) : t("dashboard.home.completedThisWeek", { count: totalTermines })}
+              </span>
+            </span>
+            <span style={{ display: "flex", gap: 14, fontSize: 13, color: "var(--ds-ink-2)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--ds-blue-light)" }} />{t("dashboard.home.legendInvited")}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--ds-blue)" }} />{t("dashboard.home.legendCompleted")}</span>
+            </span>
+          </div>
+
+          <div role="img" aria-label={activite.map((a) => t("dashboard.home.chartDay", { day: fmtLong.format(a.date), inv: a.inv, done: a.done })).join(" ; ")} style={{ display: "flex", flexDirection: "column", gap: 8 }} onMouseLeave={() => setJourActif(null)}>
+            <div style={{ position: "relative", height: 210 }}>
+              <div aria-hidden="true" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <span style={{ borderTop: "1px dashed #E6EAF2" }} />
+                <span style={{ borderTop: "1px dashed #E6EAF2" }} />
+                <span style={{ borderTop: "1px dashed #E6EAF2" }} />
+                <span style={{ borderTop: "1px solid #DDE2EC" }} />
+              </div>
+              <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: `repeat(${activite.length}, minmax(0, 1fr))` }}>
+                {activite.map((a, i) => {
+                  const actif = i === indexActif;
+                  return (
+                    <div key={cleJour(a.date)} onMouseEnter={() => setJourActif(i)} style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "flex-end", height: "100%", borderRadius: "8px 8px 0 0", background: actif ? "var(--ds-blue-06)" : "transparent" }}>
+                      {actif && (
+                        <span style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", zIndex: 1, whiteSpace: "nowrap", padding: "5px 9px", borderRadius: 8, background: "#FFFFFF", border: "1px solid var(--ds-line)", boxShadow: "var(--ds-shadow-pop)", fontSize: 12, color: "var(--ds-ink-2)" }}>
+                          <span style={{ fontWeight: 600, color: "var(--ds-ink)" }}>{majuscule(fmtLong.format(a.date))}</span>
+                          {" · "}{t("dashboard.home.tooltip", { inv: a.inv, done: a.done })}
+                        </span>
+                      )}
+                      <span style={{ display: "flex", alignItems: "flex-end", gap: 2, height: "100%" }}>
+                        <span style={{ width: largeurBarre, borderRadius: "4px 4px 0 0", height: `${(a.inv / max) * 100}%`, minHeight: a.inv ? 4 : 0, background: "var(--ds-blue-light)" }} />
+                        <span style={{ width: largeurBarre, borderRadius: "4px 4px 0 0", height: `${(a.done / max) * 100}%`, minHeight: a.done ? 4 : 0, background: "var(--ds-blue)" }} />
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: `repeat(${activite.length}, minmax(0, 1fr))`, fontSize: 12, color: "var(--ds-ink-3)", textAlign: "center" }}>
+              {activite.map((a, i) => (
+                <span key={cleJour(a.date)} style={i === indexActif && !mois ? { color: "var(--ds-ink)", fontWeight: 600 } : undefined}>{etiquette(a.date, i)}</span>
               ))}
             </div>
-          ) : (
-            <div style={{ textAlign: "center", padding: "48px 0", fontSize: "15px", color: "var(--muted-foreground)" }}>
-              {t("dashboard.home.noActiveJobs")}
-            </div>
-          )}
-        </div>
-
+          </div>
+        </section>
       </div>
-
-    </div>
+    </>
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
 import Sidebar from "@/components/layout/Sidebar";
+import CommandPalette from "@/components/layout/CommandPalette";
+import { ShellProvider } from "@/components/layout/ShellContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import OnboardingChecklist from "@/components/onboarding/OnboardingChecklist";
@@ -13,8 +15,32 @@ import { Loader2 } from "lucide-react";
 export default function DashboardShell({ children }) {
   const [userData, setUserData] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Le design recruteur est scopé sous `.ds` (cf. app/recruteur.css). On le pose
+  // aussi sur <html> : le fond de page et tout ce qui s'affiche en position
+  // fixe (fenêtres, toasts) en dépendent. Retiré en quittant le tableau de bord.
+  useEffect(() => {
+    document.documentElement.classList.add("ds");
+    return () => document.documentElement.classList.remove("ds");
+  }, []);
+
+  // Liste légère des jobs : menu (jobs récents, compteur) et recherche ⌘K.
+  // La policy de lecture exclut d'elle-même les jobs en corbeille.
+  const refreshJobs = useCallback(async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, title, status, location, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setJobs(data || []);
+  }, []);
 
   useEffect(() => {
     async function checkSession() {
@@ -58,31 +84,45 @@ export default function DashboardShell({ children }) {
       }
 
       setAuthChecked(true);
+      refreshJobs();
     }
 
     checkSession();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // ⌘K / Ctrl K, de partout dans le tableau de bord.
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (!authChecked) {
     return (
-      <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}>
-        <Loader2 className="spin" size={32} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
+      <div className="ds" style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "var(--ds-page)" }}>
+        <Loader2 size={28} style={{ color: "var(--ds-blue)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
     <ToastProvider>
-      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--background)" }}>
-        <Sidebar user={userData} />
-        <main style={{ flex: 1, padding: "2rem", paddingLeft: "calc(var(--sidebar-collapsed-width) + 2rem)" }}>
-          <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      <ShellProvider value={{ user: userData, jobs, refreshJobs, openSearch: () => setSearchOpen(true) }}>
+        <div className="ds ds-shell">
+          <Sidebar />
+          <main className="ds-main">
             {children}
-          </div>
-        </main>
-        {userData && <OnboardingChecklist user={userData} />}
-      </div>
+          </main>
+          {userData && <OnboardingChecklist user={userData} />}
+        </div>
+        {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} jobs={jobs} />}
+      </ShellProvider>
     </ToastProvider>
   );
 }

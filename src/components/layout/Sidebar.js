@@ -1,175 +1,147 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { useRouter, useLocaleHref, stripLocale } from "@/lib/i18n/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import {
-  Home,
-  ClipboardList,
-  Users,
-  Plus,
-  PanelLeftClose,
-  PanelLeft,
-  LogOut,
-  ShieldCheck,
-  Briefcase,
-  BookOpen
-} from "lucide-react";
-import styles from "./Sidebar.module.css";
-import { isCurrentUserAdmin } from "@/lib/actions/usage";
-import CreditBadge from "../billing/CreditBadge";
+import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { useShell } from "./ShellContext";
+import { jobDot } from "@/components/ui/ds";
+import styles from "./Sidebar.module.css";
 
-// "/assessments" = hub de génération d'expériences (chat-first). Remplace
-// l'ancienne bibliothèque de tests QCM.
-// `labelKey` et non `label` : le libellé se résout au rendu, dans la langue du
-// recruteur. Une constante de module figerait le français au chargement du
-// bundle, avant même que le provider existe.
-const navItems = [
-  { labelKey: "dashboard.nav.home", href: "/accueil", icon: Home },
-  { labelKey: "dashboard.nav.jobs", href: "/jobs", icon: Briefcase },
-  { labelKey: "dashboard.nav.experiences", href: "/assessments", icon: BookOpen },
-];
+// Maison pleine de la maquette : Lucide n'en a qu'une version au trait.
+function HomeIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M11.3 2.6a1 1 0 0 1 1.4 0l8 7.2c.2.2.3.5.3.8V20a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H4.5A1.5 1.5 0 0 1 3 20v-9.4c0-.3.1-.6.3-.8z" />
+    </svg>
+  );
+}
+
+function Logomark({ height = 22 }) {
+  return (
+    <svg height={height} viewBox="0 0 370 617" fill="none" aria-hidden="true">
+      <path fill="#07294b" d="m0 1h150c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150-82.84 0-150-67.16-150-150z" />
+      <path fill="#07294b" d="m0 501c0-102.17 82.83-185 185-185h35c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150h-220z" />
+    </svg>
+  );
+}
+
+const CLE_OUVERT = "onbord_sidebar_open";
+const NB_RECENTS = 5;
 
 export default function Sidebar() {
   const t = useT();
-  const href = useLocaleHref();
-  // Dépouillé du préfixe : les href de navItems sont sans langue.
+  // Chemin canonique (français, sans préfixe) : comparable aux href du code.
   const pathname = stripLocale(usePathname());
-  const router = useRouter();
-  const supabase = createClient();
-  const collapsed = true; // Forcer la sidebar toujours fermée
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  // ADMIN_EMAILS est une variable serveur : le navigateur ne peut pas la lire,
-  // c'est donc le serveur qui répond.
-  const [estAdmin, setEstAdmin] = useState(false);
+  const { jobs, openSearch } = useShell();
+  // Lecture directe au premier rendu : le cadre n'affiche le menu qu'après la
+  // vérification de session, côté client — pas de rendu serveur à accorder.
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(CLE_OUVERT) !== "0"; } catch { return true; }
+  });
+  const [isMac] = useState(() => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || ""));
 
-  useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        setProfile({
-          first_name: user.user_metadata?.first_name || "",
-          last_name: user.user_metadata?.last_name || "",
-          company_name: user.user_metadata?.company_name || ""
-        });
-      }
-      setEstAdmin(await isCurrentUserAdmin());
-    }
-    getUser();
-  }, []);
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(CLE_OUVERT, next ? "1" : "0"); } catch {}
+  }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
+  const ouverts = jobs.filter((j) => j.status === "active");
+  const recents = ouverts.slice(0, NB_RECENTS);
+  const jobCourant = pathname.match(/^\/jobs\/([^/]+)/)?.[1];
 
-  const displayName = profile
-    ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
-    : user?.email || t("dashboard.nav.account");
+  const items = [
+    { href: "/accueil", label: t("dashboard.nav.home"), icon: <HomeIcon size={open ? 16 : 17} />, actif: pathname === "/accueil" },
+    {
+      href: "/jobs",
+      label: t("dashboard.nav.jobs"),
+      icon: <Briefcase size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
+      count: ouverts.length || null,
+    },
+  ];
+  const parametresActif = pathname.startsWith("/compte");
+  const raccourci = isMac ? "⌘K" : "Ctrl K";
 
-  const initials = profile
-    ? `${(profile.first_name || "")[0] || ""}${(profile.last_name || "")[0] || ""}`.toUpperCase()
-    : (user?.email || "U")[0].toUpperCase();
+  if (!open) {
+    return (
+      <aside className={`${styles.sidebar} ${styles.closed}`}>
+        <Link href="/accueil" className={styles.logoTile} aria-label={t("dashboard.nav.home")}>
+          <Logomark />
+        </Link>
+        <button type="button" className={styles.squareBtn} onClick={toggle} aria-label={t("dashboard.nav.expand")} aria-expanded="false">
+          <PanelLeftOpen size={17} strokeWidth={1.8} />
+        </button>
+        <button type="button" className={`${styles.squareBtn} ${styles.searchSquare}`} onClick={openSearch} aria-label={t("dashboard.nav.search")} title={`${t("dashboard.nav.search")} · ${raccourci}`}>
+          <Search size={16} strokeWidth={2} />
+        </button>
+        <nav aria-label={t("dashboard.nav.menu")} className={styles.navClosed}>
+          {items.map((it) => (
+            <Link key={it.href} href={it.href} title={it.label} aria-label={it.label} aria-current={it.actif ? "page" : undefined} className={`${styles.squareLink} ${it.actif ? styles.active : ""}`}>
+              {it.icon}
+            </Link>
+          ))}
+        </nav>
+        <div className={styles.grow} />
+        <Link href="/compte" title={t("dashboard.nav.settings")} aria-label={t("dashboard.nav.settings")} aria-current={parametresActif ? "page" : undefined} className={`${styles.squareLink} ${parametresActif ? styles.active : ""}`}>
+          <Settings size={17} strokeWidth={1.8} />
+        </Link>
+      </aside>
+    );
+  }
 
   return (
-    <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}>
-      {/* Logo */}
-      <div className={`${styles.logo} ${collapsed ? styles.collapsed : ""}`}>
-        {collapsed ? (
-          /* Logomark SVG when collapsed */
-          <svg width="20" height="33" viewBox="0 0 370 617" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: "var(--foreground)" }}>
-            <path fill="currentColor" d="m0 1h150c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150-82.84 0-150-67.16-150-150z"/>
-            <path fill="currentColor" d="m0 501c0-102.17 82.83-185 185-185h35c82.84 0 150 67.16 150 150 0 82.84-67.16 150-150 150h-220z"/>
-          </svg>
-        ) : (
-          <img
-            src="/logo.png"
-            alt="Onbord"
-            style={{ height: "24px", width: "auto", objectFit: "contain" }}
-          />
-        )}
+    <aside className={styles.sidebar}>
+      <div className={styles.logoBar}>
+        <Link href="/accueil" className={styles.logoLink}>
+          <img src="/logo.png" alt="Onbord" style={{ height: 20, width: "auto" }} />
+        </Link>
+        <button type="button" className={styles.ghostBtn} onClick={toggle} aria-label={t("dashboard.nav.collapse")} aria-expanded="true">
+          <PanelLeftClose size={17} strokeWidth={1.8} />
+        </button>
       </div>
 
-      {/* New Job CTA */}
-      <a
-        href={href("/jobs/nouveau")}
-        className={`${styles.newDemandBtn} ${collapsed ? styles.collapsed : ""}`}
-        title={collapsed ? t("dashboard.nav.newJob") : undefined}
-      >
-        <Plus size={18} />
-        {!collapsed && <span>{t("dashboard.nav.newJob")}</span>}
-      </a>
+      <button type="button" className={styles.search} onClick={openSearch}>
+        <Search size={15} strokeWidth={2} />
+        <span className={styles.searchText}>{t("dashboard.nav.searchPlaceholder")}</span>
+        <kbd className={styles.kbd}>{raccourci}</kbd>
+      </button>
 
-      {/* Navigation */}
-      <nav className={styles.nav} style={{ marginTop: '4px' }}>
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          const Icon = item.icon;
-          return (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`${styles.navItem} ${isActive ? styles.navItemActive : ""} ${collapsed ? styles.collapsed : ""}`}
-              title={collapsed ? t(item.labelKey) : undefined}
-            >
-              <Icon size={20} />
-              {!collapsed && <span>{t(item.labelKey)}</span>}
-            </a>
-          );
-        })}
-
-        {estAdmin && (
-          <>
-            <div style={{ margin: "8px 0 4px", height: "1px", background: "var(--border)" }} />
-            {!collapsed && <span className={styles.navLabel}>{t("dashboard.nav.admin")}</span>}
-            <a
-              href={href("/admin")}
-              className={`${styles.navItem} ${pathname.startsWith("/admin") ? styles.navItemActive : ""} ${collapsed ? styles.collapsed : ""}`}
-              title={collapsed ? t("dashboard.nav.administration") : undefined}
-            >
-              <ShieldCheck size={20} />
-              {!collapsed && <span>{t("dashboard.nav.administration")}</span>}
-            </a>
-          </>
-        )}
+      <nav aria-labelledby="ds-menu-label" className={styles.group}>
+        <span id="ds-menu-label" className={styles.groupLabel}>{t("dashboard.nav.menu")}</span>
+        {items.map((it) => (
+          <Link key={it.href} href={it.href} aria-current={it.actif ? "page" : undefined} className={`${styles.navItem} ${it.actif ? styles.active : ""}`}>
+            {it.icon}
+            <span className={styles.navLabel}>{it.label}</span>
+            {it.count != null && <span className={styles.count}>{it.count}</span>}
+          </Link>
+        ))}
       </nav>
 
-      {/* Credit Badge */}
-      {!collapsed && (
-        <div style={{ padding: "0 12px", marginBottom: "4px" }}>
-          <CreditBadge />
+      {recents.length > 0 && (
+        <div className={styles.group}>
+          <span className={styles.groupLabel}>{t("dashboard.nav.recentJobs")}</span>
+          {recents.map((job) => {
+            const courant = job.id === jobCourant;
+            return (
+              <Link key={job.id} href={`/jobs/${job.id}`} aria-current={courant ? "page" : undefined} className={`${styles.navItem} ${styles.recent} ${courant ? styles.recentActive : ""}`}>
+                <span className="ds-square" style={{ background: jobDot(job.id) }} />
+                <span className={styles.navLabel}>{job.title || t("dashboard.jobs.untitled")}</span>
+              </Link>
+            );
+          })}
         </div>
       )}
 
-      {/* User footer */}
-      <div 
-        className={`${styles.userSection} ${collapsed ? styles.collapsed : ""}`} 
-        onClick={() => router.push("/compte")}
-        title={t("dashboard.nav.manageAccount")}
-      >
-        <div className={styles.userAvatar}>{initials}</div>
-        {!collapsed && (
-          <div className={styles.userInfo}>
-            <span className={styles.userName}>{displayName}</span>
-            <span className={styles.userCompany}>{profile?.company_name || "Onbord"}</span>
-          </div>
-        )}
-        {!collapsed && (
-          <button 
-            className={styles.logoutBtn} 
-            onClick={(e) => {
-              e.stopPropagation();
-              handleLogout();
-            }} 
-            title={t("dashboard.nav.signOut")}
-          >
-            <LogOut size={14} />
-          </button>
-        )}
+      <div className={styles.grow} />
+
+      <div className={styles.group}>
+        <Link href="/compte" aria-current={parametresActif ? "page" : undefined} className={`${styles.navItem} ${parametresActif ? styles.active : ""}`}>
+          <Settings size={16} strokeWidth={1.8} />
+          <span className={styles.navLabel}>{t("dashboard.nav.settings")}</span>
+        </Link>
       </div>
     </aside>
   );

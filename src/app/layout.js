@@ -1,5 +1,7 @@
-import { Geist } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+// Scopé sous `.ds` : sans effet sur le parcours candidat.
+import "./recruteur.css";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { buildDictionary } from "@/lib/i18n/dictionaries";
 import { resolveUiLocale } from "@/lib/i18n/server";
@@ -8,6 +10,12 @@ import { LOCALE_TAGS } from "@/lib/i18n/config";
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
+});
+
+// Chiffres, scores et numéros d'étape de l'interface recruteur.
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
 });
 
 // Métadonnées résolues par langue. Elles servent aussi aux aperçus de lien
@@ -40,7 +48,7 @@ export default async function RootLayout({ children }) {
   const dictionary = await buildDictionary(locale, ["common"]);
 
   return (
-    <html lang={LOCALE_TAGS[locale] || LOCALE_TAGS.fr} className={geist.variable}>
+    <html lang={LOCALE_TAGS[locale] || LOCALE_TAGS.fr} className={`${geist.variable} ${geistMono.variable}`}>
       <body className={geist.className}>
         <I18nProvider locale={locale} dictionary={dictionary}>
           {children}
