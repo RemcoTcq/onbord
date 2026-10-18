@@ -126,21 +126,6 @@ const dashboard = {
   },
 
   // ── Étapes de la pipeline ─────────────────────────────────────────────────
-  pipelineNodes: {
-    sourcing: "Sourcing & Publication",
-    accueil: "Accueil candidat",
-    qualifying_questions: "Questions qualificatives",
-    cv_scoring: "Scoring CV (IA)",
-    assessment: "Évaluation",
-    assessmentSubtitle: "Cliquer pour choisir",
-    ai_interview: "Interview IA",
-    single_video_question: "Question vidéo",
-    remerciements: "Remerciements",
-    entretien_visio: "Entretien visio",
-    entretien_site: "Interview sur site",
-    debrief_finale: "Débrief final",
-    customStep: "Étape personnalisée",
-  },
 
   // ── Fiche offre ───────────────────────────────────────────────────────────
   jobDetail: {
@@ -1390,65 +1375,8 @@ const dashboard = {
   },
 
   // ── Modules d'évaluation d'une offre ──────────────────────────────────────
-  assessmentModules: {
-    saved: 'Configuration sauvegardée !',
-    saveError: 'Erreur lors de la sauvegarde',
-    title: "Modules d'évaluation",
-    subtitle:
-      'Configurez les modules actifs pour cette offre. Le candidat verra uniquement les modules que vous activez.',
-
-    cvScoring: 'Scoring CV',
-    cvScoringHelp:
-      "Le candidat téléverse son CV (PDF). Notre IA l'analyse et génère un score de correspondance.",
-    skillsTests: 'Tests de compétences',
-    skillsTestsHelp:
-      'Sélectionnez des tests de votre bibliothèque. Les questions sont tirées aléatoirement mais identiques pour tous les candidats.',
-    videoInterview: 'Entretien vidéo (one-way)',
-    videoInterviewHelp:
-      "Le candidat répond à des questions en s'enregistrant à la webcam. L'IA transcrit et évalue chaque réponse.",
-    recommended: 'RECOMMANDÉ',
-    textInterview: 'Entretien IA par texte',
-    textInterviewHelp:
-      'Leo, notre IA, mène un entretien textuel avec le candidat. Moins fiable : réponses potentiellement générées par IA, et processus plus lent pour le candidat.',
-    notRecommended: '⚠️ NON RECOMMANDÉ',
-
-    totalDuration: 'Durée estimée totale pour le candidat',
-    durationOptimal: '✅ Optimal',
-    over30min: '⚠️ Dépasse les 30 min recommandées',
-    questionsFixedOnSave:
-      'Les questions sont tirées aléatoirement et fixées à la sauvegarde pour que tous les candidats répondent aux mêmes questions.',
-  },
 
   // ── Éditeur visuel de pipeline ────────────────────────────────────────────
-  pipeline: {
-    title: 'Pipeline de recrutement',
-    addStep: 'Ajouter une étape',
-    deleteStep: 'Supprimer',
-    deleteStepConfirm: 'Supprimer cette étape ?',
-    customStep: 'Étape personnalisée',
-
-    nodes: {
-      qualifying: 'Questions qualificatives',
-      qualifyingCount_one: '{count} question',
-      qualifyingCount_other: '{count} questions',
-
-      experience: 'Expérience candidat',
-      // Trois états, trois messages : la carte disait « cliquez pour
-      // configurer » y compris sur une expérience déjà générée.
-      experienceEmpty: 'Cliquez pour la générer',
-      experienceDraft_one: 'Brouillon · {count} étape',
-      experienceDraft_other: 'Brouillon · {count} étapes',
-      experienceReady_one: '{count} étape · ~{minutes} min',
-      experienceReady_other: '{count} étapes · ~{minutes} min',
-      sourcingHelp: 'Géré via votre ATS ou vos canaux de sourcing.',
-      videoCall: 'Entretien visio',
-      videoCallHelp: 'Entretien téléphonique ou en visio, géré directement par votre équipe.',
-      onSite: 'Entretien sur site',
-      onSiteHelp: 'Entretien en présentiel, géré directement par votre équipe.',
-      debrief: 'Débrief final',
-      debriefHelp: "Décision finale et éventuelle offre d'embauche.",
-    },
-  },
 
   // ── Bibliothèque des expériences ──────────────────────────────────────────
 
@@ -1639,6 +1567,7 @@ const dashboard = {
 
 // ── Création d'une offre ──────────────────────────────────────────────────
   jobCreate: {
+    validate: "Valider et créer la simulation",
     stepsLabel: "Étapes de création",
     jobOffer: "Offre d'emploi",
     sourceLabel: "Source de l'offre",
@@ -1654,7 +1583,7 @@ const dashboard = {
     tipLabel: "Conseil :",
     protectedSites: "LinkedIn, Indeed ou Glassdoor",
     urlHint: "{tip} Cette option fonctionne avec votre propre site carrière ou des ATS comme Greenhouse, Lever ou Workable. Elle peut ne pas fonctionner avec {sites} qui protègent leurs pages. Dans ce cas, copiez-collez le texte de l'offre directement.",
-    steps: { job: "Offre", details: "Compétences", journey: "Parcours" },
+    steps: { job: "Offre", details: "Compétences" },
     heading: "Commençons par votre offre d'emploi",
     intro: 
       "Onbord la lit et en extrait les compétences à évaluer. Vous les validez, puis on construit la simulation.",
@@ -1925,19 +1854,6 @@ const dashboard = {
   },
 
   // ── Panneau de configuration d'une étape de pipeline ──────────────────────
-  nodeConfig: {
-    createExperienceWithAi: "Créer l'expérience avec l'IA",
-    tabMessage: 'Message',
-    tabBranding: 'Marque employeur',
-    welcomeLabel: "Message d'accueil candidat",
-    thanksLabel: 'Message de fin de parcours',
-    messagePlaceholder: 'Saisissez votre message ici…',
-    aiExperience: 'Évaluation IA (Expérience)',
-    configured: '✅ Expérience IA configurée avec succès.',
-    editWithAi: "Modifier avec l'IA",
-    generateHelp:
-      'Générez une expérience de mise en situation complète et ultra-réaliste grâce au chat IA.',
-  },
 
   // ── Sélection d'une offre ─────────────────────────────────────────────────
   jobSelection: {
@@ -1984,15 +1900,6 @@ const dashboard = {
   },
 
   // ── Recommandation de parcours ────────────────────────────────────────────
-  recommendation: {
-    fallbackTitle: "Account Manager",
-    fallbackRoleType: "Contributeur individuel",
-    skillsTest: 'Test de compétences',
-    backToSkills: 'Retour à la sélection des compétences',
-    configureAllModules:
-      'Veuillez configurer tous les modules ajoutés (questions, vidéo, test) avant de valider.',
-    validate: 'Valider',
-  },
 
   // ── Questions qualificatives ──────────────────────────────────────────────
   qualifyingConfig: {

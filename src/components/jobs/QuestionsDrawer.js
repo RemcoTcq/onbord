@@ -7,7 +7,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 /**
  * Questions de présélection — panneau latéral (maquette « D · Job – Questions »).
  *
- * Même modèle que l'ancien éditeur (QualifyingQuestionsConfig) :
+ * Format des questions (lib/questionsPreselection.js) :
  * `{ id, text, expectedAnswer: "yes" | "no" }`. Les modifications restent
  * locales et partent en une fois, à la fermeture du panneau — « Terminé », la
  * croix, Échap ou un clic à côté. Une question laissée vide n'est pas gardée.

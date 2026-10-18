@@ -160,26 +160,6 @@ async function logUnmappedSkills(skillNames, jobTitle) {
 }
 
 
-export async function updateJobAiConfig(jobId, config) {
-  try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Non authentifié");
-
-    const { error } = await supabase
-      .from('jobs')
-      .update({ ai_interview_config: config })
-      .eq('id', jobId)
-      .eq('user_id', user.id);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    console.error("Error updating AI config:", err);
-    return { success: false, error: err.message };
-  }
-}
 
 // « Recevoir le CV des candidats » (jobs.cv_requis, migration 033). Cochée, le
 // candidat dépose son CV avant d'entrer dans la simulation (startRun). Écrit

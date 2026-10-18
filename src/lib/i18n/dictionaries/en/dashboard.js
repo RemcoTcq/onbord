@@ -113,21 +113,6 @@ const dashboard = {
     disqualified: "Disqualified",
   },
 
-  pipelineNodes: {
-    sourcing: "Sourcing & publishing",
-    accueil: "Candidate welcome",
-    qualifying_questions: "Screening questions",
-    cv_scoring: "CV scoring (AI)",
-    assessment: "Assessment",
-    assessmentSubtitle: "Click to choose",
-    ai_interview: "AI interview",
-    single_video_question: "Video question",
-    remerciements: "Thank you",
-    entretien_visio: "Video call interview",
-    entretien_site: "On-site interview",
-    debrief_finale: "Final debrief",
-    customStep: "Custom step",
-  },
 
   jobDetail: {
     tabs: {
@@ -1315,64 +1300,7 @@ const dashboard = {
     niceToHave: "Nice to have",
   },
 
-  assessmentModules: {
-    saved: "Configuration saved!",
-    saveError: "Something went wrong while saving",
-    title: "Assessment modules",
-    subtitle:
-      "Choose which modules are active for this job. Candidates only see the ones you turn on.",
 
-    cvScoring: "CV scoring",
-    cvScoringHelp:
-      "The candidate uploads their CV (PDF). Our AI analyses it and produces a match score.",
-    skillsTests: "Skills tests",
-    skillsTestsHelp:
-      "Pick tests from your library. Questions are drawn at random but are the same for every candidate.",
-    videoInterview: "Video interview (one-way)",
-    videoInterviewHelp:
-      "The candidate answers questions by recording themselves on webcam. The AI transcribes and scores each answer.",
-    recommended: "RECOMMENDED",
-    textInterview: "Text-based AI interview",
-    textInterviewHelp:
-      "Leo, our AI, runs a written interview with the candidate. Less reliable: answers may be AI-generated, and it's slower for the candidate.",
-    notRecommended: "⚠️ NOT RECOMMENDED",
-
-    totalDuration: "Total estimated time for the candidate",
-    durationOptimal: "✅ Optimal",
-    over30min: "⚠️ Over the recommended 30 min",
-    questionsFixedOnSave:
-      "Questions are drawn at random and locked when you save, so every candidate answers the same ones.",
-  },
-
-  pipeline: {
-    title: "Hiring pipeline",
-    addStep: "Add a step",
-    deleteStep: "Delete",
-    deleteStepConfirm: "Delete this step?",
-    customStep: "Custom step",
-
-    nodes: {
-      qualifying: "Screening questions",
-      qualifyingCount_one: "{count} question",
-      qualifyingCount_other: "{count} questions",
-
-      experience: "Candidate experience",
-      // Three states, three messages: the card said "click to configure" even
-      // on an experience that had already been generated.
-      experienceEmpty: "Click to generate it",
-      experienceDraft_one: "Draft · {count} step",
-      experienceDraft_other: "Draft · {count} steps",
-      experienceReady_one: "{count} step · ~{minutes} min",
-      experienceReady_other: "{count} steps · ~{minutes} min",
-      sourcingHelp: "Handled through your ATS or your sourcing channels.",
-      videoCall: "Video call interview",
-      videoCallHelp: "Phone or video interview, run directly by your team.",
-      onSite: "On-site interview",
-      onSiteHelp: "In-person interview, run directly by your team.",
-      debrief: "Final debrief",
-      debriefHelp: "Final decision and, if it goes well, an offer.",
-    },
-  },
 
 
   chatCreator: {
@@ -1548,6 +1476,7 @@ const dashboard = {
   },
 
   jobCreate: {
+    validate: "Validate and create the simulation",
     stepsLabel: "Creation steps",
     jobOffer: "Job posting",
     sourceLabel: "Job posting source",
@@ -1563,7 +1492,7 @@ const dashboard = {
     tipLabel: "Tip:",
     protectedSites: "LinkedIn, Indeed or Glassdoor",
     urlHint: "{tip} This works with your own careers site or with ATSs such as Greenhouse, Lever or Workable. It may not work with {sites}, which protect their pages. In that case, paste the job text directly.",
-    steps: { job: "Job posting", details: "Skills", journey: "Journey" },
+    steps: { job: "Job posting", details: "Skills" },
     heading: "Let's start with your job posting",
     intro: 
       "Onbord reads it and extracts the skills to assess. You approve them, then we build the simulation.",
@@ -1822,19 +1751,6 @@ const dashboard = {
     },
   },
 
-  nodeConfig: {
-    createExperienceWithAi: "Build the experience with AI",
-    tabMessage: "Message",
-    tabBranding: "Employer brand",
-    welcomeLabel: "Candidate welcome message",
-    thanksLabel: "End-of-pipeline message",
-    messagePlaceholder: "Write your message here…",
-    aiExperience: "AI assessment (Experience)",
-    configured: "✅ AI experience configured.",
-    editWithAi: "Edit with AI",
-    generateHelp:
-      "Generate a complete, true-to-life practical exercise through the AI chat.",
-  },
 
   jobSelection: {
     notAuthenticated: "Not authenticated",
@@ -1877,15 +1793,6 @@ const dashboard = {
     },
   },
 
-  recommendation: {
-    fallbackTitle: "Account Manager",
-    fallbackRoleType: "Individual contributor",
-    skillsTest: "Skills test",
-    backToSkills: "Back to skill selection",
-    configureAllModules:
-      "Please configure every module you've added (questions, video, test) before confirming.",
-    validate: "Confirm",
-  },
 
   qualifyingConfig: {
     questionPlaceholder: "e.g. do you hold a driving licence?",

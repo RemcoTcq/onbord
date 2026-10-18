@@ -3,11 +3,9 @@
 // Fiche d'un job — maquettes « D · Job – Parcours / Candidats / Contexte /
 // Paramètres ».
 //
-// Les onglets hérités (Évaluations, éditeur visuel de pipeline, liaison de
-// tests) ont quitté cet écran avec la refonte d'octobre 2026 : ils étaient déjà
-// masqués par EXPERIENCE_V1_ONLY, et la maquette ne les reprend pas. Leurs
-// composants restent dans le dépôt. Le parcours se lit désormais en deux cartes :
-// les questions de présélection, puis la simulation.
+// La pipeline (éditeur visuel, étapes verrouillées, liaison de tests) a été
+// retirée en octobre 2026. Le parcours se lit en deux cartes : les questions de
+// présélection (lib/questionsPreselection.js), puis la simulation.
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -22,12 +20,11 @@ import {
   updateJobDetails, updateJobDescription,
   deleteJob
 } from "@/lib/actions/candidate";
-import { getTestsLibrary } from "@/lib/actions/assessment";
 import { getExperienceForJob } from "@/lib/actions/experience";
 import { estimerMinutes, minutesEtape } from "@/lib/experienceDuree";
 import { getJobEntry } from "@/lib/actions/run";
 import { entryIsOpen } from "@/lib/candidateEntry";
-import { buildDefaultPipeline } from "@/lib/pipelineTemplate";
+import { questionsDuJob, noeudsAvecQuestions } from "@/lib/questionsPreselection";
 import { listerCompetences, calculerCouverture } from "@/lib/competences";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
@@ -72,7 +69,6 @@ export default function JobDetailPage() {
   const [activeTab, setActiveTab] = useState(ongletInitial);
   const [entry, setEntry] = useState(null); // l'offre accepte-t-elle des candidats ?
   const [experience, setExperience] = useState(null); // { experience, steps }
-  const [testsLibrary, setTestsLibrary] = useState([]);
   const [questionsOpen, setQuestionsOpen] = useState(false);
 
   // Candidates tab state
@@ -95,12 +91,9 @@ export default function JobDetailPage() {
 
   async function loadData() {
     setLoading(true);
-    const [jobRes, candidatesRes, testsRes, entryRes, expRes] = await Promise.all([
+    const [jobRes, candidatesRes, entryRes, expRes] = await Promise.all([
       getJobDetail(jobId),
       getCandidatesForJob(jobId),
-      // Ne sert qu'aux offres d'avant l'éditeur de parcours, dont les nœuds
-      // sont reconstruits depuis assessment_config (cf. getPipelineNodes).
-      getTestsLibrary(),
       // Verdict serveur : l'ouverture de l'offre ne se déduit PAS de la lecture
       // ci-dessous — la version la plus récente non archivée peut être un
       // brouillon, qui masquerait la version publiée.
@@ -121,7 +114,6 @@ export default function JobDetailPage() {
       });
     }
     if (candidatesRes.success) setCandidates(candidatesRes.candidates);
-    if (testsRes.success) setTestsLibrary(testsRes.tests);
     setLoading(false);
   }
 
@@ -260,83 +252,12 @@ export default function JobDetailPage() {
     setContextSaving(false);
   }
 
-  // ─── Parcours : nœuds enregistrés et questions de présélection ───
+  // ─── Questions de présélection ───
 
-  function getPipelineNodes() {
-    let nodes = [];
-
-    if (job?.saved_flow_nodes && job.saved_flow_nodes.length > 0) {
-      const isV2 = job.saved_flow_nodes.some(n => n.v2);
-      if (isV2) {
-        return job.saved_flow_nodes;
-      } else {
-        // Legacy: inject locked nodes
-        const lockedBefore = [{ id: 'locked_sourcing', type: 'sourcing', locked: true, v2: true, config: {} }];
-        const lockedAfter = [
-          { id: 'locked_entretien_visio', type: 'entretien_visio', locked: true, v2: true, config: {} },
-          { id: 'locked_entretien_site', type: 'entretien_site', locked: true, v2: true, config: {} },
-          { id: 'locked_debrief_finale', type: 'debrief_finale', locked: true, v2: true, config: {} },
-        ];
-        const onbordNodes = job.saved_flow_nodes.map(n => n.type === 'accueil' ? { ...n, v2: true } : n);
-        nodes = [...lockedBefore, ...onbordNodes, ...lockedAfter];
-      }
-    } else if (!job?.assessment_config?.modules) {
-      // Aucune pipeline enregistrée ET aucune configuration héritée : on affiche
-      // la MÊME proposition par défaut que l'étape 3 de la création. Sans cette
-      // branche, un brouillon abandonné avant validation retombait sur la
-      // dérivation ci-dessous avec des modules vides, et perdait au passage ses
-      // questions qualificatives et son nœud d'évaluation.
-      nodes = buildDefaultPipeline({ ...job, ...(job?.extracted_criteria || {}) }, job?.experience_locale);
-    } else {
-      // Offres antérieures à l'éditeur visuel : leur parcours ne vit que dans
-      // assessment_config. On continue de le dériver pour ne pas les casser.
-      const lockedBefore = [{ id: 'locked_sourcing', type: 'sourcing', locked: true, v2: true, config: {} }];
-      const lockedAfter = [
-        { id: 'locked_entretien_visio', type: 'entretien_visio', locked: true, v2: true, config: {} },
-        { id: 'locked_entretien_site', type: 'entretien_site', locked: true, v2: true, config: {} },
-        { id: 'locked_debrief_finale', type: 'debrief_finale', locked: true, v2: true, config: {} },
-      ];
-      const onbordNodes = [{ id: 'accueil', type: 'accueil', v2: true, config: {} }];
-
-      const modules = job?.assessment_config?.modules || {};
-      if (modules.skills_tests?.enabled && modules.skills_tests?.tests?.length > 0) {
-        // Le paramètre s’appelle `test` et non `t` : `t` est la fonction de
-        // traduction du composant, et la masquer ici cassait les deux.
-        modules.skills_tests.tests.forEach((test, i) => {
-          const testInfo = testsLibrary.find(lib => lib.id === test.test_id);
-          onbordNodes.push({
-            id: `skill_${i}`, type: "assessment", v2: true,
-            config: { tests: [{ ...test, test_name: testInfo?.name || t("dashboard.jobDetail.test") }] },
-          });
-        });
-      }
-      if (modules.ai_interview?.enabled) {
-        onbordNodes.push({ id: "ai_interview", type: "ai_interview", v2: true, config: {} });
-      }
-      onbordNodes.push({ id: 'remerciements', type: 'remerciements', v2: true, config: {} });
-      nodes = [...lockedBefore, ...onbordNodes, ...lockedAfter];
-    }
-    return nodes;
-  }
-
-  // Enregistre les questions : met à jour le nœud existant, ou en crée un à la
-  // même place que l'ancien bouton « ajouter une étape » (avant les étapes
-  // verrouillées de fin). Renvoie true si c'est enregistré.
+  // Enregistre les questions dans le nœud qui les porte (les autres nœuds d'une
+  // ancienne offre restent tels quels). Renvoie true si c'est enregistré.
   async function saveQuestions(questions) {
-    const nodes = getPipelineNodes();
-    const config = { enabled: questions.length > 0, questions };
-    const existant = nodes.find(n => n.type === "qualifying_questions");
-    let newNodes;
-    if (existant) {
-      newNodes = nodes.map(n => n.id === existant.id ? { ...n, config: { ...n.config, ...config }, v2: true } : { ...n, v2: true });
-    } else {
-      const node = { id: "qualifying_questions_" + Date.now(), type: "qualifying_questions", v2: true, config };
-      const firstLockedAfterIndex = nodes.findIndex(n => n.locked && n.type === "entretien_visio");
-      const insertAt = firstLockedAfterIndex !== -1 ? firstLockedAfterIndex : Math.max(0, nodes.length - 1);
-      newNodes = [...nodes];
-      newNodes.splice(insertAt, 0, node);
-      newNodes = newNodes.map(n => ({ ...n, v2: true }));
-    }
+    const newNodes = noeudsAvecQuestions(job?.saved_flow_nodes, questions);
     const res = await updateJobDetails(jobId, { saved_flow_nodes: newNodes });
     if (res.success) {
       setJob(prev => ({ ...prev, saved_flow_nodes: newNodes }));
@@ -361,7 +282,7 @@ export default function JobDetailPage() {
   }
 
   const modeTravail = { remote: "remote", hybrid: "hybrid", onsite: "fullTime" }[job?.work_mode];
-  const questions = getPipelineNodes().find(n => n.type === "qualifying_questions")?.config?.questions || [];
+  const questions = questionsDuJob(job);
 
   // ─── RENDER ───
 

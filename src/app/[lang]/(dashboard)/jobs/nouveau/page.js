@@ -8,13 +8,12 @@ import { parseFile } from "@/lib/actions/parse-file";
 import { fetchJobFromUrl } from "@/lib/actions/fetch-url";
 import { createClient } from "@/lib/supabase/client";
 import JobFormStep2 from "@/components/jobs/JobFormStep2";
-import JobFormStepRecommendation from "@/components/jobs/JobFormStepRecommendation";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
-import { updateJobAiConfig } from "@/lib/actions/job";
-import { saveAssessmentConfig, saveVideoInterviewConfig } from "@/lib/actions/assessment";
+import { saveAssessmentConfig } from "@/lib/actions/assessment";
+import { questionsParDefaut, questionsDuJob, noeudsAvecQuestions } from "@/lib/questionsPreselection";
 
 export default function NouvelleDemandePage() {
   const { t, locale: uiLocale } = useI18n();
@@ -172,10 +171,9 @@ export default function NouvelleDemandePage() {
     }
   };
 
-  // `statusOverride` sert au passage étape 2 → 3 : on enregistre le travail en
-  // cours mais l'offre doit RESTER un brouillon tant que la pipeline n'est pas
-  // validée, sinon elle disparaîtrait de l'onglet Brouillons.
-  const handleSave = async (continueToModules = false, statusOverride = null) => {
+  // Enregistre l'offre et ses compétences avec le statut demandé. Renvoie
+  // l'identifiant du job, ou null en cas d'échec (l'erreur est affichée).
+  const handleSave = async (status) => {
     setIsSaving(true);
     setError(null);
     try {
@@ -186,10 +184,9 @@ export default function NouvelleDemandePage() {
 
       let targetJobId = savedJobId || savedJob?.id;
 
-      // `jobData` transporte la pipeline en cours après un retour depuis
-      // l'étape 3. Elle a sa propre colonne (`saved_flow_nodes`) et n'a rien à
-      // faire dupliquée dans les critères de l'offre.
-      const { saved_flow_nodes: _pipelineEnCours, ...criteria } = jobData;
+      // Une ancienne pipeline en cours a pu laisser `saved_flow_nodes` dans les
+      // critères d'un brouillon : elle a sa propre colonne, pas sa place ici.
+      const { saved_flow_nodes: _ancienne, ...criteria } = jobData;
 
       // 1. Upsert Job
       if (savedJobId) {
@@ -203,7 +200,7 @@ export default function NouvelleDemandePage() {
             contract_type: jobData.contract_type,
             location: jobData.location,
             extracted_criteria: criteria,
-            status: statusOverride || (continueToModules ? 'active' : 'draft'),
+            status,
           })
           .eq('id', savedJobId);
         if (jobError) throw jobError;
@@ -220,7 +217,7 @@ export default function NouvelleDemandePage() {
             contract_type: jobData.contract_type,
             location: jobData.location,
             extracted_criteria: criteria,
-            status: statusOverride || (continueToModules ? 'active' : 'draft'),
+            status,
           })
           .select()
           .single();
@@ -259,14 +256,11 @@ export default function NouvelleDemandePage() {
         if (skillsError) throw skillsError;
       }
 
-      if (continueToModules) {
-        setCurrentStep(3); // Go to module selection
-      } else {
-        router.push('/jobs');
-      }
+      return targetJobId;
     } catch (err) {
       console.error(err);
       setError(err.message || t("dashboard.jobCreate.saveError"));
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -274,103 +268,39 @@ export default function NouvelleDemandePage() {
 
 
 
-  const handleSaveFlow = async (flowNodes, updatedJobData) => {
+  // Validation des compétences : l'offre passe en « ouverte », ses questions de
+  // présélection sont créées (modifiables ensuite depuis sa fiche), puis le
+  // recruteur arrive sur la conception de la simulation. Plus de pipeline à
+  // composer entre les deux (octobre 2026).
+  const valider = async () => {
+    const jobId = await handleSave('active');
+    if (!jobId) return;
     setIsSaving(true);
     try {
+      const questions = questionsParDefaut(jobData, experienceLocale);
       const supabase = createClient();
-
-      if (savedJobId) {
-        await supabase.from('jobs').update({ status: 'active' }).eq('id', savedJobId);
-      } else {
-        await handleSave(true);
-      }
-
-      const currentJobId = savedJobId || savedJob?.id;
-
-      const modules = {
-        qualifying_questions: { enabled: false },
-        cv_scoring: { enabled: false },
-        ai_interview: { enabled: false },
-        skills_tests: { enabled: false, tests: [] },
-        video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" },
-      };
-
-      const flowOrder = [];
-
-      for (const node of flowNodes) {
-        if (node.type === 'accueil' || node.type === 'remerciements') {
-          flowOrder.push(node.type);
-          // On pourrait sauvegarder les messages customisés ici plus tard si nécessaire
-          continue;
-        }
-
-        // Bloc Expérience : c'est le parcours actuel, il ne passe PAS par
-        // assessment_config (il vit dans la table `experiences` et doit être
-        // publié depuis l'écran Expérience). On le trace quand même dans
-        // flow_order, sinon la configuration enregistrée laisse croire que
-        // l'offre n'a aucune évaluation — c'est ce silence qui produisait un
-        // parcours candidat vide.
-        if (node.type === 'experience') {
-          flowOrder.push('experience');
-          continue;
-        }
-
-        if (node.type === 'qualifying_questions') {
-          modules.qualifying_questions = { enabled: true, questions: node.config.questions || [] };
-          flowOrder.push(node.type);
-        }
-        else if (node.type === 'cv_scoring') {
-          modules.cv_scoring = { enabled: true };
-          flowOrder.push(node.type);
-          if (updatedJobData?.selection_criteria) {
-             await supabase.from('jobs').update({ extracted_criteria: { ...jobData, selection_criteria: updatedJobData.selection_criteria } }).eq('id', currentJobId);
-             setJobData(prev => ({ ...prev, selection_criteria: updatedJobData.selection_criteria }));
-          }
-        }
-        else if (node.type === 'assessment') {
-          modules.skills_tests.enabled = true;
-          if (!flowOrder.includes('skills_tests')) {
-              flowOrder.push('skills_tests');
-          }
-        }
-        else if (node.type === 'ai_interview') {
-          modules.ai_interview = { enabled: true };
-          flowOrder.push(node.type);
-          if (node.config) {
-            await updateJobAiConfig(currentJobId, { ...node.config, enabled: true });
-          }
-        }
-        else if (node.type === 'single_video_question') {
-          modules.video_interview.enabled = true;
-          if (node.config.questions && node.config.questions.length > 0) {
-              modules.video_interview.questions.push(node.config.questions[0]);
-              // On garde la durée max, le max retakes et le mode d'évaluation du dernier nœud configuré
-              modules.video_interview.max_duration_seconds = node.config.max_duration_seconds || modules.video_interview.max_duration_seconds;
-              modules.video_interview.max_retakes = node.config.max_retakes !== undefined ? node.config.max_retakes : modules.video_interview.max_retakes;
-              modules.video_interview.evaluation_mode = node.config.evaluation_mode || modules.video_interview.evaluation_mode;
-          }
-          if (!flowOrder.includes('video_interview')) {
-              flowOrder.push('video_interview');
-          }
-        }
-      }
-
-      if (modules.video_interview.enabled && modules.video_interview.questions.length > 0) {
-        await saveVideoInterviewConfig(currentJobId, modules.video_interview);
-      }
-
-      await saveAssessmentConfig(currentJobId, {
-        modules,
-        flow_order: flowOrder
+      const { data: job } = await supabase.from('jobs').select('saved_flow_nodes').eq('id', jobId).single();
+      // On ne remplace pas des questions déjà présentes (brouillon repris).
+      const existantes = questionsDuJob(job);
+      const noeuds = noeudsAvecQuestions(job?.saved_flow_nodes, existantes.length ? existantes : questions);
+      await supabase.from('jobs').update({ saved_flow_nodes: noeuds }).eq('id', jobId);
+      // L'ancienne configuration du parcours, toujours lue en repli par
+      // quelques écrans hérités : questions de présélection, puis la simulation.
+      const retenues = questionsDuJob({ saved_flow_nodes: noeuds });
+      await saveAssessmentConfig(jobId, {
+        modules: {
+          qualifying_questions: { enabled: retenues.length > 0, questions: retenues },
+          cv_scoring: { enabled: false },
+          ai_interview: { enabled: false },
+          skills_tests: { enabled: false, tests: [] },
+          video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" },
+        },
+        flow_order: [...(retenues.length ? ['qualifying_questions'] : []), 'experience'],
       });
-
-      await supabase.from('jobs').update({ saved_flow_nodes: flowNodes }).eq('id', currentJobId);
-
-      router.push(`/jobs/${currentJobId}`);
+      router.push(`/jobs/${jobId}/experience`);
     } catch (err) {
       console.error(err);
-      toast(t("dashboard.jobCreate.pipelineSaveError"), "error");
-    } finally {
+      toast(t("dashboard.jobCreate.saveError"), "error");
       setIsSaving(false);
     }
   };
@@ -383,7 +313,6 @@ export default function NouvelleDemandePage() {
   const etapes = [
     { n: 1, label: t("dashboard.jobCreate.steps.job") },
     { n: 2, label: t("dashboard.jobCreate.steps.details") },
-    { n: 3, label: t("dashboard.jobCreate.steps.journey") },
   ];
 
   // Le bouton principal suit la source choisie : analyser le texte, ouvrir le
@@ -593,36 +522,14 @@ export default function NouvelleDemandePage() {
                 type="button"
                 className="ds-btn ds-btn-primary"
                 disabled={isSaving}
-                // Enregistre les compétences ajustées avant d'ouvrir la pipeline.
-                // Ce passage ne faisait qu'un setCurrentStep(3) : la sélection du
-                // recruteur n'était persistée qu'à la validation finale, et le
-                // brouillon gardait les compétences brutes extraites par l'IA —
-                // dont dépend justement la pipeline proposée.
-                onClick={() => handleSave(true, 'draft')}
+                onClick={valider}
               >
                 {isSaving ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : null}
-                {isSaving ? t("common.states.saving") : t("dashboard.jobCreate.next")}
+                {isSaving ? t("common.states.saving") : t("dashboard.jobCreate.validate")}
                 {!isSaving && <ArrowRight size={15} strokeWidth={2} />}
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ── Étape 3 : le parcours ── occupe toute la carte. */}
-      {currentStep === 3 && (
-        <div className="fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "calc(100vh - 20px - 67px)", borderRadius: "0 0 18px 18px", overflow: "hidden", background: "var(--ds-soft)" }}>
-          <JobFormStepRecommendation
-            jobData={jobData}
-            experienceLocale={experienceLocale}
-            savedJobId={savedJobId || savedJob?.id}
-            onSave={handleSaveFlow}
-            isSaving={isSaving}
-            onBack={(currentFlow) => {
-              setJobData(prev => ({ ...prev, saved_flow_nodes: currentFlow }));
-              setCurrentStep(2);
-            }}
-          />
         </div>
       )}
 

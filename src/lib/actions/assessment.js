@@ -3,62 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { aggregateVideoScore, computeGlobalScore, resolveEnabledModules } from "../scoring";
 
-/**
- * Get all active tests from the library
- */
-export async function getTestsLibrary() {
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("assessment_tests")
-      .select("id, name, description, category, difficulty, estimated_duration_minutes, status")
-      .eq("status", "active")
-      .order("category")
-      .order("name");
-
-    if (error) throw error;
-    return { success: true, tests: data };
-  } catch (err) {
-    console.error("getTestsLibrary error:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-export async function getMyAssessments() {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    const { data, error } = await supabase
-      .from("company_assessments")
-      .select(`
-        id,
-        status,
-        created_at,
-        assessment_id,
-        assessment_tests (
-          id, name, description, category, difficulty, estimated_duration_minutes, status
-        )
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    
-    // Flatten the result
-    const tests = data.map(ref => ({
-      ...ref.assessment_tests,
-      company_assessment_id: ref.id,
-      company_assessment_status: ref.status
-    }));
-
-    return { success: true, tests };
-  } catch (err) {
-    console.error("getMyAssessments error:", err);
-    return { success: false, error: err.message };
-  }
-}
 
 export async function addTestToMyAssessments(assessmentId) {
   try {
@@ -616,49 +560,6 @@ export async function getVideoQuestionLibrary() {
   }
 }
 
-/**
- * Save video interview config on a job (inside assessment_config)
- */
-export async function saveVideoInterviewConfig(jobId, videoConfig) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Non authentifié");
-
-    const { data: job } = await supabase
-      .from("jobs")
-      .select("assessment_config")
-      .eq("id", jobId)
-      .eq("user_id", user.id)
-      .single();
-
-    const existingConfig = job?.assessment_config || { modules: {} };
-    const newConfig = {
-      ...existingConfig,
-      modules: {
-        ...(existingConfig.modules || {}),
-        video_interview: {
-          enabled: true,
-          ...videoConfig,
-        },
-      },
-    };
-
-    // Configurer les modules ne facture rien : le forfait de création d'offre
-    // (6 crédits, débité à l'extraction) couvre toute la configuration.
-    const { error } = await supabase
-      .from("jobs")
-      .update({ assessment_config: newConfig })
-      .eq("id", jobId)
-      .eq("user_id", user.id);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    console.error("saveVideoInterviewConfig error:", err);
-    return { success: false, error: err.message };
-  }
-}
 
 /**
  * Get video interview responses for a candidate
