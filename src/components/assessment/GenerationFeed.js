@@ -254,7 +254,7 @@ function FeedLine({ event, isLast, active }) {
       <div style={{
         width: 16, height: 16, flexShrink: 0, marginTop: 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: running ? 'var(--primary)' : nested ? 'var(--muted-foreground)' : '#166534',
+        color: running ? 'var(--primary)' : nested ? 'var(--muted-foreground)' : 'var(--ds-green-ink)',
       }}>
         {running
           ? <Loader2 size={12} className="spin" />

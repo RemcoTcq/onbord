@@ -7,7 +7,7 @@ import { getCompanyProfile, updateCompanyProfile, fetchAndAnalyzeWebsite } from 
 import { useToast } from "@/components/ui/Toast";
 import {
   Loader2, Building2, Globe, Target, Briefcase, Users,
-  Wand2, AlertCircle, Lock, ChevronRight, TrendingUp
+  Wand2, Lock, TrendingUp
 } from "lucide-react";
 
 export default function CompanyProfilePage() {
@@ -75,202 +75,125 @@ export default function CompanyProfilePage() {
     if (result.success) {
       toast(t("dashboard.companyProfile.saved"), "success");
     } else {
-      toast(`Erreur : ${result.error}`, "error");
+      toast(result.error || t("dashboard.jobDetail.error"), "error");
     }
     setSaving(false);
   };
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
-        <Loader2 className="spin" size={24} style={{ color: "var(--primary)" }} />
+      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
+  const estompe = { opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" };
+
   return (
-    <div className="fade-in">
+    <>
       {/* Langue de l'interface — en tête de page, avant le profil entreprise :
           c'est le réglage qui change ce que le recruteur lit ensuite. */}
-      <div style={{ marginBottom: "2.5rem", paddingBottom: "2rem", borderBottom: "1px solid var(--border)" }}>
-        <LanguageSelector />
-      </div>
+      <LanguageSelector />
 
-      <div style={{ marginBottom: "2rem" }}>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "8px" }}>
-          <Building2 size={20} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.title")}
-        </h2>
-        <p style={{ color: "var(--muted-foreground)", marginTop: "0.25rem", fontSize: "13px" }}>
-          {t("dashboard.companyProfile.subtitle")}
-        </p>
-      </div>
+      <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Site web + génération IA */}
+        <section className="ds-panel">
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
+            <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Building2 size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.companyProfile.title")}
+            </h2>
+            <p className="ds-sub">{t("dashboard.companyProfile.subtitle")}</p>
+          </div>
 
-      {/* Bandeau informatif */}
-      <div style={{
-        display: "flex", gap: "10px", alignItems: "flex-start",
-        background: "#f0fdf4", border: "1px solid #bbf7d0",
-        borderRadius: "8px", padding: "12px 14px", marginBottom: "2rem"
-      }}>
-        <Lock size={15} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
-        <p style={{ fontSize: "12.5px", color: "#15803d", margin: 0, lineHeight: "1.6" }}>
-          {tNodes(t("dashboard.companyProfile.privateNotice"), {
-            label: <strong key="l">{t("dashboard.companyProfile.privateContext")}</strong>,
-          })}
-        </p>
-      </div>
-
-      <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
-        {/* BLOC A — Site web + génération IA */}
-        <div className="card">
-          <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Globe size={15} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.websiteAndContext")}
-          </h3>
-
-          <div style={{ marginBottom: "1rem" }}>
-            <label className="form-label" style={{ fontSize: "12px" }}>URL du site web</label>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <input
-                type="url"
-                className="input-field"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                placeholder={t("dashboard.companyProfile.websitePlaceholder")}
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                onClick={handleAnalyzeWebsite}
-                disabled={analyzing || !websiteUrl.trim()}
-                className="btn btn-secondary"
-                style={{ whiteSpace: "nowrap", gap: "6px", opacity: websiteUrl.trim() ? 1 : 0.5 }}
-              >
-                {analyzing ? (
-                  <><Loader2 size={14} className="spin" /> Analyse...</>
-                ) : (
-                  <><Wand2 size={14} /> {t("dashboard.companyProfile.analyze")}</>
-                )}
-              </button>
-            </div>
-            <p style={{ fontSize: "11.5px", color: "var(--muted-foreground)", marginTop: "6px" }}>
-              {t("dashboard.companyProfile.analyzeHelp")}
+          {/* Bandeau informatif */}
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#F5FBF8", border: "1px solid #D4EEE1", borderRadius: 10, padding: "10px 12px" }}>
+            <Lock size={14} color="var(--ds-green-ink)" style={{ flexShrink: 0, marginTop: 3 }} />
+            <p style={{ fontSize: 13, color: "#0F5C39", margin: 0, lineHeight: 1.55 }}>
+              {tNodes(t("dashboard.companyProfile.privateNotice"), {
+                label: <strong key="l" style={{ fontWeight: 600 }}>{t("dashboard.companyProfile.privateContext")}</strong>,
+              })}
             </p>
           </div>
 
-          <div style={{ marginBottom: "1rem" }}>
-            <label className="form-label" style={{ fontSize: "12px" }}>
-              {t("dashboard.companyProfile.description")}
-              {analyzing && <span style={{ color: "var(--primary)", marginLeft: "8px", fontSize: "11px" }}>{t("dashboard.companyProfile.generating")}</span>}
+          <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="ds-field">
+              <label className="ds-label" htmlFor="ds-site" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Globe size={12} /> {t("dashboard.companyProfile.websiteUrl")}
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  id="ds-site"
+                  type="url"
+                  className="ds-input"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder={t("dashboard.companyProfile.websitePlaceholder")}
+                />
+                <button type="button" onClick={handleAnalyzeWebsite} disabled={analyzing || !websiteUrl.trim()} className="ds-btn" style={{ height: 40, flex: "none" }}>
+                  {analyzing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Wand2 size={14} />}
+                  {analyzing ? t("dashboard.companyProfile.analyzing") : t("dashboard.companyProfile.analyze")}
+                </button>
+              </div>
+              <span className="ds-help">{t("dashboard.companyProfile.analyzeHelp")}</span>
+            </div>
+
+            <label className="ds-field">
+              <span className="ds-label">
+                {t("dashboard.companyProfile.description")}
+                {analyzing && <span style={{ color: "var(--ds-blue)", marginLeft: 8 }}>{t("dashboard.companyProfile.generating")}</span>}
+              </span>
+              <textarea className="ds-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("dashboard.companyProfile.descriptionPlaceholder")} rows={4} style={estompe} />
             </label>
-            <textarea
-              className="input-field"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("dashboard.companyProfile.descriptionPlaceholder")}
-              rows={4}
-              style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
-            />
-          </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div>
-              <label className="form-label" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Target size={12} /> {t("dashboard.companyProfile.targetMarket")}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              <label className="ds-field">
+                <span className="ds-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Target size={12} /> {t("dashboard.companyProfile.targetMarket")}</span>
+                <input type="text" className="ds-input" value={targetMarket} onChange={(e) => setTargetMarket(e.target.value)} placeholder={t("dashboard.companyProfile.targetMarketPlaceholder")} style={estompe} />
               </label>
-              <input
-                type="text"
-                className="input-field"
-                value={targetMarket}
-                onChange={(e) => setTargetMarket(e.target.value)}
-                placeholder={t("dashboard.companyProfile.targetMarketPlaceholder")}
-                style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
-              />
-            </div>
-            <div>
-              <label className="form-label" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Briefcase size={12} /> Industrie / Secteur
+              <label className="ds-field">
+                <span className="ds-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Briefcase size={12} /> {t("dashboard.companyProfile.industry")}</span>
+                <input type="text" className="ds-input" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder={t("dashboard.companyProfile.targetMarketPlaceholder")} style={estompe} />
               </label>
-              <input
-                type="text"
-                className="input-field"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                placeholder={t("dashboard.companyProfile.targetMarketPlaceholder")}
-                style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
-              />
-            </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label className="form-label" style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Users size={12} /> {t("dashboard.companyProfile.businessModel")}
+              <label className="ds-field" style={{ gridColumn: "1 / -1" }}>
+                <span className="ds-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><Users size={12} /> {t("dashboard.companyProfile.businessModel")}</span>
+                <input type="text" className="ds-input" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder={t("dashboard.companyProfile.businessModelPlaceholder")} style={estompe} />
               </label>
-              <input
-                type="text"
-                className="input-field"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                placeholder={t("dashboard.companyProfile.businessModelPlaceholder")}
-                style={{ opacity: analyzing ? 0.6 : 1, transition: "opacity 0.3s" }}
-              />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* BLOC B — Habitudes de recrutement */}
-        <div className="card">
-          <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Users size={15} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.habits")}
-          </h3>
-          <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>
-            {t("dashboard.companyProfile.habitsPlaceholder")}{" "}
-            {t("dashboard.companyProfile.habitsHelp")}
-          </p>
-          <textarea
-            className="input-field"
-            value={recruitmentHabits}
-            onChange={(e) => setRecruitmentHabits(e.target.value)}
-            placeholder={t("dashboard.companyProfile.habitsExample")}
-            rows={5}
-          />
-        </div>
-
-        {/* BLOC C — Tendances observées (readonly, phase 1 : placeholder) */}
-        <div className="card" style={{ opacity: 0.7, position: "relative", overflow: "hidden" }}>
-          {/* Overlay grisé */}
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "rgba(248,250,252,0.85)",
-            backdropFilter: "blur(1px)",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            zIndex: 2, gap: "8px"
-          }}>
-            <Lock size={20} style={{ color: "var(--muted-foreground)" }} />
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "var(--muted-foreground)", margin: 0 }}>
-              {t("dashboard.companyProfile.afterFirstHire")}
-            </p>
-            <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, textAlign: "center", maxWidth: "320px" }}>
-              {t("dashboard.companyProfile.afterFirstHireHelp")}
-            </p>
+        {/* Habitudes de recrutement */}
+        <section className="ds-panel">
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
+            <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Users size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.companyProfile.habits")}
+            </h2>
+            <p className="ds-sub">{t("dashboard.companyProfile.habitsPlaceholder")} {t("dashboard.companyProfile.habitsHelp")}</p>
           </div>
+          <div className="ds-inset">
+            <textarea className="ds-textarea" value={recruitmentHabits} onChange={(e) => setRecruitmentHabits(e.target.value)} placeholder={t("dashboard.companyProfile.habitsExample")} rows={5} aria-label={t("dashboard.companyProfile.habits")} />
+          </div>
+          <div className="ds-panel-foot">
+            <button type="submit" className="ds-btn ds-btn-primary" disabled={saving}>
+              {saving && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+              {saving ? t("common.states.saving") : t("dashboard.companyProfile.save")}
+            </button>
+          </div>
+        </section>
 
-          <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "6px" }}>
-            <TrendingUp size={15} style={{ color: "var(--primary)" }} /> {t("dashboard.companyProfile.observedTrends")}
-          </h3>
-          <div style={{ height: "80px", background: "var(--secondary)", borderRadius: "6px" }} />
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={saving}
-            style={{ padding: "10px 24px" }}
-          >
-            {saving
-              ? <><Loader2 size={16} className="spin" /> {t("common.states.saving")}</>
-              : t("dashboard.companyProfile.save")}
-          </button>
-        </div>
+        {/* Tendances observées — à venir, après le premier recrutement */}
+        <section className="ds-panel" style={{ opacity: 0.85 }}>
+          <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
+            <TrendingUp size={16} style={{ color: "var(--ds-ink-4)" }} /> {t("dashboard.companyProfile.observedTrends")}
+          </h2>
+          <div className="ds-inset ds-empty" style={{ padding: "22px 16px" }}>
+            <Lock size={16} />
+            <span className="ds-empty-title">{t("dashboard.companyProfile.afterFirstHire")}</span>
+            <span style={{ maxWidth: 360 }}>{t("dashboard.companyProfile.afterFirstHireHelp")}</span>
+          </div>
+        </section>
       </form>
-    </div>
+    </>
   );
 }

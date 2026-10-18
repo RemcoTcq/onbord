@@ -70,12 +70,12 @@ export default function OnboardingChecklist({ user }) {
   if (minimized) {
     return (
       <button
+        type="button"
         onClick={() => setMinimized(false)}
+        className="ds-btn ds-btn-primary"
         style={{
-          position: "fixed", bottom: "24px", right: "24px", zIndex: 100,
-          background: "var(--primary)", color: "white", padding: "12px 20px",
-          borderRadius: "30px", border: "none", cursor: "pointer", fontWeight: "700",
-          boxShadow: "0 10px 25px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", gap: "8px"
+          position: "fixed", bottom: 24, right: 24, zIndex: 100, height: 44, padding: "0 18px",
+          borderRadius: 999, boxShadow: "0 10px 28px var(--ds-blue-30), inset 0 1px 0 rgba(255,255,255,0.2)",
         }}
       >
         {t("dashboard.onboarding.progress", { done: doneCount, total: etapes.length })}
@@ -84,37 +84,36 @@ export default function OnboardingChecklist({ user }) {
   }
 
   return (
-    <div style={{
-      position: "fixed", bottom: "24px", right: "24px", zIndex: 100,
-      width: "340px", background: "var(--card)", border: "1px solid var(--border)",
-      borderRadius: "16px", boxShadow: "0 10px 40px rgba(0,0,0,0.12)",
+    <div className="ds-card" style={{
+      position: "fixed", bottom: 24, right: 24, zIndex: 100,
+      width: 340, borderRadius: 16, boxShadow: "var(--ds-shadow-modal)",
       overflow: "hidden", animation: "slideUp 0.4s ease"
     }}>
-      <div style={{ padding: "20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-        <div>
-          <h4 style={{ fontSize: "15px", fontWeight: "700" }}>{t("dashboard.onboarding.title")}</h4>
-          <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{t("dashboard.onboarding.ready")}</p>
+      <div style={{ padding: "14px 12px 12px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <h4 className="ds-h2" style={{ fontSize: 15 }}>{t("dashboard.onboarding.title")}</h4>
+          <p className="ds-sub" style={{ fontSize: 12 }}>{t("dashboard.onboarding.ready")}</p>
         </div>
-        <button onClick={() => setMinimized(true)} style={{ background: "transparent", border: "none", color: "var(--muted-foreground)", cursor: "pointer" }}>
-          <X size={18} />
+        <button type="button" className="ds-icon-btn" onClick={() => setMinimized(true)} aria-label={t("dashboard.onboarding.minimize")}>
+          <X size={16} />
         </button>
       </div>
 
-      <div style={{ height: "4px", background: "var(--secondary)" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: "var(--primary)", transition: "width 0.6s ease" }} />
+      <div style={{ padding: "0 16px 6px" }}>
+        <span className="ds-meter"><span style={{ width: `${progress}%` }} /></span>
       </div>
 
-      <div style={{ padding: "8px", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: 8, display: "flex", flexDirection: "column" }}>
         {etapes.map((etape) => {
           const contenu = (
             <>
               {etape.done
-                ? <CheckCircle2 size={20} style={{ color: "#22c55e", flexShrink: 0 }} />
-                : <Circle size={20} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />}
+                ? <CheckCircle2 size={18} style={{ color: "var(--ds-green)", flexShrink: 0 }} />
+                : <Circle size={18} style={{ color: "var(--ds-ink-6)", flexShrink: 0 }} />}
               <span style={{
-                fontSize: "13px", fontWeight: etape.done ? "600" : "500", flex: 1,
+                fontSize: 13, fontWeight: 500, flex: 1,
                 textDecoration: etape.done ? "line-through" : "none",
-                color: etape.done ? "var(--muted-foreground)" : "var(--foreground)",
+                color: etape.done ? "var(--ds-ink-4)" : "var(--ds-ink)",
               }}>
                 {etape.label}
               </span>
@@ -122,14 +121,14 @@ export default function OnboardingChecklist({ user }) {
                   faire : sur une étape franchie, il inviterait à revenir en
                   arrière sans raison. */}
               {!etape.done && etape.href && (
-                <ChevronRight size={15} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
+                <ChevronRight size={15} style={{ color: "var(--ds-ink-6)", flexShrink: 0 }} />
               )}
             </>
           );
 
           const style = {
             display: "flex", alignItems: "center", gap: "12px",
-            padding: "8px 10px", borderRadius: "8px",
+            padding: "8px 10px", borderRadius: 9, color: "var(--ds-ink)",
             opacity: etape.done ? 1 : 0.85, textDecoration: "none",
           };
 
@@ -141,7 +140,7 @@ export default function OnboardingChecklist({ user }) {
               key={etape.id}
               href={etape.href}
               style={{ ...style, cursor: "pointer" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--secondary)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--ds-soft)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
               {contenu}
@@ -152,12 +151,12 @@ export default function OnboardingChecklist({ user }) {
 
       {tout && (
         <div style={{
-          padding: "16px", background: "#f0fdf4", display: "flex",
-          flexDirection: "column", gap: "8px", borderTop: "1px solid #bbf7d0"
+          padding: "12px 16px", background: "var(--ds-green-bg)", display: "flex",
+          flexDirection: "column", gap: 6, borderTop: "1px solid #D4EEE1"
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <PartyPopper size={20} style={{ color: "#22c55e" }} />
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534" }}>{t("dashboard.onboarding.done")}</p>
+            <PartyPopper size={18} style={{ color: "var(--ds-green)" }} />
+            <p style={{ fontSize: 13, fontWeight: 500, color: "var(--ds-green-ink)", margin: 0 }}>{t("dashboard.onboarding.done")}</p>
           </div>
           <button
             onClick={async () => {
@@ -168,7 +167,7 @@ export default function OnboardingChecklist({ user }) {
               setMasqueALaMain(true);
             }}
             style={{
-              background: "transparent", border: "none", color: "#166534",
+              background: "transparent", border: "none", color: "var(--ds-green-ink)",
               fontSize: "12px", textDecoration: "underline", cursor: "pointer",
               alignSelf: "flex-start", padding: 0
             }}

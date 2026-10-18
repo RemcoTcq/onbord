@@ -9,15 +9,16 @@ import { adminAddCredits, adminChangePlan, adminChangeCycle, adminListUserUsage 
 import { Loader2, Shield, CreditCard, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
+import AdminEnTete, { AccesRefuse } from "../AdminEnTete";
 import { PLANS, PLANS_ATTRIBUABLES, CREDIT_PACKS } from "@/lib/constants/plans";
 
 // Écran d'administration : c'est le seul de la plateforme où « Bêta » paraît en
 // clair. Partout ailleurs, un bêta-testeur est un Core (cf. planVisible).
 const PLAN_COLORS = {
-  core: { bg: "#e0e7ff", color: "#4338ca", label: "Core" },
-  pro: { bg: "#ede9fe", color: "#6d28d9", label: "Pro" },
-  beta: { bg: "#fef3c7", color: "#92400e", label: "Bêta" },
-  admin: { bg: "#1e293b", color: "#ffffff", label: "Admin" },
+  core: { bg: "var(--ds-blue-10)", color: "var(--ds-blue)", label: "Core" },
+  pro: { bg: "#EEF2FA", color: "#2E5BD8", label: "Pro" },
+  beta: { bg: "var(--ds-amber-bg)", color: "var(--ds-amber-ink)", label: "Bêta" },
+  admin: { bg: "var(--ds-ink)", color: "#ffffff", label: "Admin" },
 };
 
 export default function AdminBillingPage() {
@@ -103,42 +104,19 @@ export default function AdminBillingPage() {
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-        <Loader2 size={32} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   if (!hasAccess) {
-    return (
-      <div className="fade-in" style={{ textAlign: "center", padding: "80px 20px" }}>
-        <Shield size={48} style={{ color: "var(--destructive)", margin: "0 auto 24px" }} />
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>{t("dashboard.admin.accessDenied")}</h1>
-        <p style={{ color: "var(--muted-foreground)" }}>{t("dashboard.admin.adminsOnly")}</p>
-      </div>
-    );
+    return <AccesRefuse />;
   }
 
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
-          <CreditCard size={24} style={{ color: "var(--primary)" }} />
-          {t("dashboard.admin.creditsTitle")}
-        </h1>
-        <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>
-          {t("dashboard.admin.creditsSubtitle")}
-        </p>
-      </div>
-
-      {/* Navigation Admin */}
-      <div style={{ display: "flex", gap: "12px", marginBottom: "2rem" }}>
-        <a href={href("/admin")} className="btn btn-ghost" style={{ padding: "10px 20px", border: "1px solid var(--border)" }}>
-          {t("dashboard.admin.tabInvites")}
-        </a>
-        <button className="btn btn-primary" style={{ padding: "10px 20px" }}>
-          {t("dashboard.admin.tabCredits")}
-        </button>
-      </div>
+    <>
+      <AdminEnTete sousTitre={t("dashboard.admin.creditsSubtitle")} />
+      <div className="ds-body fade-in">
 
       {/* Résumé */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
@@ -147,7 +125,7 @@ export default function AdminBillingPage() {
           const count = users.filter(u => u.plan === key).length;
           const pc = PLAN_COLORS[key] || PLAN_COLORS.core;
           return (
-            <div key={key} className="card" style={{ padding: "1rem", textAlign: "center" }}>
+            <div key={key} className="ds-card ds-card-pad" style={{ padding: "1rem", textAlign: "center" }}>
               <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "99px", background: pc.bg, color: pc.color }}>
                 {p.labelInterne}
               </span>
@@ -159,7 +137,7 @@ export default function AdminBillingPage() {
       </div>
 
       {/* Table utilisateurs */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="ds-card ds-card-pad" style={{ padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--secondary)" }}>
@@ -190,7 +168,7 @@ export default function AdminBillingPage() {
               const creditPct = u.credits_allocated > 0
                 ? Math.min(100, Math.round((u.credits_balance / u.credits_allocated) * 100))
                 : 0;
-              const creditColor = creditPct > 50 ? "#166534" : creditPct > 20 ? "#92400e" : "#991b1b";
+              const creditColor = creditPct > 50 ? "var(--ds-green-ink)" : creditPct > 20 ? "var(--ds-amber-ink)" : "var(--ds-red)";
 
               return (
                 <tr key={u.user_id} style={{ borderBottom: "1px solid var(--border)" }}>
@@ -312,5 +290,6 @@ export default function AdminBillingPage() {
         {t("dashboard.admin.creditsResetNote")}
       </p>
     </div>
+    </>
   );
 }

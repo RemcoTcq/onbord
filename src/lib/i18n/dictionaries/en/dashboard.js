@@ -1358,6 +1358,9 @@ const dashboard = {
   },
 
   experiences: {
+    version: "Version {n}",
+    ready: "Ready when you are",
+    readyName: "Ready when you are, {name}",
     titlePlaceholder: "e.g. Account Executive B2B",
     title: "Experiences",
     subtitle: "The candidate experiences generated for your roles.",
@@ -1449,6 +1452,9 @@ const dashboard = {
   },
 
   companyProfile: {
+    websiteUrl: "Website URL",
+    analyzing: "Analysing…",
+    industry: "Industry / sector",
     websitePlaceholder: "https://your-company.com",
     targetMarketPlaceholder: "e.g. HR SaaS, fintech, retail, IT consulting…",
     businessModelPlaceholder: "e.g. B2B SaaS, B2C, marketplace, professional services…",
@@ -1528,6 +1534,7 @@ const dashboard = {
   },
 
   branding: {
+    tooLarge: "The image must be under 2 MB.",
     companyNamePlaceholder: "e.g. Acme Corp",
     taglinePlaceholder: "e.g. an innovative greentech start-up…",
     visualCustomisation: "Visual customisation",
@@ -1934,6 +1941,7 @@ const dashboard = {
   },
 
   onboarding: {
+    minimize: "Minimise",
     title: "Getting started",
     ready: "Ready to hire?",
     done: "Well done — you're all set.",

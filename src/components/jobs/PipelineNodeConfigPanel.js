@@ -16,7 +16,7 @@ export function MessageBrandingTabs({ type, text, onChangeText }) {
   return (
     <div style={{ margin: "-1.5rem", display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "#fafafa", padding: "0 1.5rem" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--ds-soft)", padding: "0 1.5rem" }}>
         <button 
           onClick={() => setTab("message")}
           style={{ 
@@ -91,7 +91,7 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
         boxShadow: '-8px 0 30px rgba(0,0,0,0.1)',
         zIndex: 100
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid var(--border)', background: '#fafafa' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--ds-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${nodeTypeInfo.color || "var(--primary)"}15`, color: nodeTypeInfo.color || "var(--primary)", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {nodeTypeInfo.icon && React.createElement(nodeTypeInfo.icon, { size: 20 })}
@@ -143,8 +143,8 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
           {selectedNode.type === 'experience' && (
             <div style={{ margin: '-1.5rem' }}>
               <div style={{ padding: '1.5rem' }}>
-                <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-light, #e0e7ff)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--ds-soft)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-light, var(--ds-blue-10))', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
                   </div>
                   <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
@@ -152,7 +152,7 @@ export default function PipelineNodeConfigPanel({ selectedNode, nodeTypeInfo, jo
                   </h4>
                   {selectedNode.config?.configured ? (
                     <div style={{ marginTop: '16px' }}>
-                      <p style={{ color: 'var(--success, #16a34a)', fontSize: '14px', fontWeight: '500', marginBottom: '16px' }}>
+                      <p style={{ color: 'var(--success, var(--ds-green))', fontSize: '14px', fontWeight: '500', marginBottom: '16px' }}>
                         {t("dashboard.nodeConfig.configured")}
                       </p>
                       <button 

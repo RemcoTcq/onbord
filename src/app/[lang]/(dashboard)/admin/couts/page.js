@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import { getCostStats } from "@/lib/actions/costs";
+import AdminEnTete, { AccesRefuse } from "../AdminEnTete";
 import { Loader2, Shield, Sparkles, ClipboardCheck, Bot, Phone } from "lucide-react";
 
 // Seules les VALEURS sont ici : le libellé se résout au rendu, sinon il serait
@@ -45,27 +46,13 @@ export default function AdminCostsPage() {
   function changePeriod(p) { setPeriod(p); load(p); }
 
   if (hasAccess === false) {
-    return (
-      <div className="fade-in" style={{ textAlign: "center", padding: "80px 20px" }}>
-        <Shield size={48} style={{ color: "var(--destructive)", margin: "0 auto 24px" }} />
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>{t("dashboard.admin.accessDenied")}</h1>
-        <p style={{ color: "var(--muted-foreground)" }}>{t("dashboard.admin.adminsOnly")}</p>
-      </div>
-    );
+    return <AccesRefuse />;
   }
 
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "8px" }}>{t("dashboard.admin.costsTitle")}</h1>
-        <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>{t("dashboard.admin.costsSubtitle")}</p>
-      </div>
-
-      {/* Nav admin */}
-      <div style={{ display: "flex", gap: "12px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-        <a href={href("/admin")} className="btn btn-ghost" style={{ padding: "10px 20px", border: "1px solid var(--border)" }}>{t("dashboard.admin.tabInvites")}</a>
-        <button className="btn btn-primary" style={{ padding: "10px 20px" }}>{t("dashboard.admin.costsTitle")}</button>
-      </div>
+    <>
+      <AdminEnTete sousTitre={t("dashboard.admin.costsSubtitle")} />
+      <div className="ds-body fade-in">
 
       {/* Sélecteur de période */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "1.5rem" }}>
@@ -87,16 +74,16 @@ export default function AdminCostsPage() {
           </div>
 
           {/* Répartition */}
-          <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem" }}>
+          <div className="ds-card ds-card-pad" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem" }}>
             <h3 style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--muted-foreground)", marginBottom: "1rem" }}>{t("dashboard.admin.breakdown")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <Row icon={<Sparkles size={16} style={{ color: "#f59e0b" }} />} label={t("dashboard.admin.generationCost")} total={stats.totals.generation}
+              <Row icon={<Sparkles size={16} style={{ color: "var(--ds-amber)" }} />} label={t("dashboard.admin.generationCost")} total={stats.totals.generation}
                 sub={`${stats.counts.generated} générations · moy ${usd(stats.avg.generationPerExperience)}/expérience (une fois par poste, amortie)`} allTotal={stats.totals.all} />
-              <Row icon={<ClipboardCheck size={16} style={{ color: "#16a34a" }} />} label={t("dashboard.admin.scoringCost")} total={stats.totals.scoring}
+              <Row icon={<ClipboardCheck size={16} style={{ color: "var(--ds-green-ink)" }} />} label={t("dashboard.admin.scoringCost")} total={stats.totals.scoring}
                 sub={`${stats.counts.scoredRuns} runs notés · moy ${usd(stats.avg.scoringPerRun)}/run`} allTotal={stats.totals.all} />
-              <Row icon={<Bot size={16} style={{ color: "#3b82f6" }} />} label={t("dashboard.admin.assistantCost")} total={stats.totals.assistant}
+              <Row icon={<Bot size={16} style={{ color: "var(--ds-blue)" }} />} label={t("dashboard.admin.assistantCost")} total={stats.totals.assistant}
                 sub={`${stats.counts.runsWithAssistant} runs avec assistant · moy ${usd(stats.avg.assistantPerRun)}/run`} allTotal={stats.totals.all} />
-              <Row icon={<Phone size={16} style={{ color: "#8b5cf6" }} />} label={t("dashboard.admin.personaCost")} total={stats.totals.persona || 0}
+              <Row icon={<Phone size={16} style={{ color: "#2E5BD8" }} />} label={t("dashboard.admin.personaCost")} total={stats.totals.persona || 0}
                 sub={t("dashboard.admin.personaCostSub", { runs: stats.counts.runsWithPersona || 0, avg: usd(stats.avg.personaPerRun || 0) })} allTotal={stats.totals.all} />
             </div>
             <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
@@ -105,7 +92,7 @@ export default function AdminCostsPage() {
           </div>
 
           {/* Par poste */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="ds-card ds-card-pad" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--muted-foreground)" }}>{t("dashboard.admin.perJob")}</div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
@@ -144,12 +131,13 @@ export default function AdminCostsPage() {
         </>
       )}
     </div>
+    </>
   );
 }
 
 function Kpi({ title, value, hint, big }) {
   return (
-    <div className="card" style={{ padding: "1.25rem 1.5rem" }}>
+    <div className="ds-card ds-card-pad" style={{ padding: "1.25rem 1.5rem" }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>{title}</div>
       <div style={{ fontSize: big ? "2rem" : "1.5rem", fontWeight: 800, color: "var(--foreground)" }}>{value}</div>
       {hint && <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>{hint}</div>}
@@ -165,7 +153,7 @@ function Row({ icon, label, total, sub, allTotal }) {
         <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>{icon} {label}</span>
         <span style={{ fontSize: 14, fontWeight: 700 }}>{usd(total)} <span style={{ fontSize: 12, color: "var(--muted-foreground)", fontWeight: 500 }}>({pct}%)</span></span>
       </div>
-      <div style={{ height: 6, background: "#e2e8f0", borderRadius: 99, overflow: "hidden", marginBottom: 4 }}>
+      <div style={{ height: 6, background: "var(--ds-line)", borderRadius: 99, overflow: "hidden", marginBottom: 4 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: "var(--primary)" }} />
       </div>
       <div style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{sub}</div>

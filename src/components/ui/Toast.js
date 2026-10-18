@@ -50,7 +50,7 @@ export function ToastProvider({ children }) {
             <span style={{ flex: 1 }}>{t.message}</span>
             <button
               onClick={() => removeToast(t.id)}
-              style={{ background: "transparent", border: "none", padding: "2px", color: "var(--muted-foreground)", cursor: "pointer" }}
+              style={{ background: "transparent", border: "none", padding: "2px", color: "rgba(255,255,255,0.6)", cursor: "pointer" }}
             >
               <X size={14} />
             </button>

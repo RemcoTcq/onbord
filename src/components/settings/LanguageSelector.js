@@ -56,43 +56,39 @@ export default function LanguageSelector() {
   }
 
   return (
-    <div>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-        <Globe size={15} style={{ color: "var(--muted-foreground)" }} />
+    <section className="ds-panel">
+      <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
+        <Globe size={16} style={{ color: "var(--ds-blue)" }} />
         {t("dashboard.preferences.uiLanguage")}
-      </label>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        {UI_LOCALES.map((code) => {
-          const actif = code === locale;
-          return (
-            <button
-              key={code}
-              type="button"
-              onClick={() => choisir(code)}
-              disabled={!!saving || pending}
-              style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "0.6rem 1rem", borderRadius: 10, fontSize: 14,
-                fontFamily: "inherit", fontWeight: actif ? 700 : 500,
-                cursor: saving || pending ? "wait" : "pointer",
-                border: `1px solid ${actif ? "var(--primary)" : "var(--border)"}`,
-                background: actif ? "var(--accent)" : "transparent",
-                color: actif ? "var(--primary)" : "var(--foreground)",
-              }}
-            >
-              {saving === code
-                ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
-                : actif ? <Check size={15} /> : null}
-              {LOCALE_LABELS[code]}
-            </button>
-          );
-        })}
+      </h2>
+      <div className="ds-inset" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <p className="ds-sub" style={{ flex: "1 1 260px", lineHeight: 1.5 }}>{t("dashboard.preferences.uiLanguageHelp")}</p>
+        <span role="radiogroup" aria-label={t("dashboard.preferences.uiLanguage")} style={{ display: "inline-flex", padding: 3, gap: 2, borderRadius: 9, background: "#FFFFFF", border: "1px solid var(--ds-line)" }}>
+          {UI_LOCALES.map((code) => {
+            const actif = code === locale;
+            return (
+              <button
+                key={code}
+                type="button"
+                role="radio"
+                aria-checked={actif}
+                onClick={() => choisir(code)}
+                disabled={!!saving || pending}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, height: 30, padding: "0 12px", border: 0, borderRadius: 7,
+                  font: "inherit", fontSize: 13, cursor: saving || pending ? "wait" : "pointer",
+                  background: actif ? "var(--ds-blue)" : "transparent", color: actif ? "#FFFFFF" : "var(--ds-ink-2)", fontWeight: actif ? 500 : 400,
+                }}
+              >
+                {saving === code
+                  ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                  : actif ? <Check size={14} /> : null}
+                {LOCALE_LABELS[code]}
+              </button>
+            );
+          })}
+        </span>
       </div>
-
-      <p style={{ fontSize: 12.5, color: "var(--muted-foreground)", lineHeight: 1.5, margin: 0 }}>
-        {t("dashboard.preferences.uiLanguageHelp")}
-      </p>
-    </div>
+    </section>
   );
 }

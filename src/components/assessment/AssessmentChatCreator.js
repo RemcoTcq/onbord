@@ -423,10 +423,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       const { role, skills, summary } = toolUse.input;
       return (
         <div style={{
-          background: 'var(--primary-light, #f0fdf4)',
+          background: 'var(--primary-light, var(--ds-green-bg))',
           padding: '16px',
           borderRadius: '12px',
-          border: '1px solid var(--success, #22c55e)',
+          border: '1px solid var(--success, var(--ds-green))',
           marginTop: '8px',
           width: '100%',
           maxWidth: '500px',
@@ -468,10 +468,10 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
       const { testId, testName } = toolUse.input;
       return (
         <div style={{
-          background: 'var(--primary-light, #f0fdf4)',
+          background: 'var(--primary-light, var(--ds-green-bg))',
           padding: '16px',
           borderRadius: '12px',
-          border: '1px solid var(--success, #22c55e)',
+          border: '1px solid var(--success, var(--ds-green))',
           marginTop: '8px',
           width: '100%',
           maxWidth: '500px',
@@ -579,7 +579,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
               <div style={{ padding: '4px 0 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {regenFaites.map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, lineHeight: 1.5 }}>
-                    <Check size={13} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
+                    <Check size={13} style={{ color: 'var(--ds-green-ink)', flexShrink: 0, marginTop: 2 }} />
                     {/* Trois morceaux traduits séparément : la ponctuation (« » et l'espace
                         avant les deux-points) n'est pas la même d'une langue à l'autre. */}
                     <span>
@@ -690,7 +690,7 @@ export default function AssessmentChatCreator({ onClose, context = "global", job
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', background: 'var(--ds-soft)' }}>
           {renderMessages()}
           
           {loading && (

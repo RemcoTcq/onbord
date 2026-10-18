@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getEmployerBranding, updateEmployerBranding } from "@/lib/actions/user";
 import { useToast } from "@/components/ui/Toast";
-import { Loader2, Palette, UploadCloud, Lock, Sparkles, Check, Image as ImageIcon, Info } from "lucide-react";
+import { Loader2, UploadCloud, Image as ImageIcon, Info } from "lucide-react";
 
 export function getContrastColor(hexColor) {
   if (!hexColor) return '#ffffff';
@@ -34,9 +34,6 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
     async function loadData() {
       setLoading(true);
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
         const res = await getEmployerBranding();
         if (res.success && res.branding) {
           setCompanyName(res.branding.name || "");
@@ -57,7 +54,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      toast("L'image doit faire moins de 2 Mo.", "error");
+      toast(t("dashboard.branding.tooLarge"), "error");
       return;
     }
 
@@ -100,147 +97,68 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
         toast(t("dashboard.branding.saved"), "success");
       }
     } else {
-      toast(`Erreur : ${result.error}`, "error");
+      toast(result.error || t("dashboard.jobDetail.error"), "error");
     }
     setSaving(false);
   };
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}>
-        <Loader2 className="spin" size={24} style={{ color: "var(--primary)" }} />
+      <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
-
-
-  const primaryText = getContrastColor(primaryColor);
-
+  // La couleur d'entreprise n'est plus réglable depuis l'interface recruteur
+  // (refonte d'octobre 2026) : celle déjà enregistrée est conservée telle quelle
+  // à l'enregistrement, rien n'est effacé.
   return (
-    <div className="fade-in">
+    <form onSubmit={handleSave} className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {showContextWarning && (
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 16px', marginBottom: '1.5rem', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-          <Info size={18} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 10, background: "var(--ds-blue-06)", border: "1px solid var(--ds-blue-16)" }}>
+          <Info size={16} color="var(--ds-blue)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
-            <h4 style={{ fontSize: '13px', fontWeight: '600', color: '#1e3a8a', margin: '0 0 4px 0' }}>{t("dashboard.branding.globalSetting")}</h4>
-            <p style={{ fontSize: '12px', color: '#1e40af', margin: 0, lineHeight: '1.5' }}>
+            <h4 style={{ fontSize: 13, fontWeight: 500, color: "var(--ds-ink)", margin: "0 0 2px" }}>{t("dashboard.branding.globalSetting")}</h4>
+            <p className="ds-sub" style={{ lineHeight: 1.5 }}>
               {tNodes(t("dashboard.branding.globalSettingHelp"), {
-                allJobs: <strong>{t("dashboard.branding.globalSettingAllJobs")}</strong>,
+                allJobs: <strong key="a" style={{ fontWeight: 500 }}>{t("dashboard.branding.globalSettingAllJobs")}</strong>,
               })}
             </p>
           </div>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "2rem" }}>
-        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card">
-            <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "1rem" }}>{t("dashboard.branding.identity")}</h3>
-            
-            <div style={{ marginBottom: "1.25rem" }}>
-              <label className="form-label" style={{ fontSize: "12px" }}>{t("dashboard.branding.displayName")}</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={companyName} 
-                onChange={(e) => setCompanyName(e.target.value)} 
-                placeholder={t("dashboard.branding.companyNamePlaceholder")} 
-                required
-              />
-            </div>
-
-            <div>
-              <label className="form-label" style={{ fontSize: "12px" }}>{t("dashboard.branding.shortPitch")}</label>
-              <textarea 
-                className="input-field" 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-                placeholder={t("dashboard.branding.taglinePlaceholder")} 
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "1rem" }}>{t("dashboard.branding.logo")}</h3>
-            <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
-              <div style={{ 
-                width: "80px", height: "80px", borderRadius: "8px", border: "1px dashed var(--border)", 
-                background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
-              }}>
-                {logoUrl ? <img src={logoUrl} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <ImageIcon size={30} style={{ opacity: 0.5 }} />}
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="btn btn-secondary" style={{ cursor: "pointer", fontSize: "12.5px" }}>
-                  {uploading
-                    ? <><Loader2 className="spin" size={14} /> {t("dashboard.branding.uploading")}</>
-                    : <><UploadCloud size={14} /> {t("dashboard.branding.chooseImage")}</>}
-                  <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} style={{ display: "none" }} />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "1.25rem" }}>{t("dashboard.branding.primaryColor")}</h3>
-            <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginBottom: "1rem" }}>
-              {t("dashboard.branding.primaryColorHelp")}
-            </p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ border: "1px solid var(--border)", borderRadius: "6px", width: "40px", height: "36px", cursor: "pointer" }} />
-              <input type="text" className="input-field" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ fontFamily: "monospace", width: "120px" }} />
-            </div>
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={saving || uploading} style={{ alignSelf: "flex-start", padding: "10px 24px" }}>
-            {saving
-              ? <><Loader2 size={16} className="spin" /> {t("common.states.saving")}</>
-              : t("dashboard.branding.save")}
-          </button>
-        </form>
-
-        <div>
-          <div style={{ position: "sticky", top: "2rem" }}>
-            <h3 style={{ fontSize: "13px", fontWeight: "700", color: "var(--muted-foreground)", textTransform: "uppercase", marginBottom: "0.75rem", letterSpacing: "0.05em" }}>{t("dashboard.branding.preview")}</h3>
-            
-            <div className="card" style={{ borderRadius: "12px", boxShadow: "var(--shadow-lg)", padding: "1.5rem", background: "white", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" style={{ height: "24px", maxWidth: "120px", objectFit: "contain" }} />
-                ) : (
-                  <span style={{ fontSize: "14px", fontWeight: "700" }}>{companyName || t("dashboard.branding.previewCompanyName")}</span>
-                )}
-              </div>
-
-              {description && (
-                <div style={{ fontSize: "12.5px", color: "var(--muted-foreground)", lineHeight: "1.5", fontStyle: "italic", borderLeft: `3px solid ${primaryColor}`, paddingLeft: "10px" }}>
-                  "{description}"
-                </div>
-              )}
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
-                  <span style={{ color: "#475569" }}>{t("dashboard.branding.previewProgress")}</span>
-                  <span style={{ fontWeight: "700", color: primaryColor }}>1/3</span>
-                </div>
-                <div style={{ height: "6px", background: "#f1f5f9", borderRadius: "99px", overflow: "hidden" }}>
-                  <div style={{ width: "33%", height: "100%", background: primaryColor, borderRadius: "99px" }} />
-                </div>
-              </div>
-
-              <div style={{ border: `2px solid ${primaryColor}`, background: `${primaryColor}0c`, borderRadius: "8px", padding: "12px 14px", display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ width: "24px", height: "24px", borderRadius: "6px", background: primaryColor, color: primaryText, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700" }}>A</div>
-                <span style={{ fontSize: "13px", color: "var(--foreground)", fontWeight: "500" }}>{t("dashboard.branding.previewSelected")}</span>
-              </div>
-
-              <button type="button" style={{ background: primaryColor, color: primaryText, border: "none", borderRadius: "6px", padding: "10px 16px", fontSize: "13px", fontWeight: "600", cursor: "default" }}>
-                {t("dashboard.branding.previewContinue")}
-              </button>
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+        <label className="ds-field">
+          <span className="ds-label">{t("dashboard.branding.displayName")}</span>
+          <input type="text" className="ds-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder={t("dashboard.branding.companyNamePlaceholder")} required />
+        </label>
+        <div className="ds-field">
+          <span className="ds-label">{t("dashboard.branding.logo")}</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ width: 40, height: 40, flex: "none", borderRadius: 10, border: "1px dashed #C9D3EA", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {logoUrl ? <img src={logoUrl} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <ImageIcon size={18} color="var(--ds-ink-5)" />}
+            </span>
+            <label className="ds-btn" style={{ height: 40 }}>
+              {uploading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <UploadCloud size={14} />}
+              {uploading ? t("dashboard.branding.uploading") : t("dashboard.branding.chooseImage")}
+              <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading} style={{ display: "none" }} />
+            </label>
           </div>
         </div>
+        <label className="ds-field" style={{ gridColumn: "1 / -1" }}>
+          <span className="ds-label">{t("dashboard.branding.shortPitch")}</span>
+          <textarea className="ds-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("dashboard.branding.taglinePlaceholder")} rows={3} />
+        </label>
       </div>
-    </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="submit" className="ds-btn ds-btn-primary" disabled={saving || uploading}>
+          {saving && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+          {saving ? t("common.states.saving") : t("dashboard.branding.save")}
+        </button>
+      </div>
+    </form>
   );
 }

@@ -46,7 +46,7 @@ export default function AccountInfoPage() {
     if (result.success) {
       toast(t("dashboard.account.profileUpdated"), "success");
     } else {
-      toast(`Erreur : ${result.error}`, "error");
+      toast(result.error || t("dashboard.jobDetail.error"), "error");
     }
     
     setSaving(false);
@@ -63,90 +63,50 @@ export default function AccountInfoPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
-        <Loader2 className="spin" size={24} style={{ color: "var(--primary)" }} />
+      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 style={{ fontSize: "1.25rem", fontWeight: "600", marginBottom: "1.5rem", color: "var(--foreground)" }}>
-        {t("dashboard.account.general")}
-      </h2>
-      
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
-          <div>
-            <label className="form-label" htmlFor="firstName">{t("dashboard.account.firstName")}</label>
-            <input 
-              id="firstName"
-              type="text" 
-              className="input-field" 
-              value={firstName} 
-              onChange={(e) => setFirstName(e.target.value)} 
-              required
-            />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="lastName">{t("dashboard.account.lastName")}</label>
-            <input 
-              id="lastName"
-              type="text" 
-              className="input-field" 
-              value={lastName} 
-              onChange={(e) => setLastName(e.target.value)} 
-              required
-            />
-          </div>
+    <>
+      <form onSubmit={handleSubmit} className="ds-panel">
+        <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{t("dashboard.account.general")}</h2>
+        <div className="ds-inset" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+          <label className="ds-field" htmlFor="firstName">
+            <span className="ds-label">{t("dashboard.account.firstName")}</span>
+            <input id="firstName" type="text" className="ds-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          </label>
+          <label className="ds-field" htmlFor="lastName">
+            <span className="ds-label">{t("dashboard.account.lastName")}</span>
+            <input id="lastName" type="text" className="ds-input" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+          </label>
+          <label className="ds-field" htmlFor="companyName" style={{ gridColumn: "1 / -1" }}>
+            <span className="ds-label">{t("dashboard.account.company")}</span>
+            <input id="companyName" type="text" className="ds-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required />
+          </label>
         </div>
-
-        <div>
-          <label className="form-label" htmlFor="companyName">{t("dashboard.account.company")}</label>
-          <input 
-            id="companyName"
-            type="text" 
-            className="input-field" 
-            value={companyName} 
-            onChange={(e) => setCompanyName(e.target.value)} 
-            required
-          />
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            disabled={saving}
-            style={{ width: "fit-content" }}
-          >
-            {saving ? <><Loader2 size={16} className="spin" /> {t("common.states.saving")}</> : t("dashboard.account.saveChanges")}
+        <div className="ds-panel-foot">
+          <button type="submit" className="ds-btn ds-btn-primary" disabled={saving}>
+            {saving && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+            {saving ? t("common.states.saving") : t("dashboard.account.saveChanges")}
           </button>
         </div>
       </form>
 
       {/* Session — séparé du formulaire : ce n'est pas une modification à
           enregistrer, c'est une action immédiate. */}
-      <div style={{ marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
-        <h3 style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--foreground)" }}>
-          {t("dashboard.account.session")}
-        </h3>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-          <p style={{ fontSize: "13px", color: "var(--muted-foreground)", margin: 0, maxWidth: "420px" }}>
-            {t("dashboard.account.signOutHelp")}
-          </p>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            style={{ display: "flex", alignItems: "center", gap: "8px", width: "fit-content", flexShrink: 0 }}
-          >
-            {signingOut ? <Loader2 size={16} className="spin" /> : <LogOut size={16} />}
+      <section className="ds-panel">
+        <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{t("dashboard.account.session")}</h2>
+        <div className="ds-inset" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <p className="ds-sub" style={{ maxWidth: 460 }}>{t("dashboard.account.signOutHelp")}</p>
+          <button type="button" className="ds-btn" onClick={handleSignOut} disabled={signingOut}>
+            {signingOut ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <LogOut size={15} />}
             {t("dashboard.nav.signOut")}
           </button>
         </div>
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

@@ -1434,6 +1434,9 @@ const dashboard = {
 
   // ── Bibliothèque des expériences ──────────────────────────────────────────
   experiences: {
+    version: "Version {n}",
+    ready: "Prêt(e) quand vous voulez",
+    readyName: "Prêt(e) quand vous voulez, {name}",
     titlePlaceholder: "Ex : Account Executive B2B",
     title: "Expériences",
     subtitle: "Les expériences candidat générées pour vos postes.",
@@ -1537,6 +1540,9 @@ const dashboard = {
 
 // ── Profil entreprise (contexte IA privé) ─────────────────────────────────
   companyProfile: {
+    websiteUrl: "URL du site web",
+    analyzing: "Analyse…",
+    industry: "Industrie / secteur",
     websitePlaceholder: "https://votre-entreprise.com",
     targetMarketPlaceholder: "Ex : SaaS RH, Fintech, Retail, conseil IT…",
     businessModelPlaceholder: "Ex : B2B SaaS, B2C, marketplace, services professionnels…",
@@ -1618,6 +1624,7 @@ const dashboard = {
 
   // ── Branding employeur ────────────────────────────────────────────────────
   branding: {
+    tooLarge: "L'image doit faire moins de 2 Mo.",
     companyNamePlaceholder: "Ex : Acme Corp",
     taglinePlaceholder: "Ex : start-up innovante dans la greentech…",
     visualCustomisation: "Personnalisation visuelle",
@@ -2045,6 +2052,7 @@ const dashboard = {
 
   // ── Guide d'activation ────────────────────────────────────────────────────
   onboarding: {
+    minimize: "Réduire",
     title: "Guide d'activation",
     ready: 'Prêt à recruter ?',
     done: 'Bravo ! Vous êtes opérationnel.',

@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/client";
 import { createRoleQuick } from "@/lib/actions/job";
 import { useToast } from "@/components/ui/Toast";
 import ExperienceChatScreen from "@/components/assessment/ExperienceChatScreen";
+import PageHeader from "@/components/layout/PageHeader";
+import { StatusBadge } from "@/components/experience/ui";
 
 // Couleurs figées, libellés résolus au rendu : les statuts sont les valeurs
 // stockées dans experiences.status et ne changent pas de langue.
@@ -19,7 +21,6 @@ const STATUS_STYLE = {
   archived: { bg: "#f1f5f9", color: "#94a3b8" },
 };
 
-const statusLabel = (t, status) => t(`dashboard.experienceEditor.status.${status}`);
 
 export default function AssessmentsHubPage() {
   const { t, locale } = useI18n();
@@ -104,156 +105,120 @@ export default function AssessmentsHubPage() {
     );
 
     return (
-      <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        {/* En-tête */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ fontSize: "20px", fontWeight: "700", color: "var(--foreground)", letterSpacing: "-0.02em" }}>{t("dashboard.experiences.title")}</h1>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginTop: "2px" }}>
-              {t("dashboard.experiences.subtitle")}
-            </p>
+      <>
+        <PageHeader
+          title={t("dashboard.experiences.title")}
+          actions={
+            <button type="button" onClick={() => setMode("create")} className="ds-btn ds-btn-primary">
+              <Plus size={15} strokeWidth={2.2} /> {t("dashboard.experiences.create")}
+            </button>
+          }
+        />
+        <div className="ds-body">
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <p className="ds-sub">{t("dashboard.experiences.subtitle")}</p>
+            <label className="ds-search" style={{ minWidth: 260 }}>
+              <Search size={15} strokeWidth={2} />
+              <span className="sr-only">{t("dashboard.experiences.search")}</span>
+              <input type="search" placeholder={t("dashboard.experiences.search")} value={search} onChange={(e) => setSearch(e.target.value)} />
+            </label>
           </div>
-          <button onClick={() => setMode("create")} className="btn btn-primary btn-sm"
-            style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-            <Plus size={15} /> {t("dashboard.experiences.create")}
-          </button>
-        </div>
 
-        {/* Recherche */}
-        <div style={{ position: "relative", maxWidth: "320px" }}>
-          <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
-          <input
-            type="text"
-            className="input-field"
-            placeholder={t("dashboard.experiences.search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: "32px", fontSize: "12px" }}
-          />
-        </div>
-
-        {/* Liste */}
-        {loading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "200px" }}>
-            <Loader2 size={24} style={{ color: "var(--muted-foreground)", animation: "spin 1s linear infinite" }} />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="card" style={{ textAlign: "center", padding: "48px 32px" }}>
-            <FileText size={32} style={{ color: "var(--muted-foreground)", opacity: 0.3, margin: "0 auto 16px" }} />
-            <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--foreground)", marginBottom: "6px" }}>
-              {experiences.length === 0 ? t("dashboard.experiences.none") : t("dashboard.experiences.noResults")}
-            </p>
-            <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-              {experiences.length === 0
-                ? t("dashboard.experiences.noneHelp")
-                : t("dashboard.experiences.noResultsHelp")}
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "4px", overflow: "hidden" }}>
-            {filtered.map((e) => {
-              const s = STATUS_STYLE[e.status] || STATUS_STYLE.draft;
-              return (
-                <div
-                  key={e.id}
-                  onClick={() => router.push(`/jobs/${e.job_id}/experience`)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "14px 20px", background: "var(--card)",
-                    borderBottom: "1px solid var(--border)", cursor: "pointer",
-                    transition: "background 100ms ease",
-                  }}
-                  onMouseEnter={(ev) => { ev.currentTarget.style.background = "#fafafa"; }}
-                  onMouseLeave={(ev) => { ev.currentTarget.style.background = "var(--card)"; }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      width: "32px", height: "32px", borderRadius: "4px",
-                      background: "var(--foreground)", color: "var(--background)",
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}>
-                      <FileText size={15} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: "500", color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {e.jobs?.title || t("dashboard.experiences.jobDeleted")}
-                      </p>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "var(--muted-foreground)" }}>
-                          <Briefcase size={10} /> Version {e.version}
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 64 }}>
+              <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="ds-card ds-empty">
+              <FileText size={22} />
+              <span className="ds-empty-title">{experiences.length === 0 ? t("dashboard.experiences.none") : t("dashboard.experiences.noResults")}</span>
+              <span>{experiences.length === 0 ? t("dashboard.experiences.noneHelp") : t("dashboard.experiences.noResultsHelp")}</span>
+            </div>
+          ) : (
+            <div className="ds-table-wrap">
+              <table className="ds-table">
+                <tbody>
+                  {filtered.map((e) => (
+                    <tr key={e.id} onClick={() => router.push(`/jobs/${e.job_id}/experience`)} style={{ cursor: "pointer" }}>
+                      <th scope="row">
+                        <span style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                          <span className="ds-icon-tile ds-icon-tile-soft"><FileText size={14} /></span>
+                          <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                            <span style={{ fontWeight: 500, color: "var(--ds-ink)", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {e.jobs?.title || t("dashboard.experiences.jobDeleted")}
+                            </span>
+                            <span style={{ fontSize: 12, color: "var(--ds-ink-4)" }}>{t("dashboard.experiences.version", { n: e.version })}</span>
+                          </span>
                         </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: s.bg, color: s.color }}>{statusLabel(t, e.status in STATUS_STYLE ? e.status : "draft")}</span>
-                    <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                      {formatDateShort(e.created_at, locale)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                      </th>
+                      <td style={{ width: 160 }}><StatusBadge status={e.status in STATUS_STYLE ? e.status : "draft"} /></td>
+                      <td className="ds-num" style={{ width: 120 }}>{formatDateShort(e.created_at, locale)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </>
     );
   }
 
   // ─── Création : écran de lancement du chat (inchangé, seulement déplacé
   // derrière le bouton "Créer une expérience candidat"). ───
   return (
-    <div style={{ padding: "24px", maxWidth: 900, margin: "0 auto" }}>
-      <button onClick={() => { setMode("list"); setPrompt(""); }} className="btn btn-ghost btn-sm"
-        style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <ArrowLeft size={16} /> {t("dashboard.jobDetail.back")}
-      </button>
-
-      <h1 style={{ fontSize: "1.9rem", fontWeight: 800, textAlign: "center", marginTop: "3rem", marginBottom: "2rem" }}>
-        Prêt(e) quand vous voulez{firstName ? `, ${firstName}` : ""}
-      </h1>
-
-      {/* Champ central type chat */}
-      <div style={{ border: "1px solid var(--border)", borderRadius: 16, padding: "1rem 1.25rem", background: "var(--card)", boxShadow: "0 4px 16px -8px rgba(0,0,0,0.1)" }}>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder={t("dashboard.experiences.whichExperience")}
-          rows={2}
-          style={{ width: "100%", border: "none", outline: "none", resize: "none", fontSize: 15, fontFamily: "inherit", background: "transparent", color: "var(--foreground)", lineHeight: 1.5 }}
-        />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-          <button onClick={() => setPickerOpen(true)} title={t("dashboard.experiences.attachJob")}
-            style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "var(--background)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted-foreground)" }}>
-            <Plus size={18} />
+    <>
+      <PageHeader
+        title={t("dashboard.experiences.create")}
+        actions={
+          <button type="button" onClick={() => { setMode("list"); setPrompt(""); }} className="ds-btn ds-btn-ghost">
+            <ArrowLeft size={15} /> {t("dashboard.jobDetail.back")}
           </button>
-          <button onClick={handleSend} disabled={!prompt.trim()}
-            style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "var(--primary)", color: "white", cursor: prompt.trim() ? "pointer" : "not-allowed", opacity: prompt.trim() ? 1 : 0.5, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Send size={16} />
-          </button>
+        }
+      />
+      <div style={{ display: "flex", justifyContent: "center", padding: "48px 20px 40px" }}>
+        <div style={{ width: "100%", maxWidth: 780, display: "flex", flexDirection: "column", gap: 18 }}>
+          <h2 style={{ margin: 0, fontWeight: 600, fontSize: 28, letterSpacing: "-0.03em", textAlign: "center" }}>
+            {firstName ? t("dashboard.experiences.readyName", { name: firstName }) : t("dashboard.experiences.ready")}
+          </h2>
+
+          {/* Champ central type chat */}
+          <div className="ds-panel" style={{ gap: 0, borderRadius: 16, boxShadow: "0 1px 2px rgba(20,32,74,0.04), 0 12px 32px rgba(20,32,74,0.05)" }}>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder={t("dashboard.experiences.whichExperience")}
+              aria-label={t("dashboard.experiences.whichExperience")}
+              rows={3}
+              style={{ width: "100%", border: 0, outline: 0, resize: "none", padding: "14px 16px", font: "inherit", fontSize: 15, lineHeight: 1.55, background: "transparent", color: "var(--ds-ink)" }}
+            />
+            <div className="ds-inset" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 8px 12px", borderRadius: 11 }}>
+              <button type="button" onClick={() => setPickerOpen(true)} title={t("dashboard.experiences.attachJob")} aria-label={t("dashboard.experiences.attachJob")} className="ds-icon-btn ds-icon-btn-outline" style={{ background: "#FFFFFF" }}>
+                <Plus size={17} />
+              </button>
+              <button type="button" onClick={handleSend} disabled={!prompt.trim()} aria-label={t("dashboard.experienceEditor.stepChat.send")} className="ds-btn ds-btn-primary" style={{ width: 36, padding: 0 }}>
+                <Send size={15} />
+              </button>
+            </div>
+          </div>
+
+          <p className="ds-sub" style={{ textAlign: "center" }}>{t("dashboard.experiences.attachJobHelp")}</p>
+
+          {/* Deux cartes */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+            <button type="button" onClick={() => setPickerOpen(true)} className="ds-card ds-card-pad" style={{ textAlign: "left", cursor: "pointer", font: "inherit", color: "var(--ds-ink)", display: "flex", flexDirection: "column", gap: 4 }}>
+              <span className="ds-icon-tile ds-icon-tile-soft" style={{ marginBottom: 6 }}><Briefcase size={14} /></span>
+              <span style={{ fontWeight: 500 }}>{t("dashboard.experiences.existingJob")}</span>
+              <span className="ds-sub">{t("dashboard.experiences.existingJobHelp")}</span>
+            </button>
+            <button type="button" onClick={() => setNewRoleOpen(true)} className="ds-card ds-card-pad" style={{ textAlign: "left", cursor: "pointer", font: "inherit", color: "var(--ds-ink)", display: "flex", flexDirection: "column", gap: 4 }}>
+              <span className="ds-icon-tile ds-icon-tile-soft" style={{ marginBottom: 6 }}><Plus size={14} /></span>
+              <span style={{ fontWeight: 500 }}>{t("dashboard.experiences.newJob")}</span>
+              <span className="ds-sub">{t("dashboard.experiences.newJobHelp")}</span>
+            </button>
+          </div>
         </div>
-      </div>
-
-      <p style={{ fontSize: 13, color: "var(--muted-foreground)", textAlign: "center", margin: "1rem 0 1.5rem" }}>
-        {t("dashboard.experiences.attachJobHelp")}
-      </p>
-
-      {/* Deux cartes */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <button onClick={() => setPickerOpen(true)} className="card"
-          style={{ padding: "1.25rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--border)", background: "var(--card)" }}>
-          <Briefcase size={20} style={{ color: "var(--muted-foreground)", marginBottom: 10 }} />
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{t("dashboard.experiences.existingJob")}</div>
-          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>{t("dashboard.experiences.existingJobHelp")}</div>
-        </button>
-        <button onClick={() => setNewRoleOpen(true)} className="card"
-          style={{ padding: "1.25rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--border)", background: "var(--card)" }}>
-          <Plus size={20} style={{ color: "var(--muted-foreground)", marginBottom: 10 }} />
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{t("dashboard.experiences.newJob")}</div>
-          <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginTop: 2 }}>{t("dashboard.experiences.newJobHelp")}</div>
-        </button>
       </div>
 
       {pickerOpen && (
@@ -262,7 +227,7 @@ export default function AssessmentsHubPage() {
       {newRoleOpen && (
         <NewRoleModal onClose={() => setNewRoleOpen(false)} onCreated={(job) => openChatForJob(job, prompt)} toast={toast} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -273,16 +238,15 @@ function JobPicker({ jobs, onClose, onPick }) {
   const filtered = jobs.filter((j) => (j.title || "").toLowerCase().includes(q.toLowerCase()));
   return (
     <Modal title={t("dashboard.experiences.chooseJob")} onClose={onClose}>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("dashboard.experiences.search")} autoFocus
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, marginBottom: 12, boxSizing: "border-box" }} />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("dashboard.experiences.search")} autoFocus className="ds-input" aria-label={t("dashboard.experiences.search")} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
         {filtered.length === 0 ? (
-          <p style={{ fontSize: 14, color: "var(--muted-foreground)", textAlign: "center", padding: "1rem" }}>{t("dashboard.experiences.noJobYet")}</p>
+          <p className="ds-empty" style={{ padding: 16 }}>{t("dashboard.experiences.noJobYet")}</p>
         ) : filtered.map((j) => (
-          <button key={j.id} onClick={() => onPick(j)} className="card"
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "0.75rem 1rem", textAlign: "left", cursor: "pointer", border: "1px solid var(--border)", background: "var(--card)" }}>
-            <Briefcase size={15} style={{ color: "var(--muted-foreground)" }} />
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{j.title || t("dashboard.experiences.untitled")}</span>
+          <button key={j.id} type="button" onClick={() => onPick(j)} className="ds-row-link"
+            style={{ border: "1px solid var(--ds-line)", background: "#FFFFFF", font: "inherit", textAlign: "left", cursor: "pointer" }}>
+            <Briefcase size={15} style={{ color: "var(--ds-ink-4)" }} />
+            <span style={{ fontWeight: 500 }}>{j.title || t("dashboard.experiences.untitled")}</span>
           </button>
         ))}
       </div>
@@ -318,8 +282,8 @@ function NewRoleModal({ onClose, onCreated, toast }) {
       <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6}
         placeholder={t("dashboard.experiences.jobDescriptionPlaceholder")} style={{ ...inputS, resize: "vertical", lineHeight: 1.5 }} />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <button onClick={onClose} className="btn btn-ghost btn-sm">{t("common.actions.cancel")}</button>
-        <button onClick={submit} disabled={saving} className="btn btn-primary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button type="button" onClick={onClose} className="ds-btn ds-btn-ghost">{t("common.actions.cancel")}</button>
+        <button type="button" onClick={submit} disabled={saving} className="ds-btn ds-btn-primary">
           {saving ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : null}
           {t("dashboard.experiences.createAndContinue")}
         </button>
@@ -329,18 +293,21 @@ function NewRoleModal({ onClose, onCreated, toast }) {
 }
 
 function Modal({ title, children, onClose }) {
+  const { t } = useI18n();
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 520, maxWidth: "100%", padding: "1.5rem", background: "var(--card)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-          <h3 style={{ fontSize: "1.05rem", fontWeight: 800 }}>{title}</h3>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: 4 }}><X size={18} /></button>
+    <div className="ds-overlay" onMouseDown={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="ds-modal" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ds-modal-head">
+          <h3 className="ds-h2">{title}</h3>
+          <button type="button" onClick={onClose} className="ds-icon-btn ds-icon-btn-outline" aria-label={t("common.actions.close")}><X size={16} /></button>
         </div>
-        {children}
+        <div className="ds-modal-body" style={{ gap: 10 }}>
+          {children}
+        </div>
       </div>
     </div>
   );
 }
 
-const labelS = { display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted-foreground)", marginBottom: 4 };
-const inputS = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", background: "var(--background)", color: "var(--foreground)" };
+const labelS = { display: "block", fontSize: 12, fontWeight: 500, color: "var(--ds-ink-2)", marginBottom: 2 };
+const inputS = { width: "100%", padding: "10px 12px", borderRadius: 9, border: "1px solid var(--ds-line)", fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", background: "#FFFFFF", color: "var(--ds-ink)" };

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Copy, Check, Link2, Trash2, Loader2, Shield, UserPlus, KeyRound, Users, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { PLANS, PLANS_ATTRIBUABLES } from "@/lib/constants/plans";
+import AdminEnTete, { AccesRefuse } from "./AdminEnTete";
 import {
   isCurrentUserAdmin,
   adminListInviteTokens,
@@ -48,13 +49,13 @@ function EncartIdentifiants({ email, motDePasse, t }) {
   const [copie, setCopie] = useState(false);
 
   return (
-    <div style={{ marginTop: "1.25rem", padding: "16px", borderRadius: "10px", background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+    <div style={{ marginTop: "1.25rem", padding: "16px", borderRadius: "10px", background: "var(--ds-green-bg)", border: "1px solid #D4EEE1" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-        <KeyRound size={16} style={{ color: "#166534" }} />
-        <strong style={{ fontSize: "14px", color: "#166534" }}>{email}</strong>
+        <KeyRound size={16} style={{ color: "var(--ds-green-ink)" }} />
+        <strong style={{ fontSize: "14px", color: "var(--ds-green-ink)" }}>{email}</strong>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-        <code style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "0.03em", background: "white", padding: "8px 12px", borderRadius: "8px", border: "1px solid #bbf7d0", color: "#14532d" }}>
+        <code style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "0.03em", background: "white", padding: "8px 12px", borderRadius: "8px", border: "1px solid #D4EEE1", color: "#14532d" }}>
           {motDePasse}
         </code>
         <button
@@ -64,13 +65,13 @@ function EncartIdentifiants({ email, motDePasse, t }) {
             setCopie(true);
             setTimeout(() => setCopie(false), 3000);
           }}
-          style={{ display: "flex", alignItems: "center", gap: "6px", color: "#166534" }}
+          style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--ds-green-ink)" }}
         >
           {copie ? <Check size={15} /> : <Copy size={15} />}
           {t("dashboard.admin.copyCredentials")}
         </button>
       </div>
-      <p style={{ fontSize: "12px", color: "#166534", marginTop: "10px" }}>
+      <p style={{ fontSize: "12px", color: "var(--ds-green-ink)", marginTop: "10px" }}>
         {t("dashboard.admin.passwordOnce")}
       </p>
     </div>
@@ -216,58 +217,33 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-        <Loader2 size={32} style={{ color: "var(--primary)", animation: "spin 1s linear infinite" }} />
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   if (!hasAccess) {
-    return (
-      <div className="fade-in" style={{ textAlign: "center", padding: "80px 20px" }}>
-        <Shield size={48} style={{ color: "var(--destructive)", margin: "0 auto 24px" }} />
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "12px" }}>{t("dashboard.admin.accessDenied")}</h1>
-        <p style={{ color: "var(--muted-foreground)" }}>{t("dashboard.admin.adminsOnly")}</p>
-      </div>
-    );
+    return <AccesRefuse />;
   }
 
   // Écran d'administration : le seul où « Bêta » s'affiche en clair.
   const PLAN_COLORS = {
-    core: { bg: "#e0e7ff", color: "#4338ca" },
-    pro: { bg: "#ede9fe", color: "#6d28d9" },
-    beta: { bg: "#fef3c7", color: "#92400e" },
-    admin: { bg: "#1e293b", color: "#ffffff" },
+    core: { bg: "var(--ds-blue-10)", color: "var(--ds-blue)" },
+    pro: { bg: "#EEF2FA", color: "#2E5BD8" },
+    beta: { bg: "var(--ds-amber-bg)", color: "var(--ds-amber-ink)" },
+    admin: { bg: "var(--ds-ink)", color: "#ffffff" },
   };
 
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: "800", marginBottom: "8px" }}>{t("dashboard.admin.title")}</h1>
-        <p style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>{t("dashboard.admin.subtitle")}</p>
-      </div>
-
-      {/* Tabs / Navigation */}
-      <div style={{ display: "flex", gap: "12px", marginBottom: "2rem" }}>
-        <button 
-          className="btn btn-primary" 
-          style={{ padding: "10px 20px" }}
-        >
-          {t("dashboard.admin.tabInvites")}
-        </button>
-        <a
-          href={href("/admin/couts")}
-          className="btn btn-ghost"
-          style={{ padding: "10px 20px", border: "1px solid var(--border)" }}
-        >
-          {t("dashboard.admin.tabCosts")}
-        </a>
-      </div>
+    <>
+      <AdminEnTete sousTitre={t("dashboard.admin.subtitle")} />
+      <div className="ds-body fade-in">
 
       {/* ── Création directe d'un compte ─────────────────────────────────
           Chemin principal depuis la fermeture des inscriptions publiques :
           l'API d'administration n'est pas soumise au réglage Supabase, elle
           reste donc le seul moyen de créer un compte. */}
-      <div className="card" style={{ marginBottom: "2rem" }}>
+      <div className="ds-card ds-card-pad" style={{ marginBottom: "2rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
           <UserPlus size={18} style={{ color: "var(--primary)" }} />
           <h2 style={{ fontSize: "16px", fontWeight: 700 }}>{t("dashboard.admin.createAccount")}</h2>
@@ -329,7 +305,7 @@ export default function AdminPage() {
           hasard et affiché une fois se perd, et sans cette liste il ne
           restait aucun moyen de reprendre la main sur le compte — ni même de
           se rappeler quelles adresses avaient été créées. */}
-      <div className="card" style={{ marginBottom: "2rem" }}>
+      <div className="ds-card ds-card-pad" style={{ marginBottom: "2rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
           <Users size={18} style={{ color: "var(--primary)" }} />
           <h2 style={{ fontSize: "16px", fontWeight: 700 }}>
@@ -412,8 +388,8 @@ export default function AdminPage() {
       </div>
 
       {/* Generator */}
-      <div className="card" style={{ marginBottom: "2rem" }}>
-        <p style={{ fontSize: "13px", color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px" }}>
+      <div className="ds-card ds-card-pad" style={{ marginBottom: "2rem" }}>
+        <p style={{ fontSize: "13px", color: "var(--ds-amber-ink)", background: "var(--ds-amber-bg)", border: "1px solid #F3DDB8", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px" }}>
           {t("dashboard.admin.invitesNeedSignup")}
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
@@ -446,7 +422,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tokens list */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="ds-card ds-card-pad" style={{ padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
@@ -478,9 +454,9 @@ export default function AdminPage() {
                   </td>
                   <td style={{ padding: "14px 20px", fontSize: "13px" }}>
                     {tok.used ? (
-                      <span style={{ color: "#166534", fontWeight: "600" }}>{t("dashboard.admin.tokenStatus.used")}</span>
+                      <span style={{ color: "var(--ds-green-ink)", fontWeight: "600" }}>{t("dashboard.admin.tokenStatus.used")}</span>
                     ) : expired ? (
-                      <span style={{ color: "#991b1b", fontWeight: "600" }}>{t("dashboard.admin.tokenStatus.expired")}</span>
+                      <span style={{ color: "var(--ds-red)", fontWeight: "600" }}>{t("dashboard.admin.tokenStatus.expired")}</span>
                     ) : (
                       <span style={{ color: "#0369a1", fontWeight: "600" }}>{t("dashboard.admin.tokenStatus.active")}</span>
                     )}
@@ -495,7 +471,7 @@ export default function AdminPage() {
                           onClick={() => copyLink(tok.token, tok.id)}
                           className="btn btn-ghost btn-sm"
                           title={t("dashboard.admin.copyLink")}
-                          style={{ color: copiedId === tok.id ? "#166534" : "var(--primary)" }}
+                          style={{ color: copiedId === tok.id ? "var(--ds-green-ink)" : "var(--primary)" }}
                         >
                           {copiedId === tok.id ? <Check size={16} /> : <Copy size={16} />}
                         </button>
@@ -517,5 +493,6 @@ export default function AdminPage() {
         </table>
       </div>
     </div>
+    </>
   );
 }

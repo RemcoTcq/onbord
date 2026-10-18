@@ -52,7 +52,7 @@ export default function SecurityPage() {
       setNewPassword("");
       // We do NOT set currentEmail to email immediately because Supabase requires clicking the link first.
     } else {
-      toast(`Erreur : ${result.error}`, "error");
+      toast(result.error || t("dashboard.jobDetail.error"), "error");
     }
     
     setSaving(false);
@@ -60,80 +60,60 @@ export default function SecurityPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
-        <Loader2 className="spin" size={24} style={{ color: "var(--primary)" }} />
+      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+        <Loader2 size={22} style={{ color: "var(--ds-ink-5)", animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: "600", color: "var(--foreground)" }}>
-          {t("dashboard.account.security")}
-        </h2>
-        <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginTop: "4px" }}>
-          {t("dashboard.account.securityIntro")}
-        </p>
+    <form onSubmit={handleSubmit} className="ds-panel">
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
+        <h2 className="ds-h2">{t("dashboard.account.security")}</h2>
+        <p className="ds-sub">{t("dashboard.account.securityIntro")}</p>
       </div>
-      
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        
-        {/* Vérification de sécurité obligatoire */}
-        <div style={{ padding: "1rem", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-          <label className="form-label" htmlFor="oldPassword" style={{ color: "#334155", fontWeight: "600" }}>{t("dashboard.account.currentPassword")}</label>
-          <input 
+
+      {/* Vérification de sécurité obligatoire */}
+      <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <label className="ds-field" htmlFor="oldPassword">
+          <span className="ds-label">{t("dashboard.account.currentPassword")}</span>
+          <input
             id="oldPassword"
-            type="password" 
-            className="input-field" 
+            type="password"
+            className="ds-input"
             placeholder={t("dashboard.account.currentPasswordHint")}
-            value={oldPassword} 
-            onChange={(e) => setOldPassword(e.target.value)} 
-            required
-            style={{ background: "white" }}
-          />
-        </div>
-
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1.5rem" }}>
-          <label className="form-label" htmlFor="email">{t("dashboard.account.email")}</label>
-          <input 
-            id="email"
-            type="email" 
-            className="input-field" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
             required
           />
-          {email !== currentEmail && (
-            <p style={{ fontSize: "12px", color: "var(--accent-foreground)", marginTop: "4px" }}>
-              {t("dashboard.account.emailHint")}
-            </p>
-          )}
-        </div>
+        </label>
+      </div>
 
-        <div>
-          <label className="form-label" htmlFor="newPassword">{t("dashboard.account.newPassword")}</label>
-          <input 
+      <div className="ds-inset" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+        <label className="ds-field" htmlFor="email">
+          <span className="ds-label">{t("dashboard.account.email")}</span>
+          <input id="email" type="email" className="ds-input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          {email !== currentEmail && <span className="ds-help" style={{ color: "var(--ds-blue)" }}>{t("dashboard.account.emailHint")}</span>}
+        </label>
+        <label className="ds-field" htmlFor="newPassword">
+          <span className="ds-label">{t("dashboard.account.newPassword")}</span>
+          <input
             id="newPassword"
-            type="password" 
-            className="input-field" 
+            type="password"
+            className="ds-input"
             placeholder={t("dashboard.account.newPasswordHint")}
-            value={newPassword} 
-            onChange={(e) => setNewPassword(e.target.value)} 
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
           />
-        </div>
+        </label>
+      </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            disabled={saving || !oldPassword}
-            style={{ width: "fit-content" }}
-          >
-            {saving ? <><Loader2 size={16} className="spin" /> {t("common.states.saving")}</> : t("dashboard.account.updateSecurity")}
-          </button>
-        </div>
-      </form>
-    </div>
+      <div className="ds-panel-foot">
+        <button type="submit" className="ds-btn ds-btn-primary" disabled={saving || !oldPassword}>
+          {saving && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+          {saving ? t("common.states.saving") : t("dashboard.account.updateSecurity")}
+        </button>
+      </div>
+    </form>
   );
 }
