@@ -50,7 +50,6 @@ export default function WorkScenes({ m, s }) {
           « tableur » avant qu'on lise un mot. */}
       <figure className="compo__sheet">
         <div className="compo__tabs">
-          <span className="compo__dots" aria-hidden="true"><i /><i /><i /></span>
           <span className="compo__tab">{m.sheet.file}</span>
         </div>
         <p className="compo__fx"><span>fx</span>{m.sheet.formula}</p>

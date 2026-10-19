@@ -2,7 +2,6 @@ import { getDictionary } from "@/lib/i18n/dictionaries";
 import { coerceLocale, LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL } from "@/lib/i18n/config";
 import { demoHref } from "@/lib/contact";
 import { Hr, Eyebrow, Title, TitleH1, Cta } from "@/components/Bits";
-import Playground from "@/components/Playground";
 import AppPeek from "@/components/AppPeek";
 import { ShortlistMock, ScoreCard } from "@/components/Mocks";
 import Steps from "@/components/Steps";
@@ -15,7 +14,7 @@ import { ArrowRight, Check, Close } from "@/components/Icons";
 // La page d'accueil.
 //
 // ── Ce qu'elle doit faire, dans cet ordre ────────────────────────────────────
-//   hero    ce que c'est, et le bac à sable pour l'essayer tout de suite
+//   hero    ce que c'est, et la plateforme telle qu'elle est, en quatre écrans
 //   truth   pourquoi ça vaut la peine : le problème SE COMPREND, sans être nommé
 //   work    ce que c'est concrètement : trente minutes du métier
 //   how     comment ça se passe pour vous, en trois gestes
@@ -123,9 +122,8 @@ export default async function Home({ params }) {
           <TitleH1 a={h.hero.titleA} em={h.hero.titleEm} b={h.hero.titleB} coupe />
           <p className="lede">{h.hero.lede}</p>
 
-          {/* Un seul bouton : le bac à sable juste en dessous EST le second
-              point d'entrée, self-serve. Un lien texte qui pointait sur le
-              même champ juste au-dessus de lui faisait doublon. */}
+          {/* Un seul bouton. La fenêtre de la plateforme, juste en dessous,
+              se manipule par ses onglets : c'est le second point d'entrée. */}
           <div className="hero__actions">
             <a className="btn btn--primary" href={demoHref(locale)}>
               {h.hero.primary}
@@ -134,18 +132,12 @@ export default async function Home({ params }) {
           </div>
         </div>
 
-        {/* La scène : la barre de saisie POSÉE SUR la fenêtre de
-            l'application, les deux dans le même halo bleu. Elles étaient
-            l'une sous l'autre, séparées par du blanc, et se lisaient comme
-            deux objets sans rapport. Voir `.stage` dans globals.css. */}
+        {/* La scène : les onglets POSÉS SUR la fenêtre de la plateforme, les
+            deux sur la même plaque de verre. La barre de saisie qui était
+            là (le bac à sable) a été retirée le 19/10/2026, sur demande
+            directe. Voir AppPeek.js et `.stage` dans globals.css. */}
         <div className="wrap stage">
-          <div className="stage__prompt" data-reveal>
-            <Playground m={h.hero.play} locale={locale} />
-          </div>
-
-          <div className="stage__peek">
-            <AppPeek m={h.hero.peek} skills={m.skills} />
-          </div>
+          <AppPeek a={h.hero.app} shortlist={m.shortlist} score={m.score} />
         </div>
       </section>
 
@@ -256,7 +248,7 @@ export default async function Home({ params }) {
             <p className="lede" style={{ marginTop: 10, marginInline: "auto" }}>{h.how.resultBody}</p>
 
             <div className="figure figure--sm" data-reveal>
-              <ShortlistMock m={m.shortlist} />
+              <ShortlistMock m={m.shortlist} app={h.hero.app} />
             </div>
 
           </div>
@@ -275,7 +267,7 @@ export default async function Home({ params }) {
           <p className="lede" style={{ marginTop: 18 }}>{h.proof.lede}</p>
 
           <div className="figure figure--xs" data-reveal>
-            <ScoreCard m={m.score} compact />
+            <ScoreCard m={m.score} app={h.hero.app} />
           </div>
 
         </div>
@@ -314,8 +306,7 @@ export default async function Home({ params }) {
           dans la navigation et le pied de page. */}
 
       {/* Un seul bouton, comme partout ailleurs sur le site : « Book a demo ».
-          `postingHref`/`talkHref` restent utiles ailleurs (voir Playground.js
-          et contact.js), mais plus ici. */}
+          `talkHref` reste utile ailleurs (voir contact.js), mais plus ici. */}
       <Cta
         title={h.cta.titleA}
         em={h.cta.titleEm}

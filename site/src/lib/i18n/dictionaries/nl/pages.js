@@ -525,15 +525,25 @@ const pages = {
       copilot: {
         title: "Pas haar aan in gewone woorden.",
         body: "De Onbord-copiloot bouwt de simulatie samen met u. Vertel wat er waar is in uw team, en hij herschrijft de stappen, de personages en de beoordeling.",
-        window: "Onbord-copiloot",
-        hello: "Uw simulatie is klaar: vier stappen, ongeveer 20 minuten. Wat moet ik aanpassen?",
+        // Le nom et les libellés du copilote de l'APPLICATION (« Simulation
+        // Copilot », dashboard.js, stepChat) : le visuel en est la copie.
+        window: "Simulation Copilot",
+        knows: "Kent deze simulatie, de beoordeling en de job",
+        proposal: "Voorgestelde wijziging",
+        applied: "Toegepast: de simulatie is herschreven.",
+        placeholder: "Bv. maak de prospect sceptischer",
+        // Le message d'accueil de l'application (stepChat.greetingNoName) :
+        // {job} s'affiche en gras.
+        hello: "Hallo. Ik ken deze simulatie, het beoordelingsrooster en de vacature {job}. Stel een vraag of vraag een wijziging: ik stel een herschrijving voor, die u al dan niet toepast.",
+        job: "Account Executive, Benelux",
+        // La ligne sous la zone de saisie, celle de l'application.
+        cost: "Vragen zijn gratis · 2 credits per toegepaste herschrijving",
         try: "Probeer het",
-        changedLabel: "Aangepast",
         reset: "Opnieuw",
         suggestions: [
-          { ask: "Onze kopers zijn aankoopdiensten, geen oprichters.", reply: "Gedaan. Het gesprek is nu met een aankoopmanager die u vergelijkt met twee andere leveranciers.", changed: "Stap 1 herschreven, personage bijgewerkt" },
-          { ask: "Maak de klant moeilijker te overtuigen.", reply: "Hij betwist nu twee keer de prijs, en vraagt een referentie voor hij een tweede afspraak aanvaardt.", changed: "Personage bijgewerkt" },
-          { ask: "Voeg een schriftelijke opvolging toe na het gesprek.", reply: "Toegevoegd: een opvolgmail aan dezelfde klant de volgende ochtend, met wat er in het gesprek is afgesproken.", changed: "Stap toegevoegd, beoordelingsrooster bijgewerkt" },
+          { ask: "Onze kopers zijn aankoopdiensten", reply: "Gedaan. Het gesprek is nu met een aankoopmanager die u vergelijkt met twee andere leveranciers.", changed: "Stap 1 herschreven, personage bijgewerkt" },
+          { ask: "Maak de klant lastiger", reply: "Hij betwist nu twee keer de prijs, en vraagt een referentie voor hij een tweede afspraak aanvaardt.", changed: "Personage bijgewerkt" },
+          { ask: "Voeg een opvolgmail toe", reply: "Toegevoegd: een opvolgmail aan dezelfde klant de volgende ochtend, met wat er in het gesprek is afgesproken.", changed: "Stap toegevoegd, beoordelingsrooster bijgewerkt" },
         ],
       },
     },

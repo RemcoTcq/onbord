@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, Bot, Link as LinkIcon, Check } from "./Icons";
+import { IcCheck, IcFile, IcLink, IcSparkle, IcUpload } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les trois étapes de l'accueil, CLIQUABLES.
@@ -27,22 +27,27 @@ import { FileText, Bot, Link as LinkIcon, Check } from "./Icons";
 // le HTML. C'est le bon pire cas.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Les trois visuels sont dans le style de l'application depuis la refonte
+// du 19/10 (`.app-ui`, classes `ap-*`, voir AppUi.js) : cartes arrondies,
+// bleu #1B45C4, Geist. Plus de barre à trois pastilles façon macOS (règle 5).
+
 /** 01 — L'offre qu'on dépose. */
 function VizDrop({ v }) {
   return (
-    <div className="sv sv--drop">
-      <div className="sv__chrome" aria-hidden="true"><i /><i /><i /></div>
+    <div className="sv app-ui ap-panel">
       <div className="sv__in">
-      <div className="sv__drop">
-        <span className="sv__file">
-          <FileText size={15} />
-          <span>
-            <b>{v.file}</b>
-            <i>{v.size}</i>
+        <div className="ap-drop">
+          <span className="ap-dropIcon"><IcUpload size={18} /></span>
+          <span className="ap-sub">{v.hint}</span>
+        </div>
+        <span className="ap-fileRow">
+          <span className="ap-fileIcon"><IcFile size={16} /></span>
+          <span className="ap-stack ap-grow">
+            <b className="ap-strong">{v.file}</b>
+            <span className="ap-sub">{v.size}</span>
           </span>
+          <span className="ap-ok"><IcCheck size={13} /></span>
         </span>
-        <p className="sv__hint">{v.hint}</p>
-      </div>
       </div>
     </div>
   );
@@ -51,15 +56,14 @@ function VizDrop({ v }) {
 /** 02 — Ce qu'on dit à l'assistant, et ce qu'il change. */
 function VizTalk({ v, chat }) {
   return (
-    <div className="sv">
-      <div className="sv__chrome" aria-hidden="true"><i /><i /><i /></div>
+    <div className="sv app-ui ap-panel">
       <div className="sv__in">
-        <p className="bubble bubble--me" style={{ marginLeft: "auto" }}>{chat.msgMe}</p>
-        <p className="bubble bubble--ai">{chat.msgAi}</p>
-        <p className="sv__made">
-          <Bot size={13} />
-          {v.made}
-        </p>
+        <p className="ap-bubble ap-bubble--me">{chat.msgMe}</p>
+        <div className="ap-bubbleRow">
+          <span className="ap-aiAvatar"><IcSparkle size={14} /></span>
+          <p className="ap-bubble ap-bubble--ai">{chat.msgAi}</p>
+        </div>
+        <span className="ap-made"><IcCheck size={13} />{v.made}</span>
       </div>
     </div>
   );
@@ -68,15 +72,13 @@ function VizTalk({ v, chat }) {
 /** 03 — Le lien qui part aux candidats. */
 function VizLink({ v }) {
   return (
-    <div className="sv">
-      <div className="sv__chrome" aria-hidden="true"><i /><i /><i /></div>
+    <div className="sv app-ui ap-panel">
       <div className="sv__in">
-        <p className="sv__label">{v.label}</p>
-        <div className="sv__link">
-          <LinkIcon size={13} />
-          <span>{v.url}</span>
-          <span className="sv__copied"><Check size={11} />{v.copied}</span>
-        </div>
+        <span className="ap-insetLabel">{v.label}</span>
+        <span className="ap-linkRow">
+          <span className="ap-linkField"><IcLink size={15} /><span className="ap-ell">{v.url}</span></span>
+          <span className="ap-btn ap-btn--done"><IcCheck size={14} />{v.copied}</span>
+        </span>
       </div>
     </div>
   );

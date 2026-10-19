@@ -1,7 +1,7 @@
 // Page d'accueil — anglais, la version de référence.
 //
 // ── Le plan, et ce que chaque section doit obtenir ───────────────────────────
-//   hero    « qu'est-ce que c'est »       → et le bac à sable pour l'essayer
+//   hero    « qu'est-ce que c'est »       → et la plateforme, en quatre onglets
 //   truth   « pourquoi ça me concerne »   → le problème, compris sans être nommé
 //   work    « c'est quoi, concrètement »  → vingt minutes du métier
 //   how     « comment ça se passe »       → trois gestes, pas huit étapes
@@ -39,47 +39,95 @@ const home = {
     lede: "Paste a job posting. Onbord builds a job simulation, sends it to your candidates, and ranks them on what they actually did.",
     primary: "Book a demo",
 
-    // Le contenu lisible de l'aperçu de plateforme (AppPeek.js) : l'offre et
-    // les étapes du pipeline. Le reste de la fenêtre est en barres grises.
-    peek: {
-      job: "Sales Development Rep",
-      experience: "Candidate experience",
-      duration: "~20 min",
-      writing: "writing",
-      steps: [
-        { name: "Answer a price objection", format: "Email", min: "6 min" },
-        { name: "Take the call on camera", format: "Live", min: "5 min" },
-        { name: "Sort Monday's inbox", format: "Inbox", min: "5 min" },
-        { name: "Read the pipeline numbers", format: "Sheet", min: "" },
+    // ── La fenêtre de la plateforme (AppPeek.js) ─────────────────────────────
+    // Quatre écrans de l'application, qui défilent tout seuls. Les
+    // libellés suivent l'interface recruteur (src/lib/i18n/dictionaries/en/
+    // dashboard.js à la racine du dépôt) : un prospect les retrouvera mot pour
+    // mot en démo. Les candidats et leurs notes viennent de common.mocks
+    // (shortlist, score), pas d'une seconde série inventée.
+    app: {
+      // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
+      alt: "Onbord's recruiter interface: the dashboard, candidates ranked by overall score, and a candidate report.",
+      pct: "{n}%",
+      me: "LV",
+      nav: {
+        search: "Search…",
+        menu: "Menu",
+        home: "Dashboard",
+        jobs: "Jobs",
+        recent: "Recent jobs",
+        settings: "Settings",
+      },
+      jobs: [
+        { title: "Sales Development Rep", meta: "Ghent · Hybrid", invited: 34, done: 21, date: "Oct 7" },
+        { title: "Customer Success Manager", meta: "Brussels · Permanent", invited: 18, done: 11, date: "Oct 2" },
+        { title: "Office Manager", meta: "Leuven · On site", invited: 12, done: 12, date: "Sep 24" },
+        { title: "Account Executive", meta: "Antwerp · Hybrid", invited: 22, done: 10, date: "Sep 19" },
       ],
-    },
-
-    // Le bac à sable. Les étapes décrivent ce qui SE PASSERAIT : le site est
-    // statique, il ne construit rien ici, et il ne doit pas le laisser croire.
-    play: {
-      label: "Describe the role you are hiring for",
-      // Trois métiers très différents, pour montrer d'un coup d'œil que
-      // n'importe quel poste peut être décrit ici — voir Playground.js pour
-      // l'effet machine à écrire qui les fait défiler.
-      placeholders: [
-        "I want a simulation for a Sales Development Representative",
-        "I want a simulation for a Customer Success Manager",
-        "I want a simulation for an Office Manager",
-      ],
-      send: "Build the simulation",
-    steps: [
-        "Understanding the role",
-        "Choosing the skills worth testing",
-        "Building the simulation",
-        "Writing the scoring grid",
-        "Reviewing it",
-      ],
-      done: {
-        title: "That is where the real one starts.",
-        body: "Send us the posting and we build it for real, with its tasks and its scoring grid. You see the whole thing before any candidate does.",
-        primary: "Send this to us",
-        secondary: "Talk to someone",
-        again: "Try another role",
+      job: {
+        tabs: ["Candidate journey", "Candidates", "Context", "Settings"],
+        chips: ["Ghent", "Hybrid"],
+        open: "Applications open",
+        copy: "Copy public link",
+      },
+      cands: {
+        search: "Search for a candidate",
+        sort: "Sort",
+        sortBy: "Highest score",
+        colCandidate: "Candidate",
+        colScore: "Overall score",
+        colStatus: "Status",
+        view: "View report",
+        subs: ["Completed Oct 14", "Completed Oct 14", "Completed Oct 13", "Completed Oct 12", "Invited Oct 15"],
+      },
+      report: {
+        candidates: "Candidates",
+        expand: "Expand all",
+        feedback: "Feedback",
+        status: "Status",
+        invited: "Invited",
+        invitedOn: "Oct 9, 2026",
+        completed: "Completed",
+        completedOn: "Oct 13, 2026",
+        gdpr: "GDPR",
+        granted: "Granted",
+        shortlist: "Shortlist",
+        next: "Move to next stage",
+        reject: "Reject",
+        score: "Overall score",
+        scoreSub: "Weighted average of your selection criteria.",
+        scoreLine: "4 steps scored",
+        scoreNote: "The detail per criterion is in each step below.",
+        stepType: "Email",
+        criteria: "Criteria",
+        must: "Must-have",
+        quote: "“{q}”",
+      },
+      home: {
+        title: "Dashboard",
+        newJob: "New job",
+        hello: "Hello Laura",
+        figures: [
+          { label: "Jobs", n: "4", unit: "open" },
+          { label: "Candidates", n: "86", unit: "in total" },
+          { label: "Completed", n: "54", unit: "simulations" },
+        ],
+        yourJobs: "Your jobs",
+        status: "Status",
+        open: "Open",
+        candidates: "Candidates",
+        candidatesN: "{n} candidates",
+        completed: "Completed",
+        created: "Created",
+        latest: "Latest candidates",
+        activity: "This week's activity",
+        week: "Week",
+        range: "Oct 12 – 18, 2026",
+        doneN: "9",
+        doneLabel: "simulations completed this week",
+        legendInvited: "Invited",
+        legendDone: "Completed",
+        days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       },
     },
   },

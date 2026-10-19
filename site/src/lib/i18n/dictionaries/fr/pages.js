@@ -525,15 +525,25 @@ const pages = {
       copilot: {
         title: "Ajustez-la avec vos mots.",
         body: "Le copilote Onbord construit la simulation avec vous. Dites-lui ce qui est vrai dans votre équipe, il réécrit les étapes, les personnages et la notation en conséquence.",
-        window: "Copilote Onbord",
-        hello: "Votre simulation est prête : quatre étapes, environ 20 minutes. Que dois-je changer ?",
+        // Le nom et les libellés du copilote de l'APPLICATION (« Simulation
+        // Copilot », dashboard.js, stepChat) : le visuel en est la copie.
+        window: "Simulation Copilot",
+        knows: "Connaît cette simulation, sa notation et le poste",
+        proposal: "Modification proposée",
+        applied: "Appliquée : la simulation a été réécrite.",
+        placeholder: "Ex. : rends le prospect plus sceptique",
+        // Le message d'accueil de l'application (stepChat.greetingNoName) :
+        // {job} s'affiche en gras.
+        hello: "Bonjour. Je connais cette simulation, sa grille de notation et l'offre {job}. Posez une question ou demandez un changement : je propose une réécriture, que vous appliquez ou non.",
+        job: "Account Executive, Benelux",
+        // La ligne sous la zone de saisie, celle de l'application.
+        cost: "Questions gratuites · 2 crédits par réécriture appliquée",
         try: "Essayez",
-        changedLabel: "Modifié",
         reset: "Recommencer",
         suggestions: [
-          { ask: "Nos acheteurs sont des services achats, pas des fondateurs.", reply: "C'est fait. L'appel se fait maintenant avec un responsable achats qui vous compare à deux autres fournisseurs.", changed: "Étape 1 réécrite, personnage mis à jour" },
-          { ask: "Rends le client plus difficile à convaincre.", reply: "Il conteste désormais deux fois le prix, et demande une référence avant d'accepter un second rendez-vous.", changed: "Personnage mis à jour" },
-          { ask: "Ajoute un suivi écrit après l'appel.", reply: "Ajouté : un e-mail de suivi au même client le lendemain matin, qui reprend ce qui a été convenu pendant l'appel.", changed: "Étape ajoutée, grille de notation mise à jour" },
+          { ask: "Nos acheteurs sont des services achats", reply: "C'est fait. L'appel se fait maintenant avec un responsable achats qui vous compare à deux autres fournisseurs.", changed: "Étape 1 réécrite, personnage mis à jour" },
+          { ask: "Rends le client plus coriace", reply: "Il conteste désormais deux fois le prix, et demande une référence avant d'accepter un second rendez-vous.", changed: "Personnage mis à jour" },
+          { ask: "Ajoute un e-mail de suivi", reply: "Ajouté : un e-mail de suivi au même client le lendemain matin, qui reprend ce qui a été convenu pendant l'appel.", changed: "Étape ajoutée, grille de notation mise à jour" },
         ],
       },
     },

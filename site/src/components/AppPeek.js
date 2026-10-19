@@ -1,96 +1,420 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Logo, Search, Bell } from "./Icons";
+import { useEffect, useRef, useState } from "react";
+import { Logo } from "./Icons";
+import { IcArrow, IcCalendar, IcCheckDone, IcChevron, IcChevronDown, IcExpand, IcGear, IcHome, IcJobs, IcLink, IcMail, IcMessage, IcPanel, IcPlus, IcSearch, IcTrash, IcUsers, Note, PASTILLES, Statut, ton } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La fenêtre de l'application, sous la barre de saisie du hero.
+// La fenêtre de la plateforme, dans le hero. Ses écrans défilent tout seuls.
 //
-// Ce n'est PAS une maquette au sens de `Mocks.js` : celles-là prouvent quelque
-// chose et se lisent mot à mot. Celle-ci imite une CAPTURE D'ÉCRAN du produit,
-// prise d'assez loin pour qu'on n'en lise qu'une partie. Elle situe.
+// ── Ce que c'est (19/10/2026) ────────────────────────────────────────────────
+// Une reproduction FIDÈLE de l'interface recruteur, telle qu'elle est sortie
+// de la refonte du 19/10 : mêmes couleurs (#1B45C4, fond #EEF1F7, encre
+// #14204A), même police (Geist), mêmes rayons, mêmes libellés. Quatre écrans
+// qui se relaient toutes les cinq secondes : le tableau de bord, les
+// candidats classés, le rapport d'un candidat. (L'écran de la simulation a
+// été retiré, demande directe.) Modèle de
+// départ : le hero de spott.io, une grande fenêtre droite du produit. Les
+// onglets de ce modèle ont été essayés puis retirés (demande directe).
 //
-// ── Ce qu'elle montre, et pourquoi CETTE page ───────────────────────────────
-// L'EXPÉRIENCE CANDIDAT EN TRAIN DE S'ÉCRIRE : les étapes de la simulation,
-// leur format, leur durée, et celle que l'assistant est en train de rédiger.
+// Elle remplace deux choses à la fois :
+//   • la barre de saisie (Playground.js), retirée sur demande directe ;
+//   • l'ancienne fenêtre, qui montrait en barres grises l'interface d'AVANT
+//     la refonte, pipeline comprise, alors que la pipeline n'existe plus.
 //
-// Trois pages étaient possibles, et le choix n'est pas neutre :
+// ── Pourquoi du HTML et pas une capture ──────────────────────────────────────
+// Les raisons de la règle 5 (site/AGENTS.md) valent ici plus qu'ailleurs :
+// la fenêtre se TRADUIT (une capture en anglais sur la version néerlandaise
+// dirait qu'on montre le produit de quelqu'un d'autre), reste NETTE à toutes
+// les tailles d'écran, et pèse quelques kilo-octets.
 //
-//   • une conversation avec l'assistant — écartée, ça se confond avec
-//     n'importe quel outil de chat ;
-//   • la liste classée des candidats — écartée, et c'est le piège le plus
-//     tentant : c'est joli, mais la page la montre DÉJÀ plus bas, dans
-//     « voici ce que vous récupérez ». La mettre ici aussi, c'est dépenser le
-//     hero pour répéter une section ;
-//   • l'expérience en train d'être construite — retenue. Juste au-dessus, la
-//     barre dit « je veux une simulation pour… ». La fenêtre montre le
-//     résultat direct de cette phrase. L'une répond à l'autre, et c'est ça
-//     qui fait comprendre Onbord en une image : on décrit un poste, un
-//     exercice s'écrit.
+// ── L'échelle : une vraie mise en page d'application, réduite par `zoom` ─────
+// L'écran est dessiné à la taille réelle de l'application (DESIGN px de large,
+// texte à 14px) puis réduit d'un bloc par `zoom` pour tenir dans la colonne,
+// exactement comme une capture qu'on rapetisse, mais sans perte. Toutes les
+// tailles de `.peek__win` sont donc en px : elles décrivent l'application, pas
+// le site. Sur téléphone, le menu de gauche disparaît et la largeur de
+// référence tombe à DESIGN_PETIT, sinon le texte deviendrait microscopique.
 //
-// ── Ce qui est lisible, et ce qui ne l'est pas ───────────────────────────────
-// Lisible : le nom de l'offre, les noms des candidats et leurs notes.
-// Illisible : la navigation de gauche, les méta-données secondaires, rendues
-// en barres grises. Une fenêtre entièrement lisible demande à être lue, et
-// vole alors l'attention de la barre de saisie juste au-dessus, qui est le
-// vrai sujet du hero.
+// ── Ce qui reste de l'ancienne fenêtre ───────────────────────────────────────
+// Le titre du hero, collé sous l'en-tête, passe dessous au défilement. Elle
+// n'arrive plus couchée : elle est droite dès l'arrivée (demande directe).
 //
-// Des barres plutôt que du vrai texte flouté : un `filter: blur()` coûte une
-// couche de composition à chaque image, pour un rendu que trois rectangles
-// arrondis donnent gratuitement.
-//
-// ── Le survol ────────────────────────────────────────────────────────────────
-// La fenêtre s'incline très légèrement vers le curseur. C'est le seul endroit
-// du site qui réagit à la souris, et ça tient en deux variables CSS posées
-// par le pointeur — pas de librairie, pas d'état React, donc aucun rendu
-// déclenché pendant le mouvement. Désactivé si la personne a demandé moins
-// d'animations (voir `globals.css`).
+// Les candidats et leurs notes viennent de `common.mocks` (shortlist, score),
+// comme partout sur le site : deux jeux de faux noms sur la même page
+// finiraient par se contredire.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Une ligne de faux texte. `w` en pourcentage de la colonne. */
-function Bar({ w, dim = false }) {
-  return <span className={`peek__bar${dim ? " peek__bar--dim" : ""}`} style={{ width: `${w}%` }} />;
+const DESIGN = 1200;
+const DESIGN_PETIT = 880;
+
+// Les écrans, dans l'ordre où ils défilent, et le temps passé sur chacun.
+const ECRANS = ["home", "cands", "report"];
+const ROTATION = 5000;
+
+// ── Les morceaux communs à tous les écrans ──────────────────────────────────
+
+/** Le menu de gauche. `actif` : "home" (tableau de bord) ou l'indice du job. */
+function Menu({ a, actif }) {
+  return (
+    <aside className="ap-side">
+      <div className="ap-brand">
+        <span className="ap-logo"><Logo height={19} /><b>onbord</b></span>
+        <span className="ap-ghost"><IcPanel size={17} /></span>
+      </div>
+      <div className="ap-search">
+        <IcSearch size={15} />
+        <span>{a.nav.search}</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <div className="ap-group">
+        <span className="ap-label">{a.nav.menu}</span>
+        <span className={`ap-nav${actif === "home" ? " ap-nav--on" : ""}`}><IcHome />{a.nav.home}</span>
+        <span className="ap-nav"><IcJobs /><span className="ap-grow">{a.nav.jobs}</span><span className="ap-count">{a.jobs.length}</span></span>
+      </div>
+      <div className="ap-group">
+        <span className="ap-label">{a.nav.recent}</span>
+        {a.jobs.map((j, i) => (
+          <span className={`ap-nav ap-nav--job${actif === i ? " ap-nav--cur" : ""}`} key={j.title}>
+            <i style={{ background: PASTILLES[i % PASTILLES.length] }} />
+            <span className="ap-ell">{j.title}</span>
+          </span>
+        ))}
+      </div>
+      <span className="ap-grow" />
+      <span className="ap-nav"><IcGear />{a.nav.settings}</span>
+    </aside>
+  );
 }
 
-export default function AppPeek({ m, skills }) {
-  const cadre = useRef(null);
+/** L'en-tête d'un écran : fil d'Ariane (ou titre), actions, avatar. */
+function Tete({ a, chemin = [], titre, children }) {
+  return (
+    <header className="ap-head">
+      <span className="ap-crumbs">
+        {chemin.map((c) => (
+          <span className="ap-crumb" key={c}>{c}<IcChevron size={16} /></span>
+        ))}
+        <b className="ap-h1">{titre}</b>
+      </span>
+      <span className="ap-actions">
+        {children}
+        <span className="ap-sep" />
+        <span className="ap-me">{a.me}</span>
+      </span>
+    </header>
+  );
+}
 
-  // ── L'ARRIVÉE SUR LA PAGE ────────────────────────────────────────────────
-  // La fenêtre est PENCHÉE EN ARRIÈRE au chargement (le haut s'éloigne), puis
-  // se redresse à mesure qu'on descend. En même temps, le titre, le
-  // sous-titre et le bouton glissent vers le haut ET PASSENT DERRIÈRE elle.
+// ── Écran : les candidats classés ─────────────────────────────────────────
+function EcranCandidats({ a, liste }) {
+  const c = a.cands;
+  return (
+    <>
+      <Tete a={a} chemin={[a.nav.jobs]} titre={a.jobs[0].title}>
+        <span className="ap-btn ap-btn--blue"><IcLink size={15} />{a.job.copy}</span>
+      </Tete>
+      <div className="ap-tabs">
+        <span className="ap-tabsList">
+          {a.job.tabs.map((t, i) => (
+            <span className={`ap-tab${i === 1 ? " ap-tab--on" : ""}`} key={t}>
+              {t}
+              {i === 1 ? <span className="ap-tabCount">{liste.window.replace(/\D+/g, "")}</span> : null}
+            </span>
+          ))}
+        </span>
+        <span className="ap-chips">
+          {a.job.chips.map((x) => <span className="ap-chip" key={x}>{x}</span>)}
+          <span className="ap-chip ap-chip--ok"><i />{a.job.open}</span>
+        </span>
+      </div>
+
+      <div className="ap-body">
+        <div className="ap-toolbar">
+          <span className="ap-field"><IcSearch size={14} />{c.search}</span>
+          <span className="ap-select">{c.sort}<b>{c.sortBy}</b><IcChevronDown size={14} /></span>
+        </div>
+        <div className="ap-table">
+          <div className="ap-tr ap-tr--head">
+            <span className="ap-box" />
+            <span>{c.colCandidate}</span>
+            <span>{c.colScore}</span>
+            <span>{c.colStatus}</span>
+            <span />
+          </div>
+          {liste.rows.map((r, i) => {
+            const note = r.score !== "";
+            return (
+              <div className="ap-tr" key={r.name}>
+                <span className="ap-box" />
+                <span className="ap-who">
+                  <span className="ap-avatar">{r.initials}</span>
+                  <span className="ap-stack">
+                    <b className="ap-strong">{r.name}</b>
+                    <span className="ap-sub">{c.subs[i]}</span>
+                  </span>
+                </span>
+                <span className="ap-bar">
+                  {note ? (
+                    <>
+                      <Note fmt={a.pct} n={r.score} />
+                      <span className={`ap-meter ap-meter--${ton(r.score)}`}><i style={{ width: `${r.score}%` }} /></span>
+                    </>
+                  ) : <span className="ap-dash">-</span>}
+                </span>
+                <span><Statut t={note ? "ok" : "wait"}>{r.state}</Statut></span>
+                <span className="ap-rowActions">
+                  {note ? <span className="ap-btn ap-btn--soft">{c.view}<IcArrow size={13} /></span> : null}
+                  <span className="ap-icon"><IcTrash size={15} /></span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Écran : le rapport d'un candidat ──────────────────────────────────────
+function EcranRapport({ a, liste, score }) {
+  const r = a.report;
+  // Sarah D., troisième de la liste à 67 % : c'est elle dont
+  // `common.mocks.score` détaille les critères (75, 50, 75, moyenne 67). Même
+  // personne, même note partout sur la page (règle 5 de site/AGENTS.md).
+  const cand = liste.rows[2];
+  const n = Number(cand.score);
+  const C = 2 * Math.PI * 36;
+  return (
+    <>
+      <Tete a={a} chemin={[a.jobs[0].title, r.candidates]} titre={cand.name}>
+        <span className="ap-btn ap-btn--ghost"><IcChevronDown size={15} />{r.expand}</span>
+        <span className="ap-btn ap-btn--ghost"><IcMessage size={15} />{r.feedback}</span>
+      </Tete>
+
+      <div className="ap-report">
+        <div className="ap-colL">
+          <div className="ap-card">
+            <span className="ap-who ap-who--big">
+              <span className="ap-avatar ap-avatar--big">{cand.initials}</span>
+              <span className="ap-stack">
+                <b className="ap-name">{cand.name}</b>
+                <span className="ap-sub">{a.jobs[0].title}</span>
+              </span>
+            </span>
+            <span className="ap-inset">
+              <span className="ap-row"><span>{r.status}</span><Statut>{cand.state}</Statut></span>
+              <span className="ap-row"><span>{r.invited}</span><span className="ap-val">{r.invitedOn}</span></span>
+              <span className="ap-row"><span>{r.completed}</span><span className="ap-val">{r.completedOn}</span></span>
+              <span className="ap-row"><span>{r.gdpr}</span><span className="ap-val ap-val--ok">{r.granted}</span></span>
+            </span>
+            <span className="ap-buttons">
+              <span className="ap-btn ap-btn--blue ap-btn--full">{r.shortlist}</span>
+              <span className="ap-btn ap-btn--ghost ap-btn--full">{r.next}</span>
+              <span className="ap-btn ap-btn--ghost ap-btn--full">{r.reject}</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="ap-colR">
+          <div className="ap-card">
+            <span className="ap-cardHead">
+              <span className="ap-stack">
+                <b className="ap-h2">{r.score}</b>
+                <span className="ap-sub">{r.scoreSub}</span>
+              </span>
+            </span>
+            <span className="ap-inset ap-inset--row">
+              <span className={`ap-ring ap-ring--${ton(n)}`}>
+                <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+                  <circle cx="42" cy="42" r="36" fill="none" strokeWidth="7" className="ap-ringTrack" />
+                  <circle cx="42" cy="42" r="36" fill="none" strokeWidth="7" strokeLinecap="round" className="ap-ringFill" strokeDasharray={`${(C * n) / 100} ${C}`} transform="rotate(-90 42 42)" />
+                </svg>
+                <b>{a.pct.replace("{n}", n)}</b>
+              </span>
+              <span className="ap-stack">
+                <b className="ap-strong">{r.scoreLine}</b>
+                <span className="ap-sub">{r.scoreNote}</span>
+              </span>
+            </span>
+          </div>
+
+          <div className="ap-card">
+            <span className="ap-cardHead">
+              <span className="ap-stepName">
+                <span className="ap-num">1</span>
+                <b className="ap-h2">{score.skill}</b>
+                <span className="ap-chip"><IcMail size={13} />{r.stepType}</span>
+              </span>
+              <Note fmt={a.pct} n={n} />
+            </span>
+            <span className="ap-inset">
+              <span className="ap-insetLabel">{r.criteria}</span>
+              {score.dims.map((d, i) => (
+                <span className="ap-crit" key={d.name}>
+                  <span className="ap-critHead">
+                    <span className="ap-critName">
+                      <b>{d.name}</b>
+                      <span className="ap-must">{r.must}</span>
+                    </span>
+                    <span className="ap-critScore">
+                      <span className={`ap-meter ap-meter--${ton(d.pct)} ap-meter--short`}><i style={{ width: `${d.pct}%` }} /></span>
+                      <Note fmt={a.pct} n={d.pct} />
+                      <IcChevronDown size={14} />
+                    </span>
+                  </span>
+                  {i === 0 ? (
+                    <span className="ap-critBody">
+                      <span className="ap-why">{d.why}</span>
+                      <span className="ap-quote">{r.quote.replace("{q}", d.quote)}</span>
+                    </span>
+                  ) : null}
+                </span>
+              ))}
+            </span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Écran : le tableau de bord ────────────────────────────────────────────
+function EcranAccueil({ a, liste }) {
+  const h = a.home;
+  const fonds = ["#1B45C4", "#4C74E0", "#7FA0F0"];
+  const icones = [IcJobs, IcUsers, IcCheckDone];
+  const invites = [4, 2, 5, 3, 3, 0, 1];
+  const finies = [2, 1, 3, 1, 2, 0, 0];
+  const max = 6;
+  return (
+    <>
+      <Tete a={a} titre={h.title}>
+        <span className="ap-btn ap-btn--blue"><IcPlus size={15} />{h.newJob}</span>
+      </Tete>
+
+      <section className="ap-sec">
+        <span className="ap-hello"><i />{h.hello}</span>
+        <div className="ap-figures">
+          {h.figures.map((f, i) => {
+            const Icone = icones[i];
+            return (
+              <div className="ap-figure" key={f.label}>
+                <span className="ap-figLabel"><span style={{ background: fonds[i] }}><Icone size={13} /></span>{f.label}</span>
+                <span className="ap-figN"><b>{f.n}</b>{f.unit}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="ap-sec">
+        <div className="ap-secHead">
+          <b className="ap-h2">{h.yourJobs}</b>
+          <span className="ap-icon ap-icon--line"><IcExpand size={15} /></span>
+        </div>
+        <div className="ap-jobs">
+          {a.jobs.slice(0, 3).map((j, i) => (
+            <div className="ap-card" key={j.title}>
+              <span className="ap-jobTop">
+                <span className="ap-stack ap-grow">
+                  <b className="ap-strong ap-jobTitle"><i style={{ background: PASTILLES[i] }} />{j.title}</b>
+                  <span className="ap-sub ap-indent">{j.meta}</span>
+                </span>
+                <span className="ap-icon ap-icon--mute"><IcLink size={15} /></span>
+              </span>
+              <span className="ap-inset">
+                <span className="ap-row"><span>{h.status}</span><Statut>{h.open}</Statut></span>
+                <span className="ap-row"><span>{h.candidates}</span><span className="ap-val">{h.candidatesN.replace("{n}", j.invited)}</span></span>
+                <span className="ap-row">
+                  <span>{h.completed}</span>
+                  <span className="ap-val">
+                    <span className="ap-mini"><i style={{ width: `${Math.round((j.done / j.invited) * 100)}%` }} /></span>
+                    {j.done}/{j.invited}
+                  </span>
+                </span>
+                <span className="ap-row"><span>{h.created}</span><span className="ap-val">{j.date}</span></span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="ap-split">
+        <div className="ap-card ap-card--pad">
+          <b className="ap-h2">{h.latest}</b>
+          {liste.rows.slice(0, 4).map((r) => (
+            <span className="ap-latest" key={r.name}>
+              <span className="ap-avatar">{r.initials}</span>
+              <span className="ap-stack ap-grow">
+                <b className="ap-strong">{r.name}</b>
+                <span className="ap-sub">{a.jobs[0].title}</span>
+              </span>
+              <Note fmt={a.pct} n={r.score} />
+            </span>
+          ))}
+        </div>
+        <div className="ap-card ap-card--pad ap-card--wide">
+          <span className="ap-secHead">
+            <b className="ap-h2">{h.activity}</b>
+            <span className="ap-period"><span><IcCalendar size={14} />{h.week}</span><span>{h.range}</span></span>
+          </span>
+          <span className="ap-secHead">
+            <span className="ap-figN"><b>{h.doneN}</b>{h.doneLabel}</span>
+            <span className="ap-legend"><span><i className="ap-legInv" />{h.legendInvited}</span><span><i className="ap-legDone" />{h.legendDone}</span></span>
+          </span>
+          <span className="ap-chart">
+            {h.days.map((d, i) => (
+              <span className="ap-day" key={d}>
+                <span className="ap-bars">
+                  <i className="ap-legInv" style={{ height: `${(invites[i] / max) * 100}%` }} />
+                  <i className="ap-legDone" style={{ height: `${(finies[i] / max) * 100}%` }} />
+                </span>
+                <span className="ap-dayLabel">{d}</span>
+              </span>
+            ))}
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function AppPeek({ a, shortlist, score }) {
+  const [actif, setActif] = useState(0);
+  const cadre = useRef(null);
+  const survol = useRef(false);
+
+  // ── L'ÉCHELLE, ET LE TITRE QUI PASSE DESSOUS ─────────────────────────────
+  // Le titre, le sous-titre et le bouton sont collés sous l'en-tête pendant
+  // qu'on descend, et la fenêtre remonte par-dessus. Les valeurs sont écrites
+  // en variables CSS sur la section du hero, pas en état React : le
+  // défilement en produirait des dizaines par seconde, et chacune relancerait
+  // un rendu de l'arbre entier pour déplacer deux éléments.
   //
-  // Les trois valeurs sont écrites en variables CSS sur la section du hero,
-  // pas en état React : le défilement en produirait des dizaines par seconde,
-  // et chacune relancerait un rendu de l'arbre entier pour déplacer deux
-  // éléments. Ici le navigateur ne fait que recomposer, sans rien recalculer.
+  // ⚠️ La fenêtre n'arrive plus COUCHÉE (19/10/2026, demande directe). Elle
+  // était inclinée à 18° et se redressait au défilement ; elle est droite
+  // dès l'arrivée.
   useEffect(() => {
     const el = cadre.current;
     const hero = el?.closest(".hero--full");
     if (!hero) return;
 
-    // Le réglage système « réduire les animations » désactive tout : une page
-    // dont le contenu bascule et glisse est précisément ce que ce réglage
-    // demande d'éviter.
-    const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
     const texte = hero.querySelector(".hero__in");
     const fenetre = hero.querySelector(".peek");
     if (!texte || !fenetre) return;
 
-    // ── SUR TÉLÉPHONE, LA MÊME FENÊTRE EN MINIATURE (14/10/2026) ──────────
-    // Elle y était masquée : réduite à 350px en se réorganisant, elle ne
-    // montrait que des barres grises. Elle garde maintenant sa mise en page
-    // de bureau (LARGEUR_BUREAU) et c'est son `zoom` qui rapetisse, comme une
-    // capture d'écran qu'on réduit. Le rapport ne s'écrit pas en CSS (une
-    // longueur divisée par une longueur), d'où ce calcul ; la feuille de
-    // style a un repli (--k: 0.41, un iPhone) pour le premier affichage.
+    // La fenêtre est dessinée à la taille de l'application (DESIGN, ou
+    // DESIGN_PETIT sur téléphone, où le menu de gauche disparaît) et c'est
+    // son `zoom` qui la ramène à la largeur de la colonne. Le rapport ne
+    // s'écrit pas en CSS (une longueur divisée par une longueur), d'où ce
+    // calcul ; la feuille de style a un repli pour le premier affichage.
     const scene = hero.querySelector(".stage") || fenetre;
     const petit = window.matchMedia("(max-width: 760px)");
 
-    const LARGEUR_BUREAU = 860;
     const ajuster = () => {
-      const k = fenetre.clientWidth / LARGEUR_BUREAU;
+      const base = petit.matches ? DESIGN_PETIT : DESIGN;
+      const k = fenetre.clientWidth / base;
       if (k > 0) hero.style.setProperty("--k", k.toFixed(4));
     };
     ajuster();
@@ -103,52 +427,8 @@ export default function AppPeek({ m, skills }) {
       requestAnimationFrame(() => {
         pret = true;
 
-        // Le redressement de la fenetre. Saute sous « reduire les
-        // animations » : c'est le seul vrai mouvement de l'effet.
-        if (!reduit) {
-          // 18deg a l arrivee, contre 11 avant : la fenetre doit se voir
-          // COUCHEE au premier coup d oeil, sinon l inclinaison passe pour
-          // un defaut de cadrage.
-          //
-          // Le redressement se fait sur 130px de defilement, et surtout PAS
-          // en ligne droite : le carre de la progression demarre lentement
-          // puis accelere, donc les premiers pixels ne redressent presque
-          // rien et la fenetre finit de se lever d un coup. Un rapport
-          // lineaire donnait un mouvement plat, qui se lit comme un reglage
-          // plutot que comme un geste.
-          const av = Math.min(Math.max(window.scrollY / 130, 0), 1);
-          hero.style.setProperty("--lean", ((1 - av * av) * 18).toFixed(2) + "deg");
-        }
-
-        // LE FONDU. Le texte est colle sous l'en-tete et la fenetre remonte
-        // par-dessus : le haut de la fenetre balaie le bloc de haut en bas.
-        // On mesure ou en est ce balayage, et le texte s'efface exactement
-        // pendant qu'il se fait recouvrir.
-        //
-        // Sans ce fondu, le sous-titre et le bouton RESSORTENT sous le bord
-        // bas de la fenetre une fois qu'elle est montee assez haut : ils
-        // etaient caches, ils reapparaissent, et l'effet se defait.
-        // ⚠️ LE FONDU EST CALE SUR LE BORD BAS DE LA FENETRE.
-        //
-        // Le titre passe bien DERRIERE la fenetre : elle est au-dessus dans
-        // l ordre de peinture, c est verifie. Mais le bloc de texte est plus
-        // haut que la fenetre : le sous-titre et le bouton finissent par
-        // depasser SOUS son bord bas, et la ils se revoient.
-        //
-        // On mesure donc la marge restante entre le bas de la fenetre et le
-        // bas du texte, et le fondu est fini avant qu elle s annule. Le
-        // texte reste ainsi NET pendant tout le temps ou il glisse
-        // reellement sous la fenetre — c est ca, l effet — et il est parti
-        // au moment ou il ressortirait.
-        //
-        // Le masque du bas de la fenetre a ete resserre a 2% en meme temps :
-        // a 8%, le bouton transparaissait par cette bande semi-opaque alors
-        // meme qu il etait DERRIERE. Le defaut etait la, pas dans l ordre
-        // d empilement.
-        // ⚠️ Sur telephone la fenetre est masquee (display: none) : son
-        // rectangle vaut zero partout, la « marge » calculee devient
-        // negative et le titre du hero disparaissait des l'arrivee. Sans
-        // fenetre, il n'y a rien sous quoi passer : le texte reste plein.
+        // LE FONDU. Le texte s'efface pendant qu'il se fait recouvrir, et il
+        // est parti avant de pouvoir ressortir sous le bord bas de la fenêtre.
         if (!fenetre.getClientRects().length) {
           hero.style.setProperty("--fade", "1");
           texte.style.visibility = "";
@@ -156,15 +436,12 @@ export default function AppPeek({ m, skills }) {
         }
         const t = texte.getBoundingClientRect();
 
-        // ⚠️ SUR TÉLÉPHONE, LE FONDU SUIT L'AVANCÉE DE LA SCÈNE SUR LE TEXTE.
-        // Le calage sur le bas de la fenêtre (ci-dessous) ne marche pas ici :
-        // la fenêtre en miniature est plus haute que la place et c'est le bas
-        // du hero qui la coupe, donc son bord bas est hors écran et le fondu
-        // ne se déclenchait jamais. La scène coupait alors le sous-titre en
-        // deux, net. Ici, le texte s'efface à mesure qu'elle le recouvre :
-        // plein tant qu'elle n'y touche pas, parti quand elle atteint son haut.
+        // Sur téléphone, le bas de la fenêtre est hors écran (c'est le bas du
+        // hero qui la coupe) : le fondu suit l'avancée de la scène sur le
+        // texte, plein tant qu'elle n'y touche pas, parti quand elle atteint
+        // son haut.
         if (petit.matches) {
-          const haut = scene.getBoundingClientRect().top - 26; // le verre déborde de 26px
+          const haut = scene.getBoundingClientRect().top - 8; // le contour de verre déborde de 8px
           const r = Math.min(Math.max((haut - t.top) / t.height, 0), 1);
           const f = r * r;
           hero.style.setProperty("--fade", f.toFixed(3));
@@ -188,80 +465,44 @@ export default function AppPeek({ m, skills }) {
     };
   }, []);
 
-  // ⚠️ LA FENETRE NE SUIT PLUS LA SOURIS, et ce n est pas un oubli.
-  //
-  // Elle s inclinait sous le pointeur (deux variables CSS, --tx et --ty,
-  // posees par onMouseMove). C etait le seul element du site qui reagissait
-  // a la souris. Retire sur demande directe : une carte qui bascule au
-  // survol est l effet le plus repandu des gabarits, et il entrait en
-  // conflit avec le VRAI mouvement de cette fenetre, son redressement au
-  // defilement. Deux inclinaisons sur le meme objet, l une sous la souris et
-  // l autre sous le scroll, se contrarient des qu on approche le curseur.
-  //
-  // Ne le remettez pas pour « rendre le hero vivant » : il l est deja, au
-  // defilement.
+  // ── LES ÉCRANS DÉFILENT TOUT SEULS (19/10/2026) ──────────────────────────
+  // Il y avait quatre onglets au-dessus de la fenêtre ; retirés sur demande
+  // directe. Les écrans passent maintenant l'un après l'autre, toutes les
+  // ROTATION ms, en commençant par le tableau de bord. Le survol de la
+  // fenêtre suspend le défilement : on peut lire un écran sans qu'il parte
+  // sous les yeux. Sous « réduire les animations », rien ne bouge : le
+  // tableau de bord reste affiché.
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const minuteur = setInterval(() => {
+      if (!survol.current) setActif((i) => (i + 1) % ECRANS.length);
+    }, ROTATION);
+    return () => clearInterval(minuteur);
+  }, []);
+
+  const id = ECRANS[actif];
+  const ecrans = {
+    home: <EcranAccueil a={a} liste={shortlist} />,
+    cands: <EcranCandidats a={a} liste={shortlist} />,
+    report: <EcranRapport a={a} liste={shortlist} score={score} />,
+  };
 
   return (
-    <div className="peek" aria-hidden="true">
-      <div className="peek__win" ref={cadre}>
-        <div className="peek__chrome">
-          <span className="peek__dots"><i /><i /><i /></span>
-        </div>
-
-        <div className="peek__body">
-          <aside className="peek__side">
-            <span className="peek__brand"><Logo height={14} /></span>
-            <span className="peek__navOn" />
-            <Bar w={70} dim />
-            <Bar w={52} dim />
-            <Bar w={61} dim />
-            <Bar w={44} dim />
-          </aside>
-
-          <div className="peek__main">
-            {/* L'en-tête de l'offre : le seul titre plein de la fenêtre. */}
-            <div className="peek__head">
-              <div>
-                <p className="peek__job">{m.job}</p>
-                <Bar w={38} dim />
-              </div>
-              <span className="peek__icons"><Search size={12} /><Bell size={12} /></span>
-            </div>
-
-            {/* Le bandeau de l'expérience : ce qu'on construit, et sa durée. */}
-            <div className="peek__meta">
-              <span className="peek__tag">{m.experience}</span>
-              <span className="peek__dur">{m.duration}</span>
-            </div>
-
-            {/* Les étapes. La dernière est EN COURS d'écriture : c'est elle
-                qui dit que la page est vivante, ce qu'une capture figée ne
-                dit jamais. */}
-            <div className="peek__steps">
-              {m.steps.map((st, i) => (
-                <div className={`peek__step${i === m.steps.length - 1 ? " peek__step--now" : ""}`} key={st.name}>
-                  <span className="peek__num">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="peek__stepName">{st.name}</span>
-                  <span className="peek__fmt">{st.format}</span>
-                  {i === m.steps.length - 1
-                    ? <span className="peek__writing"><i className="spin" />{m.writing}</span>
-                    : <span className="peek__min">{st.min}</span>}
-                </div>
-              ))}
-            </div>
-
-            {/* Les competences que l offre a donnees. Du contenu REEL et
-                traduit (il vient de common.mocks.skills), pas des cadres
-                vides : trois rectangles gris ne disent rien du produit. */}
-            <div className="peek__grid">
-              <span className="peek__gridLabel">{skills.hardLabel}</span>
-              <div className="peek__chips">
-                {skills.hard.map((s) => (
-                  <span className={`peek__chip${s.must ? " peek__chip--must" : ""}`} key={s.name}>{s.name}</span>
-                ))}
-              </div>
-            </div>
-          </div>
+    <div className="stage__peek">
+      {/* Pour un lecteur d'écran, la fenêtre est UNE image, décrite en une
+          phrase. Elle imite des boutons et des champs qui ne font rien, et
+          change toute seule : lue élément par élément, elle serait
+          incompréhensible. */}
+      <div
+        className="peek"
+        role="img"
+        aria-label={a.alt}
+        onMouseEnter={() => { survol.current = true; }}
+        onMouseLeave={() => { survol.current = false; }}
+      >
+        <div className="peek__win" ref={cadre} aria-hidden="true">
+          <Menu a={a} actif={id === "home" ? "home" : 0} />
+          <div className="ap-main" key={id}>{ecrans[id]}</div>
         </div>
       </div>
     </div>

@@ -554,15 +554,25 @@ const pages = {
       copilot: {
         title: "Adjust it in plain words.",
         body: "The Onbord copilot builds the simulation with you. Tell it what's true about your team, and it rewrites the steps, the characters and the scoring to match.",
-        window: "Onbord copilot",
-        hello: "Your simulation is ready: four steps, about 20 minutes. What should I change?",
+        // Le nom et les libellés du copilote de l'APPLICATION (« Simulation
+        // Copilot », dashboard.js, stepChat) : le visuel en est la copie.
+        window: "Simulation Copilot",
+        knows: "Knows this simulation, its grading and the job",
+        proposal: "Proposed change",
+        applied: "Applied: the simulation has been rewritten.",
+        placeholder: "E.g. make the prospect more sceptical",
+        // Le message d'accueil de l'application (stepChat.greetingNoName) :
+        // {job} s'affiche en gras.
+        hello: "Hello. I know this simulation, its grading grid and the {job} job. Ask a question or request a change: I'll suggest a rewrite, which you can apply or not.",
+        job: "Account Executive, Benelux",
+        // La ligne sous la zone de saisie, celle de l'application.
+        cost: "Questions are free · 2 credits per rewrite applied",
         try: "Try it",
-        changedLabel: "Changed",
         reset: "Start over",
         suggestions: [
-          { ask: "Our buyers are procurement teams, not founders.", reply: "Done. The call is now with a procurement manager who is comparing you with two other suppliers.", changed: "Step 1 rewritten, character updated" },
-          { ask: "Make the client harder to convince.", reply: "He now pushes back twice on price, and asks for a reference before agreeing to a second meeting.", changed: "Character updated" },
-          { ask: "Add a written follow-up after the call.", reply: "Added: a follow-up email to the same client the next morning, covering what was agreed on the call.", changed: "Step added, scoring grid updated" },
+          { ask: "Buyers are procurement teams", reply: "Done. The call is now with a procurement manager who is comparing you with two other suppliers.", changed: "Step 1 rewritten, character updated" },
+          { ask: "Make the client tougher", reply: "He now pushes back twice on price, and asks for a reference before agreeing to a second meeting.", changed: "Character updated" },
+          { ask: "Add a follow-up email", reply: "Added: a follow-up email to the same client the next morning, covering what was agreed on the call.", changed: "Step added, scoring grid updated" },
         ],
       },
     },

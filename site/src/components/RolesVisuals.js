@@ -5,9 +5,12 @@ import { FileText, Building, Check, Sparkle, ArrowRight } from "./Icons";
 // réagissent à rien ; le seul bloc qui se manipule, le copilote, a son propre
 // fichier client (Copilot.js).
 //
-// Même règle que les maquettes (règle 5) : du HTML, en noir et blanc, sans
-// étiquette flottante au-dessus du panneau. Le texte d'à côté dit déjà ce
-// qu'on regarde.
+// Même règle que les maquettes (règle 5) : du HTML, sans étiquette flottante
+// au-dessus du panneau. Le texte d'à côté dit déjà ce qu'on regarde.
+//
+// Depuis le 19/10/2026 (demande directe), ils sont au style de la PLATEFORME,
+// comme les visuels de l'accueil : `.app-ui`, couleurs `--ap-*`, pastilles
+// `ap-chip` (voir globals.css et AppUi.js).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Des barres grises de largeurs différentes : ce que le personnage garde pour
@@ -24,7 +27,7 @@ const CACHE = [[46, 22, 30], [34, 40], [28, 18, 36]];
  */
 export function Cast({ c }) {
   return (
-    <figure className="cast" role="img" aria-label={c.title}>
+    <figure className="cast app-ui" role="img" aria-label={c.title}>
       {c.people.map((p, i) => (
         <div className="cast__card" key={p.name}>
           <span className="cast__avatar" aria-hidden="true">
@@ -33,7 +36,7 @@ export function Cast({ c }) {
           <div className="cast__body">
             <p className="cast__top">
               <b className="cast__name">{p.name}</b>
-              <span className="tag">{p.mood}</span>
+              <span className="ap-chip">{p.mood}</span>
             </p>
             <p className="cast__role">{p.role}</p>
             <dl className="cast__rows">
@@ -66,7 +69,7 @@ const ICONES_SOURCES = { company: Building, posting: FileText, skills: Check };
 export function Feed({ c }) {
   const competences = c.inputs.find((s) => s.chips)?.chips ?? [];
   return (
-    <figure className="feed" role="img" aria-label={c.title}>
+    <figure className="feed app-ui" role="img" aria-label={c.title}>
       <div className="feed__in">
         {c.inputs.map((s) => {
           const Ico = ICONES_SOURCES[s.id];
@@ -75,7 +78,7 @@ export function Feed({ c }) {
               <p className="feed__label">{Ico ? <Ico size={13} /> : null}{s.label}</p>
               {s.chips ? (
                 <p className="feed__chips">
-                  {s.chips.map((ch) => <span className="tag" key={ch}>{ch}</span>)}
+                  {s.chips.map((ch) => <span className="ap-chip" key={ch}>{ch}</span>)}
                 </p>
               ) : (
                 <p className="feed__value">{s.value}</p>

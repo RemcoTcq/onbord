@@ -65,9 +65,15 @@
   --border: rgba(7, 41, 75, 0.12);
   --border-2: rgba(7, 41, 75, 0.2);
 
-  --text: #070d1a;
-  --text-2: #3d4a63;
-  --text-3: #5d6b85;
+  /* ⚠️ L'ENCRE DE L'APPLICATION (19/10/2026, demande directe : « que tout
+     soit cohérent » avec la plateforme refaite). Le quasi-noir #070d1a est
+     devenu le bleu nuit #14204A de l'interface recruteur, et les deux gris
+     suivants ont pris ses valeurs. `--text-4` reste plus foncé que le
+     #7A85A3 de l'application : il sert ici à du petit texte, et doit tenir
+     le contraste AA sur blanc. */
+  --text: #14204a;
+  --text-2: #3d4866;
+  --text-3: #5a6685;
   --text-4: #64728b;
 
   /* La marque. `navy` est la couleur du logo.
@@ -123,16 +129,22 @@
      et c'est ce qui distingue un outil d'une page d'accueil générique.
      Ne les faites pas remonter pour « adoucir » un bloc isolé : c'est
      l'uniformité de la coupe qui fait le style. */
-  --r-sm: 2px;
-  --r: 3px;
-  --r-lg: 4px;
-  --r-xl: 4px;
+  /* ⚠️ QUATRIÈME RÉGLAGE (19/10/2026), et il défait le troisième : le site
+     s'aligne sur la PLATEFORME refaite, arrondie (pastilles 7, boutons 10,
+     cartes 14, pages 18). Demande directe : « que tout soit cohérent » entre
+     les visuels du produit, maintenant à l'image de l'application, et le
+     reste du site. Valeurs un cran sous celles de l'application : le site
+     reste une vitrine posée sur des filets, pas une application. */
+  --r-sm: 7px;
+  --r: 10px;
+  --r-lg: 12px;
+  --r-xl: 16px;
 
   /* `--edge` était le liseré clair en haut des surfaces en verre. Sur du
      blanc, un liseré blanc ne se voit pas : c'est devenu une OMBRE DOUCE
      portée bas, qui décolle la surface de la page sans la cerner. Le nom
      reste, il est posé dans une quarantaine de déclarations. */
-  --edge: 0 1px 2px rgba(7, 41, 75, 0.05), 0 8px 24px -12px rgba(7, 41, 75, 0.1);
+  --edge: 0 1px 2px rgba(20, 32, 74, 0.04), 0 12px 32px -18px rgba(20, 32, 74, 0.18);
   --glow-blue: 0 0 0 1px rgba(37, 99, 235, 0.18), 0 18px 50px -18px rgba(37, 99, 235, 0.3);
 
   /* La trame de fond. Un pas de 72px : assez large pour rester discrète,
@@ -460,24 +472,31 @@ ul, ol { list-style: none; }
   color: var(--text-3);
 }
 
-/* Intitulé de section : un point lumineux, puis le mot. */
+/* Intitulé de section : une PASTILLE, un point et le mot (19/10/2026).
+   C'était « [ HOW IT WORKS ] », en petites capitales à chasse fixe entre
+   crochets. L'application n'a ni crochets ni capitales : ses repères sont
+   des pastilles blanches, filet fin et point de couleur (« ● Bonjour
+   Laura » sur le tableau de bord). Le point reste GRIS-BLEU, pas bleu vif :
+   l'intitulé revient à chaque section, et c'est lui qui bleuirait la page. */
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  /* GRIS, plus bleu : c'est une étiquette de repérage, pas un accent. Elle
-     était le seul élément coloré à revenir à chaque section, donc celui qui
-     bleuissait la page à lui tout seul. */
-  color: var(--text-4);
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-2);
 }
-.eyebrow::after { content: "]"; color: var(--text-4); }
 .eyebrow::before {
-  content: "[";
-  color: var(--text-4);
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #7fa0f0;
 }
 
 .center { text-align: center; }
@@ -597,7 +616,7 @@ ul, ol { list-style: none; }
   align-items: center;
   gap: 9px;
   padding: 12px 22px;
-  border-radius: var(--r-sm);
+  border-radius: 10px;
   font-size: 0.9375rem;
   font-weight: 500;
   letter-spacing: -0.006em;
@@ -615,9 +634,10 @@ ul, ol { list-style: none; }
 .btn--primary {
   background: var(--blue);
   color: #fff;
-  box-shadow: 0 8px 24px -10px rgba(27, 69, 196, 0.7);
+  /* Le liseré clair en haut, celui des boutons de l'application. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 24px -10px rgba(27, 69, 196, 0.7);
 }
-.btn--primary:hover { transform: translateY(-1px); background: var(--blue-300); box-shadow: 0 14px 32px -10px rgba(27, 69, 196, 0.8); }
+.btn--primary:hover { transform: translateY(-1px); background: var(--blue-300); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 14px 32px -10px rgba(27, 69, 196, 0.8); }
 /* Sur le bloc d'appel final, qui est lui-même bleu, le bouton bleu
    disparaîtrait : il repasse en blanc, seul endroit du site où c'est le cas. */
 /* Le bouton reprend le traitement de tous les autres : sur fond clair, un
@@ -1222,7 +1242,7 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
    a 917px). Un filet pose ailleurs, meme de quelques pixels, donnerait deux
    horizontales presque superposees. */
 .hero--full { border-bottom: 1px solid var(--grid); }
-.hero--full { --lean: 18deg; --slide: 0px; --fade: 1; }
+.hero--full { --fade: 1; }
 
 /* La scène passe AU-DESSUS du texte : c'est ce qui fait que le titre glisse
    dessous au lieu de glisser dessus. */
@@ -1259,23 +1279,6 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .hero__in {
   position: sticky;
   top: calc(var(--header-h) + 34px);
-}
-
-/* La fenêtre, penchée vers l'arrière au repos. L'origine est EN BAS : c'est
-   le haut qui s'éloigne, le bas reste posé. Sans ça, elle bascule autour de
-   son centre et donne l'impression de flotter. */
-.stage__peek { perspective: 1700px; }
-.stage__peek .peek {
-  transform: rotateX(var(--lean));
-  transform-origin: 50% 100%;
-  will-change: transform;
-}
-
-/* Sous « réduire les animations », seule l'inclinaison saute. Le collage du
-   texte reste : ce n'est pas une animation, c'est une mise en page. */
-@media (prefers-reduced-motion: reduce) {
-  .hero--full { --lean: 0deg; }
-  .stage__peek .peek { transform: none; }
 }
 
 /* L'accueil SEUL : le hero occupe l'écran entier, en-tête déduit. Les pages
@@ -1363,7 +1366,7 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .hero--full .display--ajuste {
   font-size: max(1.625rem, min(clamp(2.7rem, 6vw, 5rem), 9.2vh, calc(100cqw / (var(--car) * 0.46))));
 }
-.hero--full .stage { margin-top: clamp(22px, 4.4vh, 40px); }
+.hero--full .stage { margin-top: clamp(20px, 3.4vh, 32px); }
 
 /* TOUT LE HAUT DU HERO SUIT LE MEME RAPPORT QUE LE TITRE. Reduire le titre
    seul laissait un sous-titre, un bouton et une barre de saisie a pleine
@@ -1383,12 +1386,6 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
     font-size: max(0.8125rem, calc(15 * var(--s)));
     padding: calc(12 * var(--s)) calc(22 * var(--s));
   }
-  .hero--full .prompt__in { padding: calc(11 * var(--s)) calc(14 * var(--s)); }
-  .hero--full .prompt__field,
-  .hero--full .play__step { font-size: max(0.8125rem, calc(15 * var(--s))); }
-  .hero--full .play__step { min-height: calc(30 * var(--s)); }
-  .hero--full .prompt__plus { width: calc(28 * var(--s)); height: calc(28 * var(--s)); }
-  .hero--full .prompt__go { width: calc(34 * var(--s)); height: calc(34 * var(--s)); }
 }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 6px; }
 .hero__note {
@@ -1409,15 +1406,12 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 }
 .trust svg { color: var(--blue-400); flex: none; }
 
-/* ── La scène du hero : la barre de saisie POSÉE SUR la fenêtre ──────────── */
-/* Les deux étaient l'une sous l'autre, séparées par 52px de blanc : deux
-   objets sans rapport. Elles se chevauchent maintenant — la fenêtre remonte
-   sous la barre, qui la couvre à peu près à mi-hauteur — et l'ensemble se lit
-   comme UN seul bloc : on écrit en haut, ça se passe en dessous.
-
-   Le halo bleu flouté derrière les deux (`.stage::before`) est ce qui tient
-   la composition : sans lui, la barre blanche sur la fenêtre blanche fait une
-   marche d'escalier, avec lui les deux baignent dans la même lumière. */
+/* ── La scène du hero : la fenêtre de la plateforme (19/10/2026) ────────── */
+/* La fenêtre de la plateforme en grand, DROITE, sur le modèle du hero de
+   spott.io, et ses écrans qui défilent tout seuls (AppPeek.js). Demandes
+   directes, dans l'ordre : la barre de saisie (le bac à sable) retirée, des
+   onglets au-dessus de la fenêtre essayés puis retirés, l'inclinaison
+   retirée, et le verre réduit à un contour. */
 /* ⚠️ LA SCENE A SA PROPRE LARGEUR, plus large que la colonne de contenu.
 
    `.peek` a beau etre autorisee a 1080px, elle est fille d'un `.wrap`, donc
@@ -1427,9 +1421,10 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .stage { position: relative; }
 .wrap.stage { max-width: 1140px; }
 
-/* LE VERRE. Une plaque translucide et floutée posée SOUS la barre de saisie
-   et la fenêtre, qui déborde des deux : c'est elle qui fait tenir les deux
-   objets ensemble, comme s'ils étaient posés sur le même support.
+/* LE VERRE, RÉDUIT À UN CONTOUR (19/10/2026, demande directe). Une bande
+   translucide et floutée de 8px autour de la fenêtre, comme un cadre de
+   verre. C'était une grande plaque qui débordait de 26 à 30px et portait
+   aussi la barre de saisie ; il n'en reste que le bord.
 
    Deux calques, et il faut les deux :
      • `::before` est le verre proprement dit — un fond presque transparent,
@@ -1442,25 +1437,32 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
    `backdrop-filter` n'a d'effet que s'il y a quelque chose derrière : le
    verre ne vit que dans le hero, au-dessus du ciel. Posé sur du blanc plat,
    il ne se verrait pas. */
-.stage::before,
+.stage__peek::before,
 .stage::after {
   content: "";
   position: absolute;
   pointer-events: none;
 }
-.stage::before {
-  inset: -26px -30px auto -30px;
-  height: calc(100% + 26px);
-  border-radius: var(--r-xl);
+/* Posé sur `.stage__peek` et non sur `.stage` : la scène est plus large que
+   la fenêtre (1140 contre 1080), et le contour flottait à 30px d'elle.
+   `z-index: -1` le range SOUS la fenêtre, dans le contexte d'empilement de
+   `.stage__peek`. */
+.stage__peek::before {
+  z-index: -1;
+  inset: -8px -8px auto -8px;
+  height: calc(100% + 8px);
+  /* Le rayon de la fenêtre (16px à l'échelle de l'application, ~14px une
+     fois réduite) plus l'épaisseur du contour : les deux arrondis restent
+     parallèles. */
+  border-radius: 22px 22px 0 0;
   background: rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.75);
+  border-bottom: 0;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 30px 80px -50px rgba(7, 41, 75, 0.5);
-  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
 }
 .stage::after {
   left: 50%;
@@ -1471,145 +1473,453 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   background: radial-gradient(60% 60% at 50% 40%, rgba(37, 99, 235, 0.26), transparent 72%);
   filter: blur(56px);
 }
-.stage__prompt { position: relative; z-index: 3; max-width: 580px; margin-inline: auto; }
-/* La remontée : la moitié basse de la barre passe devant la fenêtre. */
-.stage__peek { position: relative; z-index: 2; margin-top: -30px; }
 
-/* ── La fenêtre de l'application ─────────────────────────────────────────── */
+.stage__peek { position: relative; z-index: 2; max-width: 1080px; margin-inline: auto; }
+
+/* ── La fenêtre de la plateforme ─────────────────────────────────────────── */
 /* Elle est COUPÉE EN BAS : une fenêtre entière posée dans le hero se lit
    comme une capture d'écran de plus ; une fenêtre dont on ne voit que le haut
-   se lit comme « la suite est de l'autre côté ». */
+   se lit comme « la suite est de l'autre côté ».
+
+   ⚠️ L'ÉCHELLE. `.peek__win` est dessinée à la taille RÉELLE de l'application
+   (1200px de large, texte à 14px) et `zoom` la ramène à la largeur de la
+   colonne (--k, posé par AppPeek.js). `zoom` et non `transform: scale` : le
+   zoom réduit aussi la place qu'elle occupe, une échelle laisserait la
+   fenêtre déborder de toute sa taille d'origine. La hauteur visible se
+   déduit donc du même rapport (`--k × 640px`), et le repli de --k (0,9 =
+   1080 / 1200) sert au premier affichage, avant le script. */
 .peek {
-  /* ⚠️ C'est la LARGEUR qui grossit la fenetre, pas sa hauteur. Le hero est
-     rogne sur sa derniere rangee, donc tout ce qu'on ajoute en hauteur part
-     dans la partie coupee et ne se voit pas. */
   max-width: 1080px;
   margin-inline: auto;
-  /* Elle descend jusqu au bas du pli : c est la derniere chose qu on voit
-     avant de faire defiler, autant qu elle remplisse. */
-  height: 372px;
+  height: calc(var(--k, 0.9) * 640px);
   overflow: hidden;
-  /* Le fondu du bas commence TRES tard (92%). A 66%, un tiers de la fenetre
+  /* Le fondu du bas commence TRES tard (98%). A 66%, un tiers de la fenetre
      etait semi-transparent, et le titre colle du hero transparaissait au
      travers au lieu de disparaitre derriere : l occultation ratait
      exactement la ou elle devait se voir. */
   -webkit-mask-image: linear-gradient(180deg, #000 98%, transparent 100%);
   mask-image: linear-gradient(180deg, #000 98%, transparent 100%);
-  perspective: 1400px;
 }
+
+/* Les couleurs de l'application, recopiées de `app/recruteur.css` (racine du
+   dépôt, bloc `.ds`). Elles ne valent QUE dans la fenêtre du hero et dans
+   les visuels de l'accueil qui portent `.app-ui` : le site garde les
+   siennes. Quand l'application change de palette, c'est ici qu'on
+   resynchronise, à la main, comme `pricing.js`. */
+.peek__win,
+.app-ui {
+  --ap-page: #eef1f7;
+  --ap-ink: #14204a;
+  --ap-ink-2: #3d4866;
+  --ap-ink-3: #5a6685;
+  --ap-ink-4: #7a85a3;
+  --ap-ink-5: #8590ac;
+  --ap-ink-6: #9aa3bc;
+  --ap-line: #e1e6f0;
+  --ap-line-2: #ebeef5;
+  --ap-line-3: #eff2f7;
+  --ap-line-4: #e6eaf2;
+  --ap-inset: #edf0f6;
+  --ap-soft: #f7f9fc;
+  --ap-soft-2: #f1f4f9;
+  --ap-nav-on: #e2e7f2;
+  --ap-blue: #1b45c4;
+  --ap-blue-10: rgba(27, 69, 196, 0.1);
+  --ap-blue-16: rgba(27, 69, 196, 0.16);
+  --ap-blue-30: rgba(27, 69, 196, 0.3);
+  --ap-blue-light: #b9caf3;
+  --ap-green: #1fa971;
+  --ap-green-ink: #137449;
+  --ap-green-bg: #e7f6ef;
+  --ap-red: #b4321f;
+  --ap-red-bg: #fdeeec;
+  --ap-amber: #d98a1f;
+  --ap-amber-ink: #8a5410;
+  --ap-amber-bg: #fdf3e4;
+  --ap-xs: 0 1px 2px rgba(20, 32, 74, 0.04);
+}
+.app-ui {
+  color: var(--ap-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+}
+.app-ui b { font-weight: 600; }
+.app-ui .ap-strong { font-weight: 500; }
 .peek__win {
-  height: 540px;
-  border: 1px solid var(--border);
-  border-radius: var(--r) var(--r) 0 0;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(7, 41, 75, 0.06), 0 40px 80px -44px rgba(7, 41, 75, 0.5);
+  width: 1200px;
+  height: 900px;
+  zoom: var(--k, 0.9);
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: var(--ap-page);
+  border: 1px solid #d8dfec;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 40px 80px -44px rgba(7, 41, 75, 0.5);
   overflow: hidden;
-  /* ⚠️ PLUS D'INCLINAISON AU SURVOL. Les deux angles --tx/--ty posés par le
-     pointeur ont été retirés (voir AppPeek.js) : ils entraient en conflit
-     avec le seul mouvement qui compte ici, le redressement au défilement. */
+  color: var(--ap-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+}
+.peek__win b { font-weight: 600; }
+
+/* Le menu de gauche. */
+.ap-side { flex: 0 0 236px; display: flex; flex-direction: column; gap: 14px; padding: 2px 0 4px; min-width: 0; }
+.ap-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 46px;
+  padding: 0 6px 0 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--ap-line);
+  box-shadow: var(--ap-xs);
+}
+.ap-logo { display: flex; align-items: center; gap: 7px; color: #0b0f1a; }
+.ap-logo b { font-size: 21px; font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+.ap-ghost { width: 32px; height: 32px; border-radius: 8px; color: var(--ap-ink-3); display: flex; align-items: center; justify-content: center; }
+.ap-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 11px;
+  border-radius: 10px;
+  background: var(--ap-soft);
+  border: 1px solid var(--ap-line);
+  color: var(--ap-ink-5);
+}
+.ap-search > span { flex: 1; }
+.ap-search kbd {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #fff;
+  border: 1px solid var(--ap-line);
+  color: var(--ap-ink-3);
+}
+.ap-group { display: flex; flex-direction: column; gap: 2px; }
+.ap-label { padding: 6px 10px 4px; font-size: 12px; color: var(--ap-ink-4); }
+.ap-nav { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 9px; color: var(--ap-ink-2); min-width: 0; border: 1px solid transparent; }
+.ap-nav svg { flex: none; }
+.ap-nav--on { background: var(--ap-nav-on); color: var(--ap-ink); font-weight: 500; }
+.ap-nav--job { height: 34px; }
+.ap-nav--job i { width: 8px; height: 8px; flex: none; border-radius: 3px; }
+.ap-nav--cur { background: #fff; border-color: var(--ap-line); color: var(--ap-ink); font-weight: 500; }
+.ap-count { font-size: 12px; color: var(--ap-ink-4); }
+.ap-grow { flex: 1; }
+.ap-ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* La page, à droite : une carte blanche aux grands rayons. Elle se rejoue en
+   fondu à chaque changement d'onglet (elle est remontée, `key`). */
+.ap-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid var(--ap-line);
+  box-shadow: 0 1px 3px rgba(20, 32, 74, 0.05);
+  overflow: hidden;
+  animation: apIn 0.28s ease both;
+}
+@keyframes apIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .peek__win { transform: none; transition: none; }
+  .ap-main { animation: none; }
 }
 
-.peek__chrome { display: flex; align-items: center; gap: 12px; padding: 9px 13px; border-bottom: 1px solid var(--border); background: var(--bg-2); }
-.peek__dots { display: flex; gap: 5px; }
-.peek__dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(7, 41, 75, 0.13); }
+/* L'en-tête d'un écran. */
+.ap-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 65px; padding: 14px 20px; border-bottom: 1px solid var(--ap-line-2); }
+.ap-crumbs { display: flex; align-items: center; gap: 8px; font-size: 20px; letter-spacing: -0.02em; min-width: 0; }
+.ap-crumb { display: flex; align-items: center; gap: 8px; color: var(--ap-ink-4); font-weight: 500; white-space: nowrap; }
+.ap-crumb svg { color: #b3bbcf; }
+.ap-h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.ap-sep { width: 1px; height: 22px; margin: 0 4px; background: var(--ap-line); }
+.ap-me { width: 36px; height: 36px; border-radius: 10px; background: var(--ap-blue-16); color: var(--ap-blue); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
 
-.peek__body { display: grid; grid-template-columns: 150px minmax(0, 1fr); height: 100%; }
+/* Les boutons, les pastilles, les statuts. Des <span> : la fenêtre est une
+   image, rien n'y est cliquable (voir AppPeek.js). */
+.ap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 10px; font-weight: 500; white-space: nowrap; }
+.ap-btn--blue { background: var(--ap-blue); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px var(--ap-blue-30); }
+.ap-btn--ghost { background: #fff; border: 1px solid var(--ap-line); color: var(--ap-ink); }
+.ap-btn--soft { gap: 6px; height: 32px; padding: 0 11px; border-radius: 9px; background: var(--ap-blue-10); color: var(--ap-blue); font-size: 13px; }
+.ap-btn--full { width: 100%; height: 38px; }
+.ap-status { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 7px; background: #fff; border: 1px solid var(--ap-line); font-size: 12px; white-space: nowrap; }
+.ap-status i { width: 6px; height: 6px; border-radius: 999px; }
+.ap-status--ok { color: var(--ap-green-ink); }
+.ap-status--ok i { background: var(--ap-green); }
+.ap-status--wait { color: var(--ap-ink-3); }
+.ap-status--wait i { background: var(--ap-ink-6); }
+.ap-head .ap-status { height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; }
+.ap-chips { display: flex; align-items: center; gap: 6px; flex: none; }
+.ap-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--ap-line); background: #fff; font-size: 12px; color: var(--ap-ink-2); white-space: nowrap; }
+.ap-chip--ok { color: var(--ap-green-ink); }
+.ap-chip--ok i { width: 6px; height: 6px; border-radius: 999px; background: var(--ap-green); }
+.ap-score { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 7px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.ap-score--high { background: var(--ap-green-bg); color: var(--ap-green-ink); }
+.ap-score--mid { background: var(--ap-amber-bg); color: var(--ap-amber-ink); }
+.ap-score--low { background: var(--ap-red-bg); color: var(--ap-red); }
+.ap-score--wait { background: var(--ap-soft-2); color: var(--ap-ink-3); }
+.ap-meter { flex: 1; display: flex; height: 5px; border-radius: 999px; overflow: hidden; }
+.ap-meter i { border-radius: 999px; }
+.ap-meter--high { background: #d7f0e3; }
+.ap-meter--high i { background: var(--ap-green); }
+.ap-meter--mid { background: #f6e6cc; }
+.ap-meter--mid i { background: var(--ap-amber); }
+.ap-meter--low { background: #f4e1dd; }
+.ap-meter--low i { background: #d9573f; }
+.ap-meter--short { flex: none; width: 80px; }
+.ap-icon { flex: none; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--ap-ink-5); }
+.ap-icon--line { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--ap-line); color: var(--ap-ink-3); }
+.ap-icon--mute { width: 30px; height: 30px; margin-top: -4px; }
 
-.peek__side { border-right: 1px solid var(--border); background: var(--bg-2); padding: 15px 13px; display: grid; gap: 11px; align-content: start; }
-.peek__brand { display: block; color: var(--text); margin-bottom: 8px; }
-.peek__navOn { display: block; height: 9px; border-radius: 4px; background: rgba(7, 41, 75, 0.32); width: 58%; }
-.peek__bar { display: block; height: 7px; border-radius: 4px; background: rgba(7, 41, 75, 0.12); }
-.peek__bar--dim { background: rgba(7, 41, 75, 0.08); }
+/* Les briques des écrans. */
+.ap-sec { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 20px; border-bottom: 1px solid var(--ap-line-2); }
+.ap-secHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ap-stack { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ap-h2 { font-size: 16px; letter-spacing: -0.01em; }
+.peek__win .ap-strong { font-weight: 500; }
+.ap-sub { font-size: 13px; color: var(--ap-ink-3); }
+.ap-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 5px; border-radius: 14px; border: 1px solid var(--ap-line); background: #fff; box-shadow: var(--ap-xs); }
+.ap-card--pad { gap: 10px; padding: 14px 16px 16px; }
+.ap-inset { display: flex; flex-direction: column; gap: 9px; padding: 12px; border-radius: 10px; background: var(--ap-soft); border: 1px solid var(--ap-inset); font-size: 13px; }
+.ap-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ap-ink-2); }
+.ap-val { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 7px; background: #fff; border: 1px solid var(--ap-line); font-size: 12px; color: var(--ap-ink-2); white-space: nowrap; }
+.ap-val--ok { color: var(--ap-green-ink); }
+.ap-avatar { flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ap-blue-10); color: var(--ap-blue); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.ap-avatar--big { width: 42px; height: 42px; border-radius: 12px; font-size: 14px; }
+.ap-num { flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--ap-blue); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; }
 
-.peek__main { padding: 17px 20px; display: grid; gap: 15px; align-content: start; min-width: 0; }
-.peek__head { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 13px; border-bottom: 1px solid var(--border); }
-.peek__head > div { display: grid; gap: 7px; min-width: 0; }
-.peek__job { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.018em; color: var(--text); }
-.peek__icons { display: flex; gap: 10px; margin-left: auto; color: var(--text-4); flex: none; }
-
-/* Le bandeau de l'expérience et ses étapes. */
-.peek__meta { display: flex; align-items: center; gap: 10px; }
-.peek__tag {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text);
-  border: 1px solid rgba(7, 41, 75, 0.28);
-  background: rgba(7, 41, 75, 0.06);
-  border-radius: var(--r-sm);
-  padding: 3px 9px;
-}
-.peek__dur { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; color: var(--text-4); }
-
-.peek__steps { display: grid; }
-.peek__step {
+/* Écran « Candidats ». */
+.ap-tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--ap-line-2); }
+.ap-tabsList { display: flex; gap: 22px; }
+.ap-tab { display: flex; align-items: center; gap: 6px; height: 46px; color: var(--ap-ink-3); white-space: nowrap; }
+.ap-tab--on { margin-bottom: -1px; border-bottom: 2px solid var(--ap-blue); color: var(--ap-ink); font-weight: 500; }
+.ap-tabCount { padding: 0 6px; border-radius: 6px; background: var(--ap-soft-2); color: var(--ap-ink-3); font-size: 12px; font-weight: 400; }
+.ap-tabs .ap-chips { padding-bottom: 9px; }
+.ap-body { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 24px; }
+.ap-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ap-field { display: flex; align-items: center; gap: 8px; width: 280px; height: 34px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--ap-line); color: var(--ap-ink-5); }
+.ap-select { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 9px 0 11px; border-radius: 9px; border: 1px solid var(--ap-line); font-size: 13px; color: var(--ap-ink-3); }
+.ap-select b { font-weight: 500; color: var(--ap-ink); }
+.ap-table { border-radius: 14px; border: 1px solid var(--ap-line); box-shadow: var(--ap-xs); overflow: hidden; }
+.ap-tr {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  grid-template-columns: 28px minmax(0, 1fr) 200px 120px 190px;
   gap: 12px;
   align-items: center;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--border);
+  min-height: 63px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--ap-line-3);
 }
-.peek__step:last-child { border-bottom: none; }
-.peek__num { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; color: var(--text-4); }
-.peek__stepName { font-size: 0.75rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.peek__fmt { font-size: 0.625rem; color: var(--text-3); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 2px 8px; }
-.peek__min { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; color: var(--text-4); min-width: 34px; text-align: right; }
+.ap-tr:last-child { border-bottom: 0; }
+.ap-tr--head { min-height: 40px; background: var(--ap-soft); border-bottom-color: var(--ap-line-4); font-size: 12px; font-weight: 500; color: var(--ap-ink-3); }
+.ap-box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #c3cadb; background: #fff; }
+.ap-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ap-bar { display: flex; align-items: center; gap: 10px; }
+/* Dans le tableau, le score est un chiffre coloré, pas une pastille. */
+.ap-bar .ap-score { width: 44px; height: auto; padding: 0; background: none; font-size: 14px; }
+.ap-dash { color: var(--ap-ink-6); }
+.ap-rowActions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 
-/* L'étape en cours d'écriture : le seul élément animé de la fenêtre. */
-.peek__step--now .peek__stepName { color: var(--text); }
-.peek__grid { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 9px; }
-.peek__gridLabel { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-4); }
-.peek__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.peek__chip { font-size: 0.625rem; color: var(--text-3); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 4px 9px; background: #fff; }
-.peek__chip--must { color: var(--text); border-color: rgba(7, 41, 75, 0.28); background: rgba(7, 41, 75, 0.06); }
-.peek__writing {
+/* Écran « Rapport ». */
+.ap-report { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px 24px; }
+.ap-colL { flex: 0 0 260px; display: flex; flex-direction: column; gap: 14px; }
+.ap-colR { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.ap-who--big { padding: 10px 10px 0; }
+.ap-name { font-size: 16px; letter-spacing: -0.01em; }
+.ap-buttons { display: flex; flex-direction: column; gap: 6px; padding: 0 5px 5px; }
+.ap-cardHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 5px 0 10px; }
+.ap-inset--row { flex-direction: row; align-items: center; gap: 18px; padding: 14px; font-size: 14px; }
+.ap-ring { position: relative; flex: none; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; }
+.ap-ring svg { position: absolute; inset: 0; }
+.peek__win .ap-ring b { font-family: var(--font-mono), ui-monospace, monospace; font-size: 20px; font-weight: 500; }
+.ap-ringTrack { stroke: #ebeef5; }
+.ap-ring--high .ap-ringFill { stroke: var(--ap-green); }
+.ap-ring--high b { color: var(--ap-green-ink); }
+.ap-ring--mid .ap-ringFill { stroke: var(--ap-amber); }
+.ap-ring--mid b { color: var(--ap-amber-ink); }
+.ap-ring--low .ap-ringFill { stroke: #d9573f; }
+.ap-ring--low b { color: var(--ap-red); }
+.ap-stepName { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ap-stepName .ap-num { width: 24px; height: 24px; border-radius: 7px; }
+.ap-insetLabel { padding: 2px 4px; font-size: 12px; font-weight: 500; color: var(--ap-ink-3); }
+.ap-crit { display: flex; flex-direction: column; border-radius: 10px; background: #fff; border: 1px solid var(--ap-line); font-size: 14px; }
+.ap-critHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px 11px 14px; }
+.ap-critName { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ap-must { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--ap-blue-30); color: var(--ap-blue); font-size: 11px; font-weight: 500; white-space: nowrap; }
+.ap-critScore { display: flex; align-items: center; gap: 10px; color: var(--ap-ink-5); }
+.ap-critBody { display: flex; flex-direction: column; gap: 9px; padding: 0 14px 14px; }
+.ap-why { line-height: 1.6; color: var(--ap-ink-2); }
+.ap-quote { align-self: flex-start; padding: 6px 10px; border-radius: 7px; background: #f3f6fc; font-size: 13px; font-style: italic; color: var(--ap-ink-2); }
+
+/* Écran « Tableau de bord ». */
+.ap-hello { align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--ap-line); font-size: 13px; color: var(--ap-ink-2); }
+.ap-hello i { width: 7px; height: 7px; border-radius: 999px; background: var(--ap-green); }
+.ap-figures,
+.ap-jobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ap-figure { display: flex; flex-direction: column; gap: 16px; padding: 16px; border-radius: 14px; border: 1px solid var(--ap-line); box-shadow: var(--ap-xs); }
+.ap-figLabel { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+.ap-figLabel span { width: 24px; height: 24px; border-radius: 7px; color: #fff; display: flex; align-items: center; justify-content: center; }
+.ap-figN { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--ap-ink-4); }
+.peek__win .ap-figN b { font-size: 26px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; color: var(--ap-ink); }
+.ap-jobTop { display: flex; align-items: flex-start; gap: 8px; padding: 9px 7px 0 9px; }
+.ap-jobTitle { display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-jobTitle i { width: 8px; height: 8px; flex: none; border-radius: 3px; }
+.ap-indent { padding-left: 16px; }
+.ap-mini { display: flex; width: 36px; height: 4px; border-radius: 999px; background: #e6ebf4; overflow: hidden; }
+.ap-mini i { border-radius: 999px; background: var(--ap-blue); }
+.ap-split { display: flex; align-items: stretch; gap: 14px; padding: 18px 20px 24px; }
+.ap-split > .ap-card { flex: 1 1 0; }
+.ap-split > .ap-card--wide { flex: 2 1 0; }
+.ap-latest { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--ap-line-3); }
+.ap-period { display: flex; align-items: center; height: 32px; border-radius: 9px; border: 1px solid var(--ap-line); font-size: 13px; color: var(--ap-ink-2); overflow: hidden; }
+.ap-period > span { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 10px; }
+.ap-period > span:first-child { border-right: 1px solid var(--ap-line); color: var(--ap-ink); }
+.ap-legend { display: flex; gap: 14px; font-size: 13px; color: var(--ap-ink-2); }
+.ap-legend > span { display: flex; align-items: center; gap: 6px; }
+.ap-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.ap-legInv { background: var(--ap-blue-light); }
+.ap-legDone { background: var(--ap-blue); }
+.ap-chart { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); height: 180px; }
+.ap-day { display: flex; flex-direction: column; gap: 8px; }
+.ap-bars { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-bottom: 1px solid #dde2ec; }
+.ap-bars i { width: 14px; border-radius: 4px 4px 0 0; }
+.ap-dayLabel { font-size: 12px; text-align: center; color: var(--ap-ink-3); }
+
+/* ── Les visuels du reste de l'accueil, au style de la plateforme ────────── */
+/* 19/10/2026, demande directe : après la fenêtre du hero, les visuels de
+   l'accueil passent eux aussi au design de l'application (la liste classée,
+   la fiche de score, les trois étapes, le retour au candidat). Ils portent
+   `.app-ui` et reprennent les briques `ap-*` ci-dessus ; ce qui suit ne
+   leur ajoute que leur cadre et leurs pièces propres. */
+.ap-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 5px;
+  border-radius: 16px;
+  border: 1px solid var(--ap-line);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28);
+}
+.ap-panel--flush { gap: 0; padding: 0; overflow: hidden; }
+.ap-panel > .ap-cardHead { padding: 10px 10px 4px 12px; }
+
+/* La liste classée. */
+.ap-panelHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--ap-line-2); }
+.ap-panelTitle { display: flex; align-items: center; gap: 8px; }
+.ap-tr--sl { grid-template-columns: minmax(0, 1fr) 170px 96px 128px; }
+
+/* Les trois étapes (Steps.js). `.sv` garde sa hauteur minimale commune. */
+/* `.sv` est déclarée plus bas dans la feuille, à spécificité égale avec
+   `.ap-panel` : son rayon et son ombre l'emportaient. On les reprend ici. */
+.sv.ap-panel { display: block; padding: 0; overflow: hidden; border-radius: 16px; border-color: var(--ap-line); box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28); }
+.sv.ap-panel .sv__in { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 22px; min-height: 250px; }
+.ap-drop { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 18px; border: 1px dashed #c9d3ea; border-radius: 12px; background: var(--ap-soft); text-align: center; }
+.ap-dropIcon,
+.ap-fileIcon,
+.ap-aiAvatar { flex: none; display: flex; align-items: center; justify-content: center; background: var(--ap-blue-10); color: var(--ap-blue); }
+.ap-dropIcon { width: 38px; height: 38px; border-radius: 11px; }
+.ap-fileIcon { width: 34px; height: 34px; border-radius: 10px; }
+.ap-aiAvatar { width: 28px; height: 28px; border-radius: 9px; }
+.ap-fileRow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ap-line); background: #fff; box-shadow: var(--ap-xs); }
+.ap-ok { flex: none; width: 24px; height: 24px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--ap-green-bg); color: var(--ap-green-ink); }
+.ap-bubble { margin: 0; max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 13px; line-height: 1.55; }
+.ap-bubble--me { align-self: flex-end; border-bottom-right-radius: 4px; background: var(--ap-blue); color: #fff; }
+.ap-bubbleRow { display: flex; align-items: flex-start; gap: 8px; }
+.ap-bubble--ai { border: 1px solid var(--ap-inset); border-bottom-left-radius: 4px; background: var(--ap-soft); color: var(--ap-ink-2); }
+.ap-made { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--ap-green-bg); color: var(--ap-green-ink); font-size: 12px; font-weight: 500; }
+.ap-linkRow { display: flex; align-items: center; gap: 8px; }
+.ap-linkField { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--ap-line); background: var(--ap-soft); color: var(--ap-ink-2); }
+.ap-linkField svg { flex: none; color: var(--ap-ink-5); }
+.ap-btn--done { height: 40px; background: var(--ap-green-bg); color: var(--ap-green-ink); }
+
+/* Le retour au candidat (FeedbackTabs.js). Les deux pastilles gardent leur
+   couleur, onglet ouvert ou non : on lit les deux issues sans cliquer. */
+.ap-seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 11px; border: 1px solid var(--ap-line); background: var(--ap-soft-2); }
+.ap-segBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.06em;
-  color: var(--text);
+  gap: 8px;
+  height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ap-ink-3);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ap-segBtn:hover { color: var(--ap-ink); }
+.ap-segBtn i { width: 7px; height: 7px; border-radius: 999px; }
+.ap-segBtn--next i { background: var(--ap-green); }
+.ap-segBtn--no i { background: #d9573f; }
+.ap-segBtn--on { background: #fff; color: var(--ap-ink); box-shadow: 0 1px 2px rgba(20, 32, 74, 0.08), 0 0 0 1px var(--ap-line); }
+.ap-segBtn:focus-visible { outline: 2px solid var(--ap-blue); outline-offset: 1px; }
+.ap-mail { margin-top: 12px; padding: 0; gap: 0; overflow: hidden; }
+.ap-mailHead { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--ap-line-2); }
+.ap-mailBody { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; font-size: 14px; line-height: 1.65; color: var(--ap-ink-2); }
+.ap-mailBody p { margin: 0; }
+.ap-status--no { color: var(--ap-red); }
+.ap-status--no i { background: #d9573f; }
+
+/* Sur téléphone, la liste classée perd sa colonne d'action et ses barres :
+   la note et le statut suffisent, et quatre colonnes ne tiennent pas sur
+   390px. */
+@media (max-width: 640px) {
+  .ap-tr--sl { grid-template-columns: minmax(0, 1fr) 64px 84px; gap: 8px; padding: 0 12px; }
+  .ap-tr--sl > :nth-child(4),
+  .ap-tr--sl .ap-meter,
+  .ap-tr--sl .ap-sub { display: none; }
 }
 
 /* ⚠️ SUR TELEPHONE, LA FENETRE EST LA MEME, EN MINIATURE (14/10/2026).
-   Elle a d'abord ete REORGANISEE a cette largeur (barre laterale de 62px,
-   colonnes resserrees) : il n'en restait que des barres grises illisibles.
-   Puis MASQUEE : le hero s'arretait a la barre de saisie, suivi d'un grand
-   blanc, et l'effet du defilement (le titre qui passe SOUS la fenetre)
-   n'existait plus, la barre de saisie glissait seule sur le titre et le
-   texte ressortait dessous. Retour direct : « on ne voit pas l'image de la
+   Elle a d'abord ete REORGANISEE a cette largeur : il n'en restait que des
+   barres grises illisibles. Puis MASQUEE : le hero s'arretait au-dessus,
+   suivi d'un grand blanc. Retour direct : « on ne voit pas l'image de la
    plateforme, elle doit etre affichee en plus petit ».
-   Elle garde donc sa mise en page de bureau, 860px de large, et `zoom` la
-   ramene a la largeur de l'ecran (--k, pose par AppPeek.js). `zoom` et non
-   `transform: scale` : le zoom reduit aussi la place qu'elle occupe, une
-   echelle laisserait un trou de 860px de haut sous elle.
+   Elle garde donc sa mise en page d'application, et `zoom` la ramene a la
+   largeur de l'ecran (--k, pose par AppPeek.js). Une seule concession : le
+   menu de gauche disparait et la largeur de reference tombe a 880px, sinon
+   le texte deviendrait microscopique (l'application fait de meme sur un
+   ecran etroit).
    Plus haute que la place restante : c'est le bas du hero qui la coupe,
    comme sur bureau, et le filet du hero tombe sur sa coupe. */
 @media (max-width: 760px) {
-  .stage__peek { margin-top: -18px; }
-  /* 1000px de haut à l'échelle du bureau : assez pour atteindre le bas du
-     hero sur les grands téléphones (Pixel 7, 412 × 915). Le surplus est
-     coupé par le hero, il ne se voit jamais. */
-  .peek { height: calc(var(--k, 0.41) * 1000px); }
-  .peek__win { width: 860px; height: 1000px; zoom: var(--k, 0.41); }
+  /* 1000px de haut à l'échelle de l'application : assez pour atteindre le
+     bas du hero sur les grands téléphones (Pixel 7, 412 × 915). Le surplus
+     est coupé par le hero, il ne se voit jamais. */
+  .peek { height: calc(var(--k, 0.37) * 1000px); }
+  .peek__win { width: 880px; height: 1000px; zoom: var(--k, 0.37); }
+  .ap-side { display: none; }
   /* ⚠️ Le hero a une hauteur IMPOSÉE et c'est une colonne flex : quand le
      contenu dépasse (petit écran, sous-titre sur quatre lignes), le bloc du
      titre RÉTRÉCISSAIT, et la scène remontait sur le bouton « Book a demo »
      (iPhone SE). Il garde sa hauteur ; c'est la fenêtre, en bas, que le
      hero coupe un peu plus tôt. */
   .hero--full > .wrap { flex-shrink: 0; }
-  /* La plaque de verre déborde de 26px AU-DESSUS de la barre de saisie
-     (`.stage::before`) : avec l'écart de bureau, son bord coupait le bas du
-     bouton sur un petit écran. */
-  .hero--full .stage { margin-top: 46px; }
+  /* Le contour de verre déborde de 8px au-dessus de la fenêtre
+     (`.stage__peek::before`) : l'écart laisse de l'air sous le bouton. */
+  .hero--full .stage { margin-top: 28px; }
 }
-
 /* ─── 7. SURFACES EN VERRE ET BENTO ──────────────────────────────────────── */
 
 /* La carte de base. Trois couches font l'effet « verre » :
@@ -1617,15 +1927,17 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
    clair en haut (--edge) qui imite une arête éclairée par la lumière d'ambiance. */
 .card {
   position: relative;
-  background: var(--surface);
+  /* Blanche depuis le 19/10/2026 : les cartes de l'application le sont, et
+     un voile bleuté à côté des visuels du produit faisait deux matières. */
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   box-shadow: var(--edge);
   padding: 28px 26px 30px;
   overflow: hidden;
   transition: border-color 260ms ease, background 260ms ease, transform 260ms ease;
 }
-.card:hover { border-color: var(--border-2); background: var(--surface-2); }
+.card:hover { border-color: var(--border-2); }
 
 /* Halo qui s'allume au survol, en haut de la carte. */
 .card::before {
@@ -1721,137 +2033,21 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
+  padding: 3px 9px;
   border-radius: var(--r-sm);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  /* Plus de capitales à chasse fixe (19/10/2026) : les pastilles de
+     l'application sont en Geist, en casse normale. */
+  font-size: 0.75rem;
+  font-weight: 500;
   border: 1px solid var(--border);
-  color: var(--text-3);
-  background: var(--surface);
+  color: var(--text-2);
+  background: #fff;
   white-space: nowrap;
 }
 .tag--ink { color: var(--text); border-color: rgba(7, 41, 75, 0.28); background: rgba(7, 41, 75, 0.07); }
 .tag--ok { color: var(--ok); border-color: rgba(21, 128, 61, 0.28); background: rgba(21, 128, 61, 0.07); }
 .tag--warn { color: var(--warn); border-color: rgba(180, 83, 9, 0.28); background: rgba(180, 83, 9, 0.07); }
 .tag--bad { color: var(--bad); border-color: rgba(220, 38, 38, 0.26); background: rgba(220, 38, 38, 0.06); }
-
-/* ── La barre de saisie : LA maquette du hero ─────────────────────────────── */
-/* Elle vient du site actuel, et c'est la bonne idée à garder : elle dit en une
-   image « vous parlez, ça se construit ». */
-.prompt {
-  position: relative;
-  border-radius: var(--r-lg);
-  padding: 1px;
-  /* Bordure en dégradé : un fond dégradé sur le conteneur, et le contenu posé
-     par-dessus dans une boîte opaque. Plus simple et plus sûr qu'un masque. */
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.5), rgba(37, 99, 235, 0.12) 45%, rgba(37, 99, 235, 0.38));
-  box-shadow: 0 22px 54px -26px rgba(37, 99, 235, 0.5);
-}
-.prompt__in {
-  background: #fff;
-  border-radius: calc(var(--r-lg) - 1px);
-  padding: 11px 14px;
-  display: grid;
-  gap: 14px;
-  /* Fine. Elle a fait jusqu'à 124px de haut du temps où les cinq étapes
-     s'empilaient dedans ; une seule étape à la fois tient dans la hauteur
-     d'un champ, et la barre redevient une barre. */
-  min-height: 0;
-  align-content: center;
-}
-/* L'étape en cours, sur UNE ligne, à la place du champ. Même hauteur que lui
-   à deux pixels près : le cadre ne bouge pas, donc l'aperçu de plateforme
-   juste en dessous ne se fait pas pousser hors de l'écran au moment précis
-   où la personne vient d'interagir. */
-.play__step {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-height: 30px;
-  font-size: 0.9375rem;
-  color: var(--text-2);
-}
-.prompt__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.prompt__plus {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  color: var(--text-3);
-  flex: none;
-}
-.prompt__text {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.9375rem;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.prompt__go {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, var(--blue-400), var(--blue));
-  color: #fff;
-  flex: none;
-  box-shadow: 0 6px 20px -6px rgba(37, 99, 235, 0.9);
-}
-
-/* Le bac à sable du hero : la barre de saisie est un vrai formulaire.
-   `.prompt__field` et `.prompt__go` habillent un <input> et un <button>, qui
-   arrivent avec leurs styles de navigateur — il faut les défaire, sinon le
-   champ porte un cadre blanc et le bouton un fond gris. */
-.prompt__field {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  font-size: 0.9375rem;
-  color: var(--text);
-  background: none;
-  border: none;
-  padding: 0;
-  outline: none;
-}
-.prompt__field::placeholder { color: var(--text-4); }
-.prompt__field:focus-visible { outline: none; }
-.prompt__field:disabled { color: var(--text-3); }
-/* Le champ n'a pas d'anneau de focus à lui : c'est la barre entière qui
-   s'allume, sinon l'anneau flotterait au milieu d'un dégradé. */
-.prompt:focus-within { box-shadow: 0 30px 90px -30px rgba(37, 99, 235, 0.8), 0 0 0 3px rgba(37, 99, 235, 0.28); }
-
-button.prompt__go { border: none; cursor: pointer; transition: transform 0.15s ease, opacity 0.15s ease; }
-button.prompt__go:hover:not(:disabled) { transform: translateY(-1px); }
-button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-
-
-/* L'écran d'arrivée. Il ne prétend pas montrer une simulation construite : il
-   dit ce qui se passerait, et donne le bouton pour que ça se passe vraiment. */
-.play__done { border-top: 1px solid var(--border); padding-top: 16px; display: grid; gap: 8px; }
-.play__title { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
-.play__body { font-size: 0.9375rem; color: var(--text-3); line-height: 1.6; max-width: 46ch; }
-.play__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-.play__again {
-  justify-self: start;
-  margin-top: 2px;
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: 0.8125rem;
-  color: var(--text-4);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.play__again:hover { color: var(--text-2); }
 
 .caret {
   display: inline-block;
@@ -2051,10 +2247,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
      gauche de l'e-mail : la somme surlignée reste visible sans que le
      classeur ait besoin d'être grand. */
   width: 300px;
-  border-radius: var(--r);
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  border: 1px solid #e1e6f0;
   background: #fff;
-  box-shadow: var(--edge);
+  box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28);
   overflow: hidden;
   opacity: 0.82;
 }
@@ -2097,11 +2293,9 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .compo__head td:not(:first-child) { font-weight: 600; color: var(--text); }
 /* La somme : la cellule sélectionnée, cadrée en bleu. */
 .compo__total td:not(:first-child) { font-weight: 600; color: var(--text); }
-.compo__total td.num { outline: 2px solid var(--blue-300); outline-offset: -2px; background: rgba(37, 99, 235, 0.06); }
-.compo__tabs { display: flex; align-items: center; gap: 11px; padding: 9px 13px; border-bottom: 1px solid var(--border); background: var(--bg-2); }
-.compo__dots { display: flex; gap: 5px; }
-.compo__dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(7, 41, 75, 0.13); }
-.compo__tab { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; color: var(--text-3); background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 10px; }
+.compo__total td.num { outline: 2px solid #1b45c4; outline-offset: -2px; background: rgba(27, 69, 196, 0.06); }
+.compo__tabs { display: flex; align-items: center; gap: 11px; padding: 9px 13px; border-bottom: 1px solid #ebeef5; background: #f7f9fc; }
+.compo__tab { font-size: 0.6875rem; font-weight: 500; color: #3d4866; background: #fff; border: 1px solid #e1e6f0; border-radius: 7px; padding: 3px 9px; }
 
 /* L'e-mail : AU CENTRE, et devant. C'est la pièce qu'on doit lire. */
 .compo__mail {
@@ -2114,10 +2308,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   margin-left: -95px;
   width: 470px;
   padding: 22px 18px 20px;
-  border-radius: var(--r);
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  border: 1px solid #e1e6f0;
   background: #fff;
-  box-shadow: var(--edge);
+  box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28);
   display: grid;
   gap: 12px;
 }
@@ -2132,7 +2326,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .compo__send { display: flex; align-items: center; gap: 16px; padding-top: 4px; }
 .compo__tools { display: flex; gap: 12px; color: var(--text-4); font-size: 0.8125rem; }
 .compo__tools i, .compo__tools u { font-style: italic; }
-.compo__sendBtn { font-size: 0.8125rem; font-weight: 500; color: #fff; background: var(--text); border-radius: var(--r-sm); padding: 7px 16px; }
+.compo__sendBtn { font-size: 0.8125rem; font-weight: 500; color: #fff; background: #1b45c4; border-radius: 10px; padding: 8px 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(27, 69, 196, 0.3); }
 .compo__from { display: flex; align-items: center; gap: 11px; }
 .compo__avatar {
   display: grid;
@@ -2164,10 +2358,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   margin-left: -110px;
   width: 300px;
   aspect-ratio: 4 / 5;
-  border-radius: var(--r);
-  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  border: 1px solid #d8dfec;
   overflow: hidden;
-  box-shadow: var(--edge);
+  box-shadow: 0 30px 60px -30px rgba(20, 32, 74, 0.5);
   background: var(--bg-2);
 }
 .compo__video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -2181,8 +2375,8 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   width: 36%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 12px 26px -12px rgba(7, 41, 75, 0.45);
 }
 /* Les signes de l'appel. Deux visages côte à côte ne font pas un appel ; ce sont
@@ -2194,7 +2388,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   align-items: center;
   gap: 5px;
   padding: 3px 8px;
-  border-radius: var(--r-sm);
+  border-radius: 7px;
   background: rgba(8, 12, 22, 0.78);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2232,7 +2426,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   align-items: center;
   gap: 7px;
   padding: 5px 8px;
-  border-radius: var(--r-sm);
+  border-radius: 12px;
   background: rgba(8, 12, 22, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(10px);
@@ -2257,7 +2451,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   align-items: center;
   gap: 6px;
   padding: 4px 9px;
-  border-radius: var(--r-sm);
+  border-radius: 7px;
   background: rgba(8, 12, 22, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -2428,7 +2622,6 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .step__viz .viz__made,
 .step__viz .skill,
 .step__viz .pipe__name,
-.step__viz .sl__name { font-size: 0.75rem; }
 .step__viz .viz__quote,
 .step__viz .pipe__meta,
 .step__viz .viz__ready i { font-size: 0.6875rem; }
@@ -2437,7 +2630,6 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .step__viz .bubble { font-size: 0.75rem; max-width: 82%; }
 .step__viz .viz__opt { padding: 8px 11px; }
 .step__viz .pipe__node { padding: 9px 11px; }
-.step__viz .sl__row { padding: 8px 0; }
 .step__text p { margin-top: 12px; color: var(--text-2); font-size: 0.9375rem; line-height: 1.65; max-width: 46ch; }
 
 /* ── Le CV en gris, la preuve en couleur ──────────────────────────────────── */
@@ -2615,21 +2807,21 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 .steps__body { display: block; margin-top: 8px; color: var(--text-3); font-size: 0.9375rem; line-height: 1.6; }
 /* L'étape en cours : blanche et décollée, comme la carte cochée du bloc
    « le problème ». C'est le même vocabulaire de matière dans tout le site. */
-.steps__item--on { opacity: 1; background: #fff; border-color: var(--border); box-shadow: var(--edge); }
+.steps__item--on { opacity: 1; background: #fff; border-color: var(--border); border-radius: var(--r-xl); box-shadow: var(--edge); }
 .steps__tag {
   display: inline-block;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.5625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-4);
   margin-bottom: 10px;
 }
+/* L'étape en cours : sa pastille prend le BLEU des numéros d'étape de
+   l'application (c'était un bleu nuit). */
 .steps__item--on .steps__tag {
   color: #fff;
-  background: var(--navy);
+  background: var(--blue);
   border-radius: var(--r-sm);
-  padding: 3px 8px;
+  padding: 2px 8px;
   margin-left: -2px;
 }
 .steps__item h3 { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.02em; }
@@ -2656,37 +2848,9 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   box-shadow: var(--edge);
   overflow: hidden;
 }
-/* Le bandeau à trois pastilles : c'est lui qui fait « fenêtre » en une ligne,
-   comme sur l'aperçu de plateforme du hero. */
-.sv__chrome { display: flex; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--bg-2); }
-.sv__chrome i { width: 7px; height: 7px; border-radius: 50%; background: rgba(7, 41, 75, 0.13); }
+/* Le contenu des trois visuels est au style de la plateforme : voir
+   « Les visuels du reste de l'accueil » plus haut. */
 .sv__in { display: grid; gap: 12px; align-content: center; padding: 22px; min-height: 196px; }
-
-/* 01 — la zone de dépôt. Le trait discontinu dit « posez un fichier ici »
-   sans qu'on ait à l'écrire. */
-.sv--drop .sv__in { place-content: center; }
-.sv__drop {
-  display: grid;
-  gap: 14px;
-  justify-items: center;
-  padding: 26px 20px;
-  border: 1px dashed var(--border-2);
-  border-radius: var(--r);
-  background: var(--bg-2);
-}
-.sv__file { display: inline-flex; align-items: center; gap: 11px; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); background: #fff; color: var(--text); box-shadow: var(--edge); }
-.sv__file b { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text); }
-.sv__file i { display: block; font-style: normal; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; color: var(--text-4); margin-top: 2px; }
-.sv__hint { font-size: 0.8125rem; color: var(--text-3); }
-
-/* 02 — la conversation qui modifie la simulation. */
-.sv__made { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; letter-spacing: 0.06em; color: var(--text); border: 1px solid rgba(7, 41, 75, 0.25); background: rgba(7, 41, 75, 0.06); border-radius: var(--r-sm); padding: 6px 11px; justify-self: start; margin-top: 4px; }
-
-/* 03 — le lien prêt à partir. */
-.sv__label { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-4); }
-.sv__link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg-2); color: var(--text-4); font-size: 0.8125rem; }
-.sv__link > span:first-of-type { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv__copied { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; flex: none; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); }
 
 @media (max-width: 980px) {
   .steps { grid-template-columns: minmax(0, 1fr); gap: 32px; }
@@ -2712,7 +2876,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   gap: 11px;
   padding: 18px 18px 20px;
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   background: var(--bg-2);
 }
 .vs__card--ok {
@@ -2730,7 +2894,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   border: 1px solid var(--border-2);
   color: var(--text-4);
 }
-.vs__card--ok .vs__mark { border-color: transparent; background: var(--text); color: #fff; }
+.vs__card--ok .vs__mark { border-color: transparent; background: var(--blue); color: #fff; }
 
 .vs__title { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.018em; }
 
@@ -2755,59 +2919,10 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 
 @media (max-width: 880px) { .vs { grid-template-columns: minmax(0, 1fr); } }
 
-/* ── La liste courte, classée ─────────────────────────────────────────────── */
-.sl__row {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) 54px auto auto;
-  gap: 11px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-.sl__row:last-child { border-bottom: none; }
-.sl__n { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; color: var(--text-4); }
-.sl__avatar {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  font-size: 0.5625rem;
-  color: var(--text-3);
-}
-.sl__name { font-size: 0.875rem; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sl__row--top .sl__name { color: var(--text); font-weight: 500; }
-.sl__bar { display: block; height: 5px; border-radius: 3px; background: rgba(7, 41, 75, 0.1); overflow: hidden; }
-.sl__bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--text-2), var(--text)); }
-.sl__score { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.75rem; color: var(--text); font-variant-numeric: tabular-nums; }
-.sl__wait { font-size: 0.75rem; color: var(--text-4); }
-
-
-/* ── Onglets ──────────────────────────────────────────────────────────────── */
-.tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); }
-.tab {
-  padding: 7px 15px;
-  border-radius: var(--r-sm);
-  font-size: 0.8125rem;
-  color: var(--text-3);
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.tab:hover { color: var(--text); }
-.tab--on { background: #fff; color: var(--text); box-shadow: var(--edge); }
-
-/* La couleur de l issue. C est le seul endroit du site où le rouge veut dire
-   « écarté » et non « erreur », et c est exactement le propos de la section :
-   les deux issues existent, les deux reçoivent un retour écrit. La pastille
-   reste colorée même sur l onglet inactif, pour qu on lise les deux issues
-   d un coup d œil sans avoir à cliquer. */
-.tab__dot { width: 7px; height: 7px; border-radius: 50%; display: block; flex: none; }
-.tab { display: inline-flex; align-items: center; gap: 8px; }
-.tab--next .tab__dot { background: var(--ok); box-shadow: 0 0 8px 1px rgba(74, 222, 128, 0.5); }
-.tab--no .tab__dot { background: var(--bad); box-shadow: 0 0 8px 1px rgba(248, 113, 113, 0.45); }
-.tab--next.tab--on { background: rgba(74, 222, 128, 0.14); box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.34); }
-.tab--no.tab--on { background: rgba(248, 113, 113, 0.13); box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.32); }
+/* La liste courte classée et les onglets du retour au candidat sont au
+   style de la plateforme depuis le 19/10/2026 : voir « Les visuels du reste
+   de l'accueil » (`.ap-tr--sl`, `.ap-seg`). Leurs anciens styles (`.sl__*`,
+   `.tabs`, `.tab`) ont été retirés, ils n'avaient plus aucun appelant. */
 
 /* ── Compétences extraites de l'offre ─────────────────────────────────────── */
 .skills__label {
@@ -3696,7 +3811,7 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   text-align: left;
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--r);
+  border-radius: var(--r-xl);
   box-shadow: var(--edge);
 }
 .fam__col { padding: 22px 20px 26px; border-left: 1px solid var(--border); }
@@ -3751,10 +3866,16 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   .how > .duo:nth-child(even) > :first-child { order: 0; }
 }
 
-/* Les personnages : trois fiches, la deuxième décalée vers la droite. Une
+/* ⚠️ LES TROIS VISUELS DE CETTE PAGE SONT AU STYLE DE LA PLATEFORME
+   (19/10/2026, demande directe, après l'accueil). Ils portent `.app-ui` et
+   prennent ses couleurs (`--ap-*`) : cartes à 14-16px, bleu #1B45C4, encre
+   #14204A, pastilles arrondies. Plus de petites capitales à chasse fixe
+   pour les intitulés : l'application n'en a pas. */
+
+/* Les personnages : deux fiches, la deuxième décalée vers la droite. Une
    pile de gens plutôt qu'un tableau. */
 .cast { display: grid; gap: 12px; }
-.cast__card { display: flex; gap: 14px; padding: 16px 18px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); }
+.cast__card { display: flex; gap: 14px; padding: 16px 18px; background: #fff; border: 1px solid var(--ap-line); border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28); }
 /* Décalage DANS la colonne, jamais au-delà : une marge négative débordait
    de la gouttière et faisait défiler la page de côté une fois empilé. */
 .cast__card { margin-right: 32px; }
@@ -3763,78 +3884,108 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
   flex: none;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  font-size: 0.75rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--ap-blue-10);
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--ap-blue);
 }
 .cast__body { min-width: 0; flex: 1; }
 .cast__top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.cast__name { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.015em; color: var(--text); }
-.cast__role { font-size: 0.8125rem; color: var(--text-3); margin-top: 2px; }
-.cast__rows { display: grid; gap: 7px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
-.cast__row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: baseline; }
-.cast__row dt { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
-.cast__row dd { font-size: 0.8125rem; line-height: 1.5; color: var(--text-2); }
+.cast__name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--ap-ink); }
+.cast__role { font-size: 13px; color: var(--ap-ink-3); margin-top: 2px; }
+.cast__rows { display: grid; gap: 9px; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--ap-soft); border: 1px solid var(--ap-inset); }
+.cast__row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.cast__row dt { font-size: 12px; color: var(--ap-ink-3); }
+.cast__row dd { font-size: 13px; line-height: 1.5; color: var(--ap-ink-2); }
 .cast__redact { display: flex; flex-wrap: wrap; gap: 5px; align-self: center; }
-.cast__redact i { display: block; height: 9px; border-radius: 2px; background: rgba(7, 41, 75, 0.14); }
+.cast__redact i { display: block; height: 9px; border-radius: 999px; background: #dfe4ee; }
 
 /* Ce qu'on donne, ce qui en sort : trois sources, une flèche, la simulation.
-   La sortie est la seule fiche « décollée » (bordure plus franche, ombre) :
-   c'est le résultat, pas une quatrième source. */
-.feed { display: grid; grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1.05fr); align-items: center; }
+   La sortie est la seule fiche « décollée » (bordure bleue, ombre) : c'est le
+   résultat, pas une quatrième source. */
+.feed { display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1.05fr); align-items: center; }
 .feed__in { display: grid; gap: 10px; }
-.feed__src { display: grid; gap: 7px; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); }
-.feed__label { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
-.feed__value { font-size: 0.8125rem; line-height: 1.5; color: var(--text-2); }
-.feed__chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.feed__arrow { display: grid; place-items: center; color: var(--text-4); }
-.feed__out { display: grid; gap: 8px; padding: 18px; background: #fff; border: 1px solid var(--border-2); border-radius: var(--r); box-shadow: 0 18px 44px -18px rgba(7, 41, 75, 0.28), var(--edge); }
-.feed__title { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
-.feed__meta { font-size: 0.8125rem; color: var(--text-3); }
-.feed__checks { list-style: none; display: grid; gap: 7px; margin-top: 4px; padding-top: 11px; border-top: 1px solid var(--border); }
-.feed__checks li { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--text-2); }
-.feed__checks svg { flex: none; color: var(--ok); }
-.feed__checks i { margin-left: auto; font-style: normal; font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
+.feed__src { display: grid; gap: 8px; padding: 12px 14px; background: #fff; border: 1px solid var(--ap-line); border-radius: 14px; box-shadow: var(--ap-xs); }
+.feed__label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--ap-ink-3); }
+.feed__label svg { flex: none; color: var(--ap-blue); }
+.feed__value { font-size: 13px; line-height: 1.5; color: var(--ap-ink-2); }
+.feed__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.feed__arrow { display: grid; place-items: center; color: var(--ap-ink-5); }
+.feed__out { display: grid; gap: 8px; padding: 18px; background: #fff; border: 1px solid #c9d5f3; border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 30px 60px -30px rgba(27, 69, 196, 0.35); }
+.feed__out .feed__label { color: var(--ap-blue); }
+.feed__title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--ap-ink); }
+.feed__meta { font-size: 13px; color: var(--ap-ink-3); }
+.feed__checks { list-style: none; display: grid; gap: 8px; margin-top: 4px; padding: 12px; border-radius: 10px; background: var(--ap-soft); border: 1px solid var(--ap-inset); }
+.feed__checks li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ap-ink-2); }
+.feed__checks svg { flex: none; color: var(--ap-green); }
+.feed__checks i { margin-left: auto; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: var(--ap-green-bg); font-style: normal; font-size: 12px; font-weight: 500; color: var(--ap-green-ink); }
 
-/* Le copilote. Hauteur FIXE du fil, qui défile en interne (voir Copilot.js) :
-   le panneau ne grandit pas sous le clic. */
-.copilot { background: #fff; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--edge); overflow: hidden; text-align: left; }
-/* Le nom en capitales (« ONBORD COPILOT »), demande directe : il se lit
-   comme le nom d'un produit, pas comme le titre d'une fenêtre. */
-.copilot__head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--bg-2); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); }
-.copilot__msgs { display: grid; gap: 10px; align-content: start; height: 300px; overflow-y: auto; padding: 16px; scrollbar-width: thin; }
-.copilot__turn { display: grid; gap: 10px; animation: copilot-in 320ms ease both; }
-.copilot__changed { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-self: start; padding: 6px 10px; border: 1px solid rgba(7, 41, 75, 0.2); border-radius: var(--r-sm); background: rgba(7, 41, 75, 0.05); font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.625rem; letter-spacing: 0.04em; color: var(--text-2); }
-.copilot__changed b { color: var(--text); font-weight: 600; }
-.copilot__changed svg { color: var(--ok); }
-.copilot__dots { display: inline-flex; gap: 4px; justify-self: start; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
-.copilot__dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-4); animation: copilot-dot 1s ease-in-out infinite; }
+/* Le copilote : la copie du « Simulation Copilot » de l'application
+   (ChatEtape.js, racine du dépôt, 19/10/2026). Hauteur FIXE du fil, qui
+   défile en interne (voir Copilot.js) : le panneau ne grandit pas sous le
+   clic. */
+.copilot { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ap-line); border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 24px 48px -28px rgba(20, 32, 74, 0.28); overflow: hidden; text-align: left; }
+.copilot__head { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; border-bottom: 1px solid var(--ap-line-2); }
+.copilot__avatar { flex: none; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; background: var(--ap-blue); color: #fff; }
+.copilot__avatar--lg { width: 32px; height: 32px; border-radius: 10px; box-shadow: 0 0 0 4px var(--ap-blue-10); }
+.copilot__title { font-size: 15px; letter-spacing: -0.01em; }
+.copilot__knows { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ap-ink-3); }
+.copilot__knows i { flex: none; width: 6px; height: 6px; border-radius: 999px; background: var(--ap-green); }
+.copilot__icon { flex: none; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--ap-ink-3); cursor: pointer; }
+.copilot__icon:hover:not(:disabled) { background: var(--ap-soft-2); color: var(--ap-ink); }
+.copilot__icon:disabled { opacity: 0.4; cursor: default; }
+span.copilot__icon { cursor: default; }
+.copilot__icon:focus-visible { outline: 2px solid var(--ap-blue); outline-offset: 1px; }
+.copilot__msgs { display: flex; flex-direction: column; gap: 16px; height: 330px; overflow-y: auto; padding: 16px 14px; background: #fbfcfe; scrollbar-width: thin; }
+.copilot__turn { display: flex; flex-direction: column; gap: 16px; animation: copilot-in 320ms ease both; }
+.copilot__ai { display: flex; gap: 10px; }
+.copilot__ai p,
+.copilot__aiBody > p { margin: 0; padding-top: 3px; font-size: 13px; line-height: 1.6; color: var(--ap-ink); }
+.copilot__aiBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.copilot__me { align-self: flex-end; max-width: 85%; margin: 0; padding: 9px 12px; border-radius: 14px 14px 4px 14px; background: var(--ap-blue); color: #fff; font-size: 13px; line-height: 1.5; }
+.copilot__prop { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: #fff; border: 1px solid var(--ap-line); }
+.copilot__propLabel { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--ap-blue); }
+.copilot__aiBody .copilot__propText { margin: 0; padding: 8px 10px; border-radius: 8px; background: #f2faf6; border-left: 3px solid var(--ap-green); font-size: 13px; line-height: 1.55; color: var(--ap-ink); }
+.copilot__applied { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ap-green-ink); }
+.copilot__ai .copilot__dots { display: inline-flex; gap: 4px; align-self: center; padding: 0; }
+.copilot__dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--ap-ink-5); animation: copilot-dot 1s ease-in-out infinite; }
 .copilot__dots i:nth-child(2) { animation-delay: 150ms; }
 .copilot__dots i:nth-child(3) { animation-delay: 300ms; }
-.copilot__foot { display: grid; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid var(--border); }
-.copilot__try { font-family: var(--font-mono), ui-monospace, monospace; font-size: 0.5625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4); }
-.copilot__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.copilot__foot { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ap-line-2); }
+/* Sur UNE ligne, qui défile de côté si elle déborde : c'est le cas dans
+   l'application, et les demandes ont été raccourcies pour y tenir. */
+.copilot__chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.copilot__chips::-webkit-scrollbar { display: none; }
+.copilot__job { font-weight: 500; }
 .copilot__chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
+  border: 1px solid var(--ap-line);
+  border-radius: 999px;
+  background: var(--ap-soft);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 12px;
   line-height: 1.4;
   text-align: left;
-  padding: 7px 12px;
-  border: 1px solid var(--border);
-  border-radius: 99px;
-  background: #fff;
-  color: var(--text-2);
+  color: var(--ap-ink-2);
   cursor: pointer;
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
-.copilot__chip:hover:not(:disabled) { border-color: var(--border-2); color: var(--text); background: var(--surface); }
+.copilot__chip:hover:not(:disabled) { border-color: var(--ap-blue-30); color: var(--ap-blue); background: #fff; }
+.copilot__chip:focus-visible { outline: 2px solid var(--ap-blue); outline-offset: 1px; }
 .copilot__chip:disabled { opacity: 0.55; cursor: default; }
-.copilot__chip--reset { justify-self: start; }
+.copilot__chip--reset { align-self: flex-start; }
+.copilot__input { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 8px 12px; border-radius: 12px; border: 1px solid #d6ddec; background: #fff; box-shadow: var(--ap-xs); }
+.copilot__placeholder { padding-top: 2px; font-size: 13px; line-height: 1.5; color: var(--ap-ink-5); }
+.copilot__inputFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--ap-ink-4); }
+.copilot__send { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; background: var(--ap-blue); color: #fff; opacity: 0.45; }
 @keyframes copilot-in { from { opacity: 0; transform: translateY(6px); } }
 @keyframes copilot-dot { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
@@ -3857,12 +4008,6 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
    barre perd surtout de la HAUTEUR (58 → 44px), c'est elle qui pesait. */
 @media (max-width: 760px) {
   .hero--full .lede { font-size: 0.9375rem; line-height: 1.55; }
-  .hero--full .prompt__in { padding: 6px 8px; }
-  .hero--full .prompt__row,
-  .hero--full .play__step { gap: 9px; }
-  .hero--full .play__step { min-height: 26px; }
-  .hero--full .prompt__plus { width: 24px; height: 24px; }
-  .hero--full .prompt__go { width: 30px; height: 30px; }
   /* Les boutons, partout sur le site : un cran plus petits. */
   .btn { padding: 10px 18px; font-size: 0.875rem; }
 }
@@ -3911,18 +4056,17 @@ button.prompt__go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none
 @media (max-width: 409px) { .compo { zoom: 0.64; } }
 @media (max-width: 369px) { .compo { zoom: 0.55; } }
 
-/* ── Bureau : une fenêtre de hero MOINS HAUTE (14/10/2026) ────────────────
-   Demande directe, constatée en 1920 × 1080 : la fenêtre faisait 372px et
-   finissait 130px avant le bas de l'écran, sur une bande blanche. Elle est
-   coupée plus tôt, sous les étapes (316px), et le hero s'arrête AVEC elle :
-   sa hauteur n'est plus imposée à l'écran, c'est son contenu qui la donne.
-   Le filet du hero tombe donc toujours sur la coupe de la fenêtre. Le
+/* ── Bureau : le hero s'arrête AVEC la fenêtre (14/10/2026) ───────────────
+   Demande directe, constatée en 1920 × 1080 : avec une hauteur imposée à
+   l'écran, la fenêtre finissait avant le bas, sur une bande blanche. La
+   hauteur du hero n'est plus imposée : c'est son contenu qui la donne, et
+   le filet du hero tombe donc toujours sur la coupe de la fenêtre.
+   La hauteur VISIBLE de la fenêtre, elle, est réglée sur `.peek` (19/10,
+   `--k × 640px`) : la plateforme se montre en grand, et la suite de la page
+   commence sous le premier écran, comme sur le modèle de spott.io. Le
    téléphone garde son propre réglage (bloc « 17. TÉLÉPHONE »). */
 @media (min-width: 761px) {
   .hero--full { height: auto; min-height: 0; }
-  /* 316 et non 300 : la quatrième étape entière, et la coupe juste avant
-     l'intitulé des compétences. */
-  .peek { height: 316px; }
 }
 
 /* ─── 18. RESSOURCES : BLOG, COMPARAISONS (15/10/2026) ───────────────────── */

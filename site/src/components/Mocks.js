@@ -1,4 +1,5 @@
 import { Check, Close, Bot, Mail, ArrowRight } from "./Icons";
+import { IcArrow, IcChevronDown, IcMail, Note, Statut, ton } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les maquettes d'interface.
@@ -43,47 +44,52 @@ function Pct({ value, warn = false }) {
   );
 }
 
-// La maquette du hero a disparu d'ici : ce n'est plus une maquette. Le visiteur
-// écrit lui-même ce qu'il cherche et la construction se déroule sous ses yeux,
-// donc le bloc est devenu un composant client — voir `Playground.js`. Les
-// classes `.prompt` et `.gen` qu'il utilise vivent toujours dans globals.css, et
-// `.gen` sert encore ici, à `GenMock`.
+// La maquette du hero n'est pas ici : c'est la fenêtre à onglets de la
+// plateforme, un composant client, dans `AppPeek.js`.
 
 // ── Fiche de notation ───────────────────────────────────────────────────────
-/** `compact` : la note et ses lignes, SANS les citations ni les
- *  justifications. Sur l'accueil, la fiche sert à montrer la FORME d'un
- *  rapport, pas à le faire lire ; les citations y ajoutaient douze lignes de
- *  texte que personne ne lit en survolant. La version complète reste celle de
- *  /scoring, où c'est justement le sujet. */
-export function ScoreCard({ m, compact = false }) {
+/** Une étape du rapport candidat, telle que l'application l'affiche (19/10,
+ *  refonte du design) : le numéro de l'étape, la compétence, son format, la
+ *  note, puis les critères avec leur barre. SANS les citations ni les
+ *  justifications : sur l'accueil, la fiche sert à montrer la FORME d'un
+ *  rapport, pas à le faire lire.
+ *
+ *  La note se CALCULE à partir des critères (la moyenne, comme
+ *  `runScoring.js` côté application) : elle ne peut donc pas contredire ses
+ *  propres lignes. `m.score` n'est plus lu ici (il valait encore « 3,7 » en
+ *  français et en néerlandais). `app` : les libellés de l'interface, dans
+ *  `home.hero.app`. */
+export function ScoreCard({ m, app }) {
+  const r = app.report;
+  const n = Math.round(m.dims.reduce((t, d) => t + d.pct, 0) / m.dims.length);
   return (
-    <Frame label={`${m.skill} — ${m.score}${m.outOf}`}>
-      <div className="ui__body">
-        <div className="score__head">
-          <div>
-            <p className="score__skill">{m.skill}</p>
-          </div>
-          <p className="score__total">{m.score}<small>{m.outOf}</small></p>
-        </div>
-
-        <div>
-          {m.dims.map((d) => (
-            <div className="dim" key={d.name}>
-              <div className="dim__row">
-                <span className="dim__name">{d.name}</span>
-                <Pct value={d.pct} />
-              </div>
-              {compact ? null : (
-                <>
-                  <p className="quote">{d.quote}</p>
-                  <p className="dim__why">{d.why}</p>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </Frame>
+    <figure className="app-ui ap-panel" role="img" aria-label={`${m.skill}, ${app.pct.replace("{n}", n)}`}>
+      <span className="ap-cardHead">
+        <span className="ap-stepName">
+          <span className="ap-num">1</span>
+          <b className="ap-h2">{m.skill}</b>
+          <span className="ap-chip"><IcMail size={13} />{r.stepType}</span>
+        </span>
+        <Note fmt={app.pct} n={n} />
+      </span>
+      <span className="ap-inset">
+        <span className="ap-insetLabel">{r.criteria}</span>
+        {m.dims.map((d) => (
+          <span className="ap-crit" key={d.name}>
+            <span className="ap-critHead">
+              <span className="ap-critName">
+                <b>{d.name}</b>
+                <span className="ap-must">{r.must}</span>
+              </span>
+              <span className="ap-critScore">
+                <span className={`ap-meter ap-meter--${ton(d.pct)} ap-meter--short`}><i style={{ width: `${d.pct}%` }} /></span>
+                <Note fmt={app.pct} n={d.pct} />
+              </span>
+            </span>
+          </span>
+        ))}
+      </span>
+    </figure>
   );
 }
 
@@ -478,45 +484,57 @@ export function CvProof({ cv, score, labels }) {
   );
 }
 
-// ── La liste courte, classée ────────────────────────────────────────────────
-// Ce que le recruteur RÉCUPÈRE. Le site montrait par le menu comment la
-// simulation se fabrique et jamais ce qu'on obtient au bout ; c'est pourtant la
-// seule image qu'un recruteur pressé cherche.
-//
-// La dernière ligne n'a pas de note, et c'est voulu : un candidat invité qui
-// n'a pas commencé ne coûte rien et n'invente pas de score. Une liste où tout
-// le monde a un chiffre serait une liste truquée.
-export function ShortlistMock({ m }) {
+
+// ── La liste classée ────────────────────────────────────────────────────────
+/** L'onglet « Candidats » d'un job, tel que l'application l'affiche depuis la
+ *  refonte du 19/10 : chaque candidat, sa note en couleur et sa barre, son
+ *  statut, et le lien vers le rapport. Le dernier n'a pas de note : un
+ *  candidat invité qui n'a pas commencé n'en a pas, et une barre vide se
+ *  confondrait avec un score à 0 %. `app` : les libellés de l'interface,
+ *  dans `home.hero.app`. */
+export function ShortlistMock({ m, app }) {
+  const c = app.cands;
   return (
-    <Frame label={m.window}>
-      <div className="ui__body">
-        <div>
-          {m.rows.map((r) => (
-            <div className={`sl__row${r.top ? " sl__row--top" : ""}`} key={r.name}>
-              <span className="sl__n">{r.n}</span>
-              <span className="sl__avatar" aria-hidden="true">{r.initials}</span>
-              <span className="sl__name">{r.name}</span>
-              {r.score ? (
-                <>
-                  {/* `score` est déjà un pourcentage (0–100), pas une note sur
-                      5 : diviser par 5 avant de le remultiplier par 100
-                      faisait déborder la barre à chaque fois, qui rendait
-                      alors pleine quel que soit le score réel. */}
-                  <span className="sl__bar" aria-hidden="true">
-                    <i style={{ width: `${r.score}%` }} />
-                  </span>
-                  <span className="sl__score">{r.score}%</span>
-                </>
-              ) : (
-                // Pas de barre du tout pour un candidat qui n'a pas terminé :
-                // une barre vide se confond avec un score à 0 %.
-                <span className="sl__wait" style={{ gridColumn: "span 2" }}>{m.waiting}</span>
-              )}
-              <span className={`tag${r.score ? " tag--ok" : ""}`}>{r.state}</span>
-            </div>
-          ))}
-        </div>
+    <figure className="app-ui ap-panel ap-panel--flush" role="img" aria-label={m.window}>
+      <div className="ap-panelHead">
+        <span className="ap-panelTitle">
+          <b className="ap-h2">{app.job.tabs[1]}</b>
+          <span className="ap-tabCount">{m.window.replace(/\D+/g, "")}</span>
+        </span>
+        <span className="ap-select">{c.sort}<b>{c.sortBy}</b><IcChevronDown size={14} /></span>
       </div>
-    </Frame>
+      <div className="ap-tr ap-tr--head ap-tr--sl">
+        <span>{c.colCandidate}</span>
+        <span>{c.colScore}</span>
+        <span>{c.colStatus}</span>
+        <span />
+      </div>
+      {m.rows.map((r, i) => {
+        const note = r.score !== "";
+        return (
+          <div className="ap-tr ap-tr--sl" key={r.name}>
+            <span className="ap-who">
+              <span className="ap-avatar">{r.initials}</span>
+              <span className="ap-stack">
+                <b className="ap-strong">{r.name}</b>
+                <span className="ap-sub">{c.subs[i]}</span>
+              </span>
+            </span>
+            <span className="ap-bar">
+              {note ? (
+                <>
+                  <Note fmt={app.pct} n={r.score} />
+                  <span className={`ap-meter ap-meter--${ton(r.score)}`}><i style={{ width: `${r.score}%` }} /></span>
+                </>
+              ) : <span className="ap-dash">-</span>}
+            </span>
+            <span><Statut t={note ? "ok" : "wait"}>{r.state}</Statut></span>
+            <span className="ap-rowActions">
+              {note ? <span className="ap-btn ap-btn--soft">{c.view}<IcArrow size={13} /></span> : null}
+            </span>
+          </div>
+        );
+      })}
+    </figure>
   );
 }

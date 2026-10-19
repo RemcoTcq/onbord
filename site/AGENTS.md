@@ -48,6 +48,27 @@ Si vous croisez une valeur sombre en dur (`#0b1020`, un fond
 `rgba(255,255,255,0.06)`, un `color: #fff` sur autre chose qu'un bloc bleu),
 c'est un reste de cette époque : à convertir, jamais à imiter.
 
+⚠️ **DEPUIS LE 19/10/2026, LE SITE PARLE LE LANGAGE DE LA PLATEFORME**
+(demande directe : « que tout soit cohérent » après la refonte du design de
+l'application). Retouche légère, faite dans les jetons de `globals.css` :
+
+- **l'encre** est celle de l'application : `--text` #14204A (bleu nuit, plus
+  le quasi-noir #070d1a), `--text-2` #3D4866, `--text-3` #5A6685 ;
+- **les arrondis** remontent : `--r-sm` 7, `--r` 10, `--r-lg` 12, `--r-xl` 16,
+  boutons à 10px. ⚠️ C'est l'INVERSE de la demande « plus carré » d'octobre
+  (2/3/4/4) : la cohérence avec l'application l'a emporté. Ne les refaites
+  pas descendre sans en reparler ;
+- **les intitulés de section** ne sont plus « [ HOW IT WORKS ] » en capitales
+  à chasse fixe, mais une pastille blanche avec un point (`.eyebrow`), comme
+  les repères de l'application ;
+- **les étiquettes** (`.tag`) passent en Geist, casse normale ; les **cartes**
+  (`.card`) sont blanches ; la pastille de l'étape en cours et la coche de la
+  carte « simulation » prennent le bleu des numéros d'étape de l'application ;
+- les **visuels du produit** suivent la règle 4 octies bis.
+
+Ce qui suit sur les crochets, les angles « coupés » et le quasi-noir décrit
+l'état d'AVANT.
+
 Les partis pris, à respecter en ajoutant quoi que ce soit :
 
 - **la trame se partage en DEUX, et pas là où on croit.** Ce ne sont plus
@@ -114,7 +135,7 @@ Les partis pris, à respecter en ajoutant quoi que ce soit :
   ⚠️ **DEPUIS LE 15/10/2026, LE HERO N'A PLUS DE HAUTEUR IMPOSÉE SUR BUREAU**
   (demande directe, constatée en 1920 × 1080 : la fenêtre finissait 130px
   avant le bas de l'écran, sur une bande blanche, et elle paraissait trop
-  haute). La fenêtre est coupée sous ses quatre étapes (`.peek` à 316px) et
+  haute). La fenêtre est coupée (`.peek`, `--k × 640px` depuis le 19/10) et
   le hero s'arrête avec elle (`height: auto` au-dessus de 760px, bloc en
   fin de `globals.css`) : la section suivante commence dans le premier
   écran. Le paragraphe qui suit décrit l'état d'AVANT ; le téléphone garde
@@ -379,7 +400,7 @@ pourrait se mettre à expliquer :
 
 | Section | La question du visiteur | La sortie |
 |---|---|---|
-| `hero` (plein écran) | qu'est-ce que c'est ? | le bac à sable, pour l'essayer |
+| `hero` (plein écran) | qu'est-ce que c'est ? | la plateforme, en quatre onglets |
 | `compare` | pourquoi ça me concerne ? | — |
 | `work` | c'est quoi, concrètement ? | — (ancre `#work`) |
 | `how` | comment ça se passe pour moi ? | — (ancre `#how`) |
@@ -1076,7 +1097,91 @@ ont disparu — voir aussi 4 sexies pour `mocks.aiUsage`).
 Pour la prochaine maquette : pas d'étiquette flottante au-dessus du panneau.
 Le texte à côté de la maquette dit déjà ce qu'elle montre.
 
-### 4 octies. L'aperçu de plateforme du hero, et pourquoi il est vide
+### 4 octies. La fenêtre de la plateforme, DROITE, et ses écrans qui défilent (19/10/2026)
+
+⚠️ **CETTE RÈGLE REMPLACE 4 octies, 4 undecies et 4 duodecies ci-dessous**,
+gardées pour l'historique. Demande directe, avec le hero de spott.io en
+modèle : la barre de saisie (le bac à sable, `Playground.js`) est
+**SUPPRIMÉE**, composant, dictionnaire (`hero.play`) et CSS (`.prompt`,
+`.play__*`) compris ; la fenêtre du hero montre maintenant la plateforme
+EN GRAND (`AppPeek.js`, dictionnaire `hero.app`). Trois écrans se
+relaient toutes les 5 secondes (`ROTATION`) : **tableau de bord,
+candidats, rapport**. L'écran de la simulation a été retiré (demande
+directe), composant, textes et CSS compris. Le survol suspend le défilement ; sous
+« réduire les animations », le tableau de bord reste fixe.
+
+⚠️ Trois retours directs du même jour, à ne pas défaire : **pas d'onglets**
+au-dessus de la fenêtre (essayés, retirés : on voulait « un exemple de la
+plateforme », pas un menu) ; **la fenêtre n'est plus couchée** (l'inclinaison
+de 18° au chargement est supprimée, `--lean` aussi) ; **le verre n'est plus
+qu'un CONTOUR** de 8px autour de la fenêtre (`.stage__peek::before`), plus
+la grande plaque qui débordait de 26 à 30px.
+
+- **c'est une reproduction FIDÈLE de l'interface recruteur** issue de la
+  refonte du 19/10 (maquette Claude Design) : fond `#EEF1F7`, bleu
+  `#1B45C4`, encre `#14204A`, Geist, cartes à 14px, page à 18px. Plus de
+  barres grises : tout est lisible. Les couleurs sont recopiées de
+  `app/recruteur.css` (racine du dépôt) dans les variables `--ap-*` de
+  `.peek__win`, et ne valent que là. Quand l'application change de
+  palette, on resynchronise à la main, comme `pricing.js` ;
+- **l'échelle** : l'écran est dessiné à la taille réelle de l'application
+  (1200px de large, texte à 14px, tout en px) et `zoom` (`--k`, calculé
+  par `AppPeek.js`) le ramène à la colonne. Sur téléphone, le menu de
+  gauche disparaît et la référence passe à 880px. Hauteur visible :
+  `--k × 640px` sur bureau ;
+- **les libellés sont ceux de l'application** (`dashboard.js`, racine) et
+  les candidats ceux de `mocks.shortlist`, Sarah D. à 67 % avec les
+  critères de `mocks.score` (75, 50, 75). Pas de crédits sur le tableau
+  de bord : la règle 0 l'interdit sur l'accueil, la troisième carte compte
+  les simulations terminées ;
+- **accessibilité** : la fenêtre est UNE image (`role="img"`, `hero.app.alt`),
+  son contenu est `aria-hidden`. Tout ce qui ressemble à un bouton dans la
+  fenêtre est un `<span>` ;
+- **ce qui n'a pas changé** : le halo bleu (`.stage::after`), le masque du
+  bas, le titre collé qui passe sous la fenêtre au défilement.
+
+### 4 octies bis. TOUS les visuels de produit sont au style de la plateforme (19/10/2026)
+
+⚠️ **Le copilote de `/business-roles` est la COPIE du « Simulation Copilot »**
+de l'application (`ChatEtape.js`, racine du dépôt) : avatar bleu à étincelle,
+statut « connaît cette simulation », réponses sans bulle à côté de l'avatar,
+carte « Modification proposée », suggestions en pilules et zone de saisie.
+La zone de saisie est une IMAGE (`aria-hidden`) : les demandes restent des
+boutons, la règle 5 bis tient toujours. Son nom, « Simulation Copilot », est
+celui de l'application dans les trois langues (il remplace « Onbord
+copilot », qui avait été demandé en capitales le 14/10). Calé ensuite sur
+une capture de l'application fournie par Remco : message d'accueil avec le
+job en gras, deux icônes dans l'en-tête, suggestions COURTES sur une seule
+ligne qui défile, et la ligne « Questions are free · 2 credits per rewrite
+applied » sous la saisie. Ce coût est celui de l'application (règle 2 :
+2 crédits par étape réécrite) ; il n'a pas sa place sur l'accueil (règle 0),
+il l'a ici.
+
+Demande directe, dans la foulée du hero : les visuels de l'accueil et de
+`/business-roles` reprennent le design de l'application.
+
+- **les briques sont partagées** : `src/components/AppUi.js` (icônes au
+  trait de l'application, pastilles de score `Note`, statuts `Statut`, seuils
+  `ton` 75/50) et, dans `globals.css`, les classes `ap-*` et les couleurs
+  `--ap-*`, valables sous `.peek__win` (le hero) ou `.app-ui` (tout le
+  reste). Un nouveau visuel de produit part de là, pas de `.ui` ni de `.tag` ;
+- **accueil** : la liste classée (`ShortlistMock`, l'onglet Candidats de
+  l'application), la fiche de score (`ScoreCard`, une étape du rapport, note
+  CALCULÉE comme la moyenne des critères), les trois visuels d'étapes
+  (`Steps.js`), le retour au candidat (`FeedbackTabs.js`, sélecteur `ap-seg`,
+  vert et rouge conservés) et la composition candidat (`WorkScenes.js`, mêmes
+  rayons et bleu ; plus de pastilles façon macOS) ;
+- **`/business-roles`** : les personnages (`Cast`), le schéma contexte →
+  simulation (`Feed`) et le copilote (`Copilot.js`, mêmes bulles que
+  « Talk it through »). Les familles de rôles et les quatre façons de
+  travailler restent au style du site : ce sont des contenus, pas des écrans ;
+- `ShortlistMock` et `ScoreCard` prennent un second argument, `app`
+  (`home.hero.app`) : les libellés de l'interface (colonnes, Must-have,
+  Criteria…) n'existent qu'à un endroit ;
+- **retirés, plus aucun appelant** : `.sl__*`, `.tabs`/`.tab`, `.sv__chrome`
+  et le contenu `.sv__*` des étapes, `.compo__dots`, `.sr-only`.
+
+### 4 octies (historique). L'aperçu de plateforme du hero, et pourquoi il était vide
 
 `AppPeek.js` pose sous la barre de saisie une fenêtre d'application COUPÉE en
 bas par un masque en dégradé. Ce n'est pas une maquette au sens de la règle 5 :
@@ -1363,6 +1468,10 @@ la fiche de notation (75, 50, 75) doivent avoir pour moyenne la note affichée
 
 ### 5 bis. Le bac à sable du hero ne calcule rien, et ne doit jamais le laisser croire
 
+⚠️ **Le bac à sable n'existe plus depuis le 19/10/2026** (règle 4 octies) :
+`Playground.js` est supprimé. Ce qui suit sur `FeedbackTabs.js` reste vrai ;
+les règles du bac à sable restent pour le jour où un champ libre revient.
+
 `src/components/Playground.js` est l'un des **deux composants client** du site,
 avec `FeedbackTabs.js`. Le visiteur décrit le poste qu'il a réellement à
 pourvoir, la construction se déroule ligne à ligne, et l'écran d'arrivée lui
@@ -1429,7 +1538,8 @@ site/
 │   │       └── legal/[doc]/      Les trois pages légales (voir règle 1)
 │   ├── components/
 │   │   ├── Bits.js               Briques de mise en page (Split, Title, Rule…)
-│   │   ├── Playground.js         Le bac à sable du hero (composant client)
+│   │   ├── AppPeek.js            La fenêtre de la plateforme, écrans en rotation (client)
+│   │   ├── AppUi.js              Les briques de l'interface recruteur, partagées
 │   │   ├── WorkScenes.js         La composition : code, e-mail, appel filmé
 │   │   ├── HowVisuals.js         Les vignettes minimalistes de /how-it-works
 │   │   ├── FeedbackTabs.js       Le retour candidat, retenu/refusé (client)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Frame } from "./Mocks";
+import { IcMail } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Le retour écrit envoyé au candidat, en deux onglets.
@@ -25,12 +25,16 @@ export default function FeedbackTabs({ m }) {
   const [actif, setActif] = useState(0);
   const onglet = m.tabs[actif];
 
+  // Dans le style de l'application depuis le 19/10 : un sélecteur à deux
+  // cases sur un fond gris, et l'e-mail dans une carte arrondie. Le VERT et
+  // le ROUGE restent : c'est le seul endroit du site où le rouge veut dire
+  // « refusé » (règle 5 bis de site/AGENTS.md).
   return (
-    <div>
+    <div className="app-ui">
       {/* `role="tablist"` et les `aria-selected` : au clavier et au lecteur
           d'écran, ce bloc s'annonce comme deux onglets, pas comme deux boutons
           qui font on ne sait quoi. */}
-      <div className="tabs" role="tablist" aria-label={m.window}>
+      <div className="ap-seg" role="tablist" aria-label={m.window}>
         {m.tabs.map((t, i) => (
           <button
             key={t.id}
@@ -39,10 +43,10 @@ export default function FeedbackTabs({ m }) {
             id={`fb-tab-${t.id}`}
             aria-selected={i === actif}
             aria-controls={`fb-panel-${t.id}`}
-            className={`tab tab--${t.id}${i === actif ? " tab--on" : ""}`}
+            className={`ap-segBtn ap-segBtn--${t.id}${i === actif ? " ap-segBtn--on" : ""}`}
             onClick={() => setActif(i)}
           >
-            <i className="tab__dot" aria-hidden="true" />
+            <i aria-hidden="true" />
             {t.label}
           </button>
         ))}
@@ -52,15 +56,15 @@ export default function FeedbackTabs({ m }) {
         role="tabpanel"
         id={`fb-panel-${onglet.id}`}
         aria-labelledby={`fb-tab-${onglet.id}`}
-        style={{ marginTop: 14 }}
+        className="ap-panel ap-mail"
       >
-        <Frame label={onglet.tag}>
-          <div className="ui__body">
-            {onglet.body.map((p) => (
-              <p key={p} style={{ fontSize: "0.875rem", lineHeight: 1.65, color: "var(--text-2)" }}>{p}</p>
-            ))}
-          </div>
-        </Frame>
+        <span className="ap-mailHead">
+          <span className="ap-fileIcon"><IcMail size={16} /></span>
+          <span className={`ap-status ap-status--${onglet.id === "next" ? "ok" : "no"}`}><i />{onglet.tag}</span>
+        </span>
+        <div className="ap-mailBody">
+          {onglet.body.map((p) => <p key={p}>{p}</p>)}
+        </div>
       </div>
     </div>
   );
