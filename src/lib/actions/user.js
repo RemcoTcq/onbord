@@ -110,6 +110,8 @@ export async function getEmployerBranding() {
         name: user.user_metadata?.company_name || "",
         logo_url: data?.company_logo_url || "",
         primary_color: data?.brand_primary_color || "#2563eb",
+        // Vide = automatique : le texte des boutons se déduit du contraste.
+        text_color: data?.brand_secondary_color || "",
         description: user.user_metadata?.company_description || "",
       }
     };
@@ -139,6 +141,9 @@ export async function updateEmployerBranding(brandingData) {
         company_name: brandingData.name,
         company_logo_url: brandingData.logo_url,
         brand_primary_color: brandingData.primary_color,
+        // Couleur du texte sur les boutons du parcours candidat : un #RRGGBB, ou
+        // rien (automatique). Une saisie invalide vaut automatique.
+        brand_secondary_color: /^#[0-9a-f]{6}$/i.test(brandingData.text_color || "") ? brandingData.text_color : null,
       })
       .eq("id", user.id);
 

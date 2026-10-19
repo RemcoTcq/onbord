@@ -28,6 +28,8 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#4f46e5");
+  // Couleur du texte sur les boutons candidat. Vide = automatique (contraste).
+  const [textColor, setTextColor] = useState("");
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
           setCompanyName(res.branding.name || "");
           setLogoUrl(res.branding.logo_url || "");
           setPrimaryColor(res.branding.primary_color || "#4f46e5");
+          setTextColor(res.branding.text_color || "");
           setDescription(res.branding.description || "");
         }
       } catch (err) {
@@ -87,7 +90,8 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
       name: companyName,
       description,
       logo_url: logoUrl,
-      primary_color: primaryColor
+      primary_color: primaryColor,
+      text_color: textColor,
     });
 
     if (result.success) {
@@ -113,7 +117,8 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
   // Couleur de l'entreprise : elle habille l'expérience CANDIDAT (pages de
   // candidature et simulation). L'interface recruteur, elle, garde la palette
   // Onbord quelle que soit cette couleur.
-  const primaryText = getContrastColor(primaryColor);
+  const auto = !/^#[0-9a-f]{6}$/i.test(textColor);
+  const primaryText = auto ? getContrastColor(primaryColor) : textColor;
 
   return (
     <form onSubmit={handleSave} className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -163,6 +168,18 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
               <input type="text" className="ds-input ds-mono" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} aria-label={t("dashboard.branding.primaryColor")} style={{ width: 120 }} />
             </div>
             <span className="ds-help">{t("dashboard.branding.primaryColorHelp")}</span>
+          </div>
+          <div className="ds-field">
+            <span className="ds-label">{t("dashboard.branding.textColor")}</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="color" value={auto ? primaryText : textColor} onChange={(e) => setTextColor(e.target.value)} aria-label={t("dashboard.branding.textColor")}
+                style={{ width: 40, height: 40, padding: 3, border: "1px solid var(--ds-line)", borderRadius: 9, background: "#FFFFFF", cursor: "pointer" }} />
+              <input type="text" className="ds-input ds-mono" value={textColor} onChange={(e) => setTextColor(e.target.value.trim())} placeholder={t("dashboard.branding.textColorAuto")} aria-label={t("dashboard.branding.textColor")} style={{ width: 120 }} />
+              <button type="button" className="ds-btn ds-btn-sm" onClick={() => setTextColor("")} disabled={auto} aria-pressed={auto}>
+                {t("dashboard.branding.textColorAuto")}
+              </button>
+            </div>
+            <span className="ds-help">{auto ? t("dashboard.branding.textColorAutoHelp") : t("dashboard.branding.textColorHelp")}</span>
           </div>
         </div>
 

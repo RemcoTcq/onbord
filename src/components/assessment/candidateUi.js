@@ -6,7 +6,25 @@
 // 1.5rem/700, boutons secondaires discrets soulignés. Le branding client est
 // une couche par-dessus (couleur `primary`), pas un système à part.
 
+// Couleur du texte posé sur la couleur de marque (boutons, pastilles, bulles).
+// L'entreprise peut la choisir (users.brand_secondary_color, « couleur du
+// texte » dans Image de marque) ; à défaut, elle se déduit du contraste.
+//
+// Retenue au niveau du module, posée par les écrans de tête (run, onboarding,
+// notices) : une page candidat n'affiche qu'une marque, et tous les composants
+// passent déjà par getContrastColor(primary) — aucun n'a à la recevoir en prop.
+let texteDeMarque = null; // { fond, texte }
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+export function definirTexteDeMarque(recruiter) {
+  const fond = recruiter?.brand_primary_color;
+  const texte = recruiter?.brand_secondary_color;
+  texteDeMarque = fond && HEX.test(texte || "") ? { fond: fond.toLowerCase(), texte } : null;
+}
+
 export function getContrastColor(hexColor) {
+  if (texteDeMarque && hexColor && hexColor.toLowerCase() === texteDeMarque.fond) return texteDeMarque.texte;
   if (!hexColor) return "#ffffff";
   const hex = hexColor.replace("#", "");
   const r = parseInt(hex.substring(0, 2), 16) || 0;

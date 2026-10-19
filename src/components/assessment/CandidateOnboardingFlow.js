@@ -4,16 +4,7 @@ import { useState } from "react";
 import { ChevronRight, ArrowRight, Loader2, Check, Send } from "lucide-react";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { LIENS_LEGAUX, LIEN_LEGAL_PROPS } from "@/lib/constants/legal";
-
-export function getContrastColor(hexColor) {
-  if (!hexColor) return '#ffffff';
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16) || 0;
-  const g = parseInt(hex.substring(2, 4), 16) || 0;
-  const b = parseInt(hex.substring(4, 6), 16) || 0;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#ffffff';
-}
+import { getContrastColor, definirTexteDeMarque } from "./candidateUi";
 
 export default function CandidateOnboardingFlow({ candidate, job, recruiter, onComplete, onUpdateCandidate }) {
   const { t } = useI18n();
@@ -28,6 +19,7 @@ export default function CandidateOnboardingFlow({ candidate, job, recruiter, onC
 
   // Branding
   const primaryColor = recruiter?.brand_primary_color || "#0f172a";
+  definirTexteDeMarque(recruiter);
   const primaryText = getContrastColor(primaryColor);
   // Extrait du JSX : les phrases de consentement sont désormais assemblées par
   // tNodes(), où répéter le style en ligne à chaque lien nuirait à la lecture.

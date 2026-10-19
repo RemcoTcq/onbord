@@ -143,7 +143,7 @@ async function resolveCandidateAndRun(admin, token) {
   if (!job) return { error: "Offre introuvable." };
 
   const { data: recruiter } = await admin
-    .from("users").select("company_name, brand_primary_color, company_logo_url").eq("id", job.user_id).single();
+    .from("users").select("company_name, brand_primary_color, brand_secondary_color, company_logo_url").eq("id", job.user_id).single();
 
   // Un candidat qui a commencé reste sur SA version jusqu'au bout, même si le
   // recruteur en a publié une autre depuis (retouche d'une version commencée,

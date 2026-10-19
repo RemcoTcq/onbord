@@ -1453,6 +1453,10 @@ const dashboard = {
   },
 
   branding: {
+    textColor: "Button text colour",
+    textColorAuto: "Automatic",
+    textColorAutoHelp: "Automatic: white or black depending on the primary colour, so it stays readable.",
+    textColorHelp: "Text on the buttons, badges and selected items of your candidate journey.",
     tooLarge: "The image must be under 2 MB.",
     companyNamePlaceholder: "e.g. Acme Corp",
     taglinePlaceholder: "e.g. an innovative greentech start-up…",

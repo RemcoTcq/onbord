@@ -6,12 +6,13 @@
 // d'entrée (/assessment et /apply) pour qu'un candidat voie exactement la même
 // chose quel que soit le lien sur lequel il a cliqué.
 
-import { container, heading, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "./candidateUi";
+import { container, heading, getContrastColor, definirTexteDeMarque, PAGE_BG, DEFAULT_PRIMARY } from "./candidateUi";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 export default function CandidateNotice({ recruiter, job, title, children }) {
   const t = useT();
   const primary = recruiter?.brand_primary_color || DEFAULT_PRIMARY;
+  definirTexteDeMarque(recruiter);
   const label = recruiter?.company_name || job?.title || "O";
 
   return (

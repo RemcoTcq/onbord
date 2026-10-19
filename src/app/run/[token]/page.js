@@ -13,7 +13,7 @@ import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
 import CandidateNotice from "@/components/assessment/CandidateNotice";
 import CvGate from "@/components/assessment/CvGate";
-import { primaryBtn, pillBtn, ghostBtn, optionBtn, container, heading, focusStyle, getContrastColor, PAGE_BG, DEFAULT_PRIMARY } from "@/components/assessment/candidateUi";
+import { primaryBtn, pillBtn, ghostBtn, optionBtn, container, heading, focusStyle, getContrastColor, definirTexteDeMarque, PAGE_BG, DEFAULT_PRIMARY } from "@/components/assessment/candidateUi";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function RunPage() {
@@ -237,6 +237,7 @@ export default function RunPage() {
   // Branding client : couleur de marque explicite (texte à contraste sur les
   // boutons) + surcharge de --primary pour ce qui cascade (barre de progression).
   const primary = recruiter?.brand_primary_color || DEFAULT_PRIMARY;
+  definirTexteDeMarque(recruiter);
   const pageStyle = { "--primary": primary, "--primary-hover": primary };
 
   if (loading) return <Center><Loader2 size={30} style={{ color: primary, animation: "spin 1s linear infinite" }} /></Center>;

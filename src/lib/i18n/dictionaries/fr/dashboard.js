@@ -1543,6 +1543,10 @@ const dashboard = {
 
   // ── Branding employeur ────────────────────────────────────────────────────
   branding: {
+    textColor: "Couleur du texte des boutons",
+    textColorAuto: "Automatique",
+    textColorAutoHelp: "Automatique : blanc ou noir selon la couleur principale, pour rester lisible.",
+    textColorHelp: "Texte des boutons, pastilles et éléments sélectionnés de votre parcours candidat.",
     tooLarge: "L'image doit faire moins de 2 Mo.",
     companyNamePlaceholder: "Ex : Acme Corp",
     taglinePlaceholder: "Ex : start-up innovante dans la greentech…",
