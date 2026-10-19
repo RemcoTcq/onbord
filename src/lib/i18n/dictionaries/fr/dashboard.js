@@ -1449,6 +1449,16 @@ const dashboard = {
 
 // ── Profil entreprise (contexte IA privé) ─────────────────────────────────
   companyProfile: {
+    analyzeErrors: {
+      auth: "Session expirée : reconnectez-vous.",
+      missingUrl: "Indiquez l'adresse du site.",
+      invalidUrl: "Adresse invalide. Vérifiez le format (ex. : https://acme.com).",
+      siteError: "Le site a renvoyé une erreur ({status}). Remplissez les champs à la main.",
+      timeout: "Le site met trop de temps à répondre. Remplissez les champs à la main.",
+      unreachable: "Impossible d'accéder au site. Remplissez les champs à la main.",
+      tooLittle: "Trop peu de contenu sur la page d'accueil. Remplissez les champs à la main.",
+      aiFailed: "L'analyse a échoué. Remplissez les champs à la main ou réessayez.",
+    },
     websiteUrl: "URL du site web",
     analyzing: "Analyse…",
     industry: "Industrie / secteur",

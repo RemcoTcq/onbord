@@ -1,7 +1,7 @@
 "use client";
 
 import LanguageSelector from "@/components/settings/LanguageSelector";
-import { useT, tNodes } from "@/lib/i18n/I18nProvider";
+import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { useState, useEffect } from "react";
 import { getCompanyProfile, updateCompanyProfile, fetchAndAnalyzeWebsite } from "@/lib/actions/company-profile";
 import { useToast } from "@/components/ui/Toast";
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 export default function CompanyProfilePage() {
-  const t = useT();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,7 +48,7 @@ export default function CompanyProfilePage() {
       return;
     }
     setAnalyzing(true);
-    const result = await fetchAndAnalyzeWebsite(websiteUrl.trim());
+    const result = await fetchAndAnalyzeWebsite(websiteUrl.trim(), locale);
     if (result.success && result.context) {
       if (result.context.description) setDescription(result.context.description);
       if (result.context.target_market) setTargetMarket(result.context.target_market);
@@ -56,7 +56,7 @@ export default function CompanyProfilePage() {
       if (result.context.domain) setDomain(result.context.domain);
       toast(t("dashboard.companyProfile.contextGenerated"), "success");
     } else {
-      toast(result.error || t("dashboard.companyProfile.analysisFailed"), "error");
+      toast(result.code ? t(`dashboard.companyProfile.analyzeErrors.${result.code}`, { status: result.status }) : t("dashboard.companyProfile.analysisFailed"), "error");
     }
     setAnalyzing(false);
   };

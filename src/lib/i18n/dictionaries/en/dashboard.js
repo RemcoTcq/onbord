@@ -1361,6 +1361,16 @@ const dashboard = {
   },
 
   companyProfile: {
+    analyzeErrors: {
+      auth: "Session expired: please sign in again.",
+      missingUrl: "Enter the website address.",
+      invalidUrl: "Invalid address. Check the format (e.g. https://acme.com).",
+      siteError: "The website returned an error ({status}). Fill in the fields manually.",
+      timeout: "The website is taking too long to respond. Fill in the fields manually.",
+      unreachable: "Could not reach the website. Fill in the fields manually.",
+      tooLittle: "Not enough content on the home page. Fill in the fields manually.",
+      aiFailed: "The analysis failed. Fill in the fields manually or try again.",
+    },
     websiteUrl: "Website URL",
     analyzing: "Analysing…",
     industry: "Industry / sector",

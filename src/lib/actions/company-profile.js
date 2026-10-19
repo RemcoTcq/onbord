@@ -3,6 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import anthropic from "@/lib/anthropic";
+import { resolveUiLocale } from "@/lib/i18n/server";
+import { consigneLangueRecruteur } from "@/lib/i18n/prompt";
+import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 /**
  * Reads the company profile (AI context) for the current user.
@@ -78,27 +81,31 @@ export async function updateCompanyProfile(profileData) {
  * @param {string} url - The company website URL
  * @returns {{ success: boolean, context?: object, error?: string }}
  */
-export async function fetchAndAnalyzeWebsite(url) {
+// `locale` : langue de l'interface du recruteur, transmise par l'écran — c'est
+// elle que suivent les champs remplis, pas la langue du site analysé. À défaut,
+// celle de la requête (cookie / en-tête).
+// Les erreurs sont des CODES (`code`), traduits par l'écran.
+export async function fetchAndAnalyzeWebsite(url, locale) {
   // Point d'entrée HTTP public (server action) : sans session, n'importe qui
   // faisait télécharger une URL de son choix par le serveur, puis analyser par
   // le modèle aux frais d'Onbord. Réservé à un recruteur connecté.
   {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    if (!user) return { success: false, code: "auth" };
   }
   if (!url || !url.trim()) {
-    return { success: false, error: "URL manquante." };
+    return { success: false, code: "missingUrl" };
   }
 
   let parsedUrl;
   try {
     parsedUrl = new URL(url.trim());
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return { success: false, error: "URL invalide." };
+      return { success: false, code: "invalidUrl" };
     }
   } catch {
-    return { success: false, error: "URL invalide. Vérifiez le format (ex: https://acme.com)." };
+    return { success: false, code: "invalidUrl" };
   }
 
   // --- 1. Fetch the website ---
@@ -120,32 +127,28 @@ export async function fetchAndAnalyzeWebsite(url) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return {
-        success: false,
-        error: `Le site a retourné une erreur (${response.status}). Remplissez les champs manuellement.`,
-      };
+      return { success: false, code: "siteError", status: response.status };
     }
     rawHtml = await response.text();
   } catch (err) {
     if (err.name === "AbortError") {
-      return { success: false, error: "Le site met trop de temps à répondre. Remplissez les champs manuellement." };
+      return { success: false, code: "timeout" };
     }
-    return { success: false, error: "Impossible d'accéder au site. Remplissez les champs manuellement." };
+    return { success: false, code: "unreachable" };
   }
 
   // --- 2. Strip HTML to plain text ---
   const text = extractTextFromHtml(rawHtml).substring(0, 6000);
 
   if (!text || text.trim().length < 50) {
-    return {
-      success: false,
-      error: "Contenu insuffisant sur la page d'accueil. Remplissez les champs manuellement.",
-    };
+    return { success: false, code: "tooLittle" };
   }
 
   // --- 3. AI analysis ---
   try {
-    const prompt = `Tu es un expert en analyse d'entreprise. Voici le contenu textuel du site web d'une entreprise :
+    const ui = coerceUiLocale(locale || await resolveUiLocale());
+    const langue = consigneLangueRecruteur(ui);
+    const prompt = `${langue ? `${langue}\n\n` : ""}Tu es un expert en analyse d'entreprise. Voici le contenu textuel du site web d'une entreprise :
 
 <website_content>
 ${text}
@@ -160,7 +163,7 @@ Analyse ce contenu et extrait les informations suivantes. Réponds UNIQUEMENT en
   "domain": "Le modèle commercial principal (ex: B2B SaaS, B2C, Marketplace, Services professionnels, B2B2C, etc.)"
 }
 
-Si une information n'est pas clairement identifiable dans le contenu, laisse la valeur vide "".`;
+Si une information n'est pas clairement identifiable dans le contenu, laisse la valeur vide "".${langue ? `\n\nRAPPEL : les valeurs du JSON sont rédigées en ${LOCALE_NAMES_FR[ui]}.` : ""}`;
 
     const response = await anthropic.messages.create({
       // Haiku 5.5 : ni `temperature` (refusée, 400) ni réflexion (activée par
@@ -180,10 +183,7 @@ Si une information n'est pas clairement identifiable dans le contenu, laisse la 
     return { success: true, context };
   } catch (err) {
     console.error("fetchAndAnalyzeWebsite AI error:", err);
-    return {
-      success: false,
-      error: "L'analyse IA a échoué. Remplissez les champs manuellement ou réessayez.",
-    };
+    return { success: false, code: "aiFailed" };
   }
 }
 

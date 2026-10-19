@@ -401,3 +401,18 @@ ${evidence}
 
 ${valeurs}`;
 }
+
+/**
+ * Langue de sortie d'une analyse lue par le RECRUTEUR seul (profil
+ * d'entreprise tiré de son site, par exemple) : la langue de son interface,
+ * quelle que soit la langue du contenu analysé. Rien à ajouter en français.
+ * @param {string} uiLocale langue du dashboard recruteur (fr|en)
+ */
+export function consigneLangueRecruteur(uiLocale) {
+  const ui = coerceUiLocale(uiLocale);
+  if (ui === "fr") return "";
+  const nom = LOCALE_NAMES_FR[ui];
+  return `LANGUE DE SORTIE — CONSIGNE PRIORITAIRE : ${nom}.
+
+Toutes les valeurs du JSON sont rédigées en ${nom}, même si le contenu analysé est dans une autre langue. Cette consigne prime sur la langue des instructions ci-dessous, qui sont en français pour des raisons internes : applique-les, et rends le résultat en ${nom}.`;
+}
