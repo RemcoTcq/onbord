@@ -65,6 +65,12 @@ l'application). Retouche légère, faite dans les jetons de `globals.css` :
   (`.card`) sont blanches ; la pastille de l'étape en cours et la coche de la
   carte « simulation » prennent le bleu des numéros d'étape de l'application ;
 - les **visuels du produit** suivent la règle 4 octies bis.
+- **`/pricing`, `/resources`, les articles, `/demo` et le pied de page** suivent
+  (même jour) : sélecteur Annual/Monthly à curseur blanc, plan Pro cerclé de
+  bleu, coûts en crédits en bleu, en-têtes de tableau en casse normale,
+  onglet de catégorie actif en bleu léger, catégories et dates des
+  articles en Geist, titres du pied de page sans crochets. Il ne reste de
+  chasse fixe que pour les CHIFFRES, comme dans l'application.
 
 Ce qui suit sur les crochets, les angles « coupés » et le quasi-noir décrit
 l'état d'AVANT.
