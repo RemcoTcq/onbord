@@ -38,6 +38,19 @@ const SUJETS = {
 };
 
 /**
+ * Lien « Get a free simulation » (20/10/2026) : L'APPEL PRINCIPAL DU SITE.
+ * Le visiteur envoie une offre sur /free-simulation, l'équipe en construit la
+ * simulation gratuitement et revient vers lui sous 24 heures. La démo
+ * (`demoHref`) passe en second, pour qui veut parler d'abord.
+ * @param {string} locale
+ * @param {string} [plan]  le plan regardé sur /pricing, s'il y en a un.
+ */
+export function simulationHref(locale, plan) {
+  const base = href("/free-simulation", locale);
+  return plan ? `${base}?plan=${encodeURIComponent(plan)}` : base;
+}
+
+/**
  * Lien de demande de démo.
  * @param {string} locale  fr | nl | en
  * @param {string} [plan]  identifiant du plan quand la demande part d'une carte
@@ -54,14 +67,12 @@ export function demoHref(locale, plan) {
 }
 
 /**
- * Lien « envoyez-nous une offre ». C'est l'appel principal du site depuis que
- * la page d'accueil se termine par une offre à envoyer plutôt que par une
- * démo à demander : la demande est concrète, et la réponse aussi.
+ * Un e-mail « voici une offre » tout prêt, vers CONTACT_EMAIL. Il ne sert plus
+ * que de SECOURS : quand l'envoi du formulaire /free-simulation échoue, c'est
+ * le lien qu'on propose au visiteur pour envoyer son offre à la main.
  *
  * @param {string} locale
- * @param {string} [description]  ce que le visiteur a écrit dans le bac à
- *                                sable du hero. Repris en corps de l'e-mail,
- *                                pour qu'il n'ait pas à le retaper.
+ * @param {string} [description]  repris en corps de l'e-mail.
  */
 export function postingHref(locale, description) {
   const s = SUJETS[locale] || SUJETS.fr;

@@ -1,7 +1,6 @@
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { coerceLocale, LOCALES, LOCALE_TAGS, DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { localiserChemin } from "@/lib/i18n/routes";
-import { demoHref } from "@/lib/contact";
 import { TitleH1, Eyebrow, Cta } from "@/components/Bits";
 import Copilot from "@/components/Copilot";
 import { Cast, Feed } from "@/components/RolesVisuals";
@@ -148,8 +147,7 @@ export default async function BusinessRoles({ params }) {
       <Cta
         title={p.closing.title}
         body={p.closing.body}
-        primary={p.closing.cta}
-        primaryHref={demoHref(locale)}
+        locale={locale}
       />
     </>
   );

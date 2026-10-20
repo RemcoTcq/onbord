@@ -1,7 +1,7 @@
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { coerceLocale, LOCALES, LOCALE_TAGS, DEFAULT_LOCALE } from "@/lib/i18n/config";
 import { localiserChemin } from "@/lib/i18n/routes";
-import { demoHref, talkHref } from "@/lib/contact";
+import { simulationHref, talkHref } from "@/lib/contact";
 import { CREDIT_COSTS, COST_PER_CANDIDATE, PLANS, candidatesFor } from "@/lib/pricing";
 import { TitleH1, Eyebrow, Cta } from "@/components/Bits";
 import PlanTable from "@/components/PlanTable";
@@ -73,7 +73,7 @@ export default async function Pricing({ params }) {
           annuel / mensuel, et c'est la seule interaction de la page. */}
       <section className="section" style={{ paddingTop: 24 }}>
         <div className="wrap">
-          <PlanTable dict={p} locale={locale} demoHref={demoHref(locale)} talkHref={talkHref(locale)} />
+          <PlanTable dict={p} locale={locale} simulationHref={simulationHref(locale)} talkHref={talkHref(locale)} />
         </div>
       </section>
 
@@ -168,8 +168,7 @@ export default async function Pricing({ params }) {
       <Cta
         title={p.closing.title}
         body={p.closing.body}
-        primary={p.closing.cta}
-        primaryHref={demoHref(locale)}
+        locale={locale}
       />
     </>
   );

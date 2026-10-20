@@ -1,6 +1,6 @@
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { coerceLocale, LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL } from "@/lib/i18n/config";
-import { demoHref } from "@/lib/contact";
+import { demoHref, simulationHref } from "@/lib/contact";
 import { Hr, Eyebrow, Title, TitleH1, Cta } from "@/components/Bits";
 import AppPeek from "@/components/AppPeek";
 import { ShortlistMock, ScoreCard } from "@/components/Mocks";
@@ -122,13 +122,14 @@ export default async function Home({ params }) {
           <TitleH1 a={h.hero.titleA} em={h.hero.titleEm} b={h.hero.titleB} coupe />
           <p className="lede">{h.hero.lede}</p>
 
-          {/* Un seul bouton. La fenêtre de la plateforme, juste en dessous,
-              se manipule par ses onglets : c'est le second point d'entrée. */}
+          {/* Deux boutons (20/10/2026) : la simulation gratuite d'abord,
+              l'appel principal du site, puis la démo pour qui veut parler. */}
           <div className="hero__actions">
-            <a className="btn btn--primary" href={demoHref(locale)}>
-              {h.hero.primary}
+            <a className="btn btn--primary" href={simulationHref(locale)}>
+              {c.nav.simulation}
               <ArrowRight size={15} />
             </a>
+            <a className="btn btn--ghost" href={demoHref(locale)}>{c.nav.demo}</a>
           </div>
         </div>
 
@@ -305,15 +306,14 @@ export default async function Home({ params }) {
           sortie devant la seule qu on veut faire pousser. Les tarifs restent
           dans la navigation et le pied de page. */}
 
-      {/* Un seul bouton, comme partout ailleurs sur le site : « Book a demo ».
-          `talkHref` reste utile ailleurs (voir contact.js), mais plus ici. */}
+      {/* Les deux boutons de toutes les bandes finales : la simulation
+          gratuite, puis la démo (voir Cta dans Bits.js). */}
       <Cta
         title={h.cta.titleA}
         em={h.cta.titleEm}
         titleB={h.cta.titleB}
         body={h.cta.body}
-        primary={h.cta.primary}
-        primaryHref={demoHref(locale)}
+        locale={locale}
       />
     </div>
   );

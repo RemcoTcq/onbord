@@ -113,7 +113,6 @@ const pages = {
     closing: {
       title: "C'est tout.",
       body: "Pas de projet d'implémentation, pas d'atelier de paramétrage. Un compte, une offre, et une liste classée au bout.",
-      cta: "Réserver une démo",
     },
   },
 
@@ -193,7 +192,6 @@ const pages = {
     closing: {
       title: "Lesquels vous obtenez dépend du poste.",
       body: "Un commercial terrain et un analyste back-office n'ont pas la même simulation. Envoyez-nous une offre et voyez.",
-      cta: "Réserver une démo",
     },
   },
 
@@ -264,7 +262,6 @@ const pages = {
     closing: {
       title: "Demandez à voir un vrai rapport.",
       body: "Pas une diapositive sur les rapports : un vrai, sur une vraie offre. Le moyen le plus rapide de juger si tout ceci est exact.",
-      cta: "Réserver une démo",
     },
   },
 
@@ -286,7 +283,6 @@ const pages = {
     billedAnnually: "facturé annuellement",
     billedMonthly: "facturé mensuellement",
     save: "2 mois offerts",
-    popular: "Le plus choisi",
     creditsPerMonth: "crédits par mois",
     rollover: "Crédits non utilisés reportés",
     onQuote: "Sur devis",
@@ -402,7 +398,6 @@ const pages = {
     closing: {
       title: "Le plus rapide reste d'envoyer une offre.",
       body: "Vous voyez la simulation, la grille de notation et un vrai rapport avant qu'on parle d'argent.",
-      cta: "Réserver une démo",
     },
   },
 
@@ -550,7 +545,6 @@ const pages = {
     closing: {
       title: "Vous recrutez pour l'un de ces métiers ?",
       body: "Envoyez-nous l'offre : nous construisons la simulation et vous la montrons avant qu'un candidat ne la voie.",
-      cta: "Réserver une démo",
     },
   },
 
@@ -584,12 +578,51 @@ const pages = {
     },
     closing: {
       title: "Voyez-le sur l'un de vos postes.",
-      body: "Envoyez-nous une offre : en 20 minutes, nous construisons votre première simulation ensemble, gratuitement.",
-      cta: "Réserver une démo",
+      body: "Envoyez-nous une offre : nous construisons votre première simulation gratuitement et revenons vers vous sous 24 heures.",
     },
   },
 
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  // La simulation gratuite (/free-simulation, 20/10/2026) : l'appel principal
+  // du site. Voir SimulationForm.js et src/app/api/simulation/route.js.
+  simulation: {
+    meta: {
+      title: "Une simulation gratuite | Onbord",
+      description: "Envoyez-nous l'une de vos offres d'emploi. Nous construisons votre première simulation gratuitement et revenons vers vous sous 24 heures."
+    },
+    eyebrow: "Gratuit, prêt sous 24 heures",
+    title: "Votre première simulation, offerte.",
+    lede: "Envoyez-nous une offre pour un poste que vous recrutez. Nous en construisons la simulation et revenons vers vous sous 24 heures.",
+    planNote: "Vous regardiez l'offre {plan}. Chaque compte commence par une simulation gratuite sur une vraie offre.",
+    firstName: "Prénom",
+    lastName: "Nom",
+    company: "Entreprise",
+    email: "E-mail professionnel",
+    phone: "Téléphone",
+    optional: "facultatif",
+    firstNamePh: "Julie",
+    lastNamePh: "Dupont",
+    companyPh: "Acme SA",
+    emailPh: "julie@acme.be",
+    phonePh: "+32 470 12 34 56",
+    postingUrl: "Lien vers l'offre d'emploi",
+    postingUrlPh: "https://",
+    postingText: "L'offre d'emploi",
+    postingTextPh: "Collez ici le texte complet de l'offre.",
+    useText: "Pas encore en ligne ? Collez plutôt le texte",
+    useLink: "Utiliser plutôt un lien",
+    submit: "Envoyer mon offre",
+    sending: "Envoi",
+    missing: "Merci de remplir les champs obligatoires.",
+    badEmail: "Merci d'indiquer une adresse e-mail valide.",
+    noPosting: "Ajoutez le lien de votre offre, ou collez son texte.",
+    failed: "L'envoi n'a pas abouti de notre côté. Envoyez votre offre à",
+    privacy: "Nous n'utilisons ces informations et cette offre que pour construire votre simulation.",
+    doneTitle: "Merci, {name}.",
+    doneLede: "Votre simulation sera prête sous 24 heures. Nous revenons vers vous à {email} pour vous la présenter.",
+    doneDemo: "Vous préférez en parler d'abord ?",
+    doneDemoLink: "Réserver une démo"
+  },
   demo: {
     meta: {
       title: "Réserver une démo | Onbord",

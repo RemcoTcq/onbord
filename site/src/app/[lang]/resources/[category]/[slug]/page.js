@@ -123,7 +123,7 @@ export default async function Article({ params }) {
         </section>
       ) : null}
 
-      <Cta title={p.closing.title} body={p.closing.body} primary={p.closing.cta} primaryHref={demoHref(locale)} />
+      <Cta title={p.closing.title} body={p.closing.body} locale={locale} />
     </>
   );
 }

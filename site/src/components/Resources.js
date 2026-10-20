@@ -259,7 +259,7 @@ export function Index({ locale, p, titre, lede, liste, actif }) {
         </div>
       </section>
 
-      <Cta title={p.closing.title} body={p.closing.body} primary={p.closing.cta} primaryHref={demoHref(locale)} />
+      <Cta title={p.closing.title} body={p.closing.body} locale={locale} />
     </>
   );
 }

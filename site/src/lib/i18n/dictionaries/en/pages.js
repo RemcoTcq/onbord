@@ -124,7 +124,6 @@ const pages = {
     closing: {
       title: "That is the whole thing.",
       body: "No implementation project, no configuration workshop. An account, a posting, and a shortlist at the end.",
-      cta: "Book a demo",
     },
   },
 
@@ -212,7 +211,6 @@ const pages = {
     closing: {
       title: "Which ones you get depends on the role.",
       body: "A field sales role and a back-office analyst do not get the same simulation. Send us a posting and see.",
-      cta: "Book a demo",
     },
   },
 
@@ -284,7 +282,6 @@ const pages = {
     closing: {
       title: "Ask to see a real report.",
       body: "Not a slide about reports: a real one, on a real posting. The fastest way to judge whether any of this is true.",
-      cta: "Book a demo",
     },
   },
 
@@ -307,7 +304,6 @@ const pages = {
     billedAnnually: "billed annually",
     billedMonthly: "billed monthly",
     save: "2 months free",
-    popular: "Most chosen",
     creditsPerMonth: "credits per month",
     rollover: "Unused credits roll over",
     onQuote: "On quote",
@@ -423,7 +419,6 @@ const pages = {
     closing: {
       title: "Still the fastest way to decide: send a posting.",
       body: "You see the simulation, the scoring grid and a real report before any money is discussed.",
-      cta: "Book a demo",
     },
   },
 
@@ -579,7 +574,6 @@ const pages = {
     closing: {
       title: "Hiring for one of these roles?",
       body: "Send us the posting: we build the simulation and show it to you before any candidate sees it.",
-      cta: "Book a demo",
     },
   },
 
@@ -613,12 +607,51 @@ const pages = {
     },
     closing: {
       title: "See it on one of your roles.",
-      body: "Send us a job posting: in 20 minutes we build your first simulation together, free.",
-      cta: "Book a demo",
+      body: "Send us a job posting: we build your first simulation for free and get back to you within 24 hours.",
     },
   },
 
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  // La simulation gratuite (/free-simulation, 20/10/2026) : l'appel principal
+  // du site. Voir SimulationForm.js et src/app/api/simulation/route.js.
+  simulation: {
+    meta: {
+      title: "Get a free simulation | Onbord",
+      description: "Send us one of your job postings. We build your first job simulation for free and get back to you within 24 hours."
+    },
+    eyebrow: "Free, ready within 24 hours",
+    title: "Get your first simulation free.",
+    lede: "Send us a job posting you are hiring for. We build the simulation from it and get back to you within 24 hours.",
+    planNote: "You were looking at the {plan} plan. Every account starts with a free simulation on a real posting.",
+    firstName: "First name",
+    lastName: "Last name",
+    company: "Company name",
+    email: "Work email",
+    phone: "Phone",
+    optional: "optional",
+    firstNamePh: "Jane",
+    lastNamePh: "Smith",
+    companyPh: "Acme Inc.",
+    emailPh: "jane@acme.com",
+    phonePh: "+32 470 12 34 56",
+    postingUrl: "Link to the job posting",
+    postingUrlPh: "https://",
+    postingText: "The job posting",
+    postingTextPh: "Paste the full text of the posting here.",
+    useText: "Not online yet? Paste the text instead",
+    useLink: "Use a link instead",
+    submit: "Send my posting",
+    sending: "Sending",
+    missing: "Please fill in the required fields.",
+    badEmail: "Please enter a valid email address.",
+    noPosting: "Add the link to your posting, or paste its text.",
+    failed: "That did not go through on our side. Send your posting to",
+    privacy: "We only use these details and this posting to build your simulation.",
+    doneTitle: "Thanks, {name}.",
+    doneLede: "Your simulation will be ready within 24 hours. We will get back to you at {email} to walk you through it.",
+    doneDemo: "Prefer to talk first?",
+    doneDemoLink: "Book a demo"
+  },
   demo: {
     meta: {
       title: "Book a demo | Onbord",

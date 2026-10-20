@@ -113,7 +113,6 @@ const pages = {
     closing: {
       title: "Dat is het hele verhaal.",
       body: "Geen implementatietraject, geen configuratieworkshop. Een account, een vacature, en een shortlist op het einde.",
-      cta: "Demo boeken",
     },
   },
 
@@ -193,7 +192,6 @@ const pages = {
     closing: {
       title: "Welke u krijgt, hangt af van de functie.",
       body: "Een buitendienstcommercieel en een backoffice-analist krijgen niet dezelfde simulatie. Stuur ons een vacature en zie.",
-      cta: "Demo boeken",
     },
   },
 
@@ -264,7 +262,6 @@ const pages = {
     closing: {
       title: "Vraag om een echt rapport te zien.",
       body: "Geen slide over rapporten: een echt rapport, op een echte vacature. De snelste manier om te beoordelen of dit alles klopt.",
-      cta: "Demo boeken",
     },
   },
 
@@ -286,7 +283,6 @@ const pages = {
     billedAnnually: "jaarlijks gefactureerd",
     billedMonthly: "maandelijks gefactureerd",
     save: "2 maanden gratis",
-    popular: "Meest gekozen",
     creditsPerMonth: "credits per maand",
     rollover: "Ongebruikte credits schuiven door",
     onQuote: "Op offerte",
@@ -402,7 +398,6 @@ const pages = {
     closing: {
       title: "Het snelst blijft: stuur een vacature.",
       body: "U ziet de simulatie, het rooster en een echt rapport vóór er over geld gesproken wordt.",
-      cta: "Demo boeken",
     },
   },
 
@@ -550,7 +545,6 @@ const pages = {
     closing: {
       title: "Werft u aan voor een van deze functies?",
       body: "Stuur ons de vacature: wij bouwen de simulatie en tonen ze u voor een kandidaat ze te zien krijgt.",
-      cta: "Demo boeken",
     },
   },
 
@@ -584,12 +578,51 @@ const pages = {
     },
     closing: {
       title: "Bekijk het op een van uw functies.",
-      body: "Stuur ons een vacature: in 20 minuten bouwen we samen uw eerste simulatie, gratis.",
-      cta: "Demo boeken",
+      body: "Stuur ons een vacature: we bouwen uw eerste simulatie gratis en komen binnen 24 uur bij u terug.",
     },
   },
 
   // La page /demo : coordonnees d'abord, calendrier ensuite (DemoForm.js).
+  // La simulation gratuite (/free-simulation, 20/10/2026) : l'appel principal
+  // du site. Voir SimulationForm.js et src/app/api/simulation/route.js.
+  simulation: {
+    meta: {
+      title: "Gratis simulatie | Onbord",
+      description: "Stuur ons een van uw vacatures. We bouwen uw eerste simulatie gratis en komen binnen 24 uur bij u terug."
+    },
+    eyebrow: "Gratis, klaar binnen 24 uur",
+    title: "Uw eerste simulatie, gratis.",
+    lede: "Stuur ons een vacature waarvoor u aanwerft. We bouwen er de simulatie van en komen binnen 24 uur bij u terug.",
+    planNote: "U bekeek het {plan}-plan. Elk account begint met een gratis simulatie op een echte vacature.",
+    firstName: "Voornaam",
+    lastName: "Achternaam",
+    company: "Bedrijf",
+    email: "Zakelijk e-mailadres",
+    phone: "Telefoon",
+    optional: "optioneel",
+    firstNamePh: "Lotte",
+    lastNamePh: "Peeters",
+    companyPh: "Acme NV",
+    emailPh: "lotte@acme.be",
+    phonePh: "+32 470 12 34 56",
+    postingUrl: "Link naar de vacature",
+    postingUrlPh: "https://",
+    postingText: "De vacature",
+    postingTextPh: "Plak hier de volledige tekst van de vacature.",
+    useText: "Nog niet online? Plak de tekst",
+    useLink: "Gebruik toch een link",
+    submit: "Mijn vacature versturen",
+    sending: "Versturen",
+    missing: "Vul de verplichte velden in.",
+    badEmail: "Geef een geldig e-mailadres op.",
+    noPosting: "Voeg de link naar uw vacature toe, of plak de tekst.",
+    failed: "Het versturen is bij ons mislukt. Stuur uw vacature naar",
+    privacy: "We gebruiken deze gegevens en deze vacature enkel om uw simulatie te bouwen.",
+    doneTitle: "Bedankt, {name}.",
+    doneLede: "Uw simulatie is binnen 24 uur klaar. We komen bij u terug op {email} om ze toe te lichten.",
+    doneDemo: "Liever eerst praten?",
+    doneDemoLink: "Demo boeken"
+  },
   demo: {
     meta: {
       title: "Demo boeken | Onbord",

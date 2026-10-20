@@ -13,7 +13,7 @@ import { Check, ArrowRight } from "./Icons";
 // tarif. Le dictionnaire ne porte que ce qui se traduit : le nom du plan, la
 // phrase qui dit à qui il s'adresse, ses puces.
 
-export default function PlanTable({ dict, locale, demoHref, talkHref }) {
+export default function PlanTable({ dict, locale, simulationHref, talkHref }) {
   const [annuel, setAnnuel] = useState(true);
 
   return (
@@ -53,7 +53,9 @@ export default function PlanTable({ dict, locale, demoHref, talkHref }) {
               <div>
                 <div className="plan__head">
                   <h2 className="plan__name">{t.name}</h2>
-                  {plan.featured && <span className="tag tag--ink">{dict.popular}</span>}
+                  {/* Plus de badge « Most chosen » (20/10/2026, demande directe) :
+                      sans clients, c'était une affirmation fausse. Le cadre bleu
+                      du plan Pro reste, il conseille sans rien prétendre. */}
                 </div>
                 <p className="plan__for" style={{ marginTop: 6 }}>{t.for}</p>
               </div>
@@ -117,6 +119,11 @@ export default function PlanTable({ dict, locale, demoHref, talkHref }) {
                   Aucun bouton ne mene a une inscription : celle de
                   l'application est FERMEE (les comptes sont crees a la main).
 
+                  Depuis le 20/10/2026, Core et Pro menent a la SIMULATION
+                  GRATUITE (/free-simulation?plan=…) : tout compte commence
+                  par une simulation construite sur une vraie offre, et la page
+                  le dit au visiteur qui arrive d'une carte.
+
                   CUSTOM EST UN CAS A PART, ET ASSUME. Son bouton dit « Talk to
                   sales » et ouvre un e-mail au sujet « parler a quelqu'un »,
                   pas « demo ». Sur ce plan, il faut d'abord fixer un tarif avec
@@ -124,7 +131,7 @@ export default function PlanTable({ dict, locale, demoHref, talkHref }) {
                   sur les boutons des deux autres plans. */}
               <a
                 className={`btn btn--block ${plan.featured ? "btn--blue" : "btn--line"}`}
-                href={plan.id === "custom" ? talkHref : `${demoHref}?plan=${plan.id}`}
+                href={plan.id === "custom" ? talkHref : `${simulationHref}?plan=${plan.id}`}
               >
                 {t.cta}
                 <ArrowRight size={14} />

@@ -3259,8 +3259,6 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 /* Le plan mis en avant : bordure bleue et halo. Pas de translation verticale —
    dans une grille, sortir une colonne du cadre casse l'alignement. */
 .plan--featured { border-color: #c9d5f3; background: #fff; box-shadow: 0 0 0 3px rgba(27, 69, 196, 0.08), 0 30px 60px -30px rgba(27, 69, 196, 0.35); }
-/* « Most chosen » : la pastille bleue de l'application, pas l'encre. */
-.plan--featured .tag--ink { color: var(--blue); border-color: rgba(27, 69, 196, 0.3); background: rgba(27, 69, 196, 0.08); }
 .plan .plan__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .plan .plan__name { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.024em; }
 .plan .plan__for { font-size: 0.8125rem; color: var(--text-3); line-height: 1.5; min-height: 3em; }
@@ -3771,7 +3769,8 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .demo__form { display: grid; gap: 16px; margin-top: 36px; }
 .demo__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .demo__field { display: grid; gap: 7px; font-size: 0.8125rem; font-weight: 500; color: var(--text); }
-.demo__field input {
+.demo__field input,
+.demo__field textarea {
   width: 100%;
   padding: 11px 13px;
   font: inherit;
@@ -3783,8 +3782,11 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   border-radius: var(--r);
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-.demo__field input::placeholder { color: var(--text-4); }
-.demo__field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 69, 196, 0.15); }
+.demo__field textarea { resize: vertical; min-height: 150px; line-height: 1.55; }
+.demo__field input::placeholder,
+.demo__field textarea::placeholder { color: var(--text-4); }
+.demo__field input:focus,
+.demo__field textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 69, 196, 0.15); }
 .demo__form .btn { justify-content: center; margin-top: 6px; padding-block: 14px; }
 .demo__form .btn:disabled { opacity: 0.7; cursor: progress; }
 .demo__error { font-size: 0.8125rem; color: var(--bad); text-align: center; }
@@ -3792,6 +3794,20 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 /* Le piège à robots : sorti de l'écran, pas `display: none`, que certains
    robots savent repérer et ignorer. */
 .demo__trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.demo__error a,
+.demo__privacy a { color: var(--blue); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── /free-simulation (20/10/2026), la sœur de /demo ───────────────────── */
+/* « facultatif » à côté du libellé du téléphone. */
+.sim__optional { font-style: normal; font-weight: 400; color: var(--text-4); }
+/* La bascule lien / texte de l'offre : un lien discret sous le champ, pas un
+   second bouton qui concurrencerait l'envoi. */
+.sim__switch { justify-self: start; margin-top: -8px; padding: 0; border: 0; background: none; font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--blue); cursor: pointer; }
+.sim__switch:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Le rappel du plan regardé sur /pricing. */
+.sim__plan { max-width: 44ch; margin-inline: auto; padding: 9px 13px; border-radius: 10px; background: rgba(27, 69, 196, 0.07); font-size: 0.8125rem; color: var(--text-2); }
+/* L'écran de confirmation : la coche verte de l'application. */
+.sim__done { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #e7f6ef; color: #137449; }
 
 .demo__pick { max-width: 1060px; margin-inline: auto; }
 .demo__edit { font-size: 0.8125rem; color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }

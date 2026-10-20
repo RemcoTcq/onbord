@@ -30,6 +30,13 @@ const SEGMENTS = {
     fr: "/demo",
     nl: "/demo",
   },
+  // La simulation gratuite (20/10/2026), l'appel principal du site. Même
+  // chemin dans toutes les langues, comme /demo : une page de formulaire.
+  "/free-simulation": {
+    en: "/free-simulation",
+    fr: "/free-simulation",
+    nl: "/free-simulation",
+  },
   "/pricing": {
     en: "/pricing",
     fr: "/tarifs",

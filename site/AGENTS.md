@@ -830,6 +830,31 @@ de Remco.
 
 ### 3. Aucun bouton ne mène à une inscription
 
+⚠️ **DEPUIS LE 20/10/2026, L'APPEL PRINCIPAL EST « GET A FREE SIMULATION »**
+(demande directe). Le visiteur envoie UNE offre sur `/free-simulation`
+(prénom, nom, entreprise, e-mail pro, téléphone FACULTATIF, et le lien de
+l'offre ou son texte collé) ; l'équipe construit la simulation gratuitement
+et revient vers lui **sous 24 heures**, promesse affichée sur la page. La
+demande part en e-mail vers `LEADS_EMAIL` par `/api/simulation`.
+
+- **partout, deux boutons dans cet ordre** : « Get a free simulation »
+  (`simulationHref`), puis « Book a demo » (`demoHref`), dans le hero et
+  dans la bande finale de chaque page. L'en-tête n'a que le premier ; le menu
+  mobile a les deux. Leurs libellés vivent UNE fois, dans `common.nav`
+  (`simulation`, `demo`), et `Cta` (Bits.js) les lit lui-même : il n'a plus
+  de props `primary`/`primaryHref` ;
+- **les cartes Core et Pro** de `/pricing` mènent à `/free-simulation?plan=…`,
+  et la page rappelle le plan regardé. Custom garde « Talk to sales » ;
+- **un échec d'envoi n'est pas silencieux** (contrairement à la démo, qui a le
+  calendrier derrière) : le formulaire affiche l'adresse et un `mailto:`
+  tout prêt (`postingHref`, qui ne sert plus qu'à ça) ;
+- ⚠️ **ni la démo ni la simulation gratuite ne sont décrites dans la
+  politique de confidentialité** (`/legal/privacy`), qui ne parle que de la
+  plateforme. Signalé à Remco, à trancher par lui.
+
+Ce qui suit sur la démo reste vrai ; le tableau des trois destinations, plus
+bas, date d'avant ces deux formulaires.
+
 ⚠️ **« Book a demo » mène désormais à la page `/demo`, plus à un `mailto:`.**
 `demoHref()` renvoie l'adresse de cette page (avec `?plan=core|pro` depuis
 les cartes de tarif). La page demande prénom, nom, entreprise et e-mail
@@ -1510,6 +1535,11 @@ Les étapes sont une **animation**, pas une génération. Le site est statique
 
 ### 6. Pas de base de données, pas de session, pas de secret
 
+⚠️ **DEUX exceptions depuis le 20/10/2026 : `src/app/api/demo/route.js` et
+`src/app/api/simulation/route.js`**, qui partagent `src/lib/leads.js` (envoi
+Resend, échappement, validation). Ce qui suit décrit la première ; la seconde
+fonctionne pareil, avec un champ d'offre de 20 000 caractères.
+
 ⚠️ **Une exception, une seule : `src/app/api/demo/route.js`.** Elle relaie
 la demande de démo en e-mail via l'API de Resend, et lit donc un secret,
 `RESEND_API_KEY`, à poser dans les variables d'environnement du projet
@@ -1546,6 +1576,8 @@ site/
 │   │   ├── Bits.js               Briques de mise en page (Split, Title, Rule…)
 │   │   ├── AppPeek.js            La fenêtre de la plateforme, écrans en rotation (client)
 │   │   ├── AppUi.js              Les briques de l'interface recruteur, partagées
+│   │   ├── SimulationForm.js     Le formulaire « Get a free simulation » (client)
+│   │   ├── DemoForm.js           Le formulaire « Book a demo » et son calendrier (client)
 │   │   ├── WorkScenes.js         La composition : code, e-mail, appel filmé
 │   │   ├── HowVisuals.js         Les vignettes minimalistes de /how-it-works
 │   │   ├── FeedbackTabs.js       Le retour candidat, retenu/refusé (client)

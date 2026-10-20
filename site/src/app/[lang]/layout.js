@@ -2,7 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { LOCALES, LOCALE_TAGS, DEFAULT_LOCALE, SITE_URL, APP_URL, coerceLocale } from "@/lib/i18n/config";
-import { demoHref } from "@/lib/contact";
+import { demoHref, simulationHref } from "@/lib/contact";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { IMAGE_PARTAGE } from "@/lib/seo";
@@ -93,6 +93,7 @@ export default async function RootLayout({ children, params }) {
           locale={locale}
           nav={common.nav}
           demoHref={demoHref(locale)}
+          simulationHref={simulationHref(locale)}
           appHref={APP_URL}
         />
 

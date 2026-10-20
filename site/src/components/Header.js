@@ -73,7 +73,7 @@ const BARRE = [
   { page: PAGES.find((p) => p.key === "pricing") },
 ];
 
-export default function Header({ locale, nav, demoHref, appHref }) {
+export default function Header({ locale, nav, demoHref, simulationHref, appHref }) {
   const [stuck, setStuck] = useState(false);
   const [menu, setMenu] = useState(false);
   const [langs, setLangs] = useState(false);
@@ -218,8 +218,10 @@ export default function Header({ locale, nav, demoHref, appHref }) {
             </div>
             )}
 
-            <a className="btn btn--primary" href={demoHref}>
-              {nav.demo}
+            {/* L'appel principal du site (20/10/2026). La démo reste dans le
+                hero, la bande finale et le menu mobile. */}
+            <a className="btn btn--primary" href={simulationHref}>
+              {nav.simulation}
               <ArrowRight size={14} />
             </a>
 
@@ -264,9 +266,12 @@ export default function Header({ locale, nav, demoHref, appHref }) {
           ))}
 
           <div className="mobile__actions">
-            <a className="btn btn--primary btn--block" href={demoHref} onClick={fermer}>
-              {nav.demo}
+            <a className="btn btn--primary btn--block" href={simulationHref} onClick={fermer}>
+              {nav.simulation}
               <ArrowRight size={14} />
+            </a>
+            <a className="btn btn--ghost btn--block" href={demoHref} onClick={fermer}>
+              {nav.demo}
             </a>
             <a className="btn btn--ghost btn--block" href={appHref}>{nav.login}</a>
           </div>

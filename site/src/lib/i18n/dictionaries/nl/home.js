@@ -16,7 +16,6 @@ const home = {
     titleEm: "echte vaardigheden.",
     titleB: "Niet op cv's.",
     lede: "Plak een vacature. Onbord bouwt de simulatie, stuurt ze naar uw kandidaten, en rangschikt hen op wat ze werkelijk deden.",
-    primary: "Demo boeken",
 
     // Het venster van het platform (AppPeek.js). Zie de Engelse versie.
     app: {
@@ -217,7 +216,6 @@ const home = {
     titleEm: "Wij bouwen",
     titleB: "de simulatie.",
     body: "Eén echte vacature, en u ziet het geheel: de taken, het beoordelingsrooster, en het rapport dat u daarna zou lezen.",
-    primary: "Demo boeken",
   },
 };
 

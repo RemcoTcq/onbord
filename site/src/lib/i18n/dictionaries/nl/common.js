@@ -10,6 +10,9 @@ const common = {
     simulations: "Simulaties",
     scoring: "Beoordeling",
     pricing: "Tarieven",
+    // L'appel principal du site (20/10/2026), avant « demo ». Libellés lus
+    // par l'en-tête, le hero et la bande finale de chaque page.
+    simulation: "Gratis simulatie aanvragen",
     demo: "Demo boeken",
     login: "Aanmelden",
     language: "Taal wijzigen",

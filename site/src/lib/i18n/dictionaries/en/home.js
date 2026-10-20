@@ -37,7 +37,6 @@ const home = {
     titleEm: "real skills.",
     titleB: "Not CVs.",
     lede: "Paste a job posting. Onbord builds a job simulation, sends it to your candidates, and ranks them on what they actually did.",
-    primary: "Book a demo",
 
     // ── La fenêtre de la plateforme (AppPeek.js) ─────────────────────────────
     // Quatre écrans de l'application, qui défilent tout seuls. Les
@@ -253,7 +252,6 @@ const home = {
     titleEm: "We'll build",
     titleB: "the simulation.",
     body: "One real posting, and you see the whole thing: the tasks, the scoring grid, and the report you would read afterwards.",
-    primary: "Book a demo",
   },
 };
 

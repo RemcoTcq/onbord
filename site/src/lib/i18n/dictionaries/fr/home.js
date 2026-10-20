@@ -21,7 +21,6 @@ const home = {
     titleEm: "les compétences.",
     titleB: "Pas sur le CV.",
     lede: "Collez une offre. Onbord construit la simulation, l'envoie, et classe vos candidats sur ce qu'ils ont vraiment fait.",
-    primary: "Réserver une démo",
 
     // La fenêtre de la plateforme (AppPeek.js). Libellés de l'interface
     // recruteur (dashboard.js de l'application), voir la version anglaise.
@@ -223,7 +222,6 @@ const home = {
     titleEm: "Onbord construit",
     titleB: "la simulation.",
     body: "Une vraie offre, et vous voyez tout : les tâches, la grille de notation, et le rapport que vous liriez ensuite.",
-    primary: "Réserver une démo",
   },
 };
 

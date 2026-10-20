@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Info } from "./Icons";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { demoHref, simulationHref } from "@/lib/contact";
 
 // Petites briques partagées par toutes les pages. Elles existent pour une
 // raison précise : le titre à mot accentué, l'intitulé de section et le bloc
@@ -99,7 +101,12 @@ export function More({ href: to, children }) {
  * c'est le dernier point lumineux de la page, et donc le dernier endroit où
  * l'œil s'arrête.
  */
-export function Cta({ title, em, titleB, body, primary, primaryHref, secondary, secondaryHref }) {
+/** La bande finale de chaque page. Ses DEUX boutons sont les mêmes partout
+ *  (20/10/2026) : « Get a free simulation » en premier, « Book a demo » en
+ *  second. Elle lit elle-même leurs libellés dans `common` : composant
+ *  serveur ASYNCHRONE, à n'appeler que depuis une page serveur. */
+export async function Cta({ title, em, titleB, body, locale }) {
+  const { nav } = await getDictionary(locale, "common");
   // `section--tail` ouvre la BANDE FINALE : la trame du hero, en pleine
   // largeur, qui descend sans interruption jusqu au bas du pied de page.
   return (
@@ -111,13 +118,11 @@ export function Cta({ title, em, titleB, body, primary, primaryHref, secondary, 
             {em ? <Title a={title} em={em} b={titleB} /> : <h2 className="h2">{title}</h2>}
             <p className="body">{body}</p>
             <div className="cta__actions">
-              <a className="btn btn--primary" href={primaryHref}>
-                {primary}
+              <a className="btn btn--primary" href={simulationHref(locale)}>
+                {nav.simulation}
                 <ArrowRight size={15} />
               </a>
-              {secondary ? (
-                <a className="btn btn--ghost" href={secondaryHref}>{secondary}</a>
-              ) : null}
+              <a className="btn btn--ghost" href={demoHref(locale)}>{nav.demo}</a>
             </div>
           </div>
         </div>
