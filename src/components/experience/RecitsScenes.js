@@ -81,6 +81,7 @@ export function RecitPersona({ persona, onChange }) {
         <SectionRecit fort titre={t(k("hidden"))} aide={t(k("hiddenHint"))} valeur={p.hidden_info} liste onChange={(v) => set({ hidden_info: v })} />
         <SectionRecit fort titre={t(k("objections"))} valeur={p.objections} liste onChange={(v) => set({ objections: v })} />
         <SectionRecit fort titre={t(k("redLines"))} valeur={p.red_lines} liste onChange={(v) => set({ red_lines: v })} />
+        <SectionRecit fort titre={t(k("endWhen"))} aide={t(k("endWhenHint"))} valeur={p.end_condition} lignes={2} onChange={(v) => set({ end_condition: v })} />
       </Panneau>
     </>
   );

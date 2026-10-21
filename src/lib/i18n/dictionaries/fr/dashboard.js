@@ -1086,6 +1086,8 @@ const dashboard = {
         hidden: "Ce qu'il cache",
         objections: "Ses objections",
         redLines: "Ce qu'il refuse",
+        endWhen: "Quand l'appel peut se terminer",
+        endWhenHint: "l'objectif du candidat atteint — le personnage accepte alors la suite et raccroche",
       },
       data: {
         title: "Ce que le candidat a sous les yeux",

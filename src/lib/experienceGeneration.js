@@ -834,7 +834,7 @@ function buildPersonaScenarioPrompt({ title, description, criteria, companyConte
 
   return `${consigneLangueContenu(locale)}
 
-LANGUE DE LA FICHE CACHÉE — elle prime sur la consigne ci-dessus pour les champs qui suivent. Ce que le candidat voit ou entend ("step_prompt", "context", "opening_message", "name", "role", "company") suit la consigne ci-dessus. Ce qu'il ne voit JAMAIS — "personality", "goals", "hidden_info", "objections", "red_lines", "success_signals" — est rédigé ${enLangueRecruteur(uiLocale)} : c'est lui qui relit et retouche cette fiche. L'IA qui jouera le personnage la restitue d'elle-même dans la langue du personnage ; n'écris donc pas ces champs dans la langue de la scène.
+LANGUE DE LA FICHE CACHÉE — elle prime sur la consigne ci-dessus pour les champs qui suivent. Ce que le candidat voit ou entend ("step_prompt", "context", "opening_message", "name", "role", "company") suit la consigne ci-dessus. Ce qu'il ne voit JAMAIS — "personality", "goals", "hidden_info", "objections", "red_lines", "end_condition", "success_signals" — est rédigé ${enLangueRecruteur(uiLocale)} : c'est lui qui relit et retouche cette fiche. L'IA qui jouera le personnage la restitue d'elle-même dans la langue du personnage ; n'écris donc pas ces champs dans la langue de la scène.
 
 Tu conçois un PERSONNAGE pour une évaluation de recrutement. Le candidat va ${mode === "call" ? "l'APPELER (ou être appelé) : il parle, le personnage lui répond à voix haute" : "échanger avec lui PAR ÉCRIT, dans une messagerie"}. Le personnage est joué par une IA qui suivra ta fiche à la lettre.
 
@@ -859,7 +859,8 @@ RÈGLES DE CONCEPTION :
 ${mode === "call" ? consigneVoix() : ""}
 10. "step_prompt" : 2 à 3 phrases lues avant la conversation : la mission et ce qui est attendu. Il ne livre aucune information cachée.
 11. "max_turns" : 8 à 14 — ce qu'une vraie conversation de ce type demande, pas plus.
-12. Aucun emoji.
+12. FIN DE L'ÉCHANGE ("end_condition") — ${enLangueRecruteur(uiLocale)}, 1 à 2 phrases : à partir de quand le personnage accepte la suite et met fin à l'échange, et la durée réaliste d'un vrai échange de ce type. Elle découle DIRECTEMENT de ce que "context" demande au candidat d'obtenir : l'échange se termine dès que cet objectif est atteint (ou clairement manqué) — jamais un objectif différent ou plus exigeant. Concret et propre à CETTE situation. Exemple pour un appel à froid : « Dès que le candidat a présenté le problème en une phrase et proposé un rendez-vous de découverte à une date précise, il accepte et raccroche — pas de démo ni de découverte pendant l'appel, 2 à 3 minutes en tout. » Pour une démo ou une négociation, ce qui doit être obtenu (un accord, un prochain rendez-vous avec le décideur) et jusqu'à 10 minutes.
+13. Aucun emoji.
 
 Réponds UNIQUEMENT avec un JSON valide :
 {
@@ -878,6 +879,7 @@ Réponds UNIQUEMENT avec un JSON valide :
   "hidden_info": ["…"],
   "objections": ["…"],
   "red_lines": ["…"],
+  "end_condition": "…",
   "success_signals": ["…"],
   "max_turns": 10
 }`;

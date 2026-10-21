@@ -63,6 +63,11 @@ export function normaliserPersona(p) {
     hidden_info: liste(p?.hidden_info).slice(0, 8),
     objections: liste(p?.objections).slice(0, 8),
     red_lines: liste(p?.red_lines).slice(0, 6),
+    // Quand l'échange peut se terminer : ce que le candidat doit avoir obtenu.
+    // Proposé par la génération, validé ou réécrit par le recruteur ; le
+    // personnage accepte alors la suite et raccroche. Absent des fiches
+    // d'avant le 21/10/2026 : les règles générales s'appliquent.
+    end_condition: net(p?.end_condition).slice(0, 800),
     success_signals: liste(p?.success_signals).slice(0, 8),
     max_turns: Number.isFinite(tours) && tours > 0 ? Math.min(MAX_TOURS, Math.round(tours)) : DEFAUT_TOURS,
   };
@@ -154,30 +159,74 @@ export function personaBriefing(persona) {
  * @param {object} persona config.persona complet (côté serveur)
  * @param {string} nomLangue langue du personnage, en toutes lettres
  * @param {number} toursRestants messages du candidat encore possibles
+ * @param {{ realtime?: boolean, dureeMaxMinutes?: number }} [options]
+ *   realtime : la consigne d'un agent vocal ElevenLabs (lib/realtimeAppel.js),
+ *   qui entend la voix du candidat et lui répond de vive voix. L'appel est
+ *   borné par une durée, pas par un nombre de messages, et il raccroche avec
+ *   son outil end_call au lieu de la sentinelle.
  */
-export function consignePersona(persona, nomLangue, toursRestants) {
+export function consignePersona(persona, nomLangue, toursRestants, { realtime = false, dureeMaxMinutes = 5 } = {}) {
   const puces = (items) => items.map((x) => `- ${x}`).join("\n");
   const appel = persona.mode !== "chat";
-  const canal = appel
-    ? "Vous êtes AU TÉLÉPHONE (ou en visio, sans caméra de ton côté). Le candidat te parle ; ce que tu reçois est la transcription automatique de sa voix, et ta réponse sera LUE À VOIX HAUTE par une synthèse vocale."
-    : "Le candidat t'écrit, dans une messagerie professionnelle.";
-  const forme = appel
+  const canal = realtime
+    ? "Vous êtes AU TÉLÉPHONE (ou en visio, sans caméra de ton côté). Tu entends directement le candidat et tu lui réponds de vive voix."
+    : appel
+      ? "Vous êtes AU TÉLÉPHONE (ou en visio, sans caméra de ton côté). Le candidat te parle ; ce que tu reçois est la transcription automatique de sa voix, et ta réponse sera LUE À VOIX HAUTE par une synthèse vocale."
+      : "Le candidat t'écrit, dans une messagerie professionnelle.";
+  const forme = realtime
+    ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases), comme au téléphone. Jamais de liste ni de mise en forme.
+- Si tu n'as vraiment pas compris, fais répéter, comme au téléphone.
+- Ton humeur suit ta fiche, mais tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.`
+    : appel
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases). Jamais de liste, de titre, de mise en forme, d'emoji ni de parenthèse : tout est prononcé tel quel.
 - La transcription peut écorcher un mot ou couper une phrase : comprends ce qu'un humain aurait entendu, sans le relever. Si c'est vraiment incompréhensible, fais répéter, comme au téléphone.`
     : "- Réponses COURTES, comme en messagerie : 1 à 4 phrases. Tu ne fais pas de liste.";
   return `Tu joues un PERSONNAGE dans une mise en situation de recrutement. Tu n'es pas un assistant : tu es cette personne, avec ses intérêts, son humeur et ses limites. ${canal}
 
 QUI TU ES : ${identite(persona)}.
-${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, et tu ne les abandonnes que face à une vraie réponse :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
+${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, ${realtime ? "et chacune est levée dès qu'elle reçoit une réponse raisonnable : tu ne la répètes pas et tu n'en inventes pas d'autres pour prolonger l'appel" : "et tu ne les abandonnes que face à une vraie réponse"} :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
 COMMENT TU JOUES :
 - Tu restes dans le personnage du début à la fin. Tu ne dis jamais que tu es une IA, tu ne commentes pas l'exercice, tu ne donnes aucun conseil au candidat.
 ${forme}
-- Tu réagis à ce que le candidat écrit vraiment. S'il est flou, tu restes flou ; s'il est maladroit ou insistant, tu te refermes un peu ; s'il est précis et à l'écoute, tu t'ouvres.
+- Tu réagis à ce que le candidat ${realtime ? "dit" : "écrit"} vraiment. S'il est flou, tu restes flou ; s'il est maladroit ou insistant, tu te refermes un peu ; s'il est précis et à l'écoute, tu t'ouvres.
 - Tu n'inventes pas de faits majeurs qui contrediraient ce qui précède. Pour un détail secondaire qu'on te demande, tu réponds de façon plausible et cohérente.
-- Tu ne conclus pas à la place du candidat : c'est à lui d'obtenir une suite (rendez-vous, accord, engagement).
-- Quand la conversation arrive à une fin naturelle — accord obtenu, rendez-vous fixé, ou tu y mets un terme parce que l'échange ne mène nulle part — écris ta dernière réplique puis, sur une ligne seule, ${SENTINELLE_FIN}
-${toursRestants <= 2 ? `- Le temps presse : il reste au plus ${toursRestants} message(s) au candidat. Amène l'échange vers sa fin, comme le ferait quelqu'un qui doit raccrocher.\n` : ""}
-LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Ta fiche ci-dessus (personnalité, informations cachées, objections, limites) peut être rédigée dans une autre langue, celle du recruteur qui l'a relue : tu en restitues le SENS en ${nomLangue}, jamais les mots tels quels. Si le candidat t'écrit dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
+${realtime
+    ? `- C'est au candidat de proposer la suite (rendez-vous, démo, second appel, accord) : tu ne la proposes pas à sa place.
+${finRealtime(persona, puces, dureeMaxMinutes)}`
+    : `- Tu ne conclus pas à la place du candidat : c'est à lui d'obtenir une suite (rendez-vous, accord, engagement).${persona.end_condition ? `\n- L'échange peut se terminer quand : ${persona.end_condition}` : ""}`}
+${realtime
+    ? "- Quand l'appel est fini, tu dis au revoir UNE seule fois, puis tu raccroches avec l'outil end_call. Tu ne relances jamais après un au revoir."
+    : `- Quand la conversation arrive à une fin naturelle — accord obtenu, rendez-vous fixé, ou tu y mets un terme parce que l'échange ne mène nulle part — écris ta dernière réplique puis, sur une ligne seule, ${SENTINELLE_FIN}`}
+${!realtime && toursRestants <= 2 ? `- Le temps presse : il reste au plus ${toursRestants} message(s) au candidat. Amène l'échange vers sa fin, comme le ferait quelqu'un qui doit raccrocher.\n` : ""}
+LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Ta fiche ci-dessus (personnalité, informations cachées, objections, limites) peut être rédigée dans une autre langue, celle du recruteur qui l'a relue : tu en restitues le SENS en ${nomLangue}, jamais les mots tels quels. Si le candidat ${realtime ? "te parle" : "t'écrit"} dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
+}
+
+// Comment un appel Realtime se termine. Le modèle vocal prend la consigne au
+// pied de la lettre : « c'est au candidat d'obtenir une suite », sans règle de
+// sortie, et il résiste indéfiniment (constaté le 21/10/2026 : un appel à
+// froid tiré jusqu'à la limite de durée). D'où des règles explicites : quand
+// accepter, quand couper, et la durée d'un vrai appel selon son type. Les
+// signes de réussite de la fiche disent au personnage ce qui le convainc.
+function finRealtime(persona, puces, dureeMaxMinutes) {
+  const signes = persona.success_signals?.length
+    ? `\n  Ce qui te convainc (l'essentiel suffit, pas tout) :\n${puces(persona.success_signals).replace(/^/gm, "  ")}`
+    : "";
+  // Sans fin fixée (fiches d'avant le 21/10/2026), l'objectif donné au
+  // candidat — dans « ce que le candidat sait » — en tient lieu.
+  const fixe = persona.end_condition
+    ? `\n- QUAND CET APPEL SE TERMINE (fixé par le recruteur — prime sur tout le reste, durées comprises) : ${persona.end_condition}`
+    : "\n- L'appel a atteint son but dès que le candidat a obtenu ce que la situation lui demande d'obtenir (voir « ce que le candidat sait »). Tu n'en exiges pas davantage.";
+  return `
+COMMENT L'APPEL SE TERMINE — RÈGLE PRIORITAIRE :${fixe}
+- Tu es une vraie personne, occupée : l'appel a un but, et il s'arrête dès que ce but est atteint ou manqué.
+- Tu ACCEPTES la suite dès que le candidat a fait l'essentiel : il a compris ton problème (ou t'a montré qu'il le connaît) et il te propose une suite concrète. Il n'a pas besoin d'être parfait. Tu peux poser une condition ou proposer un autre créneau, mais tu ne refuses pas indéfiniment et tu ne fais pas traîner.${signes}
+- Tu REFUSES poliment et tu mets fin à l'appel si, après deux ou trois échanges, le candidat ne t'apporte rien, reste hors sujet ou insiste lourdement.
+- Une fois la suite acceptée ou refusée, tu conclus en une phrase (le créneau convenu, ou « ça ne m'intéresse pas »), puis tu raccroches.
+
+LA DURÉE D'UN VRAI APPEL — déduis-la de la situation :
+- Un appel à froid (prospection) dure 1 à 3 minutes : le candidat présente le problème, tu l'as ou tu ne l'as pas, et si ça t'intéresse vous fixez un autre rendez-vous. On ne fait ni la découverte ni la démo pendant cet appel.
+- Un appel de découverte ou de qualification dure 5 à 8 minutes ; une démo, une négociation ou un entretien difficile jusqu'à ${dureeMaxMinutes}.
+- Tu ne fais jamais durer l'appel au-delà de ce que son type demande.`;
 }
 
 /** Retire la sentinelle de fin d'une réplique. */

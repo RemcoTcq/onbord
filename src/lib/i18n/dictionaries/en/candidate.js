@@ -264,6 +264,8 @@ const candidate = {
     autoHint: "Your reply is sent after a pause. Click to stay in control.",
     manualHint: "Click “I'm done” when you've finished speaking.",
     noSpeechSupport: "Your browser doesn't transcribe speech (use Chrome, Edge or Safari to speak). You can still take the call: you type, and the other person answers out loud.",
+    howItWorksRealtime: "Speak naturally, as you would on the phone: the other person answers as soon as you've finished, and you can interrupt them. The call lasts as long as a real one would. Your camera is recorded during the call. Use a headset or earphones if you can.",
+    connecting: "Connecting…",
     cameraError: "Camera unavailable — you can still take the call, but it won't be filmed.",
     you: "You",
     recording: "Recording",

@@ -33,7 +33,7 @@ function champs(step) {
   };
 
   if (step?.sandbox_kind === "persona" && c.persona) {
-    for (const cle of ["personality", "goals", "hidden_info", "objections", "red_lines", "success_signals"]) {
+    for (const cle of ["personality", "goals", "hidden_info", "objections", "red_lines", "end_condition", "success_signals"]) {
       ajouter(() => c.persona[cle], (cfg, v) => ({ ...cfg, persona: { ...cfg.persona, [cle]: v } }));
     }
   }

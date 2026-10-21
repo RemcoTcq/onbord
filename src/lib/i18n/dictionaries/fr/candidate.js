@@ -292,6 +292,8 @@ const candidate = {
     autoHint: "Votre réponse part après un silence. Cliquez pour garder la main.",
     manualHint: "Cliquez « J'ai terminé » quand vous avez fini de parler.",
     noSpeechSupport: "Votre navigateur ne transcrit pas la voix (utilisez Chrome, Edge ou Safari pour parler). Vous pouvez quand même passer l'appel : vous écrivez, votre interlocuteur vous répond à voix haute.",
+    howItWorksRealtime: "Parlez naturellement, comme au téléphone : votre interlocuteur vous répond dès que vous avez terminé, et vous pouvez l'interrompre. L'appel dure le temps d'un vrai appel. Votre caméra est enregistrée pendant l'appel. Utilisez un casque ou des écouteurs si possible.",
+    connecting: "Connexion…",
     cameraError: "Caméra indisponible — l'appel reste possible, mais il ne sera pas filmé.",
     you: "Vous",
     recording: "Enregistrement",

@@ -76,6 +76,7 @@ function usePersonaConversation({ persona, token, stepId, onChange }) {
   const [streaming, setStreaming] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [turns, setTurns] = useState(0);
+  const [aReprendre, setAReprendre] = useState(null); // appel Realtime à relire (voir plus bas)
 
   // Le parent ne connaît que ce qui conditionne « Suivant ». Son `onChange`
   // change d'identité à chaque rendu : passé en dépendance, il relancerait le
@@ -89,6 +90,7 @@ function usePersonaConversation({ persona, token, stepId, onChange }) {
     if (typeof etat.turns === "number") setTurns(etat.turns);
     setEnded(!!etat.ended);
     setEndedBy(etat.endedBy || null);
+    if ("realtimeAReprendre" in etat) setAReprendre(etat.realtimeAReprendre || null);
     return etat;
   }, []);
 
@@ -179,7 +181,49 @@ function usePersonaConversation({ persona, token, stepId, onChange }) {
     return null;
   }, [token, stepId, appliquer, signaler]);
 
-  return { messages, remaining, ended, endedBy, sending, streaming, loaded, turns, envoyer, terminer, signaler };
+  // Appel Realtime : les répliques arrivent par la session ElevenLabs et ne
+  // s'affichent qu'ici, le temps de l'appel. La conversation qui compte est
+  // celle que le serveur relit chez ElevenLabs à la fin (importerRealtime).
+  const ajouterLocal = useCallback((m) => setMessages((prev) => [...prev, m]), []);
+
+  // L'état enregistré, relu tel quel : après un appel Realtime, la page se cale
+  // sur ce que le serveur a vraiment gardé (c'est lui qui débloque « Suivant »).
+  const recharger = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/run/persona?token=${encodeURIComponent(token)}&stepId=${encodeURIComponent(stepId)}`);
+      const data = await res.json();
+      if (res.ok) return appliquer(data);
+    } catch { /* l'état déjà connu reste valable */ }
+    return null;
+  }, [token, stepId, appliquer]);
+
+  const importerRealtime = useCallback(async (conversationId, indice) => {
+    try {
+      const res = await fetch("/api/run/persona/realtime", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, stepId, action: "fin", conversationId, indice }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.messages) return appliquer(data);
+    } catch { /* l'écran retente, puis clôt l'échange tel quel */ }
+    return null;
+  }, [token, stepId, appliquer]);
+
+  // Un appel Realtime importé avant qu'ElevenLabs ne l'ait clos peut n'avoir
+  // gardé aucune réplique, et l'étape reste bloquée : dès que le serveur le
+  // signale (au chargement, ou après un import trop précoce), on le relit.
+  useEffect(() => {
+    if (!aReprendre) return undefined;
+    let annule = false;
+    (async () => {
+      const etat = await importerRealtime(aReprendre, null);
+      if (!annule && etat) signaler(etat);
+    })();
+    return () => { annule = true; };
+  }, [aReprendre, importerRealtime, signaler]);
+
+  return { messages, remaining, ended, endedBy, sending, streaming, loaded, turns, envoyer, terminer, signaler, ajouterLocal, importerRealtime, recharger };
 }
 
 // ─── Mode CHAT ───────────────────────────────────────────────────────────────
@@ -324,7 +368,7 @@ function choisirVoix(lang) {
 // ─── Mode APPEL ──────────────────────────────────────────────────────────────
 function PersonaCall({ persona, conv, token, stepId, primary }) {
   const { t, locale } = useI18n();
-  const { messages, remaining, ended, endedBy, sending, loaded, envoyer, terminer, signaler, turns } = conv;
+  const { messages, remaining, ended, endedBy, sending, loaded, envoyer, terminer, signaler, turns, ajouterLocal, importerRealtime, recharger } = conv;
   // Langue de la reconnaissance vocale : celle du personnage, à l'accent près
   // (nl-BE pour un Flamand, fr-BE pour un Bruxellois) — le candidat lui répond
   // dans sa langue.
@@ -367,6 +411,35 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   const tourMorceauxRef = useRef([]);
   const envoiAutoRef = useRef(true);
   const enAppelRef = useRef(false);
+
+  // ── Appel Realtime (voir lib/realtimeAppel.js) ──
+  // Préparé dès le lobby : null tant qu'on ne sait pas, false → appel maison,
+  // sinon le lien de session signé. `modeRT` : l'appel EN COURS est Realtime.
+  const [sessionRT, setSessionRT] = useState(null);
+  const [modeRT, setModeRT] = useState(false);
+  const [connexionRT, setConnexionRT] = useState(false);
+  const conversationRTRef = useRef(null);   // la session ElevenLabs ouverte
+  const idConversationRef = useRef(null);
+  const modeRTRef = useRef(false);
+
+  useEffect(() => {
+    if (!loaded || ended || phase !== "lobby" || sessionRT !== null) return undefined;
+    let annule = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/run/persona/realtime", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, stepId, action: "session" }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!annule) setSessionRT(data.signedUrl ? { signedUrl: data.signedUrl, at: Date.now() } : false);
+      } catch {
+        if (!annule) setSessionRT(false);
+      }
+    })();
+    return () => { annule = true; };
+  }, [loaded, ended, phase, sessionRT, token, stepId]);
 
   // ── Caméra et micro (dès le lobby : le candidat se voit avant d'entrer) ──
   useEffect(() => {
@@ -416,6 +489,8 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   useEffect(() => () => {
     enAppelRef.current = false;
     ecouteRef.current = false;
+    conversationRTRef.current?.endSession().catch(() => {});
+    conversationRTRef.current = null;
     try { reconnaissanceRef.current?.abort(); } catch { /* déjà arrêtée */ }
     try { window.speechSynthesis?.cancel(); } catch { /* rien à couper */ }
     try { audioRef.current?.pause(); } catch { /* rien à couper */ }
@@ -561,18 +636,40 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   }, [prononcer]);
 
   // ── Enregistrement et fin d'appel ──
-  const cloreAppel = useCallback(async ({ parCandidat }) => {
+  // `indice` (appel Realtime) : qui a coupé la session — "agent" quand le
+  // personnage raccroche ou que la durée maximale est atteinte.
+  const cloreAppel = useCallback(async ({ parCandidat, indice }) => {
     if (!enAppelRef.current) return;
     enAppelRef.current = false;
-    suspendreEcoute();
-    try { reconnaissanceRef.current?.abort(); } catch { /* déjà arrêtée */ }
-    try { audioRef.current?.pause(); window.speechSynthesis?.cancel(); } catch { /* rien à couper */ }
-    await arreterTour();
+    const realtime = modeRTRef.current;
+    if (realtime) {
+      // Le candidat raccroche : on ferme la session. Si c'est le personnage
+      // (ou la durée maximale), elle est déjà close.
+      const session = conversationRTRef.current;
+      conversationRTRef.current = null;
+      try { await session?.endSession(); } catch { /* déjà close */ }
+    } else {
+      suspendreEcoute();
+      try { reconnaissanceRef.current?.abort(); } catch { /* déjà arrêtée */ }
+      try { audioRef.current?.pause(); window.speechSynthesis?.cancel(); } catch { /* rien à couper */ }
+      await arreterTour();
+    }
     setParleIA(false);
     setPhase("enregistrement");
 
     let etat = null;
-    if (parCandidat) etat = await terminer({ signalerFin: false });
+    if (realtime) {
+      // La conversation est relue chez ElevenLabs par le serveur ; une
+      // seconde tentative couvre un traitement encore en cours. Sans elle,
+      // l'échange est clos tel quel : le candidat n'est jamais bloqué.
+      const id = idConversationRef.current;
+      const qui = parCandidat ? "user" : indice;
+      if (id) etat = (await importerRealtime(id, qui)) || (await importerRealtime(id, qui));
+      if (!etat) etat = await terminer({ signalerFin: false });
+      etat = (await recharger()) || etat;
+    } else if (parCandidat) {
+      etat = await terminer({ signalerFin: false });
+    }
 
     const enregistreur = enregistreurRef.current;
     const duree = debut ? (Date.now() - debut) / 1000 : 0;
@@ -592,7 +689,9 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
     fluxRef.current?.getTracks().forEach((p) => p.stop());
     setPhase("termine");
     signaler(etat || { turns, ended: true });
-  }, [debut, suspendreEcoute, terminer, signaler, token, stepId, turns, arreterTour]);
+  }, [debut, suspendreEcoute, terminer, signaler, token, stepId, turns, arreterTour, importerRealtime, recharger]);
+  const cloreAppelRef = useRef(cloreAppel);
+  useEffect(() => { cloreAppelRef.current = cloreAppel; });
 
   // Un tour du candidat : on envoie, le personnage répond à voix haute, puis
   // on rend la parole — ou on raccroche s'il a mis fin à l'appel.
@@ -626,13 +725,14 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   // Sans caméra (refusée ou absente), l'appel reste possible : la
   // reconnaissance vocale écoute le micro de son côté. Seule la vidéo manquera.
   function rejoindre() {
-    enAppelRef.current = true;
-    setDebut(Date.now());
-    setMaintenant(Date.now());
-    setPhase("appel");
+    if (sessionRT) rejoindreRealtime(sessionRT);
+    else rejoindreMaison();
+  }
 
-    // Enregistrement de la caméra et du micro du candidat, tout l'appel.
-    if (fluxRef.current) try {
+  // Enregistrement de la caméra et du micro du candidat, tout l'appel.
+  function demarrerEnregistrement() {
+    if (!fluxRef.current || enregistreurRef.current?.state === "recording") return;
+    try {
       const type = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find((m) => window.MediaRecorder?.isTypeSupported?.(m));
       const enregistreur = new MediaRecorder(fluxRef.current, type ? { mimeType: type, videoBitsPerSecond: 600_000 } : undefined);
       morceauxRef.current = [];
@@ -640,6 +740,84 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
       enregistreur.start(1000);
       enregistreurRef.current = enregistreur;
     } catch { /* sans enregistrement, l'appel reste noté sur sa transcription */ }
+  }
+
+  // L'appel Realtime : une session ElevenLabs ouverte avec le lien signé.
+  // L'agent dit lui-même la réplique d'ouverture. Micro refusé ou connexion
+  // impossible : l'appel maison prend le relais, sans quitter l'écran.
+  async function rejoindreRealtime(session) {
+    enAppelRef.current = true;
+    modeRTRef.current = true;
+    setModeRT(true);
+    setConnexionRT(true);
+    setDebut(Date.now());
+    setMaintenant(Date.now());
+    setPhase("appel");
+    demarrerEnregistrement();
+
+    let connecte = false;
+    let ouvertureVue = false;
+    try {
+      // Le lien vaut 15 minutes : un lobby resté ouvert longtemps en redemande un.
+      let signedUrl = session.signedUrl;
+      if (Date.now() - session.at > 12 * 60_000) {
+        const res = await fetch("/api/run/persona/realtime", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, stepId, action: "session" }),
+        });
+        signedUrl = (await res.json().catch(() => ({}))).signedUrl;
+        if (!signedUrl) throw new Error("session indisponible");
+      }
+      const { Conversation } = await import("@elevenlabs/client");
+      const conversation = await Conversation.startSession({
+        signedUrl,
+        connectionType: "websocket",
+        onConnect: ({ conversationId }) => {
+          connecte = true;
+          idConversationRef.current = conversationId;
+          setConnexionRT(false);
+        },
+        onMessage: ({ message, role }) => {
+          const texte = String(message || "").trim();
+          if (!texte) return;
+          // La réplique d'ouverture est déjà affichée (elle fait partie de la fiche).
+          if (role === "agent" && !ouvertureVue) {
+            ouvertureVue = true;
+            if (persona?.opening_message && texte.startsWith(persona.opening_message.trim().slice(0, 30))) return;
+          }
+          ajouterLocal({ role: role === "user" ? "candidate" : "persona", content: texte });
+        },
+        onModeChange: ({ mode }) => setParleIA(mode === "speaking"),
+        // Une coupure AVANT la connexion est traitée par le catch (relais maison).
+        onDisconnect: (details) => {
+          if (connecte) cloreAppelRef.current({ parCandidat: false, indice: details?.reason === "agent" ? "agent" : "user" });
+        },
+        onError: (message) => console.error("appel realtime :", message),
+      });
+      // Le candidat a quitté l'étape pendant la connexion.
+      if (!enAppelRef.current) { conversation.endSession().catch(() => {}); return; }
+      conversationRTRef.current = conversation;
+      idConversationRef.current ||= conversation.getId();
+      connecte = true;
+      setConnexionRT(false);
+      if (micCoupe) conversation.setMicMuted(true);
+    } catch (err) {
+      console.error("appel realtime indisponible, relais par l'appel maison :", err?.message || err);
+      modeRTRef.current = false;
+      setModeRT(false);
+      setConnexionRT(false);
+      setSessionRT(false);
+      if (enAppelRef.current) rejoindreMaison();
+    }
+  }
+
+  function rejoindreMaison() {
+    enAppelRef.current = true;
+    setDebut((d) => d ?? Date.now());
+    setMaintenant(Date.now());
+    setPhase("appel");
+    demarrerEnregistrement();
 
     if (vocal) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -713,6 +891,7 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
     const coupe = !micCoupe;
     setMicCoupe(coupe);
     fluxRef.current?.getAudioTracks().forEach((p) => { p.enabled = !coupe; });
+    if (modeRTRef.current) { conversationRTRef.current?.setMicMuted(coupe); return; }
     if (coupe) suspendreEcoute();
     else if (!sending && !parleIA) demarrerEcoute();
   }
@@ -727,7 +906,8 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   const duree = debut ? Math.max(0, Math.floor((maintenant - debut) / 1000)) : 0;
   const chrono = `${Math.floor(duree / 60)}:${String(duree % 60).padStart(2, "0")}`;
   const derniereIA = [...messages].reverse().find((m) => m.role === "persona");
-  const etatIA = parleIA ? t("candidate.call.speaking")
+  const etatIA = modeRT && connexionRT ? t("candidate.call.connecting")
+    : parleIA ? t("candidate.call.speaking")
     : transcription ? t("candidate.call.transcribing")
       : sending ? t("candidate.call.thinking") : t("candidate.call.listening");
 
@@ -788,14 +968,15 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
             <div style={{ fontSize: 17, fontWeight: 700 }}>{persona?.name}</div>
             <div style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 10 }}>{[persona?.role, persona?.company].filter(Boolean).join(" · ")}</div>
             {persona?.context && <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: "0 0 12px", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>{persona.context}</p>}
-            <button type="button" onClick={rejoindre} disabled={!loaded || (!cameraPrete && !erreurCamera)}
-              style={{ ...primaryBtn(primary, !loaded || (!cameraPrete && !erreurCamera)), borderRadius: 99, padding: "0.75rem 1.6rem" }}>
+            {/* On attend de savoir si l'appel sera Realtime avant de laisser entrer. */}
+            <button type="button" onClick={rejoindre} disabled={!loaded || sessionRT === null || (!cameraPrete && !erreurCamera)}
+              style={{ ...primaryBtn(primary, !loaded || sessionRT === null || (!cameraPrete && !erreurCamera)), borderRadius: 99, padding: "0.75rem 1.6rem" }}>
               <Phone size={16} /> {t("candidate.call.join")}
             </button>
           </div>
         </div>
         <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
-          {vocal ? t("candidate.call.howItWorks") : t("candidate.call.noSpeechSupport")}
+          {sessionRT ? t("candidate.call.howItWorksRealtime") : vocal ? t("candidate.call.howItWorks") : t("candidate.call.noSpeechSupport")}
         </p>
       </div>
     );
@@ -837,7 +1018,7 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
       </div>
 
       {/* Sans reconnaissance vocale (Firefox) : le candidat tape, le personnage parle. */}
-      {!vocal && (
+      {!vocal && !modeRT && (
         <div style={{ display: "flex", gap: 8 }}>
           <input value={saisie} onChange={(e) => setSaisie(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") envoyerSaisie(); }}
             placeholder={t("candidate.call.typeInstead")}
@@ -849,13 +1030,13 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
 
       {/* Barre de commandes */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, paddingTop: 2 }}>
-        {vocal && (
+        {(vocal || modeRT) && (
           <button type="button" onClick={basculerMicro} aria-label={micCoupe ? t("candidate.call.unmute") : t("candidate.call.mute")}
             style={{ width: 48, height: 48, borderRadius: "50%", border: "none", background: micCoupe ? "#ea4335" : "#3c4043", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             {micCoupe ? <MicOff size={20} /> : <Mic size={20} />}
           </button>
         )}
-        {vocal && (
+        {vocal && !modeRT && (
           <button type="button" onClick={basculerEnvoi} title={t(envoiAuto ? "candidate.call.autoHint" : "candidate.call.manualHint")}
             style={{ height: 48, borderRadius: 24, border: "none", background: envoiAuto ? "#3c4043" : "#8ab4f8", color: envoiAuto ? "#ffffff" : "#202124", padding: "0 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
             {envoiAuto ? <Timer size={16} /> : <Hand size={16} />}
@@ -878,7 +1059,7 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
         </button>
       </div>
       <div style={{ textAlign: "center", fontSize: 11.5, color: "#9aa0a6" }}>
-        {typeof remaining === "number" ? t("candidate.persona.remaining", { count: remaining }) : ""}
+        {!modeRT && typeof remaining === "number" ? t("candidate.persona.remaining", { count: remaining }) : ""}
       </div>
 
       {transcriptionVisible && (

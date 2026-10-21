@@ -272,6 +272,8 @@ const candidate = {
     autoHint: "Je antwoord vertrekt na een stilte. Klik om zelf de controle te houden.",
     manualHint: "Klik op „Ik ben klaar” wanneer je klaar bent met spreken.",
     noSpeechSupport: "Je browser zet spraak niet om in tekst (gebruik Chrome, Edge of Safari om te spreken). Je kunt het gesprek toch voeren: jij typt, je gesprekspartner antwoordt hardop.",
+    howItWorksRealtime: "Spreek natuurlijk, zoals aan de telefoon: je gesprekspartner antwoordt zodra je klaar bent, en je kunt hem of haar onderbreken. Het gesprek duurt zo lang als een echt gesprek. Je camera wordt tijdens het gesprek opgenomen. Gebruik indien mogelijk een headset of oortjes.",
+    connecting: "Verbinden…",
     cameraError: "Camera niet beschikbaar — het gesprek blijft mogelijk, maar wordt niet gefilmd.",
     you: "Jij",
     recording: "Opname",

@@ -2,11 +2,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
-import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
-import {
-  normaliserPersona, repliques, toursCandidat, personaTranscript, consignePersona,
-  nettoyerReplique, SENTINELLE_FIN,
-} from "@/lib/persona";
+import { repliques, toursCandidat, consignePersona, nettoyerReplique, SENTINELLE_FIN } from "@/lib/persona";
+import { resolveContext, enregistrer, etat, NOMS_LANGUES } from "@/lib/personaContexte";
 
 // Conversation du candidat avec un personnage joué par l'IA (sandbox
 // « persona »). Même transport que l'assistant (NDJSON streamé), mêmes
@@ -23,66 +20,6 @@ export const dynamic = "force-dynamic";
 
 // Sonnet : le personnage doit tenir un rôle avec nuance, sur plusieurs tours.
 const MODEL = "claude-sonnet-5-5";
-
-const NOMS_LANGUES = { ...LOCALE_NAMES_FR, de: "allemand", es: "espagnol", it: "italien" };
-
-async function resolveContext(admin, token, stepId) {
-  if (!token || !stepId) return { error: "token et stepId requis", status: 400 };
-
-  const { data: candidate } = await admin
-    .from("candidates").select("id").eq("interview_token", token).single();
-  if (!candidate) return { error: "Lien invalide", status: 403 };
-
-  const { data: step } = await admin
-    .from("experience_steps")
-    .select("id, experience_id, sandbox_kind, response_format, config")
-    .eq("id", stepId).single();
-  const persona = step?.sandbox_kind === "persona" ? normaliserPersona(step.config?.persona) : null;
-  if (!step || !persona) return { error: "Conversation non disponible pour cette étape", status: 403 };
-
-  // Le run du candidat sur l'expérience qui porte CETTE étape : une étape d'une
-  // autre offre ne trouve pas de run, donc pas de conversation.
-  const { data: run } = await admin
-    .from("candidate_runs").select("id, status")
-    .eq("candidate_id", candidate.id).eq("experience_id", step.experience_id).maybeSingle();
-  if (!run) return { error: "Run introuvable", status: 403 };
-
-  const { data: existing } = await admin
-    .from("run_step_responses").select("meta")
-    .eq("run_id", run.id).eq("step_id", step.id).maybeSingle();
-  const conv = existing?.meta?.persona || { messages: [], ended: false, usage: null };
-
-  const { data: exp } = await admin
-    .from("experiences").select("jobs!inner(experience_locale)")
-    .eq("id", step.experience_id).single();
-  const locale = coerceExperienceLocale(exp?.jobs?.experience_locale);
-
-  return { step, run, persona, conv, meta: existing?.meta || {}, locale };
-}
-
-async function enregistrer(admin, ctx, conv) {
-  const { error } = await admin.from("run_step_responses").upsert({
-    run_id: ctx.run.id,
-    step_id: ctx.step.id,
-    response_format: ctx.step.response_format || "text",
-    text_answer: personaTranscript(ctx.persona, conv),
-    meta: { ...ctx.meta, persona: conv },
-    status: "submitted",
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "run_id,step_id" });
-  if (error) throw error;
-}
-
-function etat(ctx, conv) {
-  return {
-    messages: repliques(ctx.persona, conv).map((m) => ({ role: m.role, content: m.content })),
-    turns: toursCandidat(conv),
-    remaining: Math.max(0, ctx.persona.max_turns - toursCandidat(conv)),
-    ended: !!conv.ended,
-    endedBy: conv.ended_by || null,
-    active: ctx.run.status === "in_progress",
-  };
-}
 
 // ─── Historique ──────────────────────────────────────────────────────────────
 export async function GET(request) {

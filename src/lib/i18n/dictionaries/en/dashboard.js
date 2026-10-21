@@ -1029,6 +1029,8 @@ const dashboard = {
         hidden: "What they hide",
         objections: "Their objections",
         redLines: "What they refuse",
+        endWhen: "When the call can end",
+        endWhenHint: "the candidate's objective reached — the persona then agrees to the next step and hangs up",
       },
       data: {
         title: "What the candidate has in front of them",
