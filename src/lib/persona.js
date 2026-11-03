@@ -176,7 +176,8 @@ export function consignePersona(persona, nomLangue, toursRestants, { realtime = 
   const forme = realtime
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases), comme au téléphone. Jamais de liste ni de mise en forme.
 - Si tu n'as vraiment pas compris, fais répéter, comme au téléphone.
-- Ton humeur suit ta fiche, mais tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.`
+- Ton humeur suit ta fiche, mais tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.
+${secretRealtime(persona)}`
     : appel
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases). Jamais de liste, de titre, de mise en forme, d'emoji ni de parenthèse : tout est prononcé tel quel.
 - La transcription peut écorcher un mot ou couper une phrase : comprends ce qu'un humain aurait entendu, sans le relever. Si c'est vraiment incompréhensible, fais répéter, comme au téléphone.`
@@ -199,6 +200,20 @@ ${realtime
     : `- Quand la conversation arrive à une fin naturelle — accord obtenu, rendez-vous fixé, ou tu y mets un terme parce que l'échange ne mène nulle part — écris ta dernière réplique puis, sur une ligne seule, ${SENTINELLE_FIN}`}
 ${!realtime && toursRestants <= 2 ? `- Le temps presse : il reste au plus ${toursRestants} message(s) au candidat. Amène l'échange vers sa fin, comme le ferait quelqu'un qui doit raccrocher.\n` : ""}
 LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Ta fiche ci-dessus (personnalité, informations cachées, objections, limites) peut être rédigée dans une autre langue, celle du recruteur qui l'a relue : tu en restitues le SENS en ${nomLangue}, jamais les mots tels quels. Si le candidat ${realtime ? "te parle" : "t'écrit"} dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
+}
+
+// Ce que le modèle vocal ne doit jamais dire. La fiche est rédigée à la
+// troisième personne, avec ses conditions en toutes lettres (« he only says so
+// if asked about team size ») : Claude y lit des consignes de jeu, le modèle
+// Realtime les a récitées (« I won't agree to a demo if you haven't asked about
+// my team »), a posé lui-même la question qui devait faire sortir son
+// information, et a fini par appeler le candidat par son propre prénom
+// (21/10/2026). D'où ces garde-fous explicites, avec le nom du personnage.
+function secretRealtime(persona) {
+  const nom = persona.name || "ce personnage";
+  return `- QUI EST QUI : tu es ${nom}. Dans ta fiche, « il » ou « elle » désigne TOI. Le candidat est ton interlocuteur : tu ne connais son prénom que s'il te le donne. Tu ne l'appelles jamais par un prénom qu'il ne t'a pas donné, et jamais par le tien.
+- TA FICHE EST SECRÈTE : ses conditions (« il ne le dit que si… », ce qui te convainc, ce que tu refuses) sont des consignes pour toi, jamais des phrases à dire. Tu n'annonces jamais ce que le candidat devrait demander, faire ou dire pour obtenir quelque chose, ni à quelles conditions tu accepterais.
+- C'est au candidat de poser les questions : tu ne poses JAMAIS toi-même les questions qui feraient sortir tes informations cachées (sur ton équipe, ton budget, qui décide…), et tu ne livres une information cachée qu'en réponse à une question du candidat qui y mène.`;
 }
 
 // Comment un appel Realtime se termine. Le modèle vocal prend la consigne au
