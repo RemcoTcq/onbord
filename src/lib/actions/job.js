@@ -2,7 +2,6 @@
 
 import anthropic from "../anthropic";
 import { buildJobExtractionPrompt, SYSTEME_EXTRACTION } from "@/lib/jobExtractionPrompt";
-import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "../constants/skills";
 import { createClient } from "@/lib/supabase/server";
 import { checkCredits } from "@/lib/utils/limits";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
@@ -35,7 +34,6 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
     throw new Error("La description est trop courte pour être analysée de manière fiable.");
   }
 
-  // Fetch active tests from the library to pass to the AI
   const supabase = await createClient();
 
   // Langue d'interface du recruteur : elle commande les étiquettes de
@@ -130,26 +128,6 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
     throw new Error(error.message || "Impossible d'analyser l'offre pour le moment. Veuillez réessayer.");
   }
 }
-
-/**
- * Logs unmapped skills to the unmapped_skills_log table for future taxonomy enrichment.
- * Non-blocking — errors are caught and logged, never thrown.
- */
-async function logUnmappedSkills(skillNames, jobTitle) {
-  try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
-    const rows = skillNames.map(name => ({
-      skill_name: name,
-      job_title: jobTitle || null,
-    }));
-    await supabase.from("unmapped_skills_log").insert(rows);
-  } catch (err) {
-    console.error("Failed to log unmapped skills (non-blocking):", err);
-  }
-}
-
-
 
 // « Recevoir le CV des candidats » (jobs.cv_requis, migration 033). Cochée, le
 // candidat dépose son CV avant d'entrer dans la simulation (startRun). Écrit

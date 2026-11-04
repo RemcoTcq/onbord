@@ -984,7 +984,7 @@ const dashboard = {
 
 // ── Formulaire d'offre — étape 2 (critères) ───────────────────────────────
   jobForm: {
-    categoryPlaceholder: "ex : Vente, Engineering…",
+    categoryPlaceholder: "ex : Vente, Support client…",
     subFamilyPlaceholder: "ex : Account Executive (B2B)…",
     yearsPlaceholder: "ex : 3 ans, 1-3 ans, 5+ ans",
     mustHave: "Indispensable",

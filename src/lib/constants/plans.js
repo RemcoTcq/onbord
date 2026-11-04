@@ -29,6 +29,10 @@
  * partagent pas de code : ces chiffres sont RECOPIÉS dans les deux, à changer
  * ensemble.
  *
+ * Les plans ne diffèrent que par leurs crédits et leur prix : les drapeaux de
+ * fonctionnalités (entretien vidéo, branding, analytique, historique) ont été
+ * retirés le 04/11/2026. Aucun n'était lu, sauf le branding, ouvert à tous.
+ *
  * Plus de crédit supplémentaire à l'unité : l'achat de crédits en plus a été
  * retiré de l'offre (le site n'en vend plus). Un compte à court de crédits
  * prend contact ; l'équipe peut toujours en ajouter depuis /admin.
@@ -37,24 +41,11 @@
 /** Solde affiché pour un compte sans limite. Sentinelle, jamais un vrai solde. */
 export const CREDITS_ILLIMITES = 999999;
 
-const FEATURES_COMPLETES = {
-  videoInterview: true,
-  companyBranding: true,
-  advancedAnalytics: true,
-  historyMonths: 12,
-};
-
 const CORE = {
   label: "Core",
   creditsPerMonth: 150,
   priceMonthly: 120,
   priceAnnual: 100,     // prix MENSUEL sous engagement annuel : 10 mois payés sur 12
-  features: {
-    videoInterview: true,
-    companyBranding: true,
-    advancedAnalytics: false,
-    historyMonths: 3,
-  },
 };
 
 export const PLANS = {
@@ -66,7 +57,6 @@ export const PLANS = {
     creditsPerMonth: 500,
     priceMonthly: 360,
     priceAnnual: 300,   // 10 mois payés sur 12
-    features: { ...FEATURES_COMPLETES },
   },
 
   // Volontairement identique à Core, jusqu'au `label`. La seule différence est
@@ -80,7 +70,6 @@ export const PLANS = {
     priceMonthly: 0,
     priceAnnual: 0,
     illimite: true,
-    features: { ...FEATURES_COMPLETES, historyMonths: 999 },
   },
 };
 

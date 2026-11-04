@@ -149,8 +149,8 @@ ${REGLES_CHECKPOINTS}
    - Pour "document" : config.document_context
    - Pour "inbox" : config.inbox_brief — UNE SEULE PHRASE : la boîte de qui, quel moment, quelle contrainte de temps. Les messages seront produits dans un second temps ; ne les génère PAS ici.
    - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel, le cas général) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
-   QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — office management, opérations, customer success, support, assistanat, gestion de projet, RH généraliste, encadrement d'équipe.
-   QUAND CHOISIR "persona" : le poste se joue en conversation — vente, SDR, account management, customer success, support, recrutement, management, négociation achats. Préfère-le à une vidéo dès que la compétence se prouve en réagissant à l'autre (objection, information à obtenir, désaccord) plutôt qu'en parlant seul.
+   QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — customer success, support client, account management, sales manager ou support manager (escalades, demandes de l'équipe).
+   QUAND CHOISIR "persona" : le poste se joue en conversation — SDR, BDR, account executive, account management, customer success, support client, management d'une équipe commerciale ou support. Préfère-le à une vidéo dès que la compétence se prouve en réagissant à l'autre (objection, information à obtenir, désaccord) plutôt qu'en parlant seul.
    NE PAS choisir une de ces sandboxes pour un poste où le geste ne se retrouve pas dans le quotidien. Leur "response_format" est toujours "text".`;
 
 // ─── L'offre, telle qu'elle entre dans les prompts ───────────────────────────
@@ -203,7 +203,7 @@ function blocOffre({ title, description, criteria }) {
 // avant les règles de conception, donc lu après l'offre elle-même.
 const REGLE_ANCRAGE_OFFRE = `ANCRAGE DANS CETTE OFFRE-CI — à lire avant de concevoir la moindre étape :
 Les compétences listées disent CE QU'IL FAUT MESURER. L'offre dit DANS QUEL MONDE : à qui le candidat s'adresse, ce qu'il cherche à obtenir d'eux, ce que l'entreprise vend, et à quoi ressemble une journée. Les deux sont indispensables et l'une ne remplace pas l'autre.
-NE RETOMBE JAMAIS SUR LA VERSION GÉNÉRIQUE DU MÉTIER. Un poste de vente peut viser des PARTENAIRES et non des clients ; un poste de support peut être interne ; un poste marketing peut ne jamais toucher au grand public ; un poste de recrutement peut ne sourcer que des profils techniques. Si l'offre parle de partenariats, les mises en situation mettent en scène des partenaires à convaincre de collaborer — jamais des prospects à qui vendre.
+NE RETOMBE JAMAIS SUR LA VERSION GÉNÉRIQUE DU MÉTIER. Un poste de vente peut viser des PARTENAIRES et non des clients ; un poste de support peut être interne ; un account manager peut ne gérer que trois grands comptes ; un poste de customer success peut ne parler qu'à des équipes techniques. Si l'offre parle de partenariats, les mises en situation mettent en scène des partenaires à convaincre de collaborer — jamais des prospects à qui vendre.
 Avant d'écrire la première étape, repère dans l'offre : à qui le candidat parle, DANS QUELLE LANGUE il leur parle, ce qu'il attend d'eux, et ce qui rend CE poste différent d'un autre portant le même intitulé. Si une étape que tu viens d'écrire resterait vraie pour n'importe quelle offre du même intitulé, elle est à refaire.`;
 
 // ─── Fil rouge : un parcours qui se suit, quand le métier se vit ainsi ────────
@@ -219,7 +219,7 @@ Avant d'écrire la première étape, repère dans l'offre : à qui le candidat p
 // noms, et le client de l'étape 1 changeait de nom à l'étape 3.
 const REGLE_FIL_ROUGE = `10. FIL ROUGE — décide s'il en faut un, et dis-le dans "fil_rouge".
    Un fil rouge relie les étapes en une seule situation de travail qui se déroule : le même compte client, le même dossier, la même journée. Une étape fait suite à la précédente — le client dont le message attend dans la boîte de réception est celui à qui le candidat écrit ensuite, puis qu'il appelle.
-   ACTIVE-LE quand le métier se vit comme une suite d'actions sur les mêmes dossiers et que les tâches se répondent naturellement : customer success, account management, vente, support, recrutement, opérations, gestion de projet.
+   ACTIVE-LE quand le métier se vit comme une suite d'actions sur les mêmes dossiers et que les tâches se répondent naturellement : customer success, account management, vente, support client.
    NE L'ACTIVE PAS quand les compétences à mesurer sont indépendantes, ou quand les enchaîner forcerait un scénario artificiel : un poste d'expertise testé sur des cas distincts, un parcours dominé par des questions de connaissance.
    S'il est actif :
    - "contexte_candidat" : 3 à 5 phrases, dans la langue du parcours, lues par le candidat AVANT la première étape — qui il est dans l'entreprise, quel jour, quelle situation, avec qui il va travailler. Aucun indice sur ce qui est évalué.

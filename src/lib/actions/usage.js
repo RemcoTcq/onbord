@@ -2,7 +2,6 @@
 
 import {
   checkCredits,
-  hasFeature,
   getCreditInfo,
   addCredits,
   changePlan,
@@ -49,21 +48,6 @@ export async function checkUserCredits(cost) {
   } catch (error) {
     console.error("checkUserCredits error:", error);
     return { allowed: false, error: "Erreur technique" };
-  }
-}
-
-/**
- * Vérifie si l'utilisateur connecté a accès à une feature selon son plan.
- */
-export async function checkUserFeature(featureName) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    return await hasFeature(user.id, featureName);
-  } catch (error) {
-    console.error("checkUserFeature error:", error);
-    return false;
   }
 }
 

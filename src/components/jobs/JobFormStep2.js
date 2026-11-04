@@ -5,7 +5,6 @@ import { Plus, X, ArrowRightLeft, AlertTriangle } from "lucide-react";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useT } from "@/lib/i18n/I18nProvider";
 
-import { DOMAIN_HARD_SKILLS, SOFT_SKILLS_LIST } from "@/lib/constants/skills";
 import { TAXONOMIE_COMPETENCES } from "@/lib/constants/taxonomie";
 import { niveauCecr } from "@/lib/i18n/languages";
 

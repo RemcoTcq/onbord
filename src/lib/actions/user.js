@@ -2,7 +2,6 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { hasFeature } from "../utils/limits";
 
 export async function getRecruiterName(userId) {
   try {
@@ -126,14 +125,6 @@ export async function updateEmployerBranding(brandingData) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
-
-    const canBrand = await hasFeature(user.id, "companyBranding");
-    if (!canBrand) {
-      return {
-        success: false,
-        error: "Votre plan actuel ne permet pas de personnaliser le branding. Passez au plan Pro ou supérieur.",
-      };
-    }
 
     const { error } = await supabase
       .from("users")

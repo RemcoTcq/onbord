@@ -922,7 +922,7 @@ const dashboard = {
   },
 
   jobForm: {
-    categoryPlaceholder: "e.g. Sales, Engineering…",
+    categoryPlaceholder: "e.g. Sales, Customer support…",
     subFamilyPlaceholder: "e.g. Account Executive (B2B)…",
     yearsPlaceholder: "e.g. 3 years, 1-3 years, 5+ years",
     mustHave: "Must have",

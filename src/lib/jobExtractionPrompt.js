@@ -49,7 +49,7 @@ ATTENTION CRITIQUE : Vous devez IMPÉRATIVEMENT échapper les guillemets doubles
 Structure JSON attendue :
 {
   "title": "Le titre précis du poste — RÉDIGÉ EN ${nomContenu}",
-  "category": "La famille d'emploi : le grand domaine du métier, un ou deux mots — RÉDIGÉE EN ${nomUi}. Les mots « vente », « ingénierie », « finance », « marketing », « opérations », « ressources humaines » disent le NIVEAU DE GRANULARITÉ attendu, ils ne sont pas des valeurs à recopier : rends l'équivalent en ${nomUi}.",
+  "category": "La famille d'emploi : le grand domaine du métier, un ou deux mots — RÉDIGÉE EN ${nomUi}. Onbord sert deux familles, la vente et le customer success / support client : les mots « vente » et « support client » disent le NIVEAU DE GRANULARITÉ attendu, ils ne sont pas des valeurs à recopier — rends l'équivalent en ${nomUi}. Une offre d'une autre famille reçoit son vrai nom, au même niveau.",
   "sub_family": "La sous-famille précise du poste, au niveau d'un intitulé de métier — RÉDIGÉE EN ${nomUi}.",
   "role_type": "Le type de rôle parmi ces 4 choix EXACTS : 'Contributeur individuel (IC) — Pas de responsabilité managériale, expert de son domaine', 'Manager — Gère une équipe, évalue, décide des ressources', 'Senior IC / Lead — Expert senior sans équipe directe mais avec influence', 'Director / Executive — Management de managers, vision stratégique'",
   "talents_needed": "Nombre de personnes recherchées (ex: 1, 2, 3)",

@@ -364,14 +364,6 @@ export async function factureNotationCandidat(recruteurId) {
   return chargeCredits(recruteurId, CREDIT_COSTS.candidate_scoring);
 }
 
-/** Le plan du compte ouvre-t-il cette fonctionnalité ? */
-export async function hasFeature(userId, featureName) {
-  const { usage, exonere } = await etatFacturation(userId);
-  if (exonere) return true;
-  const plan = PLANS[usage.plan] || PLANS[PLAN_DEFAUT];
-  return plan.features?.[featureName] ?? false;
-}
-
 /**
  * Informations de crédits destinées au NAVIGATEUR du recruteur.
  * planVisible() s'applique ICI : un bêta-testeur reçoit « core », jamais
