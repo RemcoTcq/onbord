@@ -5,15 +5,15 @@
 // note et ce qu'elle pèse. Un clic ouvre la page de l'étape.
 
 import {
-  Phone, MessageSquare, Mail, MessageCircle, FileText, Database, Sheet, Inbox,
-  SquareKanban, Code2, Video, ListChecks, CircleHelp, Type, Clock, ChevronLeft, ChevronRight,
+  Phone, MessageSquare, Mail, MessageCircle, FileText, Inbox,
+  Video, ListChecks, CircleHelp, Type, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { minutesEtape } from "@/lib/experienceDuree";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 const ICONES = {
-  email: Mail, client_reply: MessageCircle, document: FileText, crm: Database, sheet: Sheet,
-  inbox: Inbox, board: SquareKanban, code: Code2, video: Video, qcm: ListChecks, choice: CircleHelp, text: Type,
+  email: Mail, client_reply: MessageCircle, document: FileText,
+  inbox: Inbox, video: Video, qcm: ListChecks, choice: CircleHelp, text: Type,
 };
 
 // Le geste demandé au candidat : la mise en situation si elle existe, sinon le

@@ -5,14 +5,12 @@
 //
 //   • personnage, e-mail, réponse client, document : peu de champs, du texte.
 //     Ils se lisent et se modifient section par section (SectionRecit).
-//   • CRM, tableur, boîte de réception, tableau, code : des données. On en
-//     donne le résumé en deux ou trois lignes ; les données elles-mêmes
-//     restent derrière « Voir et modifier les données ».
+//   • boîte de réception : des données. On en donne le résumé en deux ou
+//     trois lignes ; les messages eux-mêmes restent derrière « Voir et
+//     modifier les données ».
 
 import { useState } from "react";
 import { Phone, MessageSquare, Pencil, Check, EyeOff } from "lucide-react";
-import { crmEstEspace } from "@/lib/crmScoring";
-import { CODE_LANGUAGES } from "@/lib/constants/codeLanguages";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { SectionRecit } from "./Recit";
 import { CHAMPS_SCENE } from "./EditeursScene";
@@ -108,40 +106,12 @@ export function RecitScene({ kind, config, setConfig, stepId, toast }) {
   );
 }
 
-// ─── Résumé des données (CRM, tableur, boîte, tableau, code) ─────────────────
+// ─── Résumé des données (boîte de réception) ─────────────────────────────────
 export function ResumeDonnees({ kind, config }) {
   const { t } = useI18n();
   const k = (cle, vars) => t(`dashboard.experienceEditor.recit.data.${cle}`, vars);
   const lignes = [];
   const puces = [];
-
-  if (kind === "crm") {
-    const c = config?.crm || {};
-    const fields = c.fields || [];
-    if (crmEstEspace(c)) {
-      lignes.push(k("crm", {
-        name: c.pipeline_name || "—",
-        records: (c.records || []).length,
-        mission: c.mission ? t(`dashboard.experienceEditor.crm.missions.${c.mission}`) : "—",
-      }));
-    } else {
-      lignes.push(k("crmSources", { count: (c.sources || []).length }));
-    }
-    lignes.push(k("crmFields", { count: fields.length, factual: fields.filter((f) => f.nature === "factual").length }));
-    for (const f of fields.slice(0, 8)) puces.push(f.label || f.key);
-  }
-
-  if (kind === "sheet") {
-    const s = config?.sheet || {};
-    const onglets = s.sheets || [];
-    lignes.push(k("sheet", {
-      file: s.file_name || "—",
-      tabs: onglets.length,
-      rows: onglets.reduce((n, o) => n + (o.rows || []).length, 0),
-    }));
-    if (s.deliverable_label) lignes.push(k("sheetDeliverable", { label: s.deliverable_label }));
-    for (const o of onglets) puces.push(`${o.name || "—"} : ${(o.columns || []).join(", ")}`);
-  }
 
   if (kind === "inbox") {
     const b = config?.inbox || {};
@@ -149,24 +119,6 @@ export function ResumeDonnees({ kind, config }) {
     lignes.push(k("inbox", { owner: b.owner || "—", count: items.length, now: b.now || "—" }));
     for (const m of items.slice(0, 8)) puces.push([m.from, m.subject].filter(Boolean).join(" — ") || m.id);
     if (items.length > 8) puces.push("…");
-  }
-
-  if (kind === "board") {
-    const b = config?.board || {};
-    lignes.push(k("board", { title: b.title || "—", count: (b.cards || []).length }));
-    if ((b.columns || []).length) lignes.push(k("boardColumns", { columns: b.columns.filter(Boolean).join(" · ") }));
-    if (b.constraint) lignes.push(k("boardConstraint", { constraint: b.constraint }));
-  }
-
-  if (kind === "code") {
-    const c = config?.code || {};
-    const tests = c.tests || [];
-    const caches = tests.filter((x) => x.hidden).length;
-    lignes.push(k("code", {
-      language: CODE_LANGUAGES[c.language]?.label || c.language || "—",
-      visible: tests.length - caches,
-      hidden: caches,
-    }));
   }
 
   if (!lignes.length) return null;

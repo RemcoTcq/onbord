@@ -808,36 +808,10 @@ function CarteCritere({ cs, step, ouvert, onToggle }) {
 
           {cs.format === "checkpoints" && <CheckpointList checkpoints={cs.checkpoints} />}
 
-          {/* L'échelle sur laquelle cette note a été posée. Absente pour le QCM
-              et les champs factuels CRM, qui sont corrigés sans grille. */}
+          {/* L'échelle sur laquelle cette note a été posée. Absente pour le QCM,
+              corrigé sans grille. */}
           {grille && <BarsScale levels={grille.bars_levels} attributed={cs.bars_level} />}
 
-          {/* Sandbox CRM — correction déterministe, champ par champ. La ligne
-              du piège est mise en évidence : c'est le signal qui distingue
-              "a lu" de "a croisé les sources". */}
-          {cs.crm_details?.length > 0 && (
-            <div style={{ border: "1px solid var(--ds-line-inset)", borderRadius: 9, overflow: "hidden" }}>
-              {cs.crm_details.map((d, di) => (
-                <div key={di} style={{
-                  display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", fontSize: 13,
-                  borderTop: di === 0 ? "none" : "1px solid var(--ds-line-inset)",
-                  background: d.is_trap ? "#FFFCF5" : "#FFFFFF",
-                }}>
-                  <span style={{ flexShrink: 0, fontWeight: 600, color: d.correct ? "var(--ds-green-ink)" : "var(--ds-red)" }}>{d.correct ? "✓" : "✗"}</span>
-                  <span style={{ flex: "0 0 34%", fontWeight: 500 }}>
-                    {d.label}
-                    {d.is_trap && <span className="ds-tag ds-tag-mid" style={{ marginLeft: 6, fontFamily: "inherit", fontSize: 11 }}>{t("dashboard.candidateDetail.trap")}</span>}
-                  </span>
-                  <span style={{ flex: 1, color: d.correct ? "var(--ds-ink)" : "var(--ds-red)", overflowWrap: "anywhere" }}>
-                    {d.given ?? <em style={{ color: "var(--ds-ink-4)" }}>{t("dashboard.candidateDetail.notFilled")}</em>}
-                  </span>
-                  {!d.correct && (
-                    <span style={{ flex: "0 0 28%", color: "var(--ds-ink-3)", overflowWrap: "anywhere" }}>{t("dashboard.candidateDetail.expected")} {d.expected}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
           {cs.verbatim && (
             <span style={{ alignSelf: "flex-start", padding: "5px 9px", borderRadius: 7, background: cs.verbatim_verified ? "#F3F6FC" : "var(--ds-amber-bg)", fontSize: 13, fontStyle: "italic", color: "var(--ds-ink-2)" }}>
               « {cs.verbatim} »

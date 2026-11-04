@@ -2,7 +2,7 @@ import { runExperienceGeneration } from "@/lib/experienceGeneration";
 
 // Une génération complète durait ~1 à 2 minutes quand elle valait 2 appels
 // Claude. Elle en vaut maintenant jusqu'à cinq — conception avec réflexion,
-// scénario CRM, exercice de code, relecture critique, et jusqu'à deux
+// scènes de 2e passe (boîte de réception, personnage), relecture critique, et jusqu'à deux
 // réécritures — et le banc en a mesuré une à 300 secondes tout rond, c'est-à-dire
 // AU plafond précédent. Une génération coupée en plein flux, c'est plusieurs
 // minutes de modèle payées pour rien — et une simulation que le recruteur n'a

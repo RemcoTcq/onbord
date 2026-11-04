@@ -4,15 +4,9 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { factureDemarrageCandidat } from "@/lib/utils/limits";
 import { scoreRun } from "@/lib/runScoring";
-import { evaluateCrm, crmAnswerToText } from "@/lib/crmScoring";
-import { sheetAnswerToText, lireAdresse, MAX_COLONNES, MAX_LIGNES } from "@/lib/tableur";
 import { inboxAnswerToText, PRIORITES, ACTIONS } from "@/lib/boiteReception";
-import { graphiquesValides } from "@/lib/tableur";
 import { normaliserPersona, personaPourCandidat, personaTranscript } from "@/lib/persona";
-import { boardAnswerToText, assainirReponseTableau, normaliserTableau } from "@/lib/tableauCartes";
-import { TYPES_PROCHAINE_ACTION } from "@/lib/crmScoring";
 import { resolveJobEntry } from "@/lib/candidateEntry";
-import { executeBatch } from "@/lib/codeRunner";
 import { estimerMinutes } from "@/lib/experienceDuree";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
@@ -30,35 +24,12 @@ function sanitizeStepForCandidate(step) {
   // critères. Le candidat n'a pas à savoir ce qui est mesuré où.
   delete config.skills_tested;
   delete config.targets_skills;
-  // Sandbox CRM : le corrigé des champs factuels et la description du piège ne
-  // doivent JAMAIS partir dans le HTML du candidat. On retire aussi `nature`,
-  // qui révélerait quels champs sont corrigés automatiquement.
-  if (config.crm) {
-    config.crm = {
-      ...config.crm,
-      fields: (config.crm.fields || []).map(({ expected, nature, ...rest }) => rest),
-    };
-    delete config.crm.traps;
-  }
-  // Sandbox code : les cas de test CACHÉS ne doivent pas exister dans le HTML du
-  // candidat — sinon il code pour la sortie attendue au lieu de résoudre le
-  // problème, et les cas cachés ne servent plus à rien. Seul leur NOMBRE part.
-  if (config.code) {
-    const tests = config.code.tests || [];
-    config.code = {
-      language: config.code.language,
-      starter_code: config.code.starter_code,
-      tests: tests.filter((t) => !t.hidden).map(({ name, stdin, expected_output }) => ({ name, stdin, expected_output })),
-      hidden_count: tests.filter((t) => t.hidden).length,
-    };
-  }
-  // Tableur et boîte de réception : ce que les données cachent, le tri qu'un
-  // bon professionnel ferait — la grille du correcteur. Le candidat ne reçoit
-  // que les données et les messages.
-  if (config.sheet) {
-    const { analysis_notes: _notes, ...sheet } = config.sheet;
-    config.sheet = sheet;
-  }
+  // Scènes des types retirés le 04/11/2026 (CRM, code, tableur, tableau de
+  // cartes) : elles portaient leurs corrigés. Plus aucune étape ne les a, et
+  // plus rien ne les affiche ; une donnée restée en base ne part pas pour autant.
+  for (const cle of ["crm", "code", "sheet", "board"]) delete config[cle];
+  // Boîte de réception : le tri qu'un bon professionnel ferait — la grille du
+  // correcteur. Le candidat ne reçoit que les messages.
   if (config.inbox) {
     const { triage_notes: _tri, ...inbox } = config.inbox;
     config.inbox = inbox;
@@ -67,11 +38,6 @@ function sanitizeStepForCandidate(step) {
   // Ses informations cachées, objections et limites sont la matière du jeu —
   // les envoyer au navigateur, c'est donner les réponses.
   if (config.persona) config.persona = personaPourCandidat(normaliserPersona(config.persona));
-  if (config.board) {
-    // Normalisé d'abord : une virgule en trop dans l'éditeur ferait une colonne vide.
-    const { triage_notes: _lecture, ...board } = normaliserTableau(config.board) || config.board;
-    config.board = board;
-  }
   return {
     id: step.id,
     order_index: step.order_index,
@@ -420,64 +386,6 @@ export async function saveStepResponse(token, stepId, payload) {
     let meta = payload.meta ?? {};
     let textAnswer = payload.text_answer ?? null;
 
-    // Sandbox CRM : la fiche structurée arrive dans meta.crm ; le texte lisible
-    // (utilisé par le scoring et le rapport) est dérivé ICI, jamais envoyé par le
-    // client. Les drapeaux `warned`/`revised` appartiennent au serveur : le
-    // client ne peut ni les poser ni les effacer.
-    if (step.sandbox_kind === "crm" && step.config?.crm) {
-      const crm = step.config.crm;
-      const ns = meta.crm?.next_step;
-      const submitted = {
-        fields: meta.crm?.fields || {},
-        notes: meta.crm?.notes || "",
-        ...(ns ? {
-          next_step: {
-            type: TYPES_PROCHAINE_ACTION.includes(ns.type) ? ns.type : null,
-            date: String(ns.date || "").slice(0, 20),
-            text: String(ns.text || "").slice(0, 2000),
-          },
-        } : {}),
-      };
-      const { data: existing } = await admin
-        .from("run_step_responses").select("meta")
-        .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
-      const prior = existing?.meta?.crm || {};
-      const changed = JSON.stringify(prior.fields || {}) !== JSON.stringify(submitted.fields)
-        || (prior.notes || "") !== submitted.notes
-        || JSON.stringify(prior.next_step || null) !== JSON.stringify(submitted.next_step || null);
-      meta = {
-        ...meta,
-        crm: {
-          ...submitted,
-          warned: !!prior.warned,
-          // Signal de rigueur : le candidat a-t-il retouché sa fiche APRÈS
-          // l'avertissement ? (l'avertissement ne dit jamais quel champ.)
-          revised: !!prior.revised || (!!prior.warned && changed),
-        },
-      };
-      textAnswer = crmAnswerToText(crm, submitted);
-    }
-
-    // Tableur : seules les modifications du candidat voyagent (meta.sheet.edits).
-    // Le texte lu par le correcteur est recalculé ICI, par le même moteur que la
-    // grille — jamais envoyé par le client, qui pourrait y mettre ce qu'il veut.
-    if (step.sandbox_kind === "sheet" && step.config?.sheet) {
-      const brut = meta.sheet || {};
-      const edits = {};
-      let nb = 0;
-      for (const [f, cellules] of Object.entries(brut.edits || {})) {
-        if (!/^\d$/.test(f) || !cellules || typeof cellules !== "object") continue;
-        for (const [a, v] of Object.entries(cellules)) {
-          const pos = lireAdresse(a);
-          if (!pos || pos.col >= MAX_COLONNES || pos.row >= MAX_LIGNES || ++nb > 1500) continue;
-          (edits[f] ||= {})[a.toUpperCase()] = String(v ?? "").slice(0, 500);
-        }
-      }
-      const submitted = { edits, conclusion: String(brut.conclusion || "").slice(0, 8000), charts: graphiquesValides(brut.charts) };
-      meta = { ...meta, sheet: submitted };
-      textAnswer = sheetAnswerToText(step.config.sheet, submitted);
-    }
-
     // Boîte de réception : même principe. Seuls les messages qui existent
     // vraiment dans l'étape, et des valeurs prises dans les listes fermées.
     if (step.sandbox_kind === "inbox" && step.config?.inbox) {
@@ -497,17 +405,9 @@ export async function saveStepResponse(token, stepId, payload) {
       textAnswer = inboxAnswerToText(step.config.inbox, submitted);
     }
 
-    // Tableau de cartes : seules des cartes de l'étape, chacune dans une colonne.
-    if (step.sandbox_kind === "board" && step.config?.board) {
-      const board = normaliserTableau(step.config.board) || step.config.board;
-      const submitted = assainirReponseTableau(board, meta.board);
-      meta = { ...meta, board: submitted };
-      textAnswer = boardAnswerToText(board, submitted);
-    }
-
     // Personnage : la conversation appartient au SERVEUR (route
     // /api/run/persona). Cette action ne transporte rien pour elle ; un `meta`
-    // client effacerait l'échange — d'où la reprise, comme pour le code.
+    // client effacerait l'échange — d'où la reprise.
     if (step.sandbox_kind === "persona") {
       const { data: existing } = await admin
         .from("run_step_responses").select("meta")
@@ -515,16 +415,6 @@ export async function saveStepResponse(token, stepId, payload) {
       const conv = existing?.meta?.persona || { messages: [] };
       meta = { ...(existing?.meta || {}), persona: conv };
       textAnswer = personaTranscript(normaliserPersona(step.config?.persona), conv);
-    }
-
-    // Sandbox code : le résultat d'exécution (meta.code) appartient au serveur,
-    // il est écrit par runCode(). Cette action-ci ne transporte que le source,
-    // et son `meta` vide écraserait les tests passés — d'où la reprise.
-    if (step.sandbox_kind === "code") {
-      const { data: existing } = await admin
-        .from("run_step_responses").select("meta")
-        .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
-      if (existing?.meta?.code) meta = { ...meta, code: existing.meta.code };
     }
 
     const row = {
@@ -542,143 +432,6 @@ export async function saveStepResponse(token, stepId, payload) {
     return { success: true };
   } catch (err) {
     console.error("saveStepResponse error:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-// Vérification "sans oracle" d'une fiche CRM, appelée une seule fois par étape.
-// Elle ne renvoie JAMAIS quel champ est faux ni la bonne valeur : juste un
-// booléen. Sinon le candidat tâtonnerait jusqu'au ✓ et le signal d'extraction ne
-// vaudrait plus rien. Le drapeau `warned` est posé côté serveur pour que
-// l'avertissement ne puisse pas être rejoué.
-export async function checkCrmAnswer(token, stepId) {
-  try {
-    const admin = createAdminClient();
-    const ctx = await resolveCandidateAndRun(admin, token);
-    if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
-
-    const { data: step } = await admin
-      .from("experience_steps").select("id, sandbox_kind, config")
-      .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
-    if (!step || step.sandbox_kind !== "crm" || !step.config?.crm) {
-      return { success: true, hasMismatch: false };
-    }
-
-    const { data: existing } = await admin
-      .from("run_step_responses").select("meta")
-      .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
-    const stored = existing?.meta?.crm;
-    if (!stored || stored.warned) return { success: true, hasMismatch: false };
-
-    const { factualCount, correctCount } = evaluateCrm(step.config.crm, stored);
-    const hasMismatch = factualCount > 0 && correctCount < factualCount;
-    if (!hasMismatch) return { success: true, hasMismatch: false };
-
-    await admin.from("run_step_responses")
-      .update({ meta: { ...existing.meta, crm: { ...stored, warned: true } }, updated_at: new Date().toISOString() })
-      .eq("run_id", ctx.run.id).eq("step_id", stepId);
-
-    return { success: true, hasMismatch: true };
-  } catch (err) {
-    console.error("checkCrmAnswer error:", err);
-    return { success: false, error: err.message };
-  }
-}
-
-// ─── Sandbox code : exécution réelle du code du candidat ─────────────────────
-// Le nombre d'exécutions est plafonné SERVEUR. Deux raisons : le fournisseur
-// est un service gratuit et partagé, qu'on n'a pas à marteler ; et un candidat
-// qui relance à l'aveugle vingt fois ne démontre plus rien — le nombre
-// d'essais est lui-même un signal, lisible dans le rapport.
-const MAX_CODE_RUNS = 4;
-
-export async function runCode(token, stepId, source) {
-  try {
-    const admin = createAdminClient();
-    const ctx = await resolveCandidateAndRun(admin, token);
-    if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
-    if (ctx.run.status !== "in_progress") return { success: false, error: "Run déjà soumis" };
-
-    const { data: step } = await admin
-      .from("experience_steps").select("id, sandbox_kind, config")
-      .eq("id", stepId).eq("experience_id", ctx.exp.id).single();
-    // Les tests viennent de la BASE, jamais du client : c'est tout l'intérêt
-    // d'avoir des cas cachés.
-    const codeConfig = step?.sandbox_kind === "code" ? step.config?.code : null;
-    const tests = codeConfig?.tests || [];
-    if (!tests.length) return { success: false, error: "no_tests" };
-
-    const { data: existing } = await admin
-      .from("run_step_responses").select("meta")
-      .eq("run_id", ctx.run.id).eq("step_id", stepId).maybeSingle();
-    const attempts = existing?.meta?.code?.attempts || 0;
-    if (attempts >= MAX_CODE_RUNS) return { success: false, error: "limit_reached", attemptsLeft: 0 };
-
-    const exec = await executeBatch({ source, language: codeConfig.language, tests });
-    if (!exec.success) return { success: false, error: exec.error, attemptsLeft: MAX_CODE_RUNS - attempts };
-
-    // Résultats complets côté serveur (entrées et attendus compris) : c'est ce
-    // que relira le scoring. La version renvoyée au candidat est filtrée plus bas.
-    const executions = tests.map((test, i) => ({
-      name: test.name || `Test ${i + 1}`,
-      hidden: !!test.hidden,
-      passed: exec.results[i].passed,
-      verdict: exec.results[i].verdict,
-      stdout: exec.results[i].stdout,
-      stderr: exec.results[i].stderr,
-      compile_output: exec.results[i].compile_output,
-      time: exec.results[i].time,
-    }));
-    const passed = executions.filter((e) => e.passed).length;
-
-    const codeMeta = {
-      language: codeConfig.language || null,
-      attempts: attempts + 1,
-      passed,
-      total: tests.length,
-      executions,
-      last_run_at: new Date().toISOString(),
-    };
-
-    // On persiste aussi le source : un candidat qui exécute puis ferme l'onglet
-    // ne doit pas perdre son travail.
-    const { error } = await admin.from("run_step_responses").upsert({
-      run_id: ctx.run.id,
-      step_id: stepId,
-      response_format: "code",
-      text_answer: source ?? "",
-      meta: { ...(existing?.meta || {}), code: codeMeta },
-      status: "submitted",
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "run_id,step_id" });
-    if (error) throw error;
-
-    // Ce qui redescend au navigateur : le détail des cas VISIBLES, et pour les
-    // cas cachés uniquement réussi/échoué. Ni leur entrée, ni leur attendu.
-    const visibleTests = tests.filter((t) => !t.hidden);
-    const visible = executions.filter((e) => !e.hidden);
-    const hidden = executions.filter((e) => e.hidden);
-    return {
-      success: true,
-      attemptsLeft: MAX_CODE_RUNS - codeMeta.attempts,
-      summary: { passed, total: tests.length, hiddenPassed: hidden.filter((e) => e.passed).length, hiddenTotal: hidden.length },
-      // Une erreur de compilation frappe tous les cas de la même façon : on la
-      // remonte une seule fois plutôt que répétée sur chaque ligne.
-      compileError: executions.find((e) => e.verdict === "compile_error")?.compile_output || null,
-      results: visible.map((e, i) => ({
-        name: e.name,
-        passed: e.passed,
-        verdict: e.verdict,
-        stdin: visibleTests[i]?.stdin ?? "",
-        expected: visibleTests[i]?.expected_output ?? "",
-        stdout: e.stdout,
-        stderr: e.stderr,
-        time: e.time,
-      })),
-      hiddenResults: hidden.map((e) => ({ passed: e.passed, verdict: e.verdict })),
-    };
-  } catch (err) {
-    console.error("runCode error:", err);
     return { success: false, error: err.message };
   }
 }

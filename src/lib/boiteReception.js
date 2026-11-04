@@ -13,8 +13,8 @@
 // (sanitizeStepForCandidate).
 // meta.inbox : pour chaque message, la priorité, l'action et le texte du
 // candidat (réponse, ou consigne de délégation), plus sa note d'organisation.
-// Le texte lu par le correcteur est dérivé côté SERVEUR (inboxAnswerToText),
-// comme la fiche CRM : le client n'envoie que la donnée structurée.
+// Le texte lu par le correcteur est dérivé côté SERVEUR (inboxAnswerToText) :
+// le client n'envoie que la donnée structurée.
 
 export const PRIORITES = ["urgent", "today", "week", "none"];
 export const ACTIONS = ["reply", "delegate", "schedule", "archive"];

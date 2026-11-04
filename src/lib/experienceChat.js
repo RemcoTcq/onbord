@@ -174,7 +174,6 @@ const LIBELLES_FORMAT = {
   video: "réponse vidéo",
   qcm: "QCM",
   choice: "choix oui/non",
-  code: "code",
 };
 const LIBELLES_STATUT = {
   draft: "brouillon",

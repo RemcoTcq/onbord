@@ -7,7 +7,6 @@ import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 import { DELAI_CORBEILLE_JOURS, purgerOffre } from "@/lib/jobPurge";
 import { headers } from "next/headers";
 import { after } from "next/server";
-import { niveauLangueLisible } from "@/lib/i18n/languages";
 import { genererBrouillonFeedback, versionPourStatut } from "@/lib/candidateFeedback";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
@@ -393,8 +392,8 @@ export async function getCandidateDetail(candidateId) {
     if (expRun) {
       const [{ data: rSteps }, { data: rResponses }, { data: rAiMsgs }] = await Promise.all([
         admin.from('experience_steps')
-          // `criteria` (grilles BARS) et `config` (corrigé QCM, définition de la
-          // fiche CRM) sont indispensables au rapport : sans eux le recruteur lit
+          // `criteria` (grilles BARS) et `config` (corrigé QCM, scène de
+          // l'étape) sont indispensables au rapport : sans eux le recruteur lit
           // « N2 » sans savoir ce que vaut N2, ni quelle était la bonne réponse.
           // Vue recruteur, propriétaire de l'offre — rien à masquer ici, à la
           // différence du parcours candidat (cf. sanitizeStepForCandidate).
@@ -442,7 +441,7 @@ export async function getCandidateDetail(candidateId) {
           // Grille BARS de référence : l'échelle sur laquelle le modèle a placé
           // le candidat. C'est elle qui rend la note lisible.
           bars: s.criteria || [],
-          // Corrigé QCM (options + bonne réponse) et définition de la fiche CRM.
+          // Corrigé QCM (options + bonne réponse) et scène de l'étape.
           config: s.config || null,
           response: respByStep[s.id] || null,
           // Scores par sous-dimension ; chacun porte son skill_name, qui sert de

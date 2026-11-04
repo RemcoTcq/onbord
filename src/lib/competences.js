@@ -165,16 +165,13 @@ export function competencesDuCheckpoint(cp, critere) {
 }
 
 /**
- * Une étape corrigée SANS grille (QCM, tests exécutés, champs factuels du CRM)
- * teste ses compétences par elle-même. Les autres ne les testent qu'à travers
- * leurs checkpoints : une compétence déclarée sur une tâche écrite, mais qu'aucun
- * checkpoint ne note, n'est pas testée — la couverture ne doit pas le cacher.
+ * Une étape corrigée SANS grille (QCM) teste ses compétences par elle-même. Les
+ * autres ne les testent qu'à travers leurs checkpoints : une compétence déclarée
+ * sur une tâche écrite, mais qu'aucun checkpoint ne note, n'est pas testée — la
+ * couverture ne doit pas le cacher.
  */
 export function etapeNoteeSansGrille(step) {
-  if (step?.kind === "classic_qcm") return true;
-  if (step?.sandbox_kind === "code" && (step?.config?.code?.tests || []).length) return true;
-  if (step?.sandbox_kind === "crm" && (step?.config?.crm?.fields || []).some((f) => f?.nature === "factual")) return true;
-  return false;
+  return step?.kind === "classic_qcm";
 }
 
 /**
@@ -191,7 +188,7 @@ export function calculerCouverture(steps, competences) {
   const refs = new Map((competences || []).map((c) => [c.id, []]));
   (steps || []).forEach((s, stepIndex) => {
     // Le FORMAT de l'étape voyage avec la référence : une compétence prouvée
-    // dans un tableur et dans une vidéo ne se lit pas comme une compétence
+    // dans un appel et dans une vidéo ne se lit pas comme une compétence
     // déclarée dans deux questions écrites.
     const format = s?.sandbox_kind && s.sandbox_kind !== "none" ? s.sandbox_kind : (s?.response_format || "text");
     const ajouter = (id, ref) => refs.get(id)?.push({ stepIndex, stepTitle: s?.title || "", format, ...ref });
@@ -276,8 +273,7 @@ export function moyennePonderee(entrees) {
  *
  * Miroir de runScoring.js, pour l'expliquer au recruteur : une entrée par
  * sous-dimension notée par le correcteur (`criteria`, hors QCM), plus une entrée
- * automatique par QCM, par fiche CRM à champs factuels et par exercice de code
- * à tests. Chaque entrée pèse POIDS_TIER selon le tier de ses compétences — les
+ * automatique par QCM. Chaque entrée pèse POIDS_TIER selon le tier de ses compétences — les
  * siennes, sinon celles de l'étape —, un tier inconnu pesant comme un
  * must-have (moyennePonderee). Une règle changée là-bas se change ici.
  *
@@ -313,8 +309,6 @@ export function partsDeLaNote(steps, competences) {
         });
       }
     }
-    if (s?.sandbox_kind === "crm" && (s?.config?.crm?.fields || []).some((f) => f?.nature === "factual")) auto("crm");
-    if (s?.sandbox_kind === "code" && (s?.config?.code?.tests || []).length) auto("code");
 
     return { stepId: s?.id, entrees, poids: entrees.reduce((t, e) => t + e.poids, 0) };
   });

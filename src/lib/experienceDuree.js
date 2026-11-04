@@ -13,19 +13,15 @@
 //
 // L'estimation ci-dessous ne prétend pas à l'exactitude — aucune ne le peut,
 // deux candidats ne mettent pas le même temps. Elle prétend à la COHÉRENCE :
-// retirer une tâche doit faire baisser le total, et un exercice de code doit
-// peser plus lourd qu'un QCM.
+// retirer une tâche doit faire baisser le total, et une boîte de réception
+// doit peser plus lourd qu'un QCM.
 
 // Minutes par étape, selon ce que le candidat doit réellement PRODUIRE.
 // Le sandbox prime sur le format : rédiger un email dans une boîte simulée ne
 // coûte pas le même temps qu'une réponse libre de trois lignes.
 const MINUTES_SANDBOX = {
-  crm: 7,           // parcourir le pipeline et l'historique, puis remplir la fiche
-  code: 8,          // lire l'énoncé, écrire, lancer les tests, corriger
-  sheet: 8,         // explorer les données, calculer, rédiger la synthèse
   inbox: 8,         // lire six à huit messages, trier, répondre aux plus urgents
   persona: 8,       // une conversation de huit à douze échanges écrits
-  board: 7,         // lire les cartes, les classer sous contrainte, justifier
   document: 5,
   email: 5,
   client_reply: 4,
@@ -35,7 +31,6 @@ const MINUTES_FORMAT = {
   qcm: 1,
   choice: 1,
   video: 3,         // une prise, rarement plus, sur une consigne courte
-  code: 8,
   text: 4,
 };
 

@@ -13,7 +13,7 @@
 //
 // ── Les deux langues ne sortent pas au même endroit ─────────────────────────
 //   • CONTENU DE L'EXPÉRIENCE (titres d'étapes, énoncés, options de QCM,
-//     scénarios CRM) → langue du CANDIDAT (jobs.experience_locale).
+//     scènes des mises en situation) → langue du CANDIDAT (jobs.experience_locale).
 //   • RAPPORT DE SCORING (justifications, synthèse) → langue du RECRUTEUR
 //     (users.ui_locale). C'est un outil de décision interne : un recruteur
 //     anglophone doit pouvoir lire le rapport d'un candidat néerlandophone.

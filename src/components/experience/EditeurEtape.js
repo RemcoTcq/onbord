@@ -17,11 +17,10 @@ import {
   estCritereCheckpoints, etapeNoteeSansGrille, CHECKPOINTS_MAX, POIDS_ETAPE, poidsEtape,
 } from "@/lib/competences";
 import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
-import { enPause } from "@/lib/constants/features";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import AutoTextarea from "@/components/ui/AutoTextarea";
 import {
-  CrmEditor, SheetEditor, InboxEditor, BoardEditor, CodeExerciseEditor, PersonaReglages, CHAMPS_SCENE,
+  InboxEditor, PersonaReglages, CHAMPS_SCENE,
 } from "./EditeursScene";
 import { SectionRecit, Repli } from "./Recit";
 import { RecitPersona, RecitScene, ResumeDonnees } from "./RecitsScenes";
@@ -31,8 +30,8 @@ import { inputStyle, labelStyle, Panneau, LigneReglage, Interrupteur } from "./u
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
 // Les libellés se résolvent au rendu.
-const RESPONSE_FORMAT_VALUES = ["text", "video", "qcm", "choice", "code"];
-const SANDBOX_KIND_VALUES = ["none", "persona", "email", "client_reply", "document", "crm", "sheet", "inbox", "board", "code"];
+const RESPONSE_FORMAT_VALUES = ["text", "video", "qcm", "choice"];
+const SANDBOX_KIND_VALUES = ["none", "persona", "email", "client_reply", "document", "inbox"];
 
 /**
  * État d'édition d'une étape et son enregistrement.
@@ -101,7 +100,7 @@ export function useEditionEtape(step, competences, { onSaved, onForked, toast })
 // ─── Onglet « Scénario » ─────────────────────────────────────────────────────
 // L'étape RACONTÉE (09/10/2026) : la consigne, puis la mise en situation telle
 // qu'on la raconterait — qui, quoi, ce que cache le personnage — avec ✎ pour
-// modifier sur place. Les données lourdes (pipeline, tableur, messages) restent
+// modifier sur place. Les données lourdes (les messages d'une boîte) restent
 // derrière un repli ; la mécanique (format, assistant, voix…) dans « Réglages
 // avancés ». Ce que l'IA sait pour noter est dans « Le corrigé », onglet
 // Notation. Mise en page : maquette « D · Étape – Scénario » (octobre 2026).
@@ -136,11 +135,7 @@ export function OngletScenario({ edition, toast }) {
             <>
               <ResumeDonnees kind={kind} config={local.config} />
               <Repli titre={r("data.edit")}>
-                {kind === "crm" && <CrmEditor crm={local.config?.crm} onChange={(crm) => setConfig({ crm })} />}
-                {kind === "sheet" && <SheetEditor sheet={local.config?.sheet} onChange={(sheet) => setConfig({ sheet })} />}
                 {kind === "inbox" && <InboxEditor inbox={local.config?.inbox} onChange={(inbox) => setConfig({ inbox })} />}
-                {kind === "board" && <BoardEditor board={local.config?.board} onChange={(board) => setConfig({ board })} />}
-                {kind === "code" && <CodeExerciseEditor code={local.config?.code} onChange={(code) => setConfig({ code })} />}
               </Repli>
             </>
           )}
@@ -152,13 +147,12 @@ export function OngletScenario({ edition, toast }) {
       <Panneau id="ds-reglages" titre={r("advanced")} sousTitre={r("advancedHelp")} defautOuvert={false}>
         <LigneReglage titre={t("dashboard.experienceEditor.responseFormat")} aide={r("formatHelp")}>
           <select value={local.response_format} onChange={(e) => set("response_format", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
-            {RESPONSE_FORMAT_VALUES.filter((v) => !enPause(v) || v === local.response_format).map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.format.${v}`)}</option>)}
+            {RESPONSE_FORMAT_VALUES.map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.format.${v}`)}</option>)}
           </select>
         </LigneReglage>
         <LigneReglage titre={t("dashboard.experienceEditor.sandbox")} aide={r("sandboxHelp")}>
           <select value={kind} onChange={(e) => set("sandbox_kind", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
-            {/* Un type en pause reste affiché sur l'étape qui l'a déjà, nulle part ailleurs. */}
-            {SANDBOX_KIND_VALUES.filter((v) => !enPause(v) || v === kind).map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.sandboxKind.${v}`)}</option>)}
+            {SANDBOX_KIND_VALUES.map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.sandboxKind.${v}`)}</option>)}
           </select>
         </LigneReglage>
         <LigneReglage titre={t("dashboard.experienceEditor.stepPage.assistant")} aide={r("assistantHelp")}>
@@ -189,7 +183,7 @@ export function OngletScenario({ edition, toast }) {
 }
 
 // Les mises en situation faites de DONNÉES : résumées, puis éditées derrière un repli.
-const TYPES_DONNEES = ["crm", "sheet", "inbox", "board", "code"];
+const TYPES_DONNEES = ["inbox"];
 
 function OptionsQcm({ local, maj }) {
   const { t } = useI18n();
@@ -260,8 +254,6 @@ export function OngletScoring({ edition, competences, part, toast, descriptions,
   const isQcm = local.kind === "classic_qcm";
   const criteria = local.criteria || [];
   const aCheckpoints = criteria.some(estCritereCheckpoints);
-  const crmFactuel = local.sandbox_kind === "crm" && (local.config?.crm?.fields || []).some((f) => f?.nature === "factual");
-  const codeTeste = local.sandbox_kind === "code" && (local.config?.code?.tests || []).length > 0;
   const k = (cle, vars) => t(`dashboard.experienceEditor.scoring.${cle}`, vars);
   const seule = part >= 100;
   const idsDe = (c) => (c.skill_ids?.length ? c.skill_ids : (local.config?.skills_tested || []));
@@ -335,8 +327,6 @@ export function OngletScoring({ edition, competences, part, toast, descriptions,
             {aCheckpoints && <li>{k("checkpointsRule")}</li>}
             {aCheckpoints && <li>{k("doubt")}</li>}
             {isQcm && <li>{k("autoQcm")}</li>}
-            {crmFactuel && <li>{k("autoCrm")}</li>}
-            {codeTeste && <li>{k("autoCode")}</li>}
             <li>{k("weightRule")}</li>
             {!seule && <li>{k("importanceHelp")}</li>}
           </ul>

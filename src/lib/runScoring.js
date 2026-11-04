@@ -1,11 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { evaluateCrm, crmBarsLevel, crmAnswerForScoring, crmTrapBriefing, crmSkillName, crmSceneForScoring } from "@/lib/crmScoring";
-import { sheetReperesCalcules } from "@/lib/tableur";
 import { inboxBriefing } from "@/lib/boiteReception";
 import { personaBriefing } from "@/lib/persona";
-import { boardBriefing } from "@/lib/tableauCartes";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
@@ -17,36 +14,16 @@ import {
 
 const SCORING_MODEL = "claude-sonnet-5-5";
 
-// Libellés et justifications calculés en dur, pas par le modèle : QCM corrigé
-// par comparaison d'index, champs factuels du CRM corrigés par comparaison de
-// chaînes. Ils atterrissent dans le même rapport que les justifications
-// rédigées par l'IA, et doivent donc suivre la MÊME langue — celle du
-// recruteur, pas celle du candidat.
+// Libellés et justifications calculés en dur, pas par le modèle : le QCM,
+// corrigé par comparaison d'index. Ils atterrissent dans le même rapport que
+// les justifications rédigées par l'IA, et doivent donc suivre la MÊME langue —
+// celle du recruteur, pas celle du candidat.
 const JUSTIFICATIONS_AUTO = {
   fr: {
     qcmDimension: "QCM — Bonne réponse",
     qcmCorrect: (n) => `Bonne réponse sélectionnée (option ${n})`,
     qcmWrong: (n, correct) => `Mauvaise réponse (option ${n} choisie, option ${correct} attendue)`,
     qcmNoAnswer: "Aucune réponse sélectionnée",
-    crmDimension: "Champs factuels",
-    crmAllCorrect: (total) => `Les ${total} champs vérifiables sont exacts.`,
-    crmPartial: (correct, total, erreurs) =>
-      `${correct}/${total} champs vérifiables exacts. Erreurs : ${erreurs}.`,
-    crmFieldError: (label, given, expected) =>
-      `${label} (saisi « ${given ?? "vide"} », attendu « ${expected} »)`,
-    crmTrapMissed: (champs) => ` Dont l'information contradictoire du brief : ${champs}.`,
-    codeDimension: "Tests automatisés",
-    codeAllPassed: (total, essais) => `Les ${total} cas de test passent (${essais} exécution${essais > 1 ? "s" : ""}).`,
-    codePartial: (passed, total, essais, echecs) =>
-      `${passed}/${total} cas de test passent (${essais} exécution${essais > 1 ? "s" : ""}). Échecs : ${echecs}.`,
-    codeNeverRun: "Le candidat n'a jamais lancé les tests : la correction fonctionnelle n'a pas pu être établie.",
-    codeFailure: (nom, verdict) => (verdict === "ok" ? nom : `${nom} (${verdict})`),
-    codeVerdicts: {
-      timeout: "temps dépassé",
-      runtime_error: "erreur à l'exécution",
-      compile_error: "ne compile pas",
-      error: "échec d'exécution",
-    },
     empty: "vide",
     recopiageCap: (pct) =>
       ` Note plafonnée : ${pct} % de la réponse est reprise mot pour mot des messages de l'assistant IA. Ce qui est évalué ici est ce que le candidat a produit.`,
@@ -59,25 +36,6 @@ const JUSTIFICATIONS_AUTO = {
     qcmCorrect: (n) => `Correct answer selected (option ${n})`,
     qcmWrong: (n, correct) => `Incorrect answer (option ${n} chosen, option ${correct} expected)`,
     qcmNoAnswer: "No answer selected",
-    crmDimension: "Factual fields",
-    crmAllCorrect: (total) => `All ${total} verifiable fields are correct.`,
-    crmPartial: (correct, total, erreurs) =>
-      `${correct}/${total} verifiable fields correct. Errors: ${erreurs}.`,
-    crmFieldError: (label, given, expected) =>
-      `${label} (entered "${given ?? "empty"}", expected "${expected}")`,
-    crmTrapMissed: (champs) => ` Including the contradictory detail from the brief: ${champs}.`,
-    codeDimension: "Automated tests",
-    codeAllPassed: (total, essais) => `All ${total} test cases pass (${essais} run${essais > 1 ? "s" : ""}).`,
-    codePartial: (passed, total, essais, echecs) =>
-      `${passed}/${total} test cases pass (${essais} run${essais > 1 ? "s" : ""}). Failures: ${echecs}.`,
-    codeNeverRun: "The candidate never ran the tests, so functional correctness could not be established.",
-    codeFailure: (nom, verdict) => (verdict === "ok" ? nom : `${nom} (${verdict})`),
-    codeVerdicts: {
-      timeout: "timed out",
-      runtime_error: "runtime error",
-      compile_error: "does not compile",
-      error: "execution failed",
-    },
     empty: "empty",
     recopiageCap: (pct) =>
       ` Score capped: ${pct}% of the answer is copied word for word from the AI assistant's messages. What is assessed here is what the candidate produced.`,
@@ -86,31 +44,6 @@ const JUSTIFICATIONS_AUTO = {
     checkpointNotScored: "Not assessed by the grader.",
   },
 };
-
-// Niveau BARS d'un taux de tests passés. Mêmes paliers que la correction CRM :
-// un rapport où deux corrections déterministes se lisent côte à côte doit les
-// graduer pareil, sinon "3/5" veut dire deux choses différentes selon l'étape.
-function testsBarsLevel(score) {
-  if (score >= 95) return 5;
-  if (score >= 75) return 4;
-  if (score >= 50) return 3;
-  if (score >= 25) return 2;
-  return 1;
-}
-
-// Verdict d'exécution rendu lisible pour le prompt de scoring et le rapport.
-// Un code qui ne compile pas ne se juge PAS comme un code qui tourne et se
-// trompe : la distinction doit survivre jusqu'à l'évaluateur.
-function codeRunSummary(step, resp, L) {
-  const code = resp?.meta?.code;
-  const total = (step.config?.code?.tests || []).length;
-  if (!total) return null;
-  if (!code) return { never_run: true, total, passed: 0, attempts: 0, failures: [] };
-  const failures = (code.executions || [])
-    .filter((e) => !e.passed)
-    .map((e) => L.codeFailure(e.name, L.codeVerdicts[e.verdict] || e.verdict));
-  return { never_run: false, total: code.total ?? total, passed: code.passed ?? 0, attempts: code.attempts ?? 0, failures };
-}
 
 // ─── Recopiage de l'assistant ────────────────────────────────────────────────
 // Le cas observé : le candidat colle l'énoncé dans l'assistant, puis recolle la
@@ -161,29 +94,13 @@ function verifyVerbatim(verbatim, sourceText) {
 }
 
 // Ce que le correcteur doit savoir d'une scène pour la juger, et que le
-// candidat ne voit pas : le piège d'une fiche CRM, ce que les données d'un
-// tableur permettent de voir, le tri qu'un bon professionnel ferait d'une boîte
-// de réception. Même rôle que le briefing du piège CRM, étendu aux nouvelles
-// scènes — la grille et la façon de noter ne changent pas.
+// candidat ne voit pas : le tri qu'un bon professionnel ferait d'une boîte de
+// réception, le jeu du personnage. La grille et la façon de noter n'en
+// dépendent pas.
 function briefingCorrecteur(s) {
   const c = s.config || {};
-  if (s.sandbox_kind === "crm" && c.crm) {
-    return [crmSceneForScoring(c.crm), crmTrapBriefing(c.crm)].filter(Boolean).join("\n");
-  }
-  if (s.sandbox_kind === "sheet" && c.sheet) {
-    const reperes = sheetReperesCalcules(c.sheet);
-    return [
-      c.sheet.analysis_notes
-        ? `  Ce que les données permettent de voir, selon la conception (NON communiqué au candidat) : ${String(c.sheet.analysis_notes).replace(/\s*\n\s*/g, " / ")}`
-        : "",
-      reperes
-        ? `  Repères CALCULÉS automatiquement sur les données d'origine (exacts, NON communiqués au candidat) :\n${reperes.split("\n").map((l) => `    ${l}`).join("\n")}`
-        : "",
-    ].filter(Boolean).join("\n");
-  }
   if (s.sandbox_kind === "inbox" && c.inbox) return inboxBriefing(c.inbox);
   if (s.sandbox_kind === "persona" && c.persona) return personaBriefing(c.persona);
-  if (s.sandbox_kind === "board" && c.board) return boardBriefing(c.board);
   return "";
 }
 
@@ -193,8 +110,8 @@ function briefingCorrecteur(s) {
 //
 // 1. UNE ÉTAPE = UN APPEL, en parallèle. Le correcteur lisait tout le parcours
 //    d'un coup : l'impression laissée par une étape déteignait sur la suivante,
-//    l'attention se diluait sur les longs parcours (une boîte de réception, un
-//    tableur et une transcription d'appel dans le même prompt), et la réponse
+//    l'attention se diluait sur les longs parcours (une boîte de réception et une
+//    transcription d'appel dans le même prompt), et la réponse
 //    pouvait être tronquée. Chaque étape est désormais notée seule, sans voir
 //    les réponses des autres — ni les échanges avec l'assistant, qui ne servent
 //    qu'à la note d'usage de l'IA.
@@ -371,11 +288,6 @@ function desaccords(step, a, b) {
 
 function candidateAnswerText(step, resp) {
   if (!resp) return "(pas de réponse)";
-  // Fiche CRM : rendu qui SÉPARE les deux natures de champ et interdit à
-  // l'évaluateur de noter les champs factuels (déjà corrigés en amont, sans LLM).
-  if (step.sandbox_kind === "crm" && step.config?.crm) {
-    return crmAnswerForScoring(step.config.crm, resp.meta?.crm);
-  }
   if (step.response_format === "video") return resp.transcript || "(transcription indisponible)";
   if (step.response_format === "qcm") {
     const idx = resp.meta?.selected_index;
@@ -383,16 +295,6 @@ function candidateAnswerText(step, resp) {
     return idx != null ? `Réponse choisie : ${opt ?? `option ${idx}`}` : "(pas de réponse)";
   }
   if (step.response_format === "choice") return resp.meta?.choice ? `Réponse : ${resp.meta.choice}` : "(pas de réponse)";
-  // Sandbox code : l'évaluateur reçoit le code ET son résultat d'exécution. Il
-  // ne doit pas juger si "ça marche" — c'est mesuré — mais comment c'est écrit.
-  if (step.sandbox_kind === "code" && step.config?.code) {
-    const run = resp.meta?.code;
-    const verdict = run
-      ? `Exécution : ${run.passed}/${run.total} cas de test passés en ${run.attempts} exécution(s).` +
-        (run.executions || []).filter((e) => !e.passed).map((e) => `\n  - échec « ${e.name} » : ${e.verdict}`).join("")
-      : "Exécution : le candidat n'a jamais lancé les tests.";
-    return `${resp.text_answer || "(pas de code)"}\n\n[${verdict}]`;
-  }
   return resp.text_answer || "(pas de réponse)";
 }
 
@@ -436,7 +338,7 @@ export async function evaluerRun(admin, run) {
     reportLocale = coerceUiLocale(recruteur?.ui_locale);
   }
 
-  // Justifications produites SANS le modèle (QCM et champs factuels du CRM) :
+  // Justifications produites SANS le modèle (QCM) :
   // elles s'affichent à côté de celles rédigées par l'IA, dans le même rapport.
   // Les laisser en français ferait un rapport bilingue.
   const L = JUSTIFICATIONS_AUTO[reportLocale];
@@ -500,71 +402,6 @@ export async function evaluerRun(admin, run) {
     };
   });
 
-  // ── Sandbox CRM : correction déterministe des champs FACTUELS ──
-  // Même principe que le QCM : une vérité vérifiable ne passe pas par un LLM.
-  // Les champs de JUGEMENT de la même fiche partent, eux, au scoring par grille
-  // ci-dessous (le step a ses critères, il est donc aussi dans `scored`).
-  const crmSteps = (steps || []).filter((s) => s.sandbox_kind === "crm" && s.config?.crm);
-  const crmScores = [];
-  for (const s of crmSteps) {
-    const ev = evaluateCrm(s.config.crm, respByStep[s.id]?.meta?.crm);
-    if (!ev.factualCount) continue; // aucun attendu défini : rien à corriger
-    const missed = ev.details.filter((d) => !d.correct);
-    const trapMissed = missed.filter((d) => d.is_trap);
-    crmScores.push({
-      step_id: s.id,
-      // Même compétence que la sous-dimension "Croisement des sources" posée à la
-      // génération : les deux signaux de la fiche s'affichent groupés. Le
-      // libellé fixe ne sert plus que de repli, pour une étape sans compétence.
-      skill_name: skillOf(s) || crmSkillName(reportLocale),
-      skill_ids: idsEtape(s),
-      tier: tierDe(idsEtape(s)),
-      sub_dimension_name: L.crmDimension,
-      bars_level: crmBarsLevel(ev.score),
-      score: ev.score,
-      justification: missed.length === 0
-        ? L.crmAllCorrect(ev.factualCount)
-        : L.crmPartial(
-            ev.correctCount,
-            ev.factualCount,
-            missed.map((d) => L.crmFieldError(d.label, d.given, d.expected)).join(" ; ")
-          )
-          + (trapMissed.length ? L.crmTrapMissed(trapMissed.map((d) => d.label).join(", ")) : ""),
-      verbatim: "",
-      verbatim_verified: false,
-      // Détail champ par champ pour le rapport recruteur.
-      crm_details: ev.details,
-    });
-  }
-
-  // ── Sandbox code : correction déterministe par EXÉCUTION ──
-  // Même principe que le QCM et que les champs factuels du CRM : ce qui est
-  // mesurable ne passe pas par un LLM. Le modèle, lui, juge la qualité du code
-  // (lisibilité, cas limites, structure) sur les sous-dimensions du step.
-  const codeSteps = (steps || []).filter((s) => s.sandbox_kind === "code" && (s.config?.code?.tests || []).length);
-  const codeScores = [];
-  for (const s of codeSteps) {
-    const run = codeRunSummary(s, respByStep[s.id], L);
-    if (!run) continue;
-    const score = run.total ? Math.round((run.passed / run.total) * 100) : 0;
-    codeScores.push({
-      step_id: s.id,
-      skill_name: skillOf(s),
-      skill_ids: idsEtape(s),
-      tier: tierDe(idsEtape(s)),
-      sub_dimension_name: L.codeDimension,
-      bars_level: run.never_run ? 1 : testsBarsLevel(score),
-      score: run.never_run ? 0 : score,
-      justification: run.never_run
-        ? L.codeNeverRun
-        : run.failures.length === 0
-          ? L.codeAllPassed(run.total, run.attempts)
-          : L.codePartial(run.passed, run.total, run.attempts, run.failures.join(" ; ")),
-      verbatim: "",
-      verbatim_verified: false,
-    });
-  }
-
   // ── Le bloc de chaque étape, tel que le correcteur le lit ──────────────────
   // Une étape à la fois : son énoncé, sa scène, ce que le correcteur doit en
   // savoir, la réponse et la grille. Ni les autres étapes, ni les échanges avec
@@ -597,22 +434,16 @@ export async function evaluerRun(admin, run) {
     const copie = tauxCopie >= SEUIL_SIGNAL
       ? `  RECOPIAGE MESURÉ : ${Math.round(tauxCopie * 100)} % des séquences de ${NGRAMME} mots de la réponse figurent MOT POUR MOT dans les messages de l'assistant.\n`
       : "";
-    // Piège du sandbox CRM (et pipeline v2), repères du tableur, tri attendu de
-    // la boîte de réception, jeu du personnage : ce que l'évaluateur doit savoir.
+    // Tri attendu de la boîte de réception, jeu du personnage : ce que
+    // l'évaluateur doit savoir.
     const trap = briefingCorrecteur(s);
-    // Le candidat a-t-il repris sa fiche après l'avertissement (qui ne lui disait
-    // pas quel champ) ? Signal de rigueur, pas de justesse.
-    const crmMeta = s.sandbox_kind === "crm" ? respByStep[s.id]?.meta?.crm : null;
-    const revision = crmMeta?.warned
-      ? `  Signal : averti une fois qu'une information ne correspondait pas aux sources (sans savoir laquelle), le candidat a ${crmMeta.revised ? "repris" : "laissé tel quel"} le contenu de sa fiche.\n`
-      : "";
     // La scène que le candidat avait sous les yeux (message client, fiche du
     // prospect, contexte du document) : sans elle, le correcteur notait un
     // e-mail de prospection sans savoir à qui il s'adressait.
     const scene = sceneEnTexte(s.config, "    ");
     blocs.set(s.id, `ÉTAPE ${i + 1} sur ${scored.length} — ${s.title || s.kind}
   Énoncé : ${s.prompt}
-${scene ? `  Mise en situation remise au candidat :\n${scene}\n` : ""}${trap ? `${trap}\n` : ""}${revision}${copie}  Réponse du candidat :
+${scene ? `  Mise en situation remise au candidat :\n${scene}\n` : ""}${trap ? `${trap}\n` : ""}${copie}  Réponse du candidat :
   """${answer}"""
   Compétence évaluée : ${skill || "(non précisée)"}
   Sous-dimensions à noter :
@@ -831,7 +662,7 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
     // La synthèse s'écrit à partir des notes CONSOLIDÉES, pas d'une nouvelle
     // lecture du parcours : elle ne peut pas contredire ce qui a été noté.
     // L'usage de l'IA, lui, se juge sur l'ensemble des échanges du run.
-    const resultats = [...critScores, ...qcmScores, ...crmScores, ...codeScores];
+    const resultats = [...critScores, ...qcmScores];
     const lignesResultats = (steps || []).map((s, i) => {
       const lignes = resultats.filter((c) => c.step_id === s.id)
         .map((c) => `    • ${c.sub_dimension_name} : ${c.score} % — ${String(c.justification || "").replace(/\s*\n\s*/g, " ")}`);
@@ -872,8 +703,8 @@ Si used=false, mets ai_usage.score à null.`;
   const usage = { ...cumulUsages(usages), stabilite };
 
   // Fusionne les scores notés par le modèle et les scores déterministes
-  // (QCM + champs factuels du CRM + tests exécutés du sandbox code)
-  const allScores = [...critScores, ...qcmScores, ...crmScores, ...codeScores];
+  // (QCM)
+  const allScores = [...critScores, ...qcmScores];
 
   // Moyenne des critères, pondérée par le tier de leur compétence : un critère
   // must-have compte double (décision du 29/09/2026). Un critère sans tier

@@ -4,10 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, ArrowRight, ArrowLeft, Check, Compass, ChevronDown } from "lucide-react";
 import { boiteTraitee } from "@/lib/boiteReception";
-import { tableauTraite } from "@/lib/tableauCartes";
 import { MIN_TOURS_CANDIDAT } from "@/lib/persona";
-import { crmEstEspace, prochaineActionComplete } from "@/lib/crmScoring";
-import { startRun, saveStepResponse, submitRun, checkCrmAnswer, submitQualifyingAnswers, runCode } from "@/lib/actions/run";
+import { startRun, saveStepResponse, submitRun, submitQualifyingAnswers } from "@/lib/actions/run";
 import ResponseRecorder from "@/components/assessment/ResponseRecorder";
 import AssistantPanel from "@/components/assessment/AssistantPanel";
 import SandboxRenderer from "@/components/assessment/SandboxRenderer";
@@ -31,7 +29,6 @@ export default function RunPage() {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showIntro, setShowIntro] = useState(false); // écran d'accueil avant la 1re étape
-  const [crmNotice, setCrmNotice] = useState(null);  // avertissement CRM (une fois par étape)
   const [qualifying, setQualifying] = useState(null);      // questions de la pipeline à passer
   const [qualAnswers, setQualAnswers] = useState({});
   const [qualSubmitting, setQualSubmitting] = useState(false);
@@ -100,13 +97,9 @@ export default function RunPage() {
         choice: r.meta?.choice,
         selected_index: r.meta?.selected_index,
         videoSaved: !!r.video_url,
-        // Fiche CRM : on repeuple depuis la donnée structurée, pas depuis
-        // text_answer (qui n'est qu'un rendu lisible dérivé côté serveur).
-        crm: r.meta?.crm ? { fields: r.meta.crm.fields || {}, notes: r.meta.crm.notes || "" } : undefined,
-        // Tableur et boîte de réception : même règle que la fiche CRM.
-        sheet: r.meta?.sheet ? { edits: r.meta.sheet.edits || {}, conclusion: r.meta.sheet.conclusion || "" } : undefined,
+        // Boîte de réception : on repeuple depuis la donnée structurée, pas
+        // depuis text_answer (qui n'est qu'un rendu lisible dérivé côté serveur).
         inbox: r.meta?.inbox ? { items: r.meta.inbox.items || {}, plan: r.meta.inbox.plan || "" } : undefined,
-        board: r.meta?.board ? { order: r.meta.board.order || [], notes: r.meta.board.notes || {}, justification: r.meta.board.justification || "" } : undefined,
         // Personnage : la page ne garde que ce qui conditionne « Suivant ».
         persona: r.meta?.persona
           ? { turns: (r.meta.persona.messages || []).filter((m) => m.role === "candidate").length, ended: !!r.meta.persona.ended }
@@ -141,29 +134,15 @@ export default function RunPage() {
     if (fmt === "video") return !!a.videoSaved;
     if (fmt === "qcm") return a.selected_index != null;
     if (fmt === "choice") return !!a.choice;
-    // Fiche CRM : on ne valide pas une fiche à moitié vide. Si aucun champ n'est
-    // configuré (étape mal paramétrée côté recruteur), on ne bloque pas le
-    // candidat pour autant.
-    if (s.sandbox_kind === "crm") {
-      const crmFields = s.config?.crm?.fields || [];
-      const filled = a.crm?.fields || {};
-      const champs = crmFields.every((f) => String(filled[f.key] ?? "").trim() !== "");
-      // CRM v2 : la fiche se clôt par une prochaine action datée.
-      return champs && (!crmEstEspace(s.config?.crm) || prochaineActionComplete(a.crm?.next_step));
-    }
     // Personnage : au moins deux prises de parole, ou un échange clos.
     if (s.sandbox_kind === "persona") {
       const p = a.persona || {};
       return (p.turns || 0) >= MIN_TOURS_CANDIDAT || (!!p.ended && (p.turns || 0) >= 1);
     }
-    if (s.sandbox_kind === "board") return tableauTraite(s.config?.board, a.board);
-    // Tableur : c'est la synthèse qui fait la réponse — des calculs sans
-    // conclusion ne répondent à aucune question.
-    if (s.sandbox_kind === "sheet") return !!String(a.sheet?.conclusion || "").trim();
     // Boîte de réception : chaque message classé et décidé, chaque réponse ou
     // délégation rédigée.
     if (s.sandbox_kind === "inbox") return boiteTraitee(s.config?.inbox, a.inbox);
-    // text + formats sandbox texte (email_reply, client_reply, ...) + code
+    // text + formats sandbox texte (email_reply, client_reply, ...)
     return !!(a.text && a.text.trim());
   }
 
@@ -176,19 +155,12 @@ export default function RunPage() {
     const ans = answers[step.id] || {};
     if (step.response_format === "video") return true; // géré par ResponseRecorder
     const payload = { text_answer: null, meta: {} };
-    if (step.sandbox_kind === "crm") {
-      // text_answer est dérivé côté serveur depuis meta.crm (source de vérité).
-      payload.meta = { crm: { fields: ans.crm?.fields || {}, notes: ans.crm?.notes || "", ...(ans.crm?.next_step ? { next_step: ans.crm.next_step } : {}) } };
-    } else if (step.sandbox_kind === "sheet") {
-      payload.meta = { sheet: { edits: ans.sheet?.edits || {}, conclusion: ans.sheet?.conclusion || "", charts: ans.sheet?.charts || [] } };
-    } else if (step.sandbox_kind === "board") {
-      payload.meta = { board: { order: ans.board?.order || [], notes: ans.board?.notes || {}, justification: ans.board?.justification || "" } };
-    } else if (step.sandbox_kind === "persona") {
+    if (step.sandbox_kind === "persona") {
       // La conversation est déjà enregistrée tour par tour par le serveur.
       payload.meta = {};
     } else if (step.sandbox_kind === "inbox") {
       payload.meta = { inbox: { items: ans.inbox?.items || {}, plan: ans.inbox?.plan || "" } };
-    } else if (step.response_format === "text" || step.response_format === "code") {
+    } else if (step.response_format === "text") {
       payload.text_answer = ans.text || "";
     } else if (step.response_format === "choice") {
       payload.meta = { choice: ans.choice || null };
@@ -206,24 +178,11 @@ export default function RunPage() {
       const ok = await persistCurrent();
       if (!ok) { setError(t("candidate.run.saveFailed")); return; }
 
-      // Fiche CRM — filet UNIQUE et sans oracle : si des informations ne
-      // correspondent pas aux sources, on invite à relire une seule fois, sans
-      // jamais dire quel champ (sinon le candidat tâtonnerait jusqu'au ✓). Il
-      // reste libre de continuer : un second clic passe à la suite.
-      if (step.sandbox_kind === "crm" && !crmNotice) {
-        const check = await checkCrmAnswer(token, step.id);
-        if (check.success && check.hasMismatch) {
-          setCrmNotice(t("candidate.run.crmMismatch"));
-          return;
-        }
-      }
-
       if (isLast) {
         const res = await submitRun(token);
         if (res.success) setSubmitted(true);
         else setError(res.error || t("candidate.run.submitFailed"));
       } else {
-        setCrmNotice(null);
         setIdx((i) => Math.min(i + 1, steps.length - 1));
       }
     } catch (e) {
@@ -413,18 +372,15 @@ export default function RunPage() {
   const ans = answers[step.id] || {};
   // Le type de sandbox (mise en situation) vient de sandbox_kind, pas de
   // response_format. On dérive le format de rendu à passer à SandboxRenderer.
-  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", code: "code", crm: "crm", sheet: "sheet", inbox: "inbox", persona: "persona", board: "board" };
+  const SANDBOX_FORMAT = { email: "email_reply", client_reply: "client_reply", document: "technical_architecture", inbox: "inbox", persona: "persona" };
   const sandboxFormat = step.sandbox_kind && step.sandbox_kind !== "none"
     ? (SANDBOX_FORMAT[step.sandbox_kind] || step.response_format)
     : step.response_format;
   // Les sandboxes dont la réponse est un OBJET (et non une chaîne) : la clé de
   // la réponse porte le nom du format.
-  const structured = ["crm", "sheet", "inbox", "board", "persona"].includes(sandboxFormat);
-  const VALEUR_VIDE = {
-    crm: { fields: {}, notes: "" }, sheet: { edits: {}, conclusion: "", charts: [] }, inbox: { items: {}, plan: "" },
-    board: { order: [], notes: {}, justification: "" }, persona: { turns: 0, ended: false },
-  };
-  // Les espaces de travail (pipeline, tableur, boîte de réception) ont besoin
+  const structured = ["inbox", "persona"].includes(sandboxFormat);
+  const VALEUR_VIDE = { inbox: { items: {}, plan: "" }, persona: { turns: 0, ended: false } };
+  // Les espaces de travail (boîte de réception, appel) ont besoin
   // de largeur : à l'étroit, ils deviennent des formulaires.
   const wideSandbox = structured;
   const isSidebarMode = step.ai_assistant_allowed;
@@ -434,13 +390,13 @@ export default function RunPage() {
   // champ posé au bas d'un paragraphe. Les autres formats (texte libre, QCM,
   // choix, vidéo) restent dans la carte de l'énoncé — seuls, ils ne feraient pas
   // une carte.
-  const ownWindowSandbox = ["text", "code"].includes(step.response_format)
-    && ["email_reply", "crm", "sheet", "inbox", "board", "persona", "code", "code_editor", "client_reply", "technical_architecture"].includes(sandboxFormat);
+  const ownWindowSandbox = step.response_format === "text"
+    && ["email_reply", "inbox", "persona", "client_reply", "technical_architecture"].includes(sandboxFormat);
   // Le chat prend 400px pour être un vrai espace de conversation ; replié, il se
   // réduit à son onglet vertical et rend la place à la tâche.
   const assistantWidth = assistantCollapsed ? 56 : 400;
-  // La fiche CRM est à deux colonnes (pipeline | fiche) : il lui faut de la
-  // place, comme au tableur et à la boîte de réception.
+  // La boîte de réception est à deux colonnes (messages | message ouvert) : il
+  // lui faut de la place.
   const containerMaxWidth = isSidebarMode ? (wideSandbox ? 1320 : 1280) : (wideSandbox ? 1120 : ownWindowSandbox ? 900 : 720);
 
   // Énoncé et bloc de réponse sont montés soit dans la même carte, soit séparés
@@ -455,27 +411,19 @@ export default function RunPage() {
 
   const answerBlock = (
     <>
-      {/* Renderer texte/sandbox/code : le format vient de sandbox_kind si présent */}
-      {["text", "code"].includes(step.response_format) && (
+      {/* Renderer texte/sandbox : le format vient de sandbox_kind si présent */}
+      {step.response_format === "text" && (
         <SandboxRenderer
           format={sandboxFormat}
           config={step.config}
           compact={structured && isSidebarMode && !assistantCollapsed}
           value={structured ? (ans[sandboxFormat] || VALEUR_VIDE[sandboxFormat]) : ans.text}
           onChange={(val) => setAnswer(structured ? sandboxFormat : "text", val)}
-          onRun={(source) => runCode(token, step.id, source)}
           token={token}
           stepId={step.id}
           key={step.id}
           primary={primary}
         />
-      )}
-
-      {crmNotice && (
-        // Hors carte, l'écart vient déjà du `gap` de la colonne.
-        <div style={{ marginTop: ownWindowSandbox ? 0 : "1rem", background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", borderRadius: 12, padding: "12px 14px", fontSize: 13.5, lineHeight: 1.55 }}>
-          {crmNotice}
-        </div>
       )}
 
       {step.response_format === "choice" && (
@@ -604,7 +552,7 @@ export default function RunPage() {
 
             {/* Navigation */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={() => { setCrmNotice(null); setIdx((i) => Math.max(0, i - 1)); }} disabled={idx === 0}
+              <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}
                 style={{ ...ghostBtn, opacity: idx === 0 ? 0.4 : 1, cursor: idx === 0 ? "not-allowed" : "pointer" }}>
                 <ArrowLeft size={16} /> {t("candidate.run.previous")}
               </button>

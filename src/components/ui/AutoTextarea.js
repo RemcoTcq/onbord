@@ -10,7 +10,7 @@ const useEffetDeMiseEnPage = typeof window === "undefined" ? useEffect : useLayo
  * Zone de texte qui s'ajuste toujours à son contenu.
  *
  * Pourquoi elle existe : l'éditeur d'expérience affiche des textes ÉCRITS PAR
- * LE MODÈLE — énoncés de tâche, ancres BARS, sources CRM de 120 à 250 mots. Le
+ * LE MODÈLE — énoncés de tâche, ancres BARS, messages de 120 à 250 mots. Le
  * `rows={2}` ou `rows={4}` d'origine était calibré sur une saisie à la main ;
  * appliqué à ces textes, il obligeait le recruteur à scroller à l'intérieur de
  * chaque encadré, ou à les redimensionner un par un, pour relire ce qu'il est

@@ -11,24 +11,18 @@
 // donc un e-mail de prospection sans savoir à qui il était adressé.
 //
 // Un seul endroit décrit la scène, pour que tous ceux qui la lisent lisent la
-// même chose que le candidat : ni plus (pas le corrigé d'un CRM), ni moins.
-//
-// Les sources d'une fiche CRM n'en font pas partie : elles ont leur propre
-// rendu côté candidat (CrmSandbox) et côté correcteur (crmTrapBriefing), qui
-// sait ce qu'il ne doit pas dévoiler.
+// même chose que le candidat : ni plus (pas un corrigé), ni moins.
 //
 // Les libellés sont en français : ce texte n'entre que dans des prompts, qui le
 // sont tous. Les valeurs, elles, restent dans la langue où la scène est jouée.
 //
-// Le tableur et la boîte de réception en font partie : ce sont des documents
-// que le candidat a sous les yeux, au même titre que le message d'un client.
-// Leurs notes de conception (ce que les données cachent, le tri attendu) n'en
-// font PAS partie — elles vont au seul correcteur, par runScoring.
+// La boîte de réception en fait partie : c'est un document que le candidat a
+// sous les yeux, au même titre que le message d'un client. Ses notes de
+// conception (le tri attendu) n'en font PAS partie — elles vont au seul
+// correcteur, par runScoring.
 
-import { sheetSceneText } from "@/lib/tableur";
 import { inboxSceneText } from "@/lib/boiteReception";
 import { personaSceneText } from "@/lib/persona";
-import { boardSceneText } from "@/lib/tableauCartes";
 
 function net(v) {
   return String(v ?? "").trim();
@@ -55,15 +49,13 @@ export function elementsScene(config) {
     { libelle: "Objet de l'e-mail", texte: objetEmailReel(c.subject) },
     { libelle: "Contexte remis au candidat", texte: net(c.context) },
     { libelle: "Contexte du document", texte: net(c.document_context) },
-    // Blocs multi-lignes : un tableau ou une boîte de réception écrasés sur
-    // une seule ligne deviennent illisibles, pour le modèle comme pour nous.
-    { libelle: "Tableur remis au candidat", texte: c.sheet ? sheetSceneText(c.sheet) : "", bloc: true },
+    // Blocs multi-lignes : une boîte de réception écrasée sur une seule ligne
+    // devient illisible, pour le modèle comme pour nous.
     { libelle: "Boîte de réception remise au candidat", texte: c.inbox ? inboxSceneText(c.inbox) : "", bloc: true },
     // Le personnage : seulement ce que le candidat en sait. Ses informations
     // cachées vont au correcteur par le briefing, jamais ici — l'assistant du
     // candidat lit aussi cette scène.
     { libelle: "Conversation avec un personnage joué par l'IA", texte: c.persona ? personaSceneText(c.persona) : "", bloc: true },
-    { libelle: "Tableau remis au candidat", texte: c.board ? boardSceneText(c.board) : "", bloc: true },
   ].filter((e) => e.texte);
 }
 

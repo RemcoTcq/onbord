@@ -37,24 +37,11 @@ function champs(step) {
       ajouter(() => c.persona[cle], (cfg, v) => ({ ...cfg, persona: { ...cfg.persona, [cle]: v } }));
     }
   }
-  if (step?.sandbox_kind === "sheet" && c.sheet) {
-    ajouter(() => c.sheet.analysis_notes, (cfg, v) => ({ ...cfg, sheet: { ...cfg.sheet, analysis_notes: v } }));
-  }
-  for (const cle of ["inbox", "board"]) {
-    if (step?.sandbox_kind !== cle) continue;
-    (c[cle]?.triage_notes || []).forEach((_, i) => {
-      ajouter(() => c[cle].triage_notes[i]?.why, (cfg, v) => ({
-        ...cfg, [cle]: { ...cfg[cle], triage_notes: cfg[cle].triage_notes.map((n, j) => (j === i ? { ...n, why: v } : n)) },
+  if (step?.sandbox_kind === "inbox") {
+    (c.inbox?.triage_notes || []).forEach((_, i) => {
+      ajouter(() => c.inbox.triage_notes[i]?.why, (cfg, v) => ({
+        ...cfg, inbox: { ...cfg.inbox, triage_notes: cfg.inbox.triage_notes.map((n, j) => (j === i ? { ...n, why: v } : n)) },
       }));
-    });
-  }
-  if (step?.sandbox_kind === "crm") {
-    (c.crm?.traps || []).forEach((_, i) => {
-      for (const cle of ["description", "resolution", "expected_signal"]) {
-        ajouter(() => c.crm.traps[i]?.[cle], (cfg, v) => ({
-          ...cfg, crm: { ...cfg.crm, traps: cfg.crm.traps.map((tr, j) => (j === i ? { ...tr, [cle]: v } : tr)) },
-        }));
-      }
     });
   }
   return out;

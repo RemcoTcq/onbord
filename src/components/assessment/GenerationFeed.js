@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, Contact, AlertTriangle, Database, Terminal, Brain, Eye, PencilLine, ShieldCheck, FileSpreadsheet, Inbox, Compass, Phone, KanbanSquare } from "lucide-react";
+import { Loader2, Check, Sparkles, FileText, Building2, ListChecks, Target, AlertTriangle, Database, Brain, Eye, PencilLine, ShieldCheck, Inbox, Compass, Phone } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { LOCALE_LABELS } from "@/lib/i18n/config";
 
@@ -77,7 +77,7 @@ const STEP_KIND_KEY = {
 };
 
 // Les entrées "enfant" sont indentées sous l'étape à laquelle elles se rattachent.
-const NESTED = new Set(['skill', 'criterion', 'source', 'field', 'trap', 'code_test', 'record', 'sheet_data', 'inbox_items', 'persona_ready', 'board_cards']);
+const NESTED = new Set(['skill', 'criterion', 'inbox_items', 'persona_ready']);
 
 // Renvoie l'élément, pas le composant : un composant créé pendant le rendu
 // serait remonté à chaque passe (react-hooks/static-components).
@@ -97,20 +97,11 @@ function feedIcon(kind, size = 13) {
     case 'coverage_gap': return <AlertTriangle size={size} />;
     case 'step': return <ListChecks size={size} />;
     case 'skill': return <Target size={size} />;
-    case 'crm_start':
-    case 'record': return <Contact size={size} />;
-    case 'sheet_start':
-    case 'sheet_data': return <FileSpreadsheet size={size} />;
     case 'inbox_start':
     case 'inbox_items': return <Inbox size={size} />;
     case 'fil_rouge': return <Compass size={size} />;
     case 'persona_start':
     case 'persona_ready': return <Phone size={size} />;
-    case 'board_start':
-    case 'board_cards': return <KanbanSquare size={size} />;
-    case 'code_start':
-    case 'code_test': return <Terminal size={size} />;
-    case 'trap': return <AlertTriangle size={size} />;
     case 'version':
     case 'saved': return <Database size={size} />;
     default: return <Check size={size} />;
@@ -132,13 +123,6 @@ function feedText(t, e) {
     }
     case 'skill': return t('dashboard.generationFeed.skillLine', { label: e.label });
     case 'criterion': return t('dashboard.generationFeed.criterionLine', { label: e.label });
-    case 'source': {
-      const connu = ['email', 'call_transcript', 'chat', 'note', 'meeting'].includes(e.label);
-      const label = connu ? t(`dashboard.generationFeed.sourceKinds.${e.label}`) : e.label;
-      return t('dashboard.generationFeed.sourceLine', { label });
-    }
-    case 'field': return t('dashboard.generationFeed.fieldLine', { label: e.label });
-    case 'trap': return t('dashboard.generationFeed.trapLine', { label: e.label });
 
     // Les événements de progression ne portent QUE des données : le serveur ne
     // fabrique plus de phrase. Sans ça, la moitié du flux restait en français
@@ -165,14 +149,6 @@ function feedText(t, e) {
     case 'design_done':
       return t('dashboard.generationFeed.designDone', { count: e.nbEtapes })
         + (e.minutes ? t('dashboard.generationFeed.designMinutes', { minutes: e.minutes }) : '');
-    case 'code_start':
-      return t('dashboard.generationFeed.codeStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
-    case 'crm_start':
-      return t('dashboard.generationFeed.crmStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
-    case 'record': return t('dashboard.generationFeed.recordLine', { label: e.label });
-    case 'sheet_start':
-      return t('dashboard.generationFeed.sheetStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
-    case 'sheet_data': return t('dashboard.generationFeed.sheetData', { rows: e.rows, cols: e.cols });
     case 'inbox_start':
       return t('dashboard.generationFeed.inboxStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
     case 'inbox_items': return t('dashboard.generationFeed.inboxItems', { count: e.count, traps: e.traps });
@@ -181,16 +157,11 @@ function feedText(t, e) {
       return t('dashboard.generationFeed.personaStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
     case 'persona_ready':
       return t(e.mode === 'chat' ? 'dashboard.generationFeed.personaReadyChat' : 'dashboard.generationFeed.personaReadyCall', { label: e.label });
-    case 'board_start':
-      return t('dashboard.generationFeed.boardStart', { label: e.label || t('dashboard.generationFeed.thisStep') });
-    case 'board_cards': return t('dashboard.generationFeed.boardCards', { count: e.count });
     // Passe de couverture : le libellé est le NOM d'une compétence de l'offre,
     // tel que le recruteur l'a validé — comme les autres labels, non traduit.
     case 'coverage_ok': return t('dashboard.generationFeed.coverageOk', { count: e.count });
     case 'coverage_fix': return t('dashboard.generationFeed.coverageFix', { n: e.n, label: e.label });
     case 'coverage_gap': return t('dashboard.generationFeed.coverageGap', { label: e.label });
-    case 'code_test':
-      return t('dashboard.generationFeed.codeTest', { count: e.nbTests, hidden: e.nbCaches });
     case 'retry': return t('dashboard.generationFeed.retry');
     case 'version':
       return t(e.version > 1 ? 'dashboard.generationFeed.newVersion' : 'dashboard.generationFeed.firstVersion',

@@ -6,7 +6,7 @@
 // liste implicite de questions — le comportement scripté qu'on veut supprimer —
 // et il redemande ce que le recruteur vient de lui dire.
 //
-// On sépare donc les deux métiers, comme les passes CRM et code ont été
+// On sépare donc les deux métiers, comme les passes de scène ont été
 // séparées de la conception dans experienceGeneration.js, et pour la même
 // raison : « une rigueur que la passe principale, occupée à concevoir tout un
 // parcours, ne tient pas ». Ici la passe principale est occupée à converser.
