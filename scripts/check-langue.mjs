@@ -121,7 +121,6 @@ const CHAMPS_MARQUES = [
   ["sub_family", "nomUi"],
   ["hard_skills.name", "nomUi"],
   ["soft_skills.name", "nomUi"],
-  ["selection_criteria.name", "nomUi"],
 ];
 
 // On raisonne ligne à ligne : c'est la ligne du champ qui doit porter la marque,

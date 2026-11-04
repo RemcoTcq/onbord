@@ -2,8 +2,8 @@
 //
 // Module PUR, sans "use server" : il est appelé depuis une route API (le cron)
 // et pourrait l'être depuis un script d'exploitation. Le motif est celui de
-// candidateEntry.js et scoring.js — deux chemins qui recalculeraient la même
-// chose différemment finissent toujours par diverger.
+// candidateEntry.js — deux chemins qui recalculeraient la même chose
+// différemment finissent toujours par diverger.
 //
 // C'est le seul endroit du code qui efface réellement une offre. deleteJob() ne
 // fait plus que poser `deleted_at` ; tout ce qui est irréversible est ici.

@@ -61,18 +61,8 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
     if (profil?.ui_locale) uiLocale = profil.ui_locale;
   }
 
-  const { data: activeTests } = await supabase
-    .from("assessment_tests")
-    .select("id, name, description")
-    .eq("status", "active");
-
-  const testCatalogStr = activeTests && activeTests.length > 0
-    ? `\n\nVoici notre catalogue de tests métier globaux disponibles :\n<test_catalog>\n${JSON.stringify(activeTests, null, 2)}\n</test_catalog>`
-    : "";
-
   const prompt = buildJobExtractionPrompt({
     rawDescription,
-    testCatalogStr,
     uiLocale,
     contentLocale,
   });

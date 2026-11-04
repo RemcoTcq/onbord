@@ -50,7 +50,6 @@ export default function ExperienceChatScreen({
           messages déborde au lieu de scroller. */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <AssessmentChatCreator
-          standalone context="job"
           jobId={jobId}
           jobData={jobData}
           initialPrompt={initialPrompt}

@@ -113,7 +113,6 @@ const dashboard = {
     disqualified: "Disqualified",
   },
 
-
   jobDetail: {
     tabs: {
       parcours: "Candidate journey",
@@ -182,7 +181,6 @@ const dashboard = {
     colActions: "Actions",
     back: "Back",
     jobLabel: "Job",
-
 
     copyPublicLink: "Copy public link",
     linkCopied: "Link copied!",
@@ -299,34 +297,19 @@ const dashboard = {
     aiExchangesTitle_other: "Exchanges with the AI assistant ({count} messages)",
     skillCriteria: "{skill} · criteria",
     candidateChoice: "Candidate's choice",
-    expectation: "Expected: “{text}”",
     aiAnalysisCount_one: "AI analysis — {count} question assessed",
     aiAnalysisCount_other: "AI analysis — {count} questions assessed",
-    questionN: "Question {n}",
-    averageScore: "Average score",
-    aiInterviewShort: "AI interview",
     integrityTracking: "Integrity tracking",
-    manualReview: "Needs manual review",
-    criteriaDetail: "Breakdown by criterion",
-    taxonomyId: "Taxonomy ID",
     backToCandidates: "Back to candidates",
     feedback: "Feedback",
     feedbackSentOn: "Feedback sent on {date}",
     viewOriginalCv: "View original CV",
     delete: "Delete",
     gdpr: "GDPR",
-    cvAnalysis: "CV analysis",
-    skillsTests: "Skills tests",
-    aiAnalysis: "AI analysis",
-    slowerThanAverage: "Slower than average",
-    topPerformer: "Top performer",
-    aiInterview: "AI interview",
-    videoInterview: "Video interview",
     levelBetween: "Level {level}: between N{low} ({lowLabel}) and N{high} ({highLabel}).",
     notFound: "Candidate not found",
     back: "Back",
     deleteConfirm: "Are you sure you want to delete this candidate?",
-    manualScoreError: "Something went wrong while saving the manual score:",
 
     status: "Status",
     invitedOn: "Invited on",
@@ -356,15 +339,8 @@ const dashboard = {
       excellent: "Excellent",
       average: "Average",
       weak: "Weak",
-      insufficient: "Below expectations",
     },
-    tests: "Tests",
-    videoInterviewShort: "Video int.",
-    perCriterion: "Breakdown by criterion",
-    strengths: "Strengths",
-    watchPoints: "Watch points",
     scored: "Scored",
-    partialScore: "Partial score, excluded from the ranking",
 
     evidenceReport: "Evidence report",
     inProgress: "In progress",
@@ -416,32 +392,7 @@ const dashboard = {
       classic_qcm: "Multiple choice",
     },
 
-    perQuestion: "Breakdown by question",
-    showTranscript: "Show transcript",
-    hideTranscript: "Hide transcript",
-    videoRecording: "Video recording",
-    candidateTranscript: "Candidate transcript",
-    transcriptTooShort:
-      "The transcript is missing or too short for an AI assessment. Watch the video to score this candidate's answer.",
-    quoteVerified: "✓ Quote verified",
-    quoteNotVerified: "⚠ Quote not verified in the transcript",
-    noQuote: "No quote provided",
-    improvementAreas: "Areas for improvement",
-
-    saved: "Saved",
-    aiAnalyzing: "AI analysis…",
-    analyzed: "Analysed ✓",
-    manualReview: "Manual review",
-    transcribing: "Transcribing…",
     aiAnalysisQuestions: "AI analysis — {count} questions scored",
-    questionsScored: "{scored}/{total} questions scored —",
-    aiRecruiter: "Leo (AI recruiter)",
-    editScore: "Edit the score",
-    scoreThisAnswer: "Score this answer",
-    scoreOutOf5: "Score out of 5",
-    justificationPlaceholder: "Justification for the score (optional but recommended)…",
-    confirmScore: "Confirm the score",
-    analysisInProgress: "Analysis in progress, reload the page in a few moments.",
 
     aiCategories: {
       C1: "AI strategy",
@@ -1066,7 +1017,6 @@ const dashboard = {
       "Changing the language now only affects future jobs: text already generated will stay in {locale}.",
   },
 
-
   account: {
     title: "My account",
     subtitle: "Manage your personal details and security settings.",
@@ -1106,155 +1056,6 @@ const dashboard = {
     newPasswordHint: "Leave empty to keep your current password",
     updateSecurity: "Update security settings",
     securityUpdated: "Security settings updated!",
-  },
-
-  aiInterview: {
-    contextPlaceholder: "e.g. a 20-person fintech start-up, collaborative culture…",
-    dealbreakerPlaceholder: "e.g. « not available for 3 months », « no driving licence »",
-    hiddenFromCandidate: "Not visible to the candidate",
-    heading: "Assessment (AI interview)",
-    intro:
-      "The AI will run an interview with candidates to assess their skills and motivation.",
-    enabled: "Enabled",
-    disabled: "Disabled",
-    enableTitle: "Turn on the AI interview",
-    enableHelp:
-      "The AI interview pre-qualifies candidates automatically, before you meet them.",
-    enableAction: "Turn on the AI interview",
-
-    saved: "Configuration saved successfully",
-    saveError: "Something went wrong while saving",
-
-    requiredQuestions: "Required questions",
-    requiredQuestionsHelp: "Specific questions the AI must ask.",
-    questionPlaceholder: "e.g. \"Describe your experience with Next.js.\"",
-
-    introSection: "Intro & closing",
-    introSectionHelp: "Welcome message, closing message and interview tone.",
-    tone: "Interview tone",
-    tones: {
-      Formel: "Formal",
-      Neutre: "Neutral",
-      Décontracté: "Relaxed",
-    },
-    introMessage: "Opening message",
-    outroMessage: "Closing message",
-    estimatedDuration: "Estimated duration:",
-    estimatedDurationValue: "10 to 15 minutes depending on the candidate's answers.",
-    candidateFacingHint: "Read to the candidate: write it in the language of the job.",
-
-    contextSection: "Context for the AI",
-    contextSectionHelp: "Information invisible to the candidate, used to steer the AI.",
-    contextHelp:
-      "These act as a brief for the AI so it can tailor its questions. You can edit the generated text by hand.",
-    aboutCompany: "About the company",
-    whyHiring: "Why this hire?",
-    whyHiringPlaceholder: "e.g. growing the product team, launching a new feature…",
-    whatMatters: "What really matters",
-    whatMattersPlaceholder:
-      "e.g. someone self-directed, driven, who communicates well asynchronously…",
-
-    criteriaSection: "Scoring criteria",
-    criteriaSectionHelp: "Criterion weights and deal-breakers.",
-    globalWeight: "Overall scoring weights",
-    customPreset: "✏️ Custom",
-    presets: {
-      Technique: "Technical",
-      Commercial: "Sales",
-      Créatif: "Creative",
-      Junior: "Junior",
-      Personnalisé: "Custom",
-    },
-    weights: {
-      hard_skills: "Hard skills (technical)",
-      soft_skills: "Communication & soft skills",
-      motivation: "Motivation",
-      culture: "Culture fit",
-      potential: "Potential & adaptability",
-    },
-    total: "Total",
-    mustEqual100: "must add up to 100%",
-    resetDefaults: "Reset to defaults",
-    decisiveCriteria: "Deal-breakers",
-    decisiveCriteriaHelp:
-      "If the AI spots these conditions in the candidate's answers, they'll be flagged in the report.",
-    neverAutoRejects: "The AI never rejects a candidate on its own.",
-
-    appliesToNext: "Changes will apply to interviews sent from now on.",
-    saveConfig: "Save configuration",
-  },
-
-  videoInterview: {
-    levelShort: "Lvl {level}",
-    levelPlaceholder: "Describe the level {level} behaviour ({label})...",
-    addBarsCriterion: "Add a BARS criterion",
-    maxReached: " (limit reached)",
-    customQuestion: "Custom question",
-    categories: { motivation: "Motivation", experience: "Experience", softSkills: "Soft skills", technical: "Technical", cultureFit: "Culture fit", custom: "Custom" },
-    loadLibraryError: "Couldn't load the library",
-    saveJobFirst: "Save your job first",
-    generationError: "Generation failed",
-    maxQuestions: "Maximum 3 questions per video module",
-    alreadyAdded: "This question has already been added",
-    aiQuestionAdded: "AI question added",
-    questionAdded: "Question added",
-
-    categories: {
-      Technique: "Technical",
-      "Soft Skills": "Soft skills",
-      "Culture Fit": "Culture fit",
-      Custom: "Custom",
-      Toutes: "All",
-    },
-
-    maxDuration: "Max length per answer",
-    twoMinutesRecommended: "2 minutes (recommended)",
-    retakesAllowed: "Retakes allowed",
-    retakes: {
-      one: "1 extra attempt",
-      two: "2 extra attempts",
-      unlimited: "Unlimited",
-    },
-    scoreMyself: "Score the videos myself",
-    scoreMyselfHelp: "You'll score each video after watching it.",
-
-    limitReached: "Limit reached: 3 questions max",
-    generating: "Generating…",
-    generateWithAi: "Generate with AI",
-    closeLibrary: "Close the library",
-    openLibrary: "Question library",
-    libraryLimitReached: "Limit of 3 questions reached for this module.",
-    aiSuggestions: "AI suggestions",
-    added: "Added",
-    add: "Add",
-    onbordLibrary: "Onbord library",
-    libraryShort: "📚 Library",
-
-    noQuestions: "No questions configured",
-    noQuestionsHelp: "Generate questions with AI, or pick some from our library.",
-    questionPlaceholder: "Question text…",
-    deleteQuestion: "Delete",
-    minOneCriterion: "⚠ At least 1 BARS criterion is required for scoring.",
-    criterionPlaceholder: "Criterion name (e.g. sales storytelling)",
-    deleteCriterion: "Delete this criterion",
-    legacyFormat:
-      "Legacy format (no BARS rubric). Regenerate the questions to get structured scoring.",
-
-    barsLevels: {
-      insufficient: "Below expectations",
-      expected: "Meets expectations",
-      excellent: "Excellent",
-    },
-
-    allCategories: "All",
-    aiSuggestionsGenerated_one: "{count} suggestion generated by AI!",
-    aiSuggestionsGenerated_other: "{count} suggestions generated by AI!",
-    summaryQuestions_one: "{count} question",
-    summaryQuestions_other: "{count} questions",
-    summaryDuration: "Max {duration} per answer",
-    summaryNoRetake: "No retakes",
-    summaryRetakes_one: "{count} retake allowed",
-    summaryRetakes_other: "{count} retakes allowed",
   },
 
   jobForm: {
@@ -1302,14 +1103,10 @@ const dashboard = {
     niceToHave: "Nice to have",
   },
 
-
-
-
   chatCreator: {
     stepRewritten: "Step {n} rewritten",
     stepRewrittenTitle: " — “{title}”",
     stepRewrittenSummary: ": {summary}",
-    title: 'Assessment expert',
     greeting: "Hello! Let's design the screening experience together. Describe what you need, in your own words.",
     // The FIRST question, deliberately written here rather than left to the
     // prompt: this way it is guaranteed to come first, costs nothing, and is
@@ -1328,9 +1125,6 @@ const dashboard = {
       "Tell me what you'd like to adjust — for example « rewrite step 2 with a more direct tone ». I'll redo just that step, leaving the others alone.",
     connectionError: 'Connection to the assistant failed.',
     placeholder: 'Type your message…',
-    placeholderShort: 'Reply…',
-    confirmFirst: 'Please confirm or cancel the action above…',
-    confirmFirstShort: 'Please confirm the action…',
     clearConversation: 'Clear the conversation',
     clearConfirm: 'Clear this conversation? Steps already generated are not affected.',
     // Clearing the conversation also clears the discovery record (the whole row
@@ -1342,24 +1136,6 @@ const dashboard = {
     generationFailed: 'Generation failed',
     rewriteFailed: 'Rewrite failed',
     error: 'Error',
-    unexpectedError: 'Unexpected error',
-
-    customNeeded: 'Bespoke build required',
-    role: 'Role:',
-    skills: 'Skills:',
-    summary: 'Summary:',
-    confirmRequest: 'Confirm the request',
-    requestSaved: 'Request saved!',
-    requestError: 'Something went wrong with the request',
-
-    testFound: 'Test found!',
-    testSelected: 'Selected test:',
-    addToAssessments: 'Add to my assessments',
-    noThanks: 'No thanks',
-    testAdded: 'Test added to My Assessments!',
-    testAttached: 'Test attached to the job!',
-    testAttachError: 'Test added, but linking it to the job failed',
-    addError: 'Something went wrong while adding',
   },
 
   companyProfile: {
@@ -1441,7 +1217,6 @@ const dashboard = {
     regenerateStepHelp:
       "Each step the AI agent rewrites in full at your request, from the step's chat, or to cover a skill. Editing a step yourself costs nothing.",
     perStepUnit: "per step",
-
 
     candidateRun: "Put a candidate through",
     candidateRunHelp:
@@ -1767,48 +1542,9 @@ const dashboard = {
     },
   },
 
-
-  jobSelection: {
-    notAuthenticated: "Not authenticated",
-    loadError: "Something went wrong while loading your jobs",
-    title: "Select a job",
-    subtitle: "Choose the job you want to build this assessment for.",
-    search: "Search for a job…",
-    noResults: "No jobs found",
-    changeSearch: "Try a different search.",
-    noJobsYet: "You haven't created any jobs yet.",
-    draft: "Draft",
-    noLocation: "No location set",
-    select: "Select",
-    createdOn: "Created on {date}",
-  },
-
-  testSelection: {
-    loadError: "Something went wrong while loading the tests",
-    title: "Link a test",
-    subtitle: "Choose a test from your library to link to this step.",
-    search: "Search My Assessments…",
-    noResults: "No tests found",
-    changeSearch: "Try a different search.",
-    noTestsYet: "You don't have any tests in your library yet.",
-    attach: "Link",
-  },
-
   skillsTestConfig: {
-    requestCustom: "Request a custom test",
     categories: { cognitif: "Cognitive", langue: "Languages", metier: "Job-specific", personnalite: "Personality", ia: "AI" },
-    loadingLibrary: "Loading the library…",
-    totalDuration: "Total estimated time for the candidate",
-    selectOneTest: "Select 1 test",
-    comingSoon: "Soon",
-    categories: {
-      Cognitif: "Cognitive",
-      Langues: "Languages",
-      Métier: "Role-specific",
-      Personnalité: "Personality",
-    },
   },
-
 
   qualifyingConfig: {
     questionPlaceholder: "e.g. do you hold a driving licence?",
@@ -1822,26 +1558,6 @@ const dashboard = {
     yes: "Yes",
     no: "No",
     deleteQuestion: "Delete this question",
-  },
-
-  assessmentCreation: {
-    closeAssistant: "Close the assistant",
-    hello: "Hello {name}",
-    whichType: "What kind of assessment do you want to build?",
-    addContext: "Add context",
-    jobAsPdf: "Job posting as PDF",
-    comingSoon: "Coming soon",
-    connectGithub: "Connect a GitHub repo",
-    uploadZip: "Upload a ZIP",
-  },
-
-  assessmentAction: {
-    skillsTest: "Skills test",
-    whatToDo: "What would you like to do?",
-    addNewTest: "Add a new test",
-    createWithAi: "Build a bespoke test with AI",
-    selectFromLibrary: "Pick from the library",
-    useExisting: "Use an existing test",
   },
 
   onboarding: {
@@ -1872,15 +1588,6 @@ const dashboard = {
     creditsUsed: "Credits used",
     changePlan: "Change plan",
     topUp: "Top up",
-  },
-
-  cvCriteria: {
-    intro: "The AI picked these 5 criteria from your job posting. They will be used to compute the {score} of every CV you import. You can adjust their labels and their weight.",
-    introScore: "match score",
-    weightWarning: "The weights add up to {total}. They should total 100% for accurate scoring.",
-    addCriterion: "Add a criterion",
-    placeholder: "e.g. experience managing a team",
-    distributeEvenly: "Distribute evenly",
   },
 
   preferences: {

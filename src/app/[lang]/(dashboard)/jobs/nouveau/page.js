@@ -228,17 +228,6 @@ export default function NouvelleDemandePage() {
         targetJobId = job.id;
       }
 
-      // NOUVEAU : Logger la famille et sous-famille
-      if ((jobData.category || jobData.sub_family) && targetJobId) {
-        await supabase.from('job_family_logs').insert({
-          job_id: targetJobId,
-          user_id: user.id,
-          family: jobData.category,
-          sub_family: jobData.sub_family,
-          role_type: jobData.role_type
-        });
-      }
-
       // 2. Insert Skills (Replace old ones)
       if (savedJobId) {
         await supabase.from('job_skills').delete().eq('job_id', savedJobId);
@@ -284,16 +273,12 @@ export default function NouvelleDemandePage() {
       const existantes = questionsDuJob(job);
       const noeuds = noeudsAvecQuestions(job?.saved_flow_nodes, existantes.length ? existantes : questions);
       await supabase.from('jobs').update({ saved_flow_nodes: noeuds }).eq('id', jobId);
-      // L'ancienne configuration du parcours, toujours lue en repli par
-      // quelques écrans hérités : questions de présélection, puis la simulation.
+      // Copie de repli des questions de présélection, lue après saved_flow_nodes
+      // (lib/actions/run.js) : questions de présélection, puis la simulation.
       const retenues = questionsDuJob({ saved_flow_nodes: noeuds });
       await saveAssessmentConfig(jobId, {
         modules: {
           qualifying_questions: { enabled: retenues.length > 0, questions: retenues },
-          cv_scoring: { enabled: false },
-          ai_interview: { enabled: false },
-          skills_tests: { enabled: false, tests: [] },
-          video_interview: { enabled: false, questions: [], max_duration_seconds: 120, max_retakes: 1, evaluation_mode: "ai" },
         },
         flow_order: [...(retenues.length ? ['qualifying_questions'] : []), 'experience'],
       });

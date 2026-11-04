@@ -21,9 +21,9 @@ export const SYSTEME_EXTRACTION =
   "Les valeurs textuelles sont rédigées dans la langue indiquée sur chaque champ du schéma — jamais en français par défaut.";
 
 /**
- * @param {{rawDescription: string, testCatalogStr?: string, uiLocale: string, contentLocale: string}} p
+ * @param {{rawDescription: string, uiLocale: string, contentLocale: string}} p
  */
-export function buildJobExtractionPrompt({ rawDescription, testCatalogStr = "", uiLocale, contentLocale }) {
+export function buildJobExtractionPrompt({ rawDescription, uiLocale, contentLocale }) {
   // Nom des deux langues, injecté SUR CHAQUE CHAMP du schéma plus bas. Une
   // consigne globale en tête ne tient pas la distance : cinquante lignes de
   // schéma français plus loin, le modèle rendait « Vente » pour une offre
@@ -40,7 +40,7 @@ Vous êtes un assistant IA expert en recrutement. Votre tâche est d'analyser un
 Voici la description de l'offre d'emploi :
 <job_description>
 ${rawDescription}
-</job_description>${testCatalogStr}
+</job_description>
 
 Votre tâche est de générer un objet JSON avec la structure exacte suivante. N'ajoutez aucun texte avant ou après le JSON. Remplissez autant de champs que possible en vous basant UNIQUEMENT sur la description fournie. Si une information n'est pas mentionnée, laissez la valeur vide ("" ou []).
 
@@ -68,13 +68,8 @@ Structure JSON attendue :
   "languages": [
     { "name": "Nom de la langue EN FRANÇAIS — 'Français', 'Anglais', 'Néerlandais', 'Allemand'… jamais 'English' ni 'Dutch'", "level": "Entier de 1 à 5, calé sur le CECR : 1 = A1–A2, 2 = B1, 3 = B2, 4 = C1, 5 = C2 (langue maternelle ou bilingue). Un niveau 'courant' ou 'fluent' vaut 4 ; 'natif' ou 'native' vaut 5 ; si l'offre ne précise rien, 3." }
   ],
-  "selection_criteria": [
-    { "name": "Critère de sélection pour le scoring CV — RÉDIGÉ EN ${nomUi}", "weight": 20 }
-  ],
-  "clean_description": "Un résumé propre et formaté (quelques paragraphes max) des missions et du profil recherché — RÉDIGÉ EN ${nomContenu}.",
-  "recommended_test_ids": ["UUID_1", "UUID_2"]
+  "clean_description": "Un résumé propre et formaté (quelques paragraphes max) des missions et du profil recherché — RÉDIGÉ EN ${nomContenu}."
 }
-Règles pour selection_criteria : Générez exactement 5 critères pertinents basés sur l'offre. Les poids doivent totaliser 100.
 Pour le champ "priority" des skills, utilisez UNIQUEMENT "must_have", "nice_to_have", ou "ambiguous" (si l'offre ne permet pas de déterminer l'importance de la compétence).
 "nice_to_have" UNIQUEMENT quand l'offre présente explicitement la compétence comme un atout (« un plus », « souhaité », « idéalement », « apprécié », « nice to have », « is a plus », « bij voorkeur »…). En cas de doute, "ambiguous" — jamais "nice_to_have" par défaut : une compétence secondaire testée en trop coûte moins cher qu'une compétence critique jamais testée.
 
@@ -83,9 +78,6 @@ RÈGLE ABSOLUE POUR LES SKILLS ET LES LANGUES — LISEZ ATTENTIVEMENT :
 2. Soyez exhaustif : extrayez TOUTES les compétences (hard et soft) présentes ou sous-entendues dans le texte. Ne vous limitez pas.
 3. Vous devez TOUJOURS inclure la "preuve" (le champ evidence) c'est-à-dire l'extrait exact du texte original qui justifie l'extraction de cette compétence.
 4. INTERDICTION FORMELLE de lister les langues (ex: Anglais, Français, Néerlandais, English, etc.) dans les "hard_skills" ou "soft_skills". Les langues doivent figurer UNIQUEMENT dans le tableau "languages".
-
-RÈGLE POUR RECOMMENDED_TEST_IDS :
-En vous basant sur la description de l'offre et le <test_catalog> fourni, choisissez jusqu'à 2 tests globaux (maximum) qui correspondent le mieux au métier recherché. Retournez UNIQUEMENT la liste de leurs "id" (ex: "f575da89-..."). Si aucun test métier global ne correspond à l'offre, laissez la liste vide []. Ne proposez un test que s'il évalue directement le métier ou les compétences principales du poste.
 
 ${rappelLangueExtraction(uiLocale, contenu)}
 `;

@@ -2,8 +2,8 @@
 //
 // Module PUR (aucun "use server") pour pouvoir être importé partout : server
 // actions du parcours candidat (run.js), création de candidature (candidate.js),
-// et écrans recruteur. C'est exactement le motif de scoring.js — un bug
-// historique est né de deux chemins qui calculaient la même chose différemment.
+// et écrans recruteur. Un bug historique est né de deux chemins qui
+// calculaient la même chose différemment.
 //
 // Deux issues, plus le cas d'erreur :
 //   "experience" : une expérience est publiée -> parcours /run ;
@@ -15,7 +15,7 @@
 // module hérité actif (comptage du 13/08/2026), l'éditeur de pipeline ne permet
 // plus d'en ajouter, et une offre sans expérience y produisait soit un upload de
 // CV orphelin, soit un parcours vide que le candidat pouvait soumettre. Les
-// composants hérités restent en place, dormants (cf. EXPERIENCE_V1_ONLY).
+// composants hérités ont depuis été retirés.
 
 /** @returns {"experience"|"not_ready"|"invalid"} */
 export function entryFor({ job, hasPublishedExperience }) {

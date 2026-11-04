@@ -199,7 +199,6 @@ const dashboard = {
     back: "Retour",
     jobLabel: "Offre d'emploi",
 
-
     // ── Lien public ─────────────────────────────────────────────────────
     copyPublicLink: "Copier le lien public",
     linkCopied: "Lien copié !",
@@ -329,34 +328,19 @@ const dashboard = {
     aiExchangesTitle_other: "Échanges avec l'assistant IA ({count} messages)",
     skillCriteria: "{skill} · critères",
     candidateChoice: "Choix du candidat",
-    expectation: "Attendu : « {text} »",
     aiAnalysisCount_one: "Analyse IA — {count} question évaluée",
     aiAnalysisCount_other: "Analyse IA — {count} questions évaluées",
-    questionN: "Question {n}",
-    averageScore: "Score moyen",
-    aiInterviewShort: "Entretien IA",
     integrityTracking: "Suivi de l'intégrité",
-    manualReview: "À revoir manuellement",
-    criteriaDetail: "Détail par critère",
-    taxonomyId: "ID taxonomie",
     backToCandidates: "Retour aux candidats",
     feedback: "Feedback",
     feedbackSentOn: "Feedback envoyé le {date}",
     viewOriginalCv: "Voir le CV original",
     delete: "Supprimer",
     gdpr: "RGPD",
-    cvAnalysis: "Analyse du CV",
-    skillsTests: "Tests de compétences",
-    aiAnalysis: "Analyse IA",
-    slowerThanAverage: "Plus lent que la moyenne",
-    topPerformer: "Top Performer",
-    aiInterview: "Entretien IA",
-    videoInterview: "Entretien vidéo",
     levelBetween: "Niveau {level} : intermédiaire entre N{low} ({lowLabel}) et N{high} ({highLabel}).",
     notFound: "Candidat introuvable",
     back: "Retour",
     deleteConfirm: "Êtes-vous sûr de vouloir supprimer ce candidat ?",
-    manualScoreError: "Erreur lors de la sauvegarde du score manuel :",
 
     // ── Colonne d'identité ──────────────────────────────────────────────
     status: "Statut",
@@ -389,15 +373,8 @@ const dashboard = {
       excellent: "Excellent",
       average: "Moyen",
       weak: "Faible",
-      insufficient: "Insuffisant",
     },
-    tests: "Tests",
-    videoInterviewShort: "Int. Vidéo",
-    perCriterion: "Détail par critère",
-    strengths: "Points forts",
-    watchPoints: "Points d'attention",
     scored: "Évalué",
-    partialScore: "Score partiel, exclu du classement",
 
     // ── Usage de l'assistant IA ─────────────────────────────────────────
     evidenceReport: "Rapport d'évidence",
@@ -451,33 +428,7 @@ const dashboard = {
       classic_qcm: "QCM",
     },
 
-    // ── Entretien vidéo ─────────────────────────────────────────────────
-    perQuestion: "Détail par question",
-    showTranscript: "Voir la transcription",
-    hideTranscript: "Cacher la transcription",
-    videoRecording: "Enregistrement vidéo",
-    candidateTranscript: "Transcription du candidat",
-    transcriptTooShort:
-      "La transcription est absente ou insuffisante pour une évaluation IA. Visionnez la vidéo pour évaluer la réponse de ce candidat.",
-    quoteVerified: "✓ Citation vérifiée",
-    quoteNotVerified: "⚠ Citation non vérifiée dans la transcription",
-    noQuote: "Aucun élément cité",
-    improvementAreas: "Axes d'amélioration",
-
-    saved: "Enregistré",
-    aiAnalyzing: "Analyse IA…",
-    analyzed: "Analysé ✓",
-    manualReview: "Revue manuelle",
-    transcribing: "Transcription…",
     aiAnalysisQuestions: "Analyse IA — {count} questions évaluées",
-    questionsScored: "{scored}/{total} questions évaluées —",
-    aiRecruiter: "Leo (IA Recruteur)",
-    editScore: "Modifier la note",
-    scoreThisAnswer: "Évaluer cette réponse",
-    scoreOutOf5: "Score sur 5",
-    justificationPlaceholder: "Justification de la note (optionnelle mais recommandée)…",
-    confirmScore: "Valider la note",
-    analysisInProgress: "Analyse en cours, rechargez la page dans quelques instants.",
 
     // Catégories du test « maîtrise de l'IA » (identifiants C1…C5 stables).
     aiCategories: {
@@ -1127,7 +1078,6 @@ const dashboard = {
       "Changer la langue maintenant n'affecte que les offres à venir : les textes déjà générés resteront en {locale}.",
   },
 
-
   // ── Mon compte ────────────────────────────────────────────────────────────
   account: {
     title: "Mon compte",
@@ -1170,164 +1120,6 @@ const dashboard = {
     newPasswordHint: "Laissez vide pour conserver le mot de passe actuel",
     updateSecurity: "Mettre à jour la sécurité",
     securityUpdated: "Paramètres de sécurité mis à jour !",
-  },
-
-  // ── Configuration de l'entretien IA ───────────────────────────────────────
-  // L'INTERFACE seulement. Les messages d'ouverture et de clôture, dits au
-  // candidat, vivent dans lib/interview/defaults.js et suivent la langue de
-  // l'offre.
-  aiInterview: {
-    contextPlaceholder: "Ex : start-up de 20 personnes dans la fintech, ambiance collaborative…",
-    dealbreakerPlaceholder: "Ex : « indisponible avant 3 mois », « pas de permis B »",
-    hiddenFromCandidate: "Non visible par le candidat",
-    heading: "Assessment (entretien IA)",
-    intro:
-      "L'IA mènera un entretien avec les candidats pour évaluer leurs compétences et leur motivation.",
-    enabled: "Activée",
-    disabled: "Désactivée",
-    enableTitle: "Activez l'interview IA",
-    enableHelp:
-      "L'interview IA vous permet de pré-qualifier automatiquement les candidats avant de les rencontrer.",
-    enableAction: "Activer l'interview IA",
-
-    saved: "Configuration sauvegardée avec succès",
-    saveError: "Erreur lors de la sauvegarde",
-
-    requiredQuestions: "Questions imposées",
-    requiredQuestionsHelp: "Questions spécifiques que l'IA doit absolument poser.",
-    questionPlaceholder: "Ex : « Décrivez votre expérience avec Next.js. »",
-
-    introSection: "Intro & clôture",
-    introSectionHelp: "Message d'accueil, message de fin et ton de l'interview.",
-    tone: "Ton de l'interview",
-    tones: {
-      Formel: "Formel",
-      Neutre: "Neutre",
-      Décontracté: "Décontracté",
-    },
-    introMessage: "Message d'introduction",
-    outroMessage: "Message de clôture",
-    estimatedDuration: "Durée estimée :",
-    estimatedDurationValue: "10 à 15 minutes selon les réponses du candidat.",
-    candidateFacingHint:
-      "Lu au candidat : à rédiger dans la langue de l'offre.",
-
-    contextSection: "Contexte pour l'IA",
-    contextSectionHelp: "Informations invisibles pour le candidat pour orienter l'IA.",
-    contextHelp:
-      "Ces éléments servent de brief à l'IA pour personnaliser ses questions. Vous pouvez modifier manuellement les textes générés.",
-    aboutCompany: "À propos de l'entreprise",
-    whyHiring: "Pourquoi ce recrutement ?",
-    whyHiringPlaceholder:
-      "Ex : croissance de l'équipe produit, lancement d'une nouvelle fonctionnalité…",
-    whatMatters: "Ce qui compte vraiment",
-    whatMattersPlaceholder:
-      "Ex : quelqu'un d'autonome, passionné, qui communique bien en asynchrone…",
-
-    criteriaSection: "Critères d'évaluation",
-    criteriaSectionHelp: "Poids des critères et éléments éliminatoires.",
-    globalWeight: "Poids de l'évaluation globale",
-    customPreset: "✏️ Personnalisé",
-    presets: {
-      Technique: "Technique",
-      Commercial: "Commercial",
-      Créatif: "Créatif",
-      Junior: "Junior",
-      Personnalisé: "Personnalisé",
-    },
-    weights: {
-      hard_skills: "Hard skills (techniques)",
-      soft_skills: "Communication & soft skills",
-      motivation: "Motivation",
-      culture: "Culture fit",
-      potential: "Potentiel & adaptabilité",
-    },
-    total: "Total",
-    mustEqual100: "doit être égal à 100 %",
-    resetDefaults: "Réinitialiser par défaut",
-    decisiveCriteria: "Critères décisifs (points bloquants)",
-    decisiveCriteriaHelp:
-      "Si l'IA détecte ces conditions dans les réponses du candidat, elles seront signalées dans le rapport.",
-    neverAutoRejects: "L'IA ne rejette jamais un candidat automatiquement.",
-
-    appliesToNext: "Les modifications s'appliqueront aux prochains entretiens envoyés.",
-    saveConfig: "Sauvegarder la configuration",
-  },
-
-  // ── Configuration de l'entretien vidéo ────────────────────────────────────
-  videoInterview: {
-    levelShort: "Niv. {level}",
-    levelPlaceholder: "Décrivez le comportement de niveau {level} ({label})...",
-    addBarsCriterion: "Ajouter un critère BARS",
-    maxReached: " (max atteint)",
-    customQuestion: "Question personnalisée",
-    categories: { motivation: "Motivation", experience: "Expérience", softSkills: "Soft skills", technical: "Technique", cultureFit: "Culture fit", custom: "Sur-mesure" },
-    loadLibraryError: "Erreur lors du chargement de la bibliothèque",
-    saveJobFirst: "Sauvegardez d'abord votre offre",
-    generationError: "Erreur lors de la génération",
-    maxQuestions: "Maximum 3 questions par module vidéo",
-    alreadyAdded: "Cette question est déjà ajoutée",
-    aiQuestionAdded: "Question IA ajoutée",
-    questionAdded: "Question ajoutée",
-
-    categories: {
-      Technique: "Technique",
-      "Soft Skills": "Soft skills",
-      "Culture Fit": "Culture fit",
-      Custom: "Sur-mesure",
-      Toutes: "Toutes",
-    },
-
-    maxDuration: "Durée max par réponse",
-    twoMinutesRecommended: "2 minutes (recommandé)",
-    retakesAllowed: "Ré-enregistrements autorisés",
-    retakes: {
-      one: "1 essai supplémentaire",
-      two: "2 essais supplémentaires",
-      unlimited: "Illimité",
-    },
-    scoreMyself: "Évaluer moi-même les vidéos",
-    scoreMyselfHelp: "Vous noterez chaque vidéo après l'avoir visionnée.",
-
-    limitReached: "Limite atteinte : 3 questions max",
-    generating: "Génération IA…",
-    generateWithAi: "Générer avec l'IA",
-    closeLibrary: "Fermer la bibliothèque",
-    openLibrary: "Bibliothèque de questions",
-    libraryLimitReached: "Limite de 3 questions atteinte pour ce module.",
-    aiSuggestions: "Suggestions IA",
-    added: "Ajoutée",
-    add: "Ajouter",
-    onbordLibrary: "Bibliothèque Onbord",
-    libraryShort: "📚 Bibliothèque",
-
-    noQuestions: "Aucune question configurée",
-    noQuestionsHelp:
-      "Générez des questions avec l'IA ou choisissez-en dans notre bibliothèque.",
-    questionPlaceholder: "Texte de la question…",
-    deleteQuestion: "Supprimer",
-    minOneCriterion: "⚠ Minimum 1 critère BARS requis pour le scoring.",
-    criterionPlaceholder: "Nom du critère (ex. : storytelling commercial)",
-    deleteCriterion: "Supprimer ce critère",
-    legacyFormat:
-      "Ancien format (sans grille BARS). Régénérez les questions pour bénéficier du scoring structuré.",
-
-    barsLevels: {
-      insufficient: "Insuffisant",
-      expected: "Attendu",
-      excellent: "Excellent",
-    },
-
-    allCategories: "Toutes",
-    aiSuggestionsGenerated_one: "{count} suggestion générée par l'IA !",
-    aiSuggestionsGenerated_other: "{count} suggestions générées par l'IA !",
-    // Récapitulatif sous la liste de questions.
-    summaryQuestions_one: "{count} question",
-    summaryQuestions_other: "{count} questions",
-    summaryDuration: "Durée max {duration} par réponse",
-    summaryNoRetake: "Aucun ré-enregistrement",
-    summaryRetakes_one: "{count} ré-enregistrement autorisé",
-    summaryRetakes_other: "{count} ré-enregistrements autorisés",
   },
 
 // ── Formulaire d'offre — étape 2 (critères) ───────────────────────────────
@@ -1390,7 +1182,6 @@ const dashboard = {
     stepRewritten: "Étape {n} réécrite",
     stepRewrittenTitle: " — « {title} »",
     stepRewrittenSummary: " : {summary}",
-    title: 'Expert Assessment',
     greeting: "Bonjour ! On conçoit ensemble l'expérience de présélection. Décrivez votre besoin en langage libre.",
     // La PREMIÈRE question, et elle n'est pas dans le prompt : elle est écrite
     // ici, donc garantie d'être posée en premier, gratuitement et dans la bonne
@@ -1414,9 +1205,6 @@ const dashboard = {
       "Dites-moi ce que vous voulez ajuster — par exemple « réécris l'étape 2 avec un ton plus direct ». Je reprends l'étape visée, sans toucher aux autres.",
     connectionError: "Erreur de communication avec l'assistant.",
     placeholder: 'Tapez votre message…',
-    placeholderShort: 'Répondre…',
-    confirmFirst: "Veuillez confirmer ou annuler l'action ci-dessus…",
-    confirmFirstShort: "Veuillez confirmer l'action…",
     clearConversation: 'Effacer la conversation',
     clearConfirm: 'Effacer cette conversation ? Les étapes déjà générées ne sont pas modifiées.',
     // Effacer la conversation efface aussi la fiche de découverte (la ligne
@@ -1429,24 +1217,6 @@ const dashboard = {
     generationFailed: 'Échec de la génération',
     rewriteFailed: 'Échec de la réécriture',
     error: 'Erreur',
-    unexpectedError: 'Erreur inattendue',
-
-    customNeeded: 'Création sur-mesure requise',
-    role: 'Poste :',
-    skills: 'Compétences :',
-    summary: 'Résumé :',
-    confirmRequest: 'Confirmer la demande',
-    requestSaved: 'Demande enregistrée avec succès !',
-    requestError: 'Erreur lors de la demande',
-
-    testFound: 'Test trouvé !',
-    testSelected: 'Test sélectionné :',
-    addToAssessments: 'Ajouter à mes assessments',
-    noThanks: 'Non merci',
-    testAdded: 'Test ajouté à Mes Assessments !',
-    testAttached: "Test attaché à l'offre avec succès !",
-    testAttachError: "Test ajouté mais erreur lors de la liaison à l'offre",
-    addError: "Erreur lors de l'ajout",
   },
 
 // ── Profil entreprise (contexte IA privé) ─────────────────────────────────
@@ -1530,7 +1300,6 @@ const dashboard = {
     regenerateStepHelp:
       "Chaque étape réécrite en entier par l'agent IA à votre demande, depuis le chat de l'étape, ou pour couvrir une compétence. Modifier une étape vous-même ne coûte rien.",
     perStepUnit: 'par étape',
-
 
     candidateRun: 'Faire passer un candidat',
     candidateRunHelp:
@@ -1869,50 +1638,9 @@ const dashboard = {
     },
   },
 
-  // ── Panneau de configuration d'une étape de pipeline ──────────────────────
-
-  // ── Sélection d'une offre ─────────────────────────────────────────────────
-  jobSelection: {
-    notAuthenticated: 'Non authentifié',
-    loadError: 'Erreur lors du chargement des offres',
-    title: 'Sélectionner une offre',
-    subtitle: "Choisissez l'offre pour laquelle vous souhaitez créer cette évaluation.",
-    search: 'Rechercher une offre…',
-    noResults: 'Aucune offre trouvée',
-    changeSearch: 'Modifiez votre recherche.',
-    noJobsYet: "Vous n'avez pas encore créé d'offres.",
-    draft: 'Brouillon',
-    noLocation: 'Localisation non définie',
-    select: 'Sélectionner',
-    createdOn: 'Créée le {date}',
-  },
-
-  // ── Sélection d'un test dans la bibliothèque ──────────────────────────────
-  testSelection: {
-    loadError: 'Erreur lors du chargement des tests',
-    title: 'Associer un test',
-    subtitle: "Choisissez un test de votre bibliothèque pour l'associer à cette étape.",
-    search: 'Rechercher dans Mes Assessments…',
-    noResults: 'Aucun test trouvé',
-    changeSearch: 'Modifiez votre recherche.',
-    noTestsYet: "Vous n'avez pas encore de tests dans votre bibliothèque.",
-    attach: 'Associer',
-  },
-
   // ── Configuration des tests de compétences ────────────────────────────────
   skillsTestConfig: {
-    requestCustom: "Demander un test sur-mesure",
     categories: { cognitif: "Cognitif", langue: "Langues", metier: "Métier", personnalite: "Personnalité", ia: "IA" },
-    loadingLibrary: 'Chargement de la bibliothèque…',
-    totalDuration: 'Durée totale estimée pour le candidat',
-    selectOneTest: 'Sélectionnez 1 test',
-    comingSoon: 'Bientôt',
-    categories: {
-      Cognitif: 'Cognitif',
-      Langues: 'Langues',
-      Métier: 'Métier',
-      Personnalité: 'Personnalité',
-    },
   },
 
   // ── Recommandation de parcours ────────────────────────────────────────────
@@ -1930,28 +1658,6 @@ const dashboard = {
     yes: 'Oui',
     no: 'Non',
     deleteQuestion: 'Supprimer la question',
-  },
-
-  // ── Création d'une évaluation ─────────────────────────────────────────────
-  assessmentCreation: {
-    closeAssistant: "Fermer l'assistant",
-    hello: "Bonjour {name}",
-    whichType: "Quel type d'évaluation souhaitez-vous créer ?",
-    addContext: 'Ajouter du contexte',
-    jobAsPdf: 'Poste en PDF',
-    comingSoon: 'Bientôt disponible',
-    connectGithub: 'Connecter repo Github',
-    uploadZip: 'Upload un doc ZIP',
-  },
-
-  // ── Modale d'action sur une étape d'évaluation ────────────────────────────
-  assessmentAction: {
-    skillsTest: 'Test de compétences',
-    whatToDo: 'Que souhaitez-vous faire ?',
-    addNewTest: 'Ajouter un nouveau test',
-    createWithAi: "Créer un test sur-mesure avec l'IA",
-    selectFromLibrary: 'Sélectionner depuis la bibliothèque',
-    useExisting: 'Utiliser un test déjà existant',
   },
 
   // ── Guide d'activation ────────────────────────────────────────────────────
@@ -1984,16 +1690,6 @@ const dashboard = {
     creditsUsed: 'Crédits utilisés',
     changePlan: 'Changer de plan',
     topUp: 'Recharger',
-  },
-
-  // ── Critères de scoring CV ────────────────────────────────────────────────
-  cvCriteria: {
-    intro: "L'IA a identifié ces 5 critères basés sur votre offre. Ils seront utilisés pour calculer le {score} de chaque CV importé. Vous pouvez ajuster les intitulés et leur importance (poids).",
-    introScore: "score de correspondance",
-    weightWarning: "Le total des poids est de {total}. Il devrait être de 100 % pour un scoring précis.",
-    addCriterion: "Ajouter un critère",
-    placeholder: "Ex : expérience en management d'équipe",
-    distributeEvenly: 'Répartir équitablement',
   },
 
   // ── Préférences de compte ─────────────────────────────────────────────────

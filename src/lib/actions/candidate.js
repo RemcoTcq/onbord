@@ -351,27 +351,13 @@ export async function getCandidatesForJob(jobId) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('candidates')
-      .select('*, test_sessions:candidate_test_sessions(score, status, test_id)')
+      .select('*')
       .eq('job_id', jobId)
-      .order('score_cv', { ascending: false });
-    
-    if (error) throw error;
-    
-    // Dynamically compute score_tests if not fully submitted
-    const candidatesWithDynamicScores = data.map(c => {
-      let finalScoreTests = c.score_tests;
-      if (c.test_sessions && c.test_sessions.length > 0) {
-        const completedTests = c.test_sessions.filter(s => s.status === 'completed' && s.score != null);
-        if (completedTests.length > 0) {
-          const avg = Math.round(completedTests.reduce((sum, s) => sum + s.score, 0) / completedTests.length);
-          // Prefer dynamic average over db value to always reflect latest passed tests
-          finalScoreTests = avg;
-        }
-      }
-      return { ...c, score_tests: finalScoreTests };
-    });
+      .order('created_at', { ascending: false });
 
-    return { success: true, candidates: candidatesWithDynamicScores };
+    if (error) throw error;
+
+    return { success: true, candidates: data };
   } catch (error) {
     console.error("Get Candidates Error:", error);
     return { success: false, error: error.message };
@@ -388,45 +374,6 @@ export async function getCandidateDetail(candidateId) {
       .single();
     
     if (error) throw error;
-
-    // Get messages from transcript field
-    let messages = [];
-    if (candidate && candidate.interview_transcript) {
-      try {
-        messages = typeof candidate.interview_transcript === 'string' 
-          ? JSON.parse(candidate.interview_transcript) 
-          : candidate.interview_transcript;
-      } catch (e) {
-        console.error("Error parsing transcript:", e);
-        messages = [];
-      }
-    }
-
-    // Fetch test sessions
-    let testSessions = [];
-    const { data: tests } = await supabase
-      .from('candidate_test_sessions')
-      .select('*, assessment_tests(name, category)')
-      .eq('candidate_id', candidateId);
-    if (tests) testSessions = tests;
-
-    // Fetch video interview responses
-    let videoResponses = [];
-    const { data: videos } = await supabase
-      .from('video_interview_responses')
-      .select('*')
-      .eq('candidate_id', candidateId)
-      .order('question_index');
-    if (videos) videoResponses = videos;
-
-    // Dynamically compute score_tests
-    let finalScoreTests = candidate.score_tests;
-    if (testSessions.length > 0) {
-      const completedTests = testSessions.filter(s => s.status === 'completed' && s.score != null);
-      if (completedTests.length > 0) {
-        finalScoreTests = Math.round(completedTests.reduce((sum, s) => sum + s.score, 0) / completedTests.length);
-      }
-    }
 
     // Fetch Experience Run (new assessment flow).
     // candidate_runs / run_scores sont RLS deny-all (service_role only, cf.
@@ -513,13 +460,6 @@ export async function getCandidateDetail(candidateId) {
     // propriétaire. Une URL non signable devient null, et l'écran masque le lien.
     const cvUrlSignee = await urlSignee(admin, "resumes", candidate.cv_url);
 
-    const videoResponsesSignees = await Promise.all(
-      videoResponses.map(async (r) => ({
-        ...r,
-        video_url: await urlSignee(admin, "video-responses", r.video_url),
-      }))
-    );
-
     if (experienceReport) {
       experienceReport.steps = await Promise.all(
         experienceReport.steps.map(async (s) => (
@@ -535,10 +475,6 @@ export async function getCandidateDetail(candidateId) {
       candidate: {
         ...candidate,
         cv_url: cvUrlSignee,
-        score_tests: finalScoreTests,
-        interview_messages: messages,
-        test_sessions: testSessions,
-        video_responses: videoResponsesSignees,
         experience_run: expRun || null,
         experience_report: experienceReport,
       }

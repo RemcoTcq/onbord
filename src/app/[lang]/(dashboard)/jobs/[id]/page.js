@@ -142,8 +142,8 @@ export default function JobDetailPage() {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === "score_desc") return (b.score_global || b.score_cv || 0) - (a.score_global || a.score_cv || 0);
-      if (sortBy === "score_asc") return (a.score_global || a.score_cv || 0) - (b.score_global || b.score_cv || 0);
+      if (sortBy === "score_desc") return (b.score_global || 0) - (a.score_global || 0);
+      if (sortBy === "score_asc") return (a.score_global || 0) - (b.score_global || 0);
       if (sortBy === "date_desc") return new Date(b.created_at) - new Date(a.created_at);
       return 0;
     });
