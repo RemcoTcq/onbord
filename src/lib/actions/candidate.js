@@ -219,7 +219,6 @@ export async function createCandidateShell(jobId, firstName, lastName, email) {
         interview_expires_at: expiresAt,
         status: 'invited',
         assessment_status: 'pending',
-        score_cv: null,
         score_global: null,
       })
       .select()
@@ -331,7 +330,6 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
         gdpr_consent_at: gdprConsentAt,
         status: 'invited',
         assessment_status: 'pending',
-        score_cv: null,
         score_global: null,
       })
       .select()

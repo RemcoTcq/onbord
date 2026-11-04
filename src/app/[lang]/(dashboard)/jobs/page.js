@@ -99,7 +99,7 @@ export default function JobsPage() {
     if (user) {
       const { data } = await supabase
         .from("jobs")
-        .select("*, candidates(id, status, score_cv, score_global, assessment_submitted_at)")
+        .select("*, candidates(id, status, score_global, assessment_submitted_at)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
