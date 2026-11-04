@@ -13,9 +13,10 @@
 -- avant écriture de cette migration :
 --
 --     candidats                                    : 22
---     colonnes de candidates retirées, renseignées : 0, sauf deux valeurs
---       par défaut jamais lues — video_interview_status ('pending' partout)
---       et credits_charged_interview (false partout)
+--     colonnes de candidates retirées, renseignées : 0, sauf trois valeurs
+--       par défaut jamais lues — video_interview_status ('pending' partout),
+--       credits_charged_interview (false partout) et interview_transcript
+--       ('[]' partout)
 --     jobs.ai_interview_config                     : {"enabled": false} partout
 --     candidate_test_sessions, video_interview_responses,
 --     interviews, interview_messages               : 0 ligne
@@ -60,9 +61,12 @@ begin
   select count(*) into n from public.interviews;
   if n > 0 then raise exception 'interviews contient % ligne(s) : sauvegarder avant d''appliquer', n; end if;
 
+  -- interview_transcript vaut '[]' par défaut : une liste vide n'est pas une
+  -- donnée. Comparé en texte, pour ne pas dépendre de son type (json ou jsonb).
   select count(*) into n from public.candidates
   where score_cv is not null or score_interview is not null or score_tests is not null
-     or ai_summary is not null or interview_transcript is not null or video_interview_score is not null;
+     or ai_summary is not null or video_interview_score is not null
+     or coalesce(interview_transcript::text, '[]') <> '[]';
   if n > 0 then raise exception '% candidat(s) portent des données de l''ancien parcours : sauvegarder avant d''appliquer', n; end if;
 end $$;
 
