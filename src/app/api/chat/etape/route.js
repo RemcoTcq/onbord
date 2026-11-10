@@ -68,9 +68,13 @@ Contenu complet de la mise en situation (JSON — scène, notes cachées, corrig
 ${config.length > MAX_CONFIG ? `${config.slice(0, MAX_CONFIG)}… (tronqué)` : config}`;
 }
 
-function systeme({ titrePoste, competences, filRouge, voisines, etape, langue }) {
-  return `LANGUE DE LA CONVERSATION : ${LOCALE_NAMES_FR[langue]}. Tu réponds toujours dans cette langue, quelle que soit la langue des contenus ci-dessous.
+// Une étape de MODULE (onboarding, phase 2) : la consigne est écrite pour le
+// recrutement ; ce bloc la relit pour l'entraînement.
+const CONTEXTE_MODULE = `CONTEXTE — CE N'EST PAS UN RECRUTEMENT. Cette simulation est un MODULE D'ENTRAÎNEMENT (onboarding) : la personne qui la joue est déjà embauchée et s'entraîne avant ses vrais clients ; elle peut recommencer autant qu'elle veut, et seul son meilleur score compte face au seuil du module. Partout ci-dessous, lis « recruteur » comme « manager », « candidat » comme « la personne qui s'entraîne », « offre » et « poste » comme « module ». La réécriture d'une étape de module est GRATUITE : ne parle jamais de crédits.`;
 
+function systeme({ titrePoste, competences, filRouge, voisines, etape, langue, pourModule = false }) {
+  return `LANGUE DE LA CONVERSATION : ${LOCALE_NAMES_FR[langue]}. Tu réponds toujours dans cette langue, quelle que soit la langue des contenus ci-dessous.
+${pourModule ? `\n${CONTEXTE_MODULE}\n` : ""}
 Tu es l'expert d'une simulation de recrutement Onbord, intégré à la page d'UNE étape, face au recruteur qui l'a conçue. Tu connais le métier du poste et tu donnes un avis de professionnel : ce que l'étape demande vraiment, si le niveau convient, ce qu'une excellente réponse ferait, ce qui pourrait manquer.
 
 COMMENT ONBORD NOTE (à expliquer si on te le demande) : après la simulation, une IA relit la réponse du candidat et note chaque checkpoint 0 (absent), 1 (présent mais faible) ou 2 (présent et bien fait), en citant le passage qui le prouve. En cas de doute, un second avis indépendant est demandé, et un troisième si les deux divergent. Le score d'une sous-compétence est la somme de ses checkpoints, en % du maximum. La note finale est la moyenne des sous-compétences de toutes les étapes ; une sous-compétence liée à une compétence obligatoire de l'offre compte double, et l'importance d'une étape (×0,5 à ×2, réglable par le recruteur) multiplie le poids de toutes ses sous-compétences. Le « corrigé » (signes de réussite, piège, analyse attendue) n'est pas noté à part : il aide l'IA à attribuer les points.
@@ -139,6 +143,7 @@ export async function POST(req) {
         voisines,
         etape: blocEtape(step, position, liste.length),
         langue,
+        pourModule: Boolean(job.module_id),
       }),
       messages: fil,
       tools: [OUTIL],

@@ -100,6 +100,8 @@ export default function AdminPage() {
   // l'écran en même temps, et les confondre afficherait un mot de passe sous le
   // mauvais compte — l'erreur la plus coûteuse possible sur cet écran.
   const [comptes, setComptes] = useState([]);
+  const [learnersActifs, setLearnersActifs] = useState(null);
+  const [fenetreJours, setFenetreJours] = useState(30);
   const [reinit, setReinit] = useState(null);
   const [reinitEnCours, setReinitEnCours] = useState(null);
 
@@ -133,7 +135,11 @@ export default function AdminPage() {
 
       setHasAccess(true);
       if (res.success) setTokens(res.tokens);
-      if (resComptes.success) setComptes(resComptes.comptes);
+      if (resComptes.success) {
+        setComptes(resComptes.comptes);
+        setLearnersActifs(resComptes.learnersActifs ?? null);
+        setFenetreJours(resComptes.fenetreJours ?? 30);
+      }
       setLoading(false);
     })();
 
@@ -313,6 +319,12 @@ export default function AdminPage() {
         <p style={{ fontSize: "13px", color: "var(--muted-foreground)", marginBottom: "1.25rem" }}>
           {t("dashboard.admin.accountsHelp")}
         </p>
+        {/* Onboarding (phase 5) : les learners actifs, base de sa facturation. */}
+        {learnersActifs != null && (
+          <p style={{ fontSize: "13px", marginBottom: "1.25rem" }}>
+            <b style={{ fontWeight: 600 }}>{t("dashboard.admin.activeLearners", { count: learnersActifs, jours: fenetreJours })}</b>
+          </p>
+        )}
 
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -322,12 +334,13 @@ export default function AdminPage() {
                 <th style={CELLULE_ENTETE}>{t("dashboard.admin.columns.plan")}</th>
                 <th style={CELLULE_ENTETE}>{t("dashboard.admin.columns.created")}</th>
                 <th style={CELLULE_ENTETE}>{t("dashboard.admin.columns.lastSignIn")}</th>
+                <th style={CELLULE_ENTETE}>{t("dashboard.admin.columns.learners")}</th>
                 <th style={{ ...CELLULE_ENTETE, textAlign: "right" }}>{t("dashboard.admin.columns.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {comptes.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)", fontSize: "14px" }}>{t("dashboard.admin.noAccounts")}</td></tr>
+                <tr><td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)", fontSize: "14px" }}>{t("dashboard.admin.noAccounts")}</td></tr>
               )}
               {comptes.map((c) => {
                 const pc = PLAN_COLORS[c.plan] || null;
@@ -362,6 +375,9 @@ export default function AdminPage() {
                       {c.last_sign_in_at
                         ? formatDateShort(c.last_sign_in_at, locale)
                         : <span style={{ fontStyle: "italic" }}>{t("dashboard.admin.neverSignedIn")}</span>}
+                    </td>
+                    <td style={{ padding: "14px 20px", fontSize: "13px", color: "var(--muted-foreground)" }}>
+                      {c.learners ? t("dashboard.admin.learnersCell", { actifs: c.learners.actifs, total: c.learners.total }) : "—"}
                     </td>
                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
                       <button

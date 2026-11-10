@@ -396,7 +396,7 @@ Non vérifié : un e-mail réellement reçu.
 À reprendre : sous la synthèse, les justifications de chaque point restent
 écrites pour un recruteur (« the candidate… »).
 
-| 10/11/2026 | Phase 4 — du recrutement à l'onboarding | *(ce commit)* | voir ci-dessous ; 044 appliquée |
+| 10/11/2026 | Phase 4 — du recrutement à l'onboarding | 71b5b954 | voir ci-dessous ; 044 appliquée |
 
 ### Phase 4 — ce qui est fait
 
@@ -438,3 +438,43 @@ assignés ; la fiche candidat affiche « Voir en onboarding ».
 
 Non vérifié : le refus du partage à l'activation (branche simple : aucune
 lacune copiée), un e-mail réellement reçu.
+
+| 10/11/2026 | Phase 5 — navigation et finitions | *(ce commit)* | aucune migration |
+
+### Phase 5 — ce qui est fait
+
+- **Menu en groupes** (`components/layout/Sidebar.js`) : Tableau de bord ·
+  Recrutement ▾ (Offres, Candidats) · Onboarding ▾ (Vue d'ensemble, Personnes,
+  Modules, Programmes) · Bibliothèque ▾ (Personnages) · Entreprise ▾
+  (Connaissances) · Paramètres. Chaque groupe se replie (mémorisé dans le
+  navigateur) ; celui de la page ouverte reste déplié. Menu réduit : les icônes,
+  un trait entre les groupes. Paramètres reste l'entrée de l'équipe, du profil
+  et de la langue (`/compte`).
+- **Recrutement → Candidats** (`/candidats`, en anglais `/en/candidates`) : tous
+  les candidats de l'organisation, hors corbeille, recherche (nom, adresse,
+  offre) et filtre par offre ; chaque ligne ouvre la fiche habituelle.
+- **Learner** : Mon entraînement · Mes résultats (fait en phase 3).
+- **`/admin`** : nombre de learners actifs (essai commencé dans les 30 derniers
+  jours), et par compte client « actifs / total » (`compterLearnersActifs`,
+  `lib/essais.js`). Rien n'est facturé : c'est la base de la facturation à
+  venir.
+- **Un module n'est pas une offre** : le fil de génération d'un module dit
+  « Module lu » ; le copilote d'une étape de module sait que c'est un
+  entraînement (manager, personne qui s'entraîne, réécriture gratuite) et
+  l'écran n'affiche plus « 2 crédits ».
+- 28 tests, lint identique à `main`, `check:i18n` vert, build OK. Vérifié
+  dans le navigateur : candidats et recherche, groupe replié qui le reste après
+  rechargement, copilote d'une étape de module. Le compteur `/admin` n'a pas pu
+  être affiché (réservé aux adresses de l'équipe Onbord) : ses requêtes ont été
+  rejouées à part.
+
+## 7. Avant la mise en ligne
+
+1. Migrations **035 à 044 appliquées** (toutes passées le 10/11/2026).
+2. Reporter et pousser `bf910530` (dépôt sans upsert) peut se faire seul, avant
+   le reste : il corrige l'enregistrement des vidéos des candidats en production.
+3. Fusionner `feat/onboarding` dans `main`, pousser, vérifier le statut Vercel.
+4. **Après** la mise en ligne seulement : migration **037** (dépôt du CV par le
+   jeton seul).
+5. Effacer l'organisation et les comptes de test : `node test-p0.mjs nettoyer`
+   (scratchpad de la session).

@@ -140,6 +140,10 @@ function feedText(t, e) {
     case 'job':
       return t(e.nbSkills ? 'dashboard.generationFeed.jobLine' : 'dashboard.generationFeed.jobLineNoSkill',
         { title: e.title || t('dashboard.generationFeed.untitledJob'), count: e.nbSkills });
+    // Un module d'onboarding (phase 2) : même ligne, sans parler d'offre.
+    case 'module':
+      return t(e.nbSkills ? 'dashboard.generationFeed.moduleLine' : 'dashboard.generationFeed.moduleLineNoSkill',
+        { title: e.title || t('dashboard.generationFeed.untitledJob'), count: e.nbSkills });
     case 'context':
       if (!e.charge) return t('dashboard.generationFeed.contextNone');
       return e.industry

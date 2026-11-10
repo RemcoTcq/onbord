@@ -106,3 +106,29 @@ export function lacunesDuRecrutement(criteres, max = 20) {
   }
   return lacunes.filter((l) => l.point).sort((x, y) => x.score - y.score).slice(0, max);
 }
+
+// Un learner ACTIF (phase 5, base de la facturation de l'onboarding) : il a
+// commencé au moins un essai dans les 30 derniers jours. Un compte invité qui
+// ne s'entraîne pas ne compte pas.
+export const FENETRE_LEARNER_ACTIF_JOURS = 30;
+
+/**
+ * Les learners de chaque organisation, et combien sont actifs.
+ * @param {Array<{user_id: string, organization_id: string}>} learners
+ * @param {Array<{learner_id: string, started_at: string}>} essais
+ * @returns {Map<string, {total: number, actifs: number}>} par organisation
+ */
+export function compterLearnersActifs(learners, essais, maintenant = Date.now(), jours = FENETRE_LEARNER_ACTIF_JOURS) {
+  const depuis = maintenant - jours * 86_400_000;
+  const actifs = new Set((essais || [])
+    .filter((e) => e.learner_id && new Date(e.started_at).getTime() >= depuis)
+    .map((e) => e.learner_id));
+  const parOrg = new Map();
+  for (const l of learners || []) {
+    const o = parOrg.get(l.organization_id) || { total: 0, actifs: 0 };
+    o.total += 1;
+    if (actifs.has(l.user_id)) o.actifs += 1;
+    parOrg.set(l.organization_id, o);
+  }
+  return parOrg;
+}

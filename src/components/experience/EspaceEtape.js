@@ -158,6 +158,7 @@ export default function EspaceEtape({ job, crumbs, experience, steps, index, ong
               setMessages={setFil}
               prenom={user?.first_name}
               jobTitle={job?.title}
+              pourModule={Boolean(job?.module_id)}
               onReplier={() => basculerCopilote(false)}
             />
           </aside>

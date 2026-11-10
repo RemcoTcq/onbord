@@ -20,6 +20,12 @@ const dashboard = {
     modules: "Modules",
     programs: "Programs",
     people: "People",
+    // Phase 5: menu groups.
+    hiring: "Hiring",
+    candidates: "Candidates",
+    overview: "Overview",
+    library: "Library",
+    company: "Company",
   },
 
   search: {
@@ -283,6 +289,21 @@ const dashboard = {
     deleteJob: "Delete this job",
     deleteJobHelp:
       "Deletes the posting and unlinks it from its candidates. Assessments stay in your library. This cannot be undone.",
+  },
+
+  // ── Hiring → Candidates (phase 5) ────────────────────────────────────────
+  candidatesAll: {
+    title: "Candidates",
+    subtitle: "Every candidate across your jobs, most recent first.",
+    search: "Search a name, an address, a job…",
+    colCandidate: "Candidate",
+    colJob: "Job",
+    colScore: "Score",
+    colStatus: "Status",
+    colDate: "Added",
+    empty: "No candidates yet.",
+    noMatch: "No candidate matches.",
+    allJobs: "All jobs",
   },
 
   candidateDetail: {
@@ -821,8 +842,11 @@ const dashboard = {
     },
     stepChat: {
       knows: "Knows this step, its grading and the job",
+      knowsModule: "Knows this step, its grading and the module",
       greeting: "Hello {name}. I know this step, its grading grid and the {job} job. Ask a question or request a change: I'll suggest a rewrite, which you can apply or not.",
       greetingNoName: "Hello. I know this step, its grading grid and the {job} job. Ask a question or request a change: I'll suggest a rewrite, which you can apply or not.",
+      greetingModule: "Hello {name}. I know this step, its grading grid and the {job} module. Ask a question or request a change: I'll suggest a rewrite, which you can apply or not.",
+      greetingNoNameModule: "Hello. I know this step, its grading grid and the {job} module. Ask a question or request a change: I'll suggest a rewrite, which you can apply or not.",
       newConversation: "New conversation",
       collapse: "Collapse Simulation Copilot",
       open: "Open Simulation Copilot",
@@ -833,6 +857,7 @@ const dashboard = {
       title: "Simulation Copilot",
       intro: "Ask anything about this step: what it tests, how it is scored, whether the level fits the role. Ask for a change: I'll propose a rewrite, which you apply or not.",
       cost: "Questions are free · 2 credits per rewrite applied",
+      costModule: "Questions and rewrites are free for a module",
       placeholder: "E.g. why this checkpoint? · make the prospect more sceptical",
       send: "Send",
       thinking: "Thinking…",
@@ -844,6 +869,7 @@ const dashboard = {
       proposal: "Proposed change",
       proposalIntro: "Here is what I suggest:",
       apply: "Apply · 2 credits",
+      applyModule: "Apply",
       dismiss: "Ignore",
       applied: "Applied — the step has been rewritten.",
       dismissed: "Proposal dismissed.",
@@ -1276,7 +1302,11 @@ const dashboard = {
       renewal: "Renews {date}",
       updated: "Billing cycle updated",
     },
+    activeLearners_one: "{count} active learner (attempt started in the last {jours} days)",
+    activeLearners_other: "{count} active learners (attempt started in the last {jours} days)",
+    learnersCell: "{actifs} active / {total}",
     columns: {
+      learners: "Learners",
       token: "Token",
       plan: "Plan",
       status: "Status",
@@ -1325,6 +1355,9 @@ const dashboard = {
     jobLine_one: "Job analysed: {title} — {count} skill extracted",
     jobLine_other: "Job analysed: {title} — {count} skills extracted",
     jobLineNoSkill: "Job analysed: {title} — no skills extracted",
+    moduleLine_one: "Module read: {title} — {count} skill practised",
+    moduleLine_other: "Module read: {title} — {count} skills practised",
+    moduleLineNoSkill: "Module read: {title} — no skills specified",
     untitledJob: "untitled role",
     contextLine: "Company context loaded — {industry}",
     contextLoaded: "Company context loaded",

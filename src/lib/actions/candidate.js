@@ -348,6 +348,33 @@ export async function applyForJob(jobId, firstName, lastName, email, gdprConsent
   }
 }
 
+/**
+ * Hiring → Candidates (phase 5) : tous les candidats de l'organisation, toutes
+ * offres confondues (hors corbeille), les plus récents d'abord. Lecture RLS :
+ * les policies « organisation » (migration 036) bornent déjà au périmètre.
+ */
+export async function listerCandidatsOrganisation() {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('id, first_name, last_name, email, status, score_global, created_at, job_id, jobs!inner(title, deleted_at)')
+      .is('jobs.deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (error) throw error;
+    return {
+      success: true,
+      candidats: (data || []).map(({ jobs, ...c }) => ({ ...c, poste: jobs?.title || "" })),
+    };
+  } catch (error) {
+    console.error("listerCandidatsOrganisation error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
 export async function getCandidatesForJob(jobId) {
   try {
     const supabase = await createClient();

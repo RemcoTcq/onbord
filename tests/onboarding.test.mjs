@@ -1,10 +1,10 @@
-// Phases 3 et 4 de l'onboarding : ce que devient une assignation après un essai, le
+// Phases 3 à 5 de l'onboarding : ce que devient une assignation après un essai, le
 // retour par compétence, la progression d'un essai à l'autre, et les e-mails
 // aux learners. Lancé par `npm test`.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { issueEssai, parCompetence, progressionCompetences, adresseDeTest, lacunesDuRecrutement } from "../src/lib/essais.js";
+import { issueEssai, parCompetence, progressionCompetences, adresseDeTest, lacunesDuRecrutement, compterLearnersActifs } from "../src/lib/essais.js";
 import { emailNouveauxModules, emailModuleValide, emailInvitation } from "../src/lib/emailsApplication.js";
 
 const T = "2026-11-10T12:00:00.000Z";
@@ -115,4 +115,20 @@ test("invitation venue du recrutement : un paragraphe annonce le choix de partag
   const sans = emailInvitation({ t, organisation: "Acme", invitePar: "Sam", role: "learner", lien: "https://x" });
   assert.match(avec.text, /invitation.body_hiring/);
   assert.doesNotMatch(sans.text, /body_hiring/);
+});
+
+test("learners actifs : un essai commencé dans les 30 jours, par organisation", () => {
+  const maintenant = Date.parse("2026-11-10T12:00:00Z");
+  const parOrg = compterLearnersActifs(
+    [{ user_id: "a", organization_id: "o1" }, { user_id: "b", organization_id: "o1" }, { user_id: "c", organization_id: "o2" }],
+    [
+      { learner_id: "a", started_at: "2026-11-01T00:00:00Z" },
+      { learner_id: "a", started_at: "2026-11-02T00:00:00Z" },
+      { learner_id: "b", started_at: "2026-09-01T00:00:00Z" },
+      { learner_id: null, started_at: "2026-11-09T00:00:00Z" },
+    ],
+    maintenant,
+  );
+  assert.deepEqual(parOrg.get("o1"), { total: 2, actifs: 1 });
+  assert.deepEqual(parOrg.get("o2"), { total: 1, actifs: 0 });
 });

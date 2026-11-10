@@ -25,6 +25,12 @@ const dashboard = {
     modules: "Modules",
     programs: "Programmes",
     people: "Personnes",
+    // Phase 5 : les groupes du menu.
+    hiring: "Recrutement",
+    candidates: "Candidats",
+    overview: "Vue d'ensemble",
+    library: "Bibliothèque",
+    company: "Entreprise",
   },
 
   // ── Recherche ⌘K ──────────────────────────────────────────────────────────
@@ -316,6 +322,21 @@ const dashboard = {
   // L'INTERFACE, pas celle de l'offre — un recruteur anglophone doit pouvoir
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
+  // ── Hiring → Candidates (phase 5) ────────────────────────────────────────
+  candidatesAll: {
+    title: "Candidats",
+    subtitle: "Tous les candidats de vos offres, les plus récents d'abord.",
+    search: "Rechercher un nom, une adresse, une offre…",
+    colCandidate: "Candidat",
+    colJob: "Offre",
+    colScore: "Score",
+    colStatus: "Statut",
+    colDate: "Arrivé le",
+    empty: "Aucun candidat pour l'instant.",
+    noMatch: "Aucun candidat ne correspond.",
+    allJobs: "Toutes les offres",
+  },
+
   candidateDetail: {
     // Phase 4 de l'onboarding : « Passer en onboarding ».
     toOnboarding: {
@@ -874,8 +895,11 @@ const dashboard = {
     },
     stepChat: {
       knows: "Connaît cette étape, sa notation et le poste",
+      knowsModule: "Connaît cette étape, sa notation et le module",
       greeting: "Bonjour {name}. Je connais cette étape, sa grille de notation et l'offre {job}. Posez une question ou demandez un changement : je propose une réécriture, que vous appliquez ou non.",
       greetingNoName: "Bonjour. Je connais cette étape, sa grille de notation et l'offre {job}. Posez une question ou demandez un changement : je propose une réécriture, que vous appliquez ou non.",
+      greetingModule: "Bonjour {name}. Je connais cette étape, sa grille de notation et le module {job}. Posez une question ou demandez un changement : je propose une réécriture, que vous appliquez ou non.",
+      greetingNoNameModule: "Bonjour. Je connais cette étape, sa grille de notation et le module {job}. Posez une question ou demandez un changement : je propose une réécriture, que vous appliquez ou non.",
       newConversation: "Nouvelle conversation",
       collapse: "Replier Simulation Copilot",
       open: "Ouvrir Simulation Copilot",
@@ -886,6 +910,7 @@ const dashboard = {
       title: "Simulation Copilot",
       intro: "Posez vos questions sur cette étape : ce qu'elle teste, comment elle est notée, si le niveau convient au poste. Demandez un changement : je vous propose une réécriture, que vous appliquez ou non.",
       cost: "Questions gratuites · 2 crédits par réécriture appliquée",
+      costModule: "Questions et réécritures gratuites pour un module",
       placeholder: "Ex. : pourquoi ce checkpoint ? · rends le prospect plus sceptique",
       send: "Envoyer",
       thinking: "Réflexion…",
@@ -897,6 +922,7 @@ const dashboard = {
       proposal: "Modification proposée",
       proposalIntro: "Voici ce que je propose :",
       apply: "Appliquer · 2 crédits",
+      applyModule: "Appliquer",
       dismiss: "Ignorer",
       applied: "Appliquée — l'étape a été réécrite.",
       dismissed: "Proposition écartée.",
@@ -1361,7 +1387,11 @@ const dashboard = {
       renewal: 'Renouv. {date}',
       updated: 'Cycle mis à jour',
     },
+    activeLearners_one: "{count} learner actif (essai commencé dans les {jours} derniers jours)",
+    activeLearners_other: "{count} learners actifs (essai commencé dans les {jours} derniers jours)",
+    learnersCell: "{actifs} actif(s) / {total}",
     columns: {
+      learners: "Learners",
       token: 'Token',
       plan: 'Plan',
       status: 'Statut',
@@ -1414,6 +1444,9 @@ const dashboard = {
     jobLine_one: "Offre analysée : {title} — {count} compétence extraite",
     jobLine_other: "Offre analysée : {title} — {count} compétences extraites",
     jobLineNoSkill: "Offre analysée : {title} — aucune compétence extraite",
+    moduleLine_one: "Module lu : {title} — {count} compétence travaillée",
+    moduleLine_other: "Module lu : {title} — {count} compétences travaillées",
+    moduleLineNoSkill: "Module lu : {title} — aucune compétence précisée",
     untitledJob: "poste sans titre",
     contextLine: "Contexte entreprise chargé — {industry}",
     contextLoaded: "Contexte entreprise chargé",

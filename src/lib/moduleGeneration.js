@@ -102,7 +102,7 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
       crit = await deduireCompetences({ module, uiLocale, companyContext: ctx });
       await admin.from("modules").update({ criteria: crit, updated_at: new Date().toISOString() }).eq("id", module.id);
     }
-    onEvent?.({ kind: "job", title: module.title, nbSkills: listerCompetences(crit).length });
+    onEvent?.({ kind: "module", title: module.title, nbSkills: listerCompetences(crit).length });
     onEvent?.({ kind: "design_start" });
 
     const gen = await generateExperienceContent({

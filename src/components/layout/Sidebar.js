@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
-import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users } from "lucide-react";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users, UserSearch, ChevronDown } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
 import { jobDot } from "@/components/ui/ds";
@@ -28,6 +28,9 @@ function Logomark({ height = 22 }) {
 }
 
 const CLE_OUVERT = "onbord_sidebar_open";
+// Les groupes repliés par l'utilisateur (phase 5). Un groupe qui contient la
+// page ouverte s'affiche toujours déplié.
+const CLE_GROUPES = "onbord_sidebar_groupes_replies";
 const NB_RECENTS = 5;
 
 export default function Sidebar() {
@@ -40,7 +43,16 @@ export default function Sidebar() {
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem(CLE_OUVERT) !== "0"; } catch { return true; }
   });
+  const [replies, setReplies] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CLE_GROUPES) || "[]"); } catch { return []; }
+  });
   const [isMac] = useState(() => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || ""));
+
+  function basculerGroupe(cle) {
+    const next = replies.includes(cle) ? replies.filter((c) => c !== cle) : [...replies, cle];
+    setReplies(next);
+    try { localStorage.setItem(CLE_GROUPES, JSON.stringify(next)); } catch {}
+  }
 
   function toggle() {
     const next = !open;
@@ -52,56 +64,44 @@ export default function Sidebar() {
   const recents = ouverts.slice(0, NB_RECENTS);
   const jobCourant = pathname.match(/^\/jobs\/([^/]+)/)?.[1];
 
-  const items = [
-    { href: "/accueil", label: t("dashboard.nav.home"), icon: <HomeIcon size={open ? 16 : 17} />, actif: pathname === "/accueil" },
-    {
-      href: "/jobs",
-      label: t("dashboard.nav.jobs"),
-      icon: <Briefcase size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
-      count: ouverts.length || null,
-    },
-    // Phase 2 : l'onboarding — tableau de bord, modules, programmes, personnes.
-    {
-      href: "/onboarding",
-      label: t("dashboard.nav.onboarding"),
-      icon: <GraduationCap size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname === "/onboarding",
-    },
-    {
-      href: "/onboarding/modules",
-      label: t("dashboard.nav.modules"),
-      icon: <Layers size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname.startsWith("/onboarding/modules"),
-    },
-    {
-      href: "/onboarding/programmes",
-      label: t("dashboard.nav.programs"),
-      icon: <ListOrdered size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname.startsWith("/onboarding/programmes"),
-    },
-    {
-      href: "/onboarding/personnes",
-      label: t("dashboard.nav.people"),
-      icon: <Users size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname.startsWith("/onboarding/personnes"),
-    },
-    // Phase 1 de l'onboarding : la base de connaissances et la bibliothèque
-    // de personnages, partagées par le recrutement et l'onboarding. La phase 5
-    // range le menu en groupes (Hiring, Onboarding, Library, Company).
-    {
-      href: "/entreprise/connaissances",
-      label: t("dashboard.nav.knowledge"),
-      icon: <BookOpen size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname.startsWith("/entreprise"),
-    },
-    {
-      href: "/bibliotheque/personnages",
-      label: t("dashboard.nav.personas"),
-      icon: <Contact size={open ? 16 : 17} strokeWidth={1.8} />,
-      actif: pathname.startsWith("/bibliotheque"),
-    },
+  const taille = open ? 16 : 17;
+  const icone = (Icone) => <Icone size={taille} strokeWidth={1.8} />;
+  // Le menu de la phase 5 : l'accueil, puis un groupe par domaine. Le
+  // recrutement et l'onboarding partagent la bibliothèque et l'entreprise.
+  const groupes = [
+    { cle: "accueil", items: [
+      { href: "/accueil", label: t("dashboard.nav.home"), icon: <HomeIcon size={taille} />, actif: pathname === "/accueil" },
+    ] },
+    { cle: "hiring", label: t("dashboard.nav.hiring"), items: [
+      {
+        href: "/jobs",
+        label: t("dashboard.nav.jobs"),
+        icon: icone(Briefcase),
+        actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
+        count: ouverts.length || null,
+      },
+      { href: "/candidats", label: t("dashboard.nav.candidates"), icon: icone(UserSearch), actif: pathname.startsWith("/candidats") },
+    ] },
+    { cle: "onboarding", label: t("dashboard.nav.onboarding"), items: [
+      { href: "/onboarding", label: t("dashboard.nav.overview"), icon: icone(GraduationCap), actif: pathname === "/onboarding" },
+      { href: "/onboarding/personnes", label: t("dashboard.nav.people"), icon: icone(Users), actif: pathname.startsWith("/onboarding/personnes") },
+      { href: "/onboarding/modules", label: t("dashboard.nav.modules"), icon: icone(Layers), actif: pathname.startsWith("/onboarding/modules") },
+      { href: "/onboarding/programmes", label: t("dashboard.nav.programs"), icon: icone(ListOrdered), actif: pathname.startsWith("/onboarding/programmes") },
+    ] },
+    { cle: "library", label: t("dashboard.nav.library"), items: [
+      { href: "/bibliotheque/personnages", label: t("dashboard.nav.personas"), icon: icone(Contact), actif: pathname.startsWith("/bibliotheque") },
+    ] },
+    { cle: "company", label: t("dashboard.nav.company"), items: [
+      { href: "/entreprise/connaissances", label: t("dashboard.nav.knowledge"), icon: icone(BookOpen), actif: pathname.startsWith("/entreprise") },
+    ] },
   ];
+  const lien = (it) => (
+    <Link key={it.href} href={it.href} aria-current={it.actif ? "page" : undefined} className={`${styles.navItem} ${it.actif ? styles.active : ""}`}>
+      {it.icon}
+      <span className={styles.navLabel}>{it.label}</span>
+      {it.count != null && <span className={styles.count}>{it.count}</span>}
+    </Link>
+  );
   const parametresActif = pathname.startsWith("/compte");
   const raccourci = isMac ? "⌘K" : "Ctrl K";
 
@@ -118,11 +118,14 @@ export default function Sidebar() {
           <Search size={16} strokeWidth={2} />
         </button>
         <nav aria-label={t("dashboard.nav.menu")} className={styles.navClosed}>
-          {items.map((it) => (
-            <Link key={it.href} href={it.href} title={it.label} aria-label={it.label} aria-current={it.actif ? "page" : undefined} className={`${styles.squareLink} ${it.actif ? styles.active : ""}`}>
-              {it.icon}
-            </Link>
-          ))}
+          {groupes.map((g, i) => [
+            i > 0 && <span key={`sep-${g.cle}`} className={styles.sepClosed} aria-hidden="true" />,
+            ...g.items.map((it) => (
+              <Link key={it.href} href={it.href} title={it.label} aria-label={it.label} aria-current={it.actif ? "page" : undefined} className={`${styles.squareLink} ${it.actif ? styles.active : ""}`}>
+                {it.icon}
+              </Link>
+            )),
+          ])}
         </nav>
         <div className={styles.grow} />
         <Link href="/compte" title={t("dashboard.nav.settings")} aria-label={t("dashboard.nav.settings")} aria-current={parametresActif ? "page" : undefined} className={`${styles.squareLink} ${parametresActif ? styles.active : ""}`}>
@@ -149,15 +152,21 @@ export default function Sidebar() {
         <kbd className={styles.kbd}>{raccourci}</kbd>
       </button>
 
-      <nav aria-labelledby="ds-menu-label" className={styles.group}>
-        <span id="ds-menu-label" className={styles.groupLabel}>{t("dashboard.nav.menu")}</span>
-        {items.map((it) => (
-          <Link key={it.href} href={it.href} aria-current={it.actif ? "page" : undefined} className={`${styles.navItem} ${it.actif ? styles.active : ""}`}>
-            {it.icon}
-            <span className={styles.navLabel}>{it.label}</span>
-            {it.count != null && <span className={styles.count}>{it.count}</span>}
-          </Link>
-        ))}
+      <nav aria-label={t("dashboard.nav.menu")} className={styles.menu}>
+        {groupes.map((g) => {
+          if (!g.label) return <div key={g.cle} className={styles.group}>{g.items.map(lien)}</div>;
+          const contientActif = g.items.some((it) => it.actif);
+          const deplie = contientActif || !replies.includes(g.cle);
+          return (
+            <div key={g.cle} className={styles.group}>
+              <button type="button" className={styles.groupToggle} onClick={() => basculerGroupe(g.cle)} aria-expanded={deplie} disabled={contientActif}>
+                <span className={styles.navLabel}>{g.label}</span>
+                <ChevronDown size={14} strokeWidth={2} className={styles.chevron} style={{ transform: deplie ? "none" : "rotate(-90deg)" }} />
+              </button>
+              {deplie && g.items.map(lien)}
+            </div>
+          );
+        })}
       </nav>
 
       {recents.length > 0 && (

@@ -29,7 +29,11 @@ function Avatar() {
   );
 }
 
-export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMessages, prenom, jobTitle, onReplier }) {
+// Pour une étape de MODULE (onboarding) : ces textes ont leur variante — pas
+// d'« offre », et la réécriture n'y coûte rien.
+const VARIANTES_MODULE = ["knows", "greeting", "greetingNoName", "cost", "apply"];
+
+export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMessages, prenom, jobTitle, onReplier, pourModule = false }) {
   const { t } = useI18n();
   const [saisie, setSaisie] = useState("");
   const [reflexion, setReflexion] = useState(false);   // le chat répond
@@ -37,7 +41,7 @@ export default function ChatEtape({ stepId, dirty, onRewritten, messages, setMes
   const [copie, setCopie] = useState(null);
   const finRef = useRef(null);
   const occupe = reflexion || reecriture;
-  const k = (cle, vars) => t(`dashboard.experienceEditor.stepChat.${cle}`, vars);
+  const k = (cle, vars) => t(`dashboard.experienceEditor.stepChat.${pourModule && VARIANTES_MODULE.includes(cle) ? `${cle}Module` : cle}`, vars);
 
   useEffect(() => { finRef.current?.scrollIntoView({ block: "end" }); }, [messages, occupe]);
 

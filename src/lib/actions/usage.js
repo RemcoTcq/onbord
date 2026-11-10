@@ -13,6 +13,7 @@ import { isAdmin } from "../utils/admin";
 import { PLANS_ATTRIBUABLES, planVisible } from "../constants/plans";
 import { consommer, ipDe, SEUILS } from "../rateLimit";
 import { compteFacturationDuMembre } from "../org";
+import { compterLearnersActifs, FENETRE_LEARNER_ACTIF_JOURS } from "../essais";
 import { headers } from "next/headers";
 
 /** Vérifie que l'appelant est bien admin. Renvoie l'user si oui, sinon null. */
@@ -435,6 +436,19 @@ export async function adminListerComptes() {
       .select("user_id, plan, credits_balance");
     const parUtilisateur = new Map((usages || []).map((u) => [u.user_id, u]));
 
+    // Learners de chaque organisation, rattachés au compte qui l'a créée (le
+    // compte client) : la base de la facturation de l'onboarding (phase 5).
+    const depuis = new Date(Date.now() - FENETRE_LEARNER_ACTIF_JOURS * 86_400_000).toISOString();
+    const [{ data: orgs }, { data: learners }, { data: essais }] = await Promise.all([
+      admin.from("organizations").select("id, created_by"),
+      admin.from("organization_members").select("user_id, organization_id").eq("role", "learner"),
+      admin.from("candidate_runs").select("learner_id, started_at").not("learner_id", "is", null).gte("started_at", depuis),
+    ]);
+    const parOrg = compterLearnersActifs(learners, essais);
+    const learnersDuCompte = new Map((orgs || []).filter((o) => o.created_by && parOrg.has(o.id)).map((o) => [o.created_by, parOrg.get(o.id)]));
+    let learnersActifs = 0;
+    for (const o of parOrg.values()) learnersActifs += o.actifs;
+
     // Le plus récent d'abord : un compte de démonstration se retrouve le
     // lendemain de sa création, pas six mois après.
     const comptes = comptesAuth
@@ -453,11 +467,12 @@ export async function adminListerComptes() {
           // masquerait derrière une valeur plausible.
           plan: usage?.plan || null,
           credits_balance: usage?.credits_balance ?? null,
+          learners: learnersDuCompte.get(u.id) || null,
         };
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    return { success: true, comptes };
+    return { success: true, comptes, learnersActifs, fenetreJours: FENETRE_LEARNER_ACTIF_JOURS };
   } catch (error) {
     console.error("adminListerComptes error:", error);
     return { success: false, error: "Erreur technique" };

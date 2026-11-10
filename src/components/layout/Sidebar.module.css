@@ -128,3 +128,24 @@
 }
 .squareLink:hover { background: rgba(20, 32, 74, 0.05); }
 .squareLink.active { background: var(--ds-nav-active); color: var(--ds-ink); }
+
+/* Phase 5 : les groupes du menu (Hiring, Onboarding, Library, Company) */
+.menu { display: flex; flex-direction: column; gap: 10px; }
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ds-ink-4);
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.groupToggle:hover:not(:disabled) { color: var(--ds-ink-2); }
+.groupToggle:disabled { cursor: default; }
+.chevron { flex: none; transition: transform .15s; }
+.sepClosed { width: 20px; height: 1px; margin: 4px auto; background: var(--ds-line); }
