@@ -187,10 +187,17 @@ ${competences}`;
  * répondu, sauf aux étapes jouées dans la langue du terrain. Elle ne sert qu'à
  * protéger les verbatims.
  */
-export function consigneLangueRapport(uiLocale, contentLocale) {
+export function consigneLangueRapport(uiLocale, contentLocale, { pourLearner = false } = {}) {
   const rapport = coerceExperienceLocale(uiLocale);
   const contenu = coerceExperienceLocale(contentLocale);
   const nomRapport = LOCALE_NAMES_FR[rapport];
+
+  // Un essai d'onboarding (phase 3) est relu par la personne qui s'entraîne,
+  // juste après l'essai : ce qu'on écrit lui parle. Le verbatim, lui, ne
+  // change pas — c'est toujours un extrait exact de sa réponse.
+  const lecteur = pourLearner
+    ? `LECTEUR — ce rapport est lu par la personne qui s'entraîne elle-même, juste après son essai d'onboarding (elle est déjà embauchée). Les champs "observations" et "justification" (y compris celle de chaque checkpoint) s'adressent DIRECTEMENT à elle, à la deuxième personne (forme polie), et sont rédigés en ${nomRapport} — même pour une étape jouée dans une autre langue : ce qu'elle a fait, ce qui manquait. Jamais « le candidat », jamais « il » ou « elle » pour la désigner.`
+    : null;
 
   // Le verbatim est protégé dans TOUS les cas, y compris quand parcours et
   // rapport partagent la même langue : une étape peut avoir demandé au candidat
@@ -203,14 +210,14 @@ export function consigneLangueRapport(uiLocale, contentLocale) {
   if (rapport === "fr" && contenu === "fr") {
     return `LANGUE DE SORTIE : français.
 
-${verbatim}`;
+${verbatim}${lecteur ? `\n\n${lecteur}` : ""}`;
   }
 
   return `LANGUE DU RAPPORT — CONSIGNE PRIORITAIRE : ${nomRapport}.
 
-Les champs "observations", "justification" (y compris celle de chaque checkpoint) et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. Ce rapport est lu par un recruteur, pas par le candidat.
+Les champs "observations", "justification" (y compris celle de chaque checkpoint) et "summary" sont rédigés en ${nomRapport}, quelle que soit la langue dans laquelle le candidat a répondu. ${lecteur ? "" : "Ce rapport est lu par un recruteur, pas par le candidat."}
 
-${verbatim}`;
+${verbatim}${lecteur ? `\n\n${lecteur}` : ""}`;
 }
 
 /**

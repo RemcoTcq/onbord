@@ -393,8 +393,10 @@ vidéo enregistrée en production date du 23/10. Correctif : `upsert: false`
 
 Non vérifié : un e-mail réellement reçu.
 
-À reprendre : sous la synthèse, les justifications de chaque point restent
-écrites pour un recruteur (« the candidate… »).
+Repris après la phase 5 : les justifications de chaque point s'adressent
+aussi au learner, dans la langue de son interface (`consigneLangueRapport`,
+option `pourLearner`). Vérifié sur un essai réel : tout en anglais, à la
+deuxième personne, y compris l'étape jouée en français.
 
 | 10/11/2026 | Phase 4 — du recrutement à l'onboarding | 71b5b954 | voir ci-dessous ; 044 appliquée |
 
@@ -436,8 +438,9 @@ lacunes copiées avec le poste et la note ; sur sa fiche, 4 modules proposés en
 en trois mois », « Conclure l'appel : accord, récap et suivi »), créés et
 assignés ; la fiche candidat affiche « Voir en onboarding ».
 
-Non vérifié : le refus du partage à l'activation (branche simple : aucune
-lacune copiée), un e-mail réellement reçu.
+Refus du partage vérifié ensuite : case décochée par défaut, membre lié au
+candidat sans date d'accord ni lacunes, fiche « a choisi de ne pas partager »,
+aucune suggestion sur lacunes. Non vérifié : un e-mail réellement reçu.
 
 | 10/11/2026 | Phase 5 — navigation et finitions | *(ce commit)* | aucune migration |
 

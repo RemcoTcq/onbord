@@ -460,7 +460,7 @@ ${scene ? `  Mise en situation remise au candidat :\n${scene}\n` : ""}${trap ? `
 ${subDims}`);
   });
 
-  const systemEtape = `${consigneLangueRapport(reportLocale, contentLocale)}
+  const systemEtape = `${consigneLangueRapport(reportLocale, contentLocale, { pourLearner: Boolean(run.learner_id) })}
 
 Tu es un évaluateur de recrutement rigoureux ET juste. Tu notes UNE étape d'un parcours d'évaluation, sous-dimension par sous-dimension, selon des grilles DÉFINIES À L'AVANCE et validées par le recruteur. Tu ne notes QUE sur ces sous-dimensions, jamais sur des critères inventés. Tu ne vois que cette étape : juge-la pour elle-même.
 
@@ -689,7 +689,7 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
     const consigneSummary = run.learner_id
       ? `- "summary" : 3 à 4 phrases en ${LOCALE_NAMES_FR[coerceExperienceLocale(reportLocale)]}, adressées DIRECTEMENT à la personne qui s'entraîne (deuxième personne, forme polie) — d'abord ce qu'elle a bien fait, puis les deux points les plus utiles à travailler au prochain essai, concrets et tirés des notes, sans contredire aucune d'elles. C'est un entraînement après l'embauche, pas un recrutement.`
       : `- "summary" : 2 à 3 phrases factuelles pour le recruteur — les forces et les manques qui ressortent des notes, sans contredire aucune d'elles.`;
-    const systemSynthese = `${consigneLangueRapport(reportLocale, contentLocale)}
+    const systemSynthese = `${consigneLangueRapport(reportLocale, contentLocale, { pourLearner: Boolean(run.learner_id) })}
 
 Tu rédiges la synthèse d'une évaluation ${run.learner_id ? "d'entraînement" : "de recrutement"} dont les notes sont DÉJÀ établies, sous-dimension par sous-dimension. Tu ne renotes rien : tu résumes.
 ${consigneSummary}
