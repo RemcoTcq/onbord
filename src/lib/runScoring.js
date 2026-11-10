@@ -7,6 +7,7 @@ import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 import { factureNotationCandidat } from "@/lib/utils/limits";
+import { compteFacturationDeOrg } from "@/lib/org";
 import {
   listerCompetences, resoudreIds, tierDesIds, estCritereCheckpoints,
   pourcentageCheckpoints, moyennePonderee, poidsEtape,
@@ -321,7 +322,7 @@ export async function evaluerRun(admin, run) {
   // français pour tout le monde, sans erreur visible.
   const { data: exp } = await admin
     .from("experiences")
-    .select("jobs!inner(experience_locale, user_id, extracted_criteria)")
+    .select("jobs!inner(experience_locale, user_id, organization_id, extracted_criteria)")
     .eq("id", run.experience_id)
     .single();
 
@@ -774,7 +775,8 @@ export async function scoreRun(runId) {
   // scoreRun() renvoie alors alreadyScored — un second passage ne re-débite
   // pas. C'est là toute l'idempotence, aucun drapeau à poser.
   if (exp?.jobs?.user_id) {
-    const facture = await factureNotationCandidat(exp.jobs.user_id);
+    // Le solde de l'organisation de l'offre (lib/org.js).
+    const facture = await factureNotationCandidat(await compteFacturationDeOrg(exp.jobs.organization_id, exp.jobs.user_id));
     if (!facture.success) {
       // Non bloquant : le rapport est écrit, le recruteur doit le voir. Un
       // solde insuffisant se règle sur le compte, pas en cachant un résultat

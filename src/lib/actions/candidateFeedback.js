@@ -12,6 +12,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/resend";
 import { genererBrouillonFeedback, versionPourStatut } from "@/lib/candidateFeedback";
 import { coerceExperienceLocale } from "@/lib/i18n/config";
+import { brandingPublic } from "@/lib/org";
 
 // Adresse d'envoi sur le domaine vérifié d'Onbord. L'entreprise apparaît dans
 // le NOM d'expéditeur, et les réponses du candidat vont au recruteur
@@ -27,7 +28,7 @@ async function candidatDuRecruteur(candidateId) {
   if (!user) return { erreur: "Non authentifié" };
   const { data: candidat } = await supabase
     .from("candidates")
-    .select("id, job_id, first_name, last_name, email, status, jobs(user_id, experience_locale)")
+    .select("id, job_id, first_name, last_name, email, status, jobs(user_id, organization_id, experience_locale)")
     .eq("id", candidateId)
     .single();
   if (!candidat) return { erreur: "Candidat introuvable" };
@@ -41,9 +42,10 @@ function nomExpediteur(entreprise) {
   return propre ? `${propre} via Onbord` : "Onbord";
 }
 
-async function entrepriseDe(admin, userId) {
-  const { data } = await admin.from("users").select("company_name").eq("id", userId).single();
-  return data?.company_name || "";
+// Le nom de l'organisation de l'offre (migration 035), repli sur l'ancien compte.
+async function entrepriseDe(admin, job) {
+  const marque = await brandingPublic(admin, { organizationId: job?.organization_id, userId: job?.user_id });
+  return marque?.company_name || "";
 }
 
 function vueEnvoye(row) {
@@ -119,7 +121,7 @@ export async function getCandidateFeedback(candidateId) {
       body: draft.body,
       warnings: draft.warnings || [],
       to: candidat.email || null,
-      from: nomExpediteur(await entrepriseDe(admin, candidat.jobs?.user_id)),
+      from: nomExpediteur(await entrepriseDe(admin, candidat.jobs)),
       replyTo: user.email,
     };
   } catch (error) {
@@ -175,7 +177,7 @@ export async function sendCandidateFeedback(candidateId, { subject, body }) {
     if (reserveErr) throw reserveErr;
     if (!reserve?.length) return { success: false, error: "alreadySentOrNoDraft" };
 
-    const entreprise = await entrepriseDe(admin, candidat.jobs?.user_id);
+    const entreprise = await entrepriseDe(admin, candidat.jobs);
     const envoi = await sendEmail({
       from: `${nomExpediteur(entreprise)} <${ADRESSE_ENVOI}>`,
       to: candidat.email,

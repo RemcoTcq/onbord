@@ -1,28 +1,24 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import anthropic from "@/lib/anthropic";
 import { resolveUiLocale } from "@/lib/i18n/server";
 import { consigneLangueRecruteur } from "@/lib/i18n/prompt";
 import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { getOrgContext, exigerGestion } from "@/lib/org";
+import { fetchSur } from "@/lib/requeteSure";
 
 /**
  * Reads the company profile (AI context) for the current user.
  */
+// Le profil est celui de l'ORGANISATION (migration 035), partagé par tous
+// ses admins et managers.
 export async function getCompanyProfile() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    const { data, error } = await supabase
-      .from("users")
-      .select("company_website_url, company_ai_context")
-      .eq("id", user.id)
-      .single();
-
-    if (error) throw error;
+    const ctx = await getOrgContext();
+    if (!ctx) return { success: false, error: "Non authentifié" };
+    const data = { company_website_url: ctx.org.website_url, company_ai_context: ctx.org.ai_context };
 
     return {
       success: true,
@@ -47,15 +43,17 @@ export async function getCompanyProfile() {
  */
 export async function updateCompanyProfile(profileData) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
 
-    const { error } = await supabase
-      .from("users")
+    // Écrit en service_role, rôle vérifié ci-dessus (lecture seule pour les
+    // membres sur `organizations`).
+    const { error } = await createAdminClient()
+      .from("organizations")
       .update({
-        company_website_url: profileData.website_url || null,
-        company_ai_context: {
+        website_url: profileData.website_url || null,
+        updated_at: new Date().toISOString(),
+        ai_context: {
           description: profileData.description || "",
           target_market: profileData.target_market || "",
           industry: profileData.industry || "",
@@ -64,7 +62,7 @@ export async function updateCompanyProfile(profileData) {
           observed_trends: profileData.observed_trends || "",
         },
       })
-      .eq("id", user.id);
+      .eq("id", ctx.orgId);
 
     if (error) throw error;
 
@@ -109,22 +107,35 @@ export async function fetchAndAnalyzeWebsite(url, locale) {
   }
 
   // --- 1. Fetch the website ---
+  // Par fetchSur (lib/requeteSure.js) : destination vérifiée après résolution
+  // DNS, redirections suivies à la main et revalidées. Le fetch d'avant
+  // suivait les redirections à l'aveugle vers n'importe quelle adresse,
+  // réseau interne compris (audit du 10/11/2026, S1).
   let rawHtml;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(parsedUrl.toString(), {
-      signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8",
-      },
-      redirect: "follow",
-    });
-    clearTimeout(timeoutId);
+    let sur;
+    try {
+      sur = await fetchSur(parsedUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8",
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    // Une adresse refusée se présente comme un site injoignable : l'écran
+    // n'a pas à apprendre au visiteur ce qui est interne.
+    if (sur.code === "introuvable" || sur.code === "interne") return { success: false, code: "unreachable" };
+    if (sur.code === "protocole") return { success: false, code: "invalidUrl" };
+    if (sur.code === "redirections") return { success: false, code: "unreachable" };
+    const response = sur.response;
 
     if (!response.ok) {
       return { success: false, code: "siteError", status: response.status };

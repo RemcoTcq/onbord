@@ -890,6 +890,7 @@ const dashboard = {
       branding: "Branding & logo",
       security: "Security & sign-in",
       billing: "Credits & billing",
+      team: "Team",
     },
 
     general: "General information",
@@ -1439,6 +1440,101 @@ const dashboard = {
       "Only affects how the dashboard looks to you. The language your candidates see is set per job.",
     languageSaved: "Language updated",
     languageError: "Couldn't save your language setting.",
+  },
+
+  // ── Team of an organisation (onboarding, phase 0) ────────────────────────
+  team: {
+    title: "Team",
+    subtitle: "The people in your organisation and their access to Onbord.",
+    roles: { admin: "Admin", manager: "Manager", learner: "Learner" },
+    roleHints: {
+      admin: "Everything, including the team and organisation settings.",
+      manager: "Hiring and onboarding, not the team.",
+      learner: "Their own training, nothing else.",
+    },
+    invite: {
+      title: "Invite someone",
+      email: "Email address",
+      emailPlaceholder: "name@company.com",
+      role: "Role",
+      language: "Invitation language",
+      submit: "Send invitation",
+      sending: "Sending…",
+      sent: "Invitation sent to {email}.",
+      managerOnlyLearners: "As a manager, you can invite learners. Admins and managers are invited by an admin.",
+    },
+    members: "Members",
+    you: "you",
+    since: "since {date}",
+    changeRole: "Change {name}'s role",
+    remove: "Remove",
+    removeConfirm: "Remove {name} from the organisation? Their account will be deactivated; their results stay visible.",
+    pending: "Pending invitations",
+    noPending: "No pending invitations.",
+    expired: "expired",
+    expires: "expires on {date}",
+    revoke: "Cancel",
+    errors: {
+      roleInvalide: "Unknown role.",
+      roleInterdit: "Only an admin can invite an admin or a manager.",
+      adresseInvalide: "This email address isn't valid.",
+      tropDInvitations: "Too many invitations sent within an hour. Try again later.",
+      compteExistant: "This address already has an Onbord account. An account can only belong to one organisation: use another address.",
+      envoiImpossible: "The invitation was created but the email couldn't be sent. Try again.",
+      dernierAdmin: "The organisation must keep at least one admin.",
+      pasSoiMeme: "You can't remove yourself.",
+      generic: "Something went wrong. Try again.",
+    },
+  },
+
+  // ── Accepting an invitation (public page) ────────────────────────────────
+  invitation: {
+    title: "Join {organisation}",
+    subtitle: "You're invited as {role}. Choose your password to activate your account.",
+    email: "Email address",
+    firstName: "First name",
+    lastName: "Last name",
+    password: "Password",
+    passwordHint: "At least {min} characters.",
+    confirm: "Confirm password",
+    submit: "Activate my account",
+    pending: "Activating…",
+    mismatch: "The two passwords don't match.",
+    errors: {
+      invalide: "This invitation link isn't valid. Ask for a new invitation.",
+      expiree: "This invitation has expired. Ask your organisation for a new one.",
+      dejaAcceptee: "This invitation has already been used. Sign in with your address.",
+      compteExistant: "This address already has an Onbord account. Sign in, or ask for an invitation on another address.",
+      motDePasseCourt: "The password must be at least {min} characters long.",
+      tropDEssais: "Too many attempts from this connection. Try again in a moment.",
+      creationImpossible: "The account couldn't be created. Try again.",
+    },
+    toLogin: "Go to sign in",
+  },
+
+  // ── Learner space (phase 3 to come) ───────────────────────────────────────
+  learner: {
+    title: "My training",
+    welcome: "Welcome, {name}.",
+    soon: "Your organisation is preparing your training modules. You'll find them here as soon as they're assigned to you.",
+    signOut: "Sign out",
+  },
+
+  // ── Emails sent to members (lib/emailsApplication.js) ────────────────────
+  emails: {
+    invitation: {
+      subject_admin: "{invitePar} invites you to manage {organisation} on Onbord",
+      subject_manager: "{invitePar} invites you to join {organisation} on Onbord",
+      subject_learner: "{organisation} invites you to train on Onbord",
+      title_admin: "Join {organisation} on Onbord",
+      title_manager: "Join {organisation} on Onbord",
+      title_learner: "Your training at {organisation} starts here",
+      body_admin: "{invitePar} invites you to join {organisation} on Onbord as an admin: you'll manage hiring, onboarding and the team.",
+      body_manager: "{invitePar} invites you to join {organisation} on Onbord as a manager: you'll manage hiring and onboarding.",
+      body_learner: "{organisation} invites you to Onbord to practise the conversations of your role with simulated customers, before you meet real ones.",
+      button: "Activate my account",
+      note: "This link is personal and expires in 7 days. If you weren't expecting this invitation, you can ignore this email.",
+    },
   },
 };
 

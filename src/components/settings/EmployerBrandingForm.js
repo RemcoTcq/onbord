@@ -31,6 +31,9 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
   // Couleur du texte sur les boutons candidat. Vide = automatique (contraste).
   const [textColor, setTextColor] = useState("");
   const [uploading, setUploading] = useState(false);
+  // Le dossier du logo : celui de l'organisation (policy « logos: depot
+  // organisation », migration 036).
+  const [orgId, setOrgId] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -38,6 +41,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
       try {
         const res = await getEmployerBranding();
         if (res.success && res.branding) {
+          setOrgId(res.branding.orgId || null);
           setCompanyName(res.branding.name || "");
           setLogoUrl(res.branding.logo_url || "");
           setPrimaryColor(res.branding.primary_color || "#4f46e5");
@@ -66,7 +70,7 @@ export default function EmployerBrandingForm({ showContextWarning = false }) {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/logo-${Date.now()}.${fileExt}`;
+      const fileName = `${orgId || user.id}/logo-${Date.now()}.${fileExt}`;
 
       const { error } = await supabase.storage.from("logos").upload(fileName, file, { cacheControl: "3600", upsert: true });
       if (error) throw new Error(error.message);

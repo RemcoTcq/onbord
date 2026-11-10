@@ -25,6 +25,7 @@ import { coerceExperienceLocale, coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i
 import { niveauLangueLisible } from "@/lib/i18n/languages";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureRegenerationEtape } from "@/lib/utils/limits";
+import { compteFacturationDuMembre, contexteEntreprise } from "@/lib/org";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 // Opus pour concevoir le parcours : c'est la tâche la plus difficile du
@@ -1307,7 +1308,6 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       .from("jobs")
       .select("id, user_id, title, description, extracted_criteria, experience_locale")
       .eq("id", jobId)
-      .eq("user_id", user.id)
       .single();
     if (!job) return { success: false, error: "Offre introuvable ou accès refusé" };
 
@@ -1317,7 +1317,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     // compte qui ne pourrait pas payer, plutôt que de faire tourner plusieurs
     // minutes de modèle pour rien.
     if (!(await simulationPrepayee(job.id))) {
-      const solde = await checkCredits(user.id, CREDIT_COSTS.simulation_generation);
+      const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.simulation_generation);
       if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
     }
 
@@ -1331,7 +1331,8 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
       .eq("id", user.id)
       .single();
 
-    const ctx = profile?.company_ai_context || {};
+    // Le contexte de l'ORGANISATION (lib/org.js), plus celui du compte.
+    const ctx = await contexteEntreprise(user.id);
     onEvent?.({
       kind: "context",
       charge: !!(ctx.industry || ctx.description),
@@ -1429,7 +1430,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
         // reprend avec le reste.
         generated_from: {
           criteria: job.extracted_criteria || {},
-          company_ai_context: profile?.company_ai_context || {},
+          company_ai_context: ctx,
           fil_rouge: gen.experience.fil_rouge || null,
         },
         generation_usage: gen.usage,
@@ -1472,7 +1473,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     // La nouvelle version existe : c'est maintenant, et pas avant, qu'elle est
     // due. Un échec de débit (solde tombé pendant la génération) ne défait pas
     // la simulation — le recruteur l'a, l'IA a tourné — il est journalisé.
-    const facture = await factureGenerationSimulation(user.id, job.id);
+    const facture = await factureGenerationSimulation(await compteFacturationDuMembre(user.id), job.id);
     if (!facture.success) console.error("factureGenerationSimulation:", job.id, facture.error);
 
     const nbSubDims = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
@@ -1699,11 +1700,11 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
     const job = step?.experiences?.jobs;
     // Une étape réécrite reste dans l'histoire du parcours.
     const filRouge = step?.experiences?.generated_from?.fil_rouge || null;
-    if (!step || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!step || !job) return { success: false, error: "Accès refusé" };
 
     // 2 crédits par réécriture (CREDIT_COSTS.step_regeneration) : contrôlé ici,
     // avant le modèle, débité une fois l'étape écrite.
-    const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
+    const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
 
     // Version déjà commencée par un candidat : la réécriture porte sur une
@@ -1739,9 +1740,8 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
       .map((e, i) => ({ ...e, position: i + 1 }))
       .filter((e) => e.id !== step.id);
 
-    const { data: profile } = await supabase
-      .from("users").select("company_ai_context").eq("id", user.id).single();
-    const companyContext = profile?.company_ai_context || {};
+    // Le contexte de l'organisation (lib/org.js).
+    const companyContext = await contexteEntreprise(user.id);
 
     const regen = await regenererEtapeContenu({
       title: job.title,
@@ -1860,7 +1860,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
 
     // L'étape est réécrite : le crédit est dû. Même règle que la génération
     // complète — un échec de débit ne défait pas ce que le recruteur a obtenu.
-    const facture = await factureRegenerationEtape(user.id);
+    const facture = await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
     if (!facture.success) console.error("factureRegenerationEtape:", step.id, facture.error);
 
     // Coût comptabilisé À PART de generation_usage, qui reste l'instantané de la
@@ -1909,13 +1909,13 @@ export async function runCouvertureCompetence(experienceId, skillId) {
       .eq("id", experienceId)
       .single();
     const job = exp?.jobs;
-    if (!exp || !job || job.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!exp || !job) return { success: false, error: "Accès refusé" };
 
     const competences = listerCompetences(job.extracted_criteria || {});
     const cible = competences.find((c) => c.id === skillId);
     if (!cible) return { success: false, error: "Compétence introuvable dans la liste validée de l'offre." };
 
-    const solde = await checkCredits(user.id, CREDIT_COSTS.step_regeneration);
+    const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
 
     // Version déjà commencée : la couverture s'ajoute à une copie. La copie
@@ -1941,7 +1941,7 @@ export async function runCouvertureCompetence(experienceId, skillId) {
         title: job.title,
         description: job.description,
         criteria: job.extracted_criteria || {},
-        companyContext: profile?.company_ai_context || {},
+        companyContext: await contexteEntreprise(user.id),
         steps: liste,
         manquantes: [cible],
         competences,
@@ -1969,7 +1969,7 @@ export async function runCouvertureCompetence(experienceId, skillId) {
           .eq("id", etape.id);
         if (error) throw error;
 
-        const facture = await factureRegenerationEtape(user.id);
+        const facture = await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
         if (!facture.success) console.error("factureRegenerationEtape (couverture):", etape.id, facture.error);
         await supabase
           .from("experiences")

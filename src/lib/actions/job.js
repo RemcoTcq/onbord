@@ -4,6 +4,7 @@ import anthropic from "../anthropic";
 import { buildJobExtractionPrompt, SYSTEME_EXTRACTION } from "@/lib/jobExtractionPrompt";
 import { createClient } from "@/lib/supabase/server";
 import { checkCredits } from "@/lib/utils/limits";
+import { compteFacturationDuMembre } from "@/lib/org";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 const CECR_VERS_NIVEAU = { A1: 1, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
@@ -50,7 +51,8 @@ export async function analyzeJobDescription(rawDescription, contentLocale = "fr"
   // Mais l'extraction est un appel au modèle. On refuse donc, AVANT lui, un
   // compte qui ne pourrait pas payer la simulation à laquelle elle mène —
   // sinon un compte à sec analyserait des offres à volonté, gratuitement.
-  const solde = await checkCredits(user.id, CREDIT_COSTS.simulation_generation);
+  // Le solde de l'organisation, pas celui du membre (lib/org.js).
+  const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.simulation_generation);
   if (!solde.allowed) throw new Error(solde.error || "Crédits insuffisants.");
 
   let uiLocale = "fr";
@@ -145,7 +147,6 @@ export async function updateCvRequis(jobId, cvRequis) {
       .from("jobs")
       .update({ cv_requis: cvRequis === true })
       .eq("id", jobId)
-      .eq("user_id", user.id)
       .select("id, cv_requis");
 
     if (error) throw error;

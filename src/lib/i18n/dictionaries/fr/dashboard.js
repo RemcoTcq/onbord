@@ -949,6 +949,7 @@ const dashboard = {
       branding: "Branding & logo",
       security: "Sécurité & connexion",
       billing: "Crédits & facturation",
+      team: "Équipe",
     },
 
     general: "Informations générales",
@@ -1539,6 +1540,103 @@ const dashboard = {
       "N'affecte que votre affichage du dashboard. La langue vue par vos candidats se règle offre par offre.",
     languageSaved: "Langue mise à jour",
     languageError: "Impossible d'enregistrer la langue.",
+  },
+
+  // ── Équipe d'une organisation (phase 0 de l'onboarding) ──────────────────
+  // Le rôle client s'écrit « Admin » à l'écran, mais il n'a rien à voir avec
+  // l'administration de la plateforme (/admin, équipe Onbord).
+  team: {
+    title: "Équipe",
+    subtitle: "Les personnes de votre organisation et leur accès à Onbord.",
+    roles: { admin: "Admin", manager: "Manager", learner: "Learner" },
+    roleHints: {
+      admin: "Tout, y compris l'équipe et les réglages de l'organisation.",
+      manager: "Le recrutement et l'onboarding, pas l'équipe.",
+      learner: "Son propre entraînement, rien d'autre.",
+    },
+    invite: {
+      title: "Inviter quelqu'un",
+      email: "Adresse e-mail",
+      emailPlaceholder: "prenom@entreprise.com",
+      role: "Rôle",
+      language: "Langue de l'invitation",
+      submit: "Envoyer l'invitation",
+      sending: "Envoi…",
+      sent: "Invitation envoyée à {email}.",
+      managerOnlyLearners: "En tant que manager, vous pouvez inviter des learners. Les admins et les managers sont invités par un admin.",
+    },
+    members: "Membres",
+    you: "vous",
+    since: "depuis le {date}",
+    changeRole: "Changer le rôle de {name}",
+    remove: "Retirer",
+    removeConfirm: "Retirer {name} de l'organisation ? Son compte sera désactivé ; ses résultats restent visibles.",
+    pending: "Invitations en attente",
+    noPending: "Aucune invitation en attente.",
+    expired: "expirée",
+    expires: "expire le {date}",
+    revoke: "Annuler",
+    errors: {
+      roleInvalide: "Rôle inconnu.",
+      roleInterdit: "Seul un admin peut inviter un admin ou un manager.",
+      adresseInvalide: "Cette adresse e-mail n'est pas valide.",
+      tropDInvitations: "Trop d'invitations envoyées en une heure. Réessayez plus tard.",
+      compteExistant: "Cette adresse a déjà un compte Onbord. Un compte ne peut appartenir qu'à une organisation : utilisez une autre adresse.",
+      envoiImpossible: "L'invitation est créée mais l'e-mail n'a pas pu partir. Réessayez.",
+      dernierAdmin: "L'organisation doit garder au moins un admin.",
+      pasSoiMeme: "Vous ne pouvez pas vous retirer vous-même.",
+      generic: "Une erreur est survenue. Réessayez.",
+    },
+  },
+
+  // ── Acceptation d'une invitation (page publique) ─────────────────────────
+  invitation: {
+    title: "Rejoindre {organisation}",
+    subtitle: "Vous êtes invité comme {role}. Choisissez votre mot de passe pour activer votre compte.",
+    email: "Adresse e-mail",
+    firstName: "Prénom",
+    lastName: "Nom",
+    password: "Mot de passe",
+    passwordHint: "Au moins {min} caractères.",
+    confirm: "Confirmer le mot de passe",
+    submit: "Activer mon compte",
+    pending: "Activation…",
+    mismatch: "Les deux mots de passe ne correspondent pas.",
+    errors: {
+      invalide: "Ce lien d'invitation n'est pas valide. Demandez une nouvelle invitation.",
+      expiree: "Cette invitation a expiré. Demandez-en une nouvelle à votre organisation.",
+      dejaAcceptee: "Cette invitation a déjà été utilisée. Connectez-vous avec votre adresse.",
+      compteExistant: "Cette adresse a déjà un compte Onbord. Connectez-vous, ou demandez une invitation sur une autre adresse.",
+      motDePasseCourt: "Le mot de passe doit faire au moins {min} caractères.",
+      tropDEssais: "Trop de tentatives depuis cette connexion. Réessayez dans un moment.",
+      creationImpossible: "Le compte n'a pas pu être créé. Réessayez.",
+    },
+    toLogin: "Aller à la connexion",
+  },
+
+  // ── Espace learner (phase 3 à venir) ──────────────────────────────────────
+  learner: {
+    title: "Mon entraînement",
+    welcome: "Bienvenue, {name}.",
+    soon: "Votre organisation prépare vos modules d'entraînement. Vous les trouverez ici dès qu'ils vous seront assignés.",
+    signOut: "Se déconnecter",
+  },
+
+  // ── E-mails envoyés aux membres (lib/emailsApplication.js) ───────────────
+  emails: {
+    invitation: {
+      subject_admin: "{invitePar} vous invite à administrer {organisation} sur Onbord",
+      subject_manager: "{invitePar} vous invite à rejoindre {organisation} sur Onbord",
+      subject_learner: "{organisation} vous invite à vous entraîner sur Onbord",
+      title_admin: "Rejoignez {organisation} sur Onbord",
+      title_manager: "Rejoignez {organisation} sur Onbord",
+      title_learner: "Votre entraînement chez {organisation} commence ici",
+      body_admin: "{invitePar} vous invite à rejoindre {organisation} sur Onbord en tant qu'admin : vous gérerez le recrutement, l'onboarding et l'équipe.",
+      body_manager: "{invitePar} vous invite à rejoindre {organisation} sur Onbord en tant que manager : vous gérerez le recrutement et l'onboarding.",
+      body_learner: "{organisation} vous invite sur Onbord pour vous entraîner aux conversations de votre poste avec des clients simulés, avant vos premiers vrais clients.",
+      button: "Activer mon compte",
+      note: "Ce lien est personnel et expire dans 7 jours. Si vous ne vous attendiez pas à cette invitation, ignorez cet e-mail.",
+    },
   },
 };
 

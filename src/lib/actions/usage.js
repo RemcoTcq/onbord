@@ -12,6 +12,7 @@ import { createClient, createAdminClient } from "../supabase/server";
 import { isAdmin } from "../utils/admin";
 import { PLANS_ATTRIBUABLES, planVisible } from "../constants/plans";
 import { consommer, ipDe, SEUILS } from "../rateLimit";
+import { compteFacturationDuMembre } from "../org";
 import { headers } from "next/headers";
 
 /** Vérifie que l'appelant est bien admin. Renvoie l'user si oui, sinon null. */
@@ -44,7 +45,7 @@ export async function checkUserCredits(cost) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { allowed: false, error: "Non authentifié" };
-    return await checkCredits(user.id, cost);
+    return await checkCredits(await compteFacturationDuMembre(user.id), cost);
   } catch (error) {
     console.error("checkUserCredits error:", error);
     return { allowed: false, error: "Erreur technique" };
@@ -59,7 +60,7 @@ export async function getUserCreditInfo() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    return await getCreditInfo(user.id);
+    return await getCreditInfo(await compteFacturationDuMembre(user.id));
   } catch (error) {
     console.error("getUserCreditInfo error:", error);
     return null;
@@ -367,6 +368,25 @@ export async function adminCreerCompte({ email, first_name, last_name, company_n
     const res = await changePlan(data.user.id, plan);
     if (!res.success) {
       return { success: false, error: "Compte créé, mais plan non appliqué : " + res.error };
+    }
+
+    // Un client = une ORGANISATION, dont ce compte est l'admin et le compte de
+    // facturation (migration 035, lib/org.js). getOrgContext() la créerait à
+    // la première connexion de toute façon ; la poser ici donne tout de suite
+    // le bon nom d'entreprise.
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({ name: (company_name || "").trim() || null, created_by: data.user.id, legacy_user_id: data.user.id })
+      .select("id")
+      .single();
+    if (orgErr) {
+      return { success: false, error: "Compte créé, mais organisation non créée : " + orgErr.message };
+    }
+    const { error: membreErr } = await admin
+      .from("organization_members")
+      .insert({ organization_id: org.id, user_id: data.user.id, role: "admin" });
+    if (membreErr) {
+      return { success: false, error: "Compte créé, mais rattachement à l'organisation impossible : " + membreErr.message };
     }
 
     return { success: true, email: adresse, motDePasse };

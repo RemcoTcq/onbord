@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
+import { getOrgContext } from "@/lib/org";
 
 /**
  * État du guide d'activation : où en est le recruteur dans sa prise en main.
@@ -16,7 +17,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
  *  2. Le guide dit au recruteur ce qu'il lui reste à faire. Ce verdict se
  *     calcule à UN endroit, sinon l'écran et la réalité se désaccordent.
  *
- * Lecture en service_role avec filtre explicite sur `user_id` : même motif que
+ * Lecture en service_role avec filtre explicite sur l'organisation : même motif que
  * listDeletedJobs (lib/actions/candidate.js). Le filtre n'est pas un second
  * rideau, c'est LA protection — ne jamais le retirer.
  *
@@ -24,32 +25,30 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
  */
 export async function getOnboardingStatus() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    // L'organisation du compte (lib/org.js) : la checklist est celle de
+    // l'entreprise, pas d'un seul de ses membres.
+    const orgCtx = await getOrgContext();
+    if (!orgCtx) return { success: false, error: "Non authentifié" };
+    const { org } = orgCtx;
+    const filtreOrg = `organization_id.eq.${orgCtx.orgId},user_id.eq.${orgCtx.user.id}`;
 
     const admin = createAdminClient();
 
-    const [profil, offres, candidats] = await Promise.all([
-      admin
-        .from("users")
-        .select("company_ai_context, company_logo_url, brand_primary_color")
-        .eq("id", user.id)
-        .maybeSingle(),
+    const [offres, candidats] = await Promise.all([
       // La corbeille est exclue : une offre supprimée ne prouve plus rien.
       admin
         .from("jobs")
         .select("id, extracted_criteria, created_at")
-        .eq("user_id", user.id)
+        .or(filtreOrg)
         .is("deleted_at", null)
         .order("created_at", { ascending: true }),
       admin
         .from("candidates")
-        .select("id, jobs!inner(user_id)", { count: "exact", head: true })
-        .eq("jobs.user_id", user.id),
+        .select("id, jobs!inner(user_id, organization_id)", { count: "exact", head: true })
+        .or(filtreOrg, { referencedTable: "jobs" }),
     ]);
 
-    const ctx = profil.data?.company_ai_context || {};
+    const ctx = org.ai_context || {};
     // « Profil rempli » = le contexte que l'IA utilisera existe vraiment. Une
     // ligne créée mais vide ne rend service à personne, surtout pas à la
     // génération d'expérience qui s'en nourrit.
@@ -58,7 +57,7 @@ export async function getOnboardingStatus() {
     );
     // « Branding posé » = le formulaire a été enregistré au moins une fois. Les
     // deux colonnes sont nulles tant qu'on n'y a pas touché.
-    const brandingPose = Boolean(profil.data?.company_logo_url || profil.data?.brand_primary_color);
+    const brandingPose = Boolean(org.logo_url || org.brand_primary_color);
 
     const jobs = offres.data || [];
     // Une offre ANALYSÉE, pas seulement créée : `extracted_criteria` est écrit

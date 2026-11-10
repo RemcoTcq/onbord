@@ -89,4 +89,16 @@ export const SEUILS = {
 
   // Réclamation d'invitation : brute force du token d'invitation.
   invitationParIp: { max: 10, fenetre: 3_600_000 },
+
+  // Invitations d'équipe envoyées par une organisation (e-mails Resend) : une
+  // vague d'embauche passe, un envoi en boucle s'arrête.
+  invitationsEquipeParOrg: { max: 30, fenetre: 3_600_000 },
+
+  // Le passage d'une simulation (actions/run.js), restées sans limite jusqu'à
+  // l'audit du 10/11/2026 (S4). Une réponse enregistrée toutes les quelques
+  // secondes au plus ; démarrer et soumettre sont des actes rares, et
+  // soumettre déclenche le scoring, donc des appels au modèle.
+  reponsesParToken: { max: 60, fenetre: 60_000 },
+  demarrageParToken: { max: 10, fenetre: 60_000 },
+  soumissionParToken: { max: 5, fenetre: 60_000 },
 };

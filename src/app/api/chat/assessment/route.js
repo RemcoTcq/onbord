@@ -7,6 +7,7 @@ import {
 import { extraireDecouverte, construireFicheDecouverte } from '@/lib/experienceDecouverte';
 import { buildSystemPrompt, GENERATE_TOOL, REGENERATE_STEP_TOOL } from '@/lib/experienceChatPrompt';
 import { langueDeConversation } from '@/lib/i18n/detection';
+import { contexteEntreprise } from '@/lib/org';
 import { UI_LOCALES, coerceUiLocale } from '@/lib/i18n/config';
 
 // Un tour de chat de conception, dans l'ordre : lire l'état (fil, fiche,
@@ -25,7 +26,7 @@ export async function POST(req) {
     // Ownership + contexte offre
     const { data: job } = await supabase
       .from("jobs").select("id, user_id, title, extracted_criteria").eq("id", jobId).single();
-    if (!job || job.user_id !== user.id) return Response.json({ error: "Accès refusé à cette offre." }, { status: 403 });
+    if (!job) return Response.json({ error: "Accès refusé à cette offre." }, { status: 403 });
 
     // Un client qui rouvre le panneau sans avoir chargé le fil (ou après un
     // rechargement à mi-parcours) n'envoie rien : on repart de ce qui est en
@@ -89,7 +90,8 @@ export async function POST(req) {
     const system = buildSystemPrompt({
       title: job.title,
       skillsStr,
-      companyContext: profile?.company_ai_context,
+      // Le contexte de l'organisation (lib/org.js).
+      companyContext: await contexteEntreprise(user.id),
       blocEtat: etat.bloc,
       blocFiche: enConception ? construireFicheDecouverte(fiche) : null,
       experienceExiste: etat.existe,

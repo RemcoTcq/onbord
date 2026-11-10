@@ -60,7 +60,7 @@ export async function regenerateStepByNumber(jobId, stepNumber, instruction) {
     if (!user) return { success: false, error: "Non authentifié" };
 
     const { data: job } = await supabase
-      .from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+      .from("jobs").select("id").eq("id", jobId).maybeSingle();
     if (!job) return { success: false, error: "Accès refusé" };
 
     const { experience, steps } = await chargerExperienceCourante(supabase, jobId);
@@ -88,7 +88,7 @@ export async function getExperienceForJob(jobId) {
     if (!user) return { success: false, error: "Non authentifié" };
 
     // Ownership vérifiée via le job
-    const { data: job } = await supabase.from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).single();
+    const { data: job } = await supabase.from("jobs").select("id").eq("id", jobId).single();
     if (!job) return { success: false, error: "Accès refusé" };
 
     const { data: experience } = await supabase
@@ -129,7 +129,7 @@ export async function updateFilRouge(experienceId, { contexte_candidat, univers 
       .select("id, jobs!inner(user_id)")
       .eq("id", experienceId)
       .single();
-    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
 
     const v = await versionModifiable(supabase, experienceId);
     const { data: cible } = await supabase
@@ -170,7 +170,7 @@ export async function resumerEtapes(experienceId) {
       .select("id, generated_from, jobs!inner(user_id)")
       .eq("id", experienceId)
       .single();
-    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
 
     const [{ data: steps }, { data: profil }] = await Promise.all([
       supabase.from("experience_steps")
@@ -246,7 +246,7 @@ export async function decrireCriteres(stepId) {
       .select("id, title, prompt, criteria, experience_id, experiences!inner(id, generated_from, jobs!inner(user_id))")
       .eq("id", stepId)
       .single();
-    if (!step || step.experiences?.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!step?.experiences?.jobs) return { success: false, error: "Accès refusé" };
 
     const criteres = (step.criteria || []).filter((c) => Array.isArray(c?.checkpoints) && c.checkpoints.some((cp) => (cp?.description || "").trim()));
     if (!criteres.length) return { success: true, descriptions: [] };
@@ -300,7 +300,7 @@ export async function harmoniserNotesRecruteur(jobId) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Non authentifié" };
 
-    const { data: job } = await supabase.from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+    const { data: job } = await supabase.from("jobs").select("id").eq("id", jobId).maybeSingle();
     if (!job) return { success: false, error: "Accès refusé" };
 
     const { experience, steps } = await chargerExperienceCourante(supabase, jobId);
@@ -358,8 +358,9 @@ async function assertStepOwnership(supabase, userId, stepId) {
     .select("id, experience_id, experiences!inner(id, job_id, jobs!inner(user_id))")
     .eq("id", stepId)
     .single();
-  const ownerId = data?.experiences?.jobs?.user_id;
-  return ownerId && ownerId === userId ? data : null;
+  // Lue sous RLS : la ligne ne revient que si le compte y a droit
+  // (propriétaire, ou admin/manager de l'organisation, migration 036).
+  return data?.experiences?.jobs ? data : null;
 }
 
 // ─── Édition d'un step à la relecture ─────────────────────────────────────────
@@ -404,7 +405,7 @@ export async function publishExperience(experienceId) {
       .select("id, job_id, jobs!inner(user_id)")
       .eq("id", experienceId)
       .single();
-    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
 
     // Publier ne facture rien : la création de l'offre a déjà payé le forfait
     // de 6 crédits, qui couvre tout jusqu'ici — extraction, compétences,
@@ -441,7 +442,7 @@ export async function addStep(experienceId) {
 
     const { data: exp } = await supabase
       .from("experiences").select("id, jobs!inner(user_id)").eq("id", experienceId).single();
-    if (!exp || exp.jobs?.user_id !== user.id) return { success: false, error: "Accès refusé" };
+    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
 
     const v = await versionModifiable(supabase, experienceId);
 

@@ -3,6 +3,8 @@
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { factureDemarrageCandidat } from "@/lib/utils/limits";
+import { brandingPublic, compteFacturationDeOrg } from "@/lib/org";
+import { consommer, SEUILS } from "@/lib/rateLimit";
 import { scoreRun } from "@/lib/runScoring";
 import { inboxAnswerToText, PRIORITES, ACTIONS } from "@/lib/boiteReception";
 import { normaliserPersona, personaPourCandidat, personaTranscript } from "@/lib/persona";
@@ -104,12 +106,13 @@ async function resolveCandidateAndRun(admin, token) {
   if (!candidate) return { error: "Lien d'évaluation invalide." };
 
   const { data: job, error: jobError } = await admin
-    .from("jobs").select("id, user_id, title, saved_flow_nodes, assessment_config, experience_locale").eq("id", candidate.job_id).single();
+    .from("jobs").select("id, user_id, organization_id, title, saved_flow_nodes, assessment_config, experience_locale").eq("id", candidate.job_id).single();
   if (jobError) console.error("resolveCandidateAndRun job error:", jobError);
   if (!job) return { error: "Offre introuvable." };
 
-  const { data: recruiter } = await admin
-    .from("users").select("company_name, brand_primary_color, brand_secondary_color, company_logo_url").eq("id", job.user_id).single();
+  // L'image de marque est celle de l'ORGANISATION de l'offre (migration 035),
+  // dans la forme que le parcours lit depuis toujours.
+  const recruiter = await brandingPublic(admin, { organizationId: job.organization_id, userId: job.user_id });
 
   // Un candidat qui a commencé reste sur SA version jusqu'au bout, même si le
   // recruteur en a publié une autre depuis (retouche d'une version commencée,
@@ -165,16 +168,11 @@ export async function getCandidateEntry(token) {
     if (entry !== "not_ready") return { entry };
 
     const { data: job } = await admin
-      .from("jobs").select("title, user_id, experience_locale").eq("id", candidate.job_id).maybeSingle();
+      .from("jobs").select("title, user_id, organization_id, experience_locale").eq("id", candidate.job_id).maybeSingle();
 
-    let recruiter = null;
-    if (job?.user_id) {
-      const { data } = await admin
-        .from("users")
-        .select("company_name, company_logo_url, brand_primary_color, brand_secondary_color")
-        .eq("id", job.user_id).maybeSingle();
-      recruiter = data || null;
-    }
+    const recruiter = job
+      ? await brandingPublic(admin, { organizationId: job.organization_id, userId: job.user_id })
+      : null;
 
     return { entry, job: job ? { title: job.title, experience_locale: job.experience_locale } : null, recruiter };
   } catch (err) {
@@ -199,6 +197,10 @@ export async function getJobEntry(jobId) {
 // Démarre (ou reprend) le run du candidat sur l'expérience publiée.
 export async function startRun(token) {
   try {
+    // Limite par jeton (audit du 10/11/2026, S4) : démarrer est un acte rare.
+    if (!consommer(`demarrage:${token}`, SEUILS.demarrageParToken.max, SEUILS.demarrageParToken.fenetre).autorise) {
+      return { success: false, error: "Trop de requêtes. Réessayez dans un instant." };
+    }
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error) return { success: false, error: ctx.error };
@@ -276,7 +278,9 @@ export async function startRun(token) {
       // Conditionné à `run` : si l'insert a échoué, il n'y a pas de run, donc
       // rien à facturer — et le prochain passage retentera l'insert.
       if (run) {
-        const facture = await factureDemarrageCandidat(job.user_id);
+        // Le solde débité est celui de l'organisation (lib/org.js), pas celui
+        // du membre qui a créé l'offre.
+        const facture = await factureDemarrageCandidat(await compteFacturationDeOrg(job.organization_id, job.user_id));
         if (!facture.success) {
           console.error("startRun : débit du démarrage refusé (non bloquant) —", facture.error);
         }
@@ -372,6 +376,10 @@ export async function submitQualifyingAnswers(token, answers) {
 // saveVideoResponse + /api/transcribe.
 export async function saveStepResponse(token, stepId, payload) {
   try {
+    // Limite par jeton (audit du 10/11/2026, S4) : une réponse toutes les quelques secondes au plus.
+    if (!consommer(`reponse:${token}`, SEUILS.reponsesParToken.max, SEUILS.reponsesParToken.fenetre).autorise) {
+      return { success: false, error: "Trop de requêtes. Réessayez dans un instant." };
+    }
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };
@@ -491,17 +499,19 @@ export async function saveCandidateCv(token, path) {
       .from("candidates").select("id").eq("interview_token", token).maybeSingle();
     if (!candidate) return { success: false, error: "Lien d'évaluation invalide." };
 
-    const prefixe = `${candidate.id}/`;
-    if (typeof path !== "string" || !path.startsWith(prefixe) || path.includes("..")) {
+    // Le dossier du dépôt : le JETON depuis le 10/11/2026 (S3), l'id du
+    // candidat avant (un écran resté ouvert pendant la mise en ligne).
+    const dossier = [token, candidate.id].find((d) => typeof path === "string" && path.startsWith(`${d}/`));
+    if (!dossier || path.includes("..")) {
       return { success: false, error: "Chemin invalide" };
     }
-    const nom = path.slice(prefixe.length);
+    const nom = path.slice(dossier.length + 1);
     if (!nom || nom.includes("/") || !nom.toLowerCase().endsWith(".pdf")) {
       return { success: false, error: "Chemin invalide" };
     }
 
     const { data: fichiers, error: listError } = await admin.storage
-      .from("resumes").list(candidate.id, { search: nom });
+      .from("resumes").list(dossier, { search: nom });
     if (listError) throw listError;
     const fichier = (fichiers || []).find((f) => f.name === nom);
     if (!fichier) return { success: false, error: "Fichier introuvable" };
@@ -566,6 +576,10 @@ export async function saveVideoResponse(token, stepId, videoUrl, durationSeconds
 // plus bas) : le candidat ne doit pas attendre 30 s derrière son clic.
 export async function submitRun(token) {
   try {
+    // Limite par jeton (audit du 10/11/2026, S4) : soumettre déclenche le scoring, donc le modèle.
+    if (!consommer(`soumission:${token}`, SEUILS.soumissionParToken.max, SEUILS.soumissionParToken.fenetre).autorise) {
+      return { success: false, error: "Trop de requêtes. Réessayez dans un instant." };
+    }
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error || !ctx.run) return { success: false, error: ctx.error || "Run introuvable" };

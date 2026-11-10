@@ -37,7 +37,6 @@ export default function DashboardShell({ children }) {
     const { data } = await supabase
       .from("jobs")
       .select("id, title, status, location, created_at")
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setJobs(data || []);
   }, []);

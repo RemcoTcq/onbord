@@ -76,7 +76,6 @@ export default function Accueil() {
         supabase
           .from("jobs")
           .select("id, title, status, location, contract_type, work_mode, created_at, candidates(id, first_name, last_name, email, status, score_global, created_at, assessment_submitted_at)")
-          .eq("user_id", authUser.id)
           .order("created_at", { ascending: false }),
       ]);
       setUsage(credits);

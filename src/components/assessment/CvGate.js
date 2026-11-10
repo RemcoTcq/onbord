@@ -35,7 +35,9 @@ export default function CvGate({ token, gate, recruiter, job, primary, onDone })
     setErreur(null);
     try {
       const supabase = createClient();
-      const path = `${gate.candidateId}/cv_${Date.now()}.pdf`;
+      // Sous le JETON, comme les vidéos : l'id du candidat n'est pas un
+      // secret (audit du 10/11/2026, S3), le jeton si.
+      const path = `${token}/cv_${Date.now()}.pdf`;
       const { error } = await supabase.storage.from("resumes")
         .upload(path, fichier, { contentType: "application/pdf", upsert: false });
       if (error) throw error;

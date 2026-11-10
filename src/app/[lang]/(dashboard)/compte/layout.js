@@ -3,7 +3,7 @@
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { usePathname } from "next/navigation";
-import { User, Shield, Palette, CreditCard, Building2 } from "lucide-react";
+import { User, Shield, Palette, CreditCard, Building2, Users } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 
 export default function AccountLayout({ children }) {
@@ -19,6 +19,10 @@ export default function AccountLayout({ children }) {
     { nameKey: "dashboard.account.tabs.branding", href: "/compte/branding", icon: Palette, exact: false },
     { nameKey: "dashboard.account.tabs.security", href: "/compte/securite", icon: Shield, exact: false },
     { nameKey: "dashboard.account.tabs.billing", href: "/compte/billing", icon: CreditCard, exact: false },
+    // Phase 0 de l'onboarding : les membres et les invitations. Visible des
+    // admins et des managers (un learner n'arrive jamais ici, voir le layout
+    // du tableau de bord).
+    { nameKey: "dashboard.account.tabs.team", href: "/compte/equipe", icon: Users, exact: false },
   ];
 
   return (

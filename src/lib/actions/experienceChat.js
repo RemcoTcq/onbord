@@ -24,7 +24,7 @@ export async function getExperienceChat(jobId) {
     // comme un fil vide — sinon le chat rouvre en « aucune conversation » sur
     // une offre qui ne nous appartient pas.
     const { data: job } = await supabase
-      .from("jobs").select("id").eq("id", jobId).eq("user_id", user.id).maybeSingle();
+      .from("jobs").select("id").eq("id", jobId).maybeSingle();
     if (!job) return { success: false, error: "Accès refusé" };
 
     const [messages, { experience, steps }] = await Promise.all([

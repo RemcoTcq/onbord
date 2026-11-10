@@ -148,6 +148,9 @@ export async function proxy(request) {
   // inatteignable sans session recruteur.
   const publicRoutes = [
     "/login", "/register", "/join",
+    // Acceptation d'une invitation d'équipe : l'invité n'a pas encore de
+    // compte. Le jeton est vérifié côté serveur (lib/actions/equipe.js).
+    "/invitation",
     "/interview",       // ancien lien, redirige vers /assessment
     "/assessment",      // hub hérité + bascule vers /run
     "/run",             // expérience candidat (+ ses server actions)

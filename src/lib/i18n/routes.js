@@ -31,6 +31,9 @@ const SEGMENTS = {
   couts:     { en: "costs" },
   nouveau:   { en: "new" },
   candidats: { en: "candidates" },
+  // Phase 0 de l'onboarding : l'équipe, et l'espace d'entraînement du learner.
+  equipe:    { en: "team" },
+  formation: { en: "training" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

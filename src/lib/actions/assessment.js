@@ -21,8 +21,7 @@ export async function saveAssessmentConfig(jobId, config) {
     const { error } = await supabase
       .from("jobs")
       .update({ assessment_config: config })
-      .eq("id", jobId)
-      .eq("user_id", user.id);
+      .eq("id", jobId);
 
     if (error) throw error;
     return { success: true };

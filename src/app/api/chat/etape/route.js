@@ -109,7 +109,7 @@ export async function POST(req) {
       .eq("id", stepId)
       .single();
     const job = step?.experiences?.jobs;
-    if (!step || !job || job.user_id !== user.id) return Response.json({ error: "Accès refusé" }, { status: 403 });
+    if (!step || !job) return Response.json({ error: "Accès refusé" }, { status: 403 });
 
     const [{ data: fratrie }, { data: profil }] = await Promise.all([
       supabase.from("experience_steps").select("id, title, sandbox_kind, response_format").eq("experience_id", step.experience_id).order("order_index"),

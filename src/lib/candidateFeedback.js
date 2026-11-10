@@ -39,6 +39,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { MUST, NICE } from "@/lib/competences";
+import { brandingPublic } from "@/lib/org";
 
 // Sonnet : le choix de quoi dire est fait en code, plus haut ; le modèle ne
 // fait que l'écrire. Si le contrôle après coup (citations, formules
@@ -318,7 +319,7 @@ export async function genererBrouillonFeedback(candidateId, version) {
 
   const { data: candidat } = await admin
     .from("candidates")
-    .select("id, first_name, jobs!inner(title, experience_locale, user_id)")
+    .select("id, first_name, jobs!inner(title, experience_locale, user_id, organization_id)")
     .eq("id", candidateId)
     .single();
   if (!candidat) return { success: false, error: "Candidat introuvable" };
@@ -372,13 +373,14 @@ export async function genererBrouillonFeedback(candidateId, version) {
     .eq("candidate_id", candidateId);
 
   // Signature : le prénom du propriétaire de l'offre et son entreprise. Le nom
-  // d'entreprise vit dans public.users, le prénom dans les métadonnées auth.
-  const [{ data: profil }, { data: auth }] = await Promise.all([
-    admin.from("users").select("company_name").eq("id", candidat.jobs.user_id).single(),
+  // d'entreprise est celui de l'organisation (migration 035), le prénom vit
+  // dans les métadonnées auth.
+  const [marque, { data: auth }] = await Promise.all([
+    brandingPublic(admin, { organizationId: candidat.jobs.organization_id, userId: candidat.jobs.user_id }),
     admin.auth.admin.getUserById(candidat.jobs.user_id),
   ]);
   const meta = auth?.user?.user_metadata || {};
-  const entreprise = (profil?.company_name || meta.company_name || "").trim() || "Onbord";
+  const entreprise = (marque?.company_name || meta.company_name || "").trim() || "Onbord";
   const prenomRecruteur = (meta.first_name || "").trim();
   const signature = [prenomRecruteur, entreprise].filter(Boolean).join("\n");
 

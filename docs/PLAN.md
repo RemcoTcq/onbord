@@ -160,4 +160,54 @@ poussé** : `main` est déployé en production par Vercel.
 
 | Date | Phase | Commit | Fait |
 |---|---|---|---|
-| 10/11/2026 | Audit et plan | — | `docs/AUDIT.md`, `docs/PLAN.md` |
+| 10/11/2026 | Audit et plan | c9e46ffd | `docs/AUDIT.md`, `docs/PLAN.md` |
+| 10/11/2026 | Phase 0 — migration 035 | 1f480af8 | organisations, membres, invitations ; **appliquée en prod par Remco le 10/11** |
+| 10/11/2026 | Phase 0 — code | *(ce commit)* | voir ci-dessous |
+
+### Phase 0 — ce qui est fait
+
+- **`src/lib/org.js`** : `getOrgContext()` (compte, organisation, rôle,
+  compte de facturation), `exigerGestion()`, `exigerAdminOrg()`,
+  `brandingPublic()`, `contexteEntreprise()`, `compteFacturationDuMembre()`.
+  Un compte sans organisation (créé par l'ancien code) en reçoit une à sa
+  première visite.
+- **Le recrutement lit l'organisation** : listes d'offres, corbeille,
+  vérifications d'accès (la RLS fait foi, plus de « créateur = compte
+  connecté »), profil d'entreprise et image de marque (écrits sur
+  `organizations`), contexte d'entreprise des générateurs, image de marque
+  du parcours candidat et du retour candidat, checklist de démarrage.
+- **Crédits** : le code de crédits n'est pas modifié ; les appels débitent le
+  compte qui a créé l'organisation, pour que ses managers consomment le
+  solde de l'entreprise.
+- **Équipe** : Paramètres → Équipe (membres, rôles, invitations), invitation
+  par e-mail Resend FR/EN, acceptation publique `/[lang]/invitation/[jeton]`
+  qui crée le compte côté serveur (mot de passe de 10 caractères), retrait
+  d'un membre = compte désactivé. Un admin invite tout rôle, un manager des
+  learners.
+- **Learner** : renvoyé hors du tableau de bord vers `/[lang]/formation`
+  (accueil provisoire, rempli en phase 3).
+- **Sécurité** : S1 (`lib/requeteSure.js`, l'analyse du site web passe par le
+  filtre d'adresses), S2 (policies `logos`, migration 036), S3 (CV déposé
+  sous le jeton ; resserrement SQL en migration 037), S4 (limites sur
+  `startRun`, `saveStepResponse`, `submitRun`).
+- **Tests** : `npm test` (node:test, 11 tests) sur les compétences, la
+  notation 0/1/2, la note pondérée, l'entrée candidat, le personnage vu par
+  le candidat, et le filtre d'adresses.
+- Contrôles : lint identique à `main` (15 erreurs, 24 avertissements, toutes
+  antérieures), `check:i18n` et `check:langue` verts, build de production OK.
+
+### Phase 0 — à appliquer par Remco
+
+- **Migration 036** (accès par organisation, déclencheurs, `logos`) : maintenant.
+  Additive ; le code de `main` continue de fonctionner.
+- **Migration 037** (dépôt anonyme par jeton seulement) : **après** la mise en
+  ligne de ce code, jamais avant (elle bloquerait le dépôt de CV du code de
+  `main`).
+
+### Phase 0 — pas encore vérifié en conditions réelles
+
+Le parcours complet (création d'offre → … → rapport), l'envoi d'une
+invitation et son acceptation, et un compte manager sur une offre qu'il n'a
+pas créée demandent la migration 036 en production et des comptes de test.
+À faire dès qu'elle est appliquée (organisation « TEST Onbord », supprimée
+ensuite).

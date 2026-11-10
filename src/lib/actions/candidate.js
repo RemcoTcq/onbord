@@ -4,6 +4,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { resolveJobEntry, entryIsOpen } from "@/lib/candidateEntry";
 import { urlSignee, supprimerFichiersDesCandidats } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { brandingPublic, exigerGestion } from "@/lib/org";
 import { DELAI_CORBEILLE_JOURS, purgerOffre } from "@/lib/jobPurge";
 import { headers } from "next/headers";
 import { after } from "next/server";
@@ -52,19 +53,20 @@ async function assertJobAcceptsCandidates(jobId) {
  */
 export async function deleteJob(jobId) {
   try {
-    const supabase = await createClient();
+    // Admin ou manager de l'organisation (lib/org.js). Le service_role
+    // contourne la RLS : c'est ce filtre, et lui seul, qui protège.
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
-
-    // `user_id` n'est plus un second rideau mais LA protection : le service_role
-    // contourne la RLS. Ne jamais le retirer. `count` dit si la ligne a bougé —
-    // 0 = offre inconnue, appartenant à un autre, ou déjà en corbeille.
+    // Le filtre d'organisation n'est pas un second rideau mais LA protection :
+    // le service_role contourne la RLS. Ne jamais le retirer. `count` dit si
+    // la ligne a bougé — 0 = offre inconnue, d'une autre organisation, ou
+    // déjà en corbeille.
     const { error, count } = await createAdminClient()
       .from('jobs')
       .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', jobId)
-      .eq('user_id', user.id)
+      .or(`organization_id.eq.${ctx.orgId},user_id.eq.${ctx.user.id}`)
       .is('deleted_at', null);
 
     if (error) throw error;
@@ -87,14 +89,15 @@ export async function deleteJob(jobId) {
  */
 export async function listDeletedJobs() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    // Admin ou manager de l'organisation (lib/org.js). Le service_role
+    // contourne la RLS : c'est ce filtre, et lui seul, qui protège.
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
 
     const { data } = await createAdminClient()
       .from('jobs')
       .select('id, title, deleted_at')
-      .eq('user_id', user.id)
+      .or(`organization_id.eq.${ctx.orgId},user_id.eq.${ctx.user.id}`)
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
 
@@ -114,15 +117,16 @@ export async function listDeletedJobs() {
 /** Sort une offre de la corbeille. Sans effet si elle a déjà été purgée. */
 export async function restoreJob(jobId) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    // Admin ou manager de l'organisation (lib/org.js). Le service_role
+    // contourne la RLS : c'est ce filtre, et lui seul, qui protège.
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
 
     const { error, count } = await createAdminClient()
       .from('jobs')
       .update({ deleted_at: null }, { count: 'exact' })
       .eq('id', jobId)
-      .eq('user_id', user.id)
+      .or(`organization_id.eq.${ctx.orgId},user_id.eq.${ctx.user.id}`)
       .not('deleted_at', 'is', null);
 
     if (error) throw error;
@@ -159,9 +163,10 @@ export async function restoreJob(jobId) {
  */
 export async function purgeJobNow(jobId) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Non authentifié" };
+    // Admin ou manager de l'organisation (lib/org.js). Le service_role
+    // contourne la RLS : c'est ce filtre, et lui seul, qui protège.
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
 
     const admin = createAdminClient();
 
@@ -171,7 +176,7 @@ export async function purgeJobNow(jobId) {
       .from('jobs')
       .select('id')
       .eq('id', jobId)
-      .eq('user_id', user.id)
+      .or(`organization_id.eq.${ctx.orgId},user_id.eq.${ctx.user.id}`)
       .not('deleted_at', 'is', null)
       .maybeSingle();
 
@@ -520,7 +525,7 @@ export async function getPublicJobAndBranding(jobId) {
     // corbeille doit cesser de s'afficher tout de suite, pas au bout de 7 jours.
     const { data: job, error: jobError } = await admin
       .from('jobs')
-      .select('id, title, status, user_id, saved_flow_nodes, experience_locale')
+      .select('id, title, status, user_id, organization_id, saved_flow_nodes, experience_locale')
       .eq('id', jobId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -532,16 +537,14 @@ export async function getPublicJobAndBranding(jobId) {
       return { success: false, error: "Offre introuvable" };
     }
 
+    // L'image de marque de l'organisation (migration 035). La fonction SQL
+    // get_public_branding lisait les colonnes de users, qui ne sont plus
+    // écrites ; elle reste en base, plus appelée.
     let recruiter = null;
     try {
-      const { data: recData, error: recError } = await admin
-        .rpc("get_public_branding", { user_uuid: job.user_id });
-
-      if (!recError && recData) {
-        recruiter = recData;
-      }
+      recruiter = await brandingPublic(admin, { organizationId: job.organization_id, userId: job.user_id });
     } catch (err) {
-      console.error("Failed to fetch recruiter branding via rpc:", err);
+      console.error("Failed to fetch recruiter branding:", err);
     }
 
     // `user_id` a servi au branding ci-dessus et ne sort pas ; de
@@ -720,7 +723,6 @@ export async function updateJobDetails(jobId, updates) {
       .from('jobs')
       .update(safeUpdates)
       .eq('id', jobId)
-      .eq('user_id', user.id)
       .select()
       .single();
 
@@ -744,8 +746,7 @@ export async function updateJobDescription(jobId, description) {
     const { error } = await supabase
       .from('jobs')
       .update({ description })
-      .eq('id', jobId)
-      .eq('user_id', user.id);
+      .eq('id', jobId);
 
     if (error) throw error;
     return { success: true };

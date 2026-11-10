@@ -1,7 +1,6 @@
 "use server";
 
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { destinationAutorisee } from "@/lib/requeteSure";
 import { createClient } from "@/lib/supabase/server";
 
 // Cette action fait émettre une requête HTTP PAR LE SERVEUR vers une adresse
@@ -28,75 +27,8 @@ import { createClient } from "@/lib/supabase/server";
 const MAX_REDIRECTIONS = 3;
 const TAILLE_MAX = 2 * 1024 * 1024; // 2 Mo de HTML : au-delà, ce n'est pas une offre.
 
-/** Une adresse IP appartient-elle à une plage privée, locale ou de métadonnées ? */
-function ipInterdite(ip) {
-  const v = isIP(ip);
-
-  if (v === 4) {
-    const [a, b] = ip.split(".").map(Number);
-    return (
-      a === 0 ||                          // 0.0.0.0/8
-      a === 10 ||                         // privé
-      a === 127 ||                        // loopback
-      (a === 169 && b === 254) ||         // link-local + métadonnées cloud (169.254.169.254)
-      (a === 172 && b >= 16 && b <= 31) || // privé
-      (a === 192 && b === 168) ||         // privé
-      (a === 100 && b >= 64 && b <= 127) || // CGNAT
-      (a === 192 && b === 0) ||           // IETF
-      a >= 224                            // multicast + réservé
-    );
-  }
-
-  if (v === 6) {
-    const ipv6 = ip.toLowerCase();
-    // ::1 (loopback), fc00::/7 (unique local), fe80::/10 (link-local), :: (indéterminé)
-    if (ipv6 === "::1" || ipv6 === "::") return true;
-    if (/^f[cd]/.test(ipv6)) return true;
-    if (/^fe[89ab]/.test(ipv6)) return true;
-    // ::ffff:127.0.0.1 — IPv4 encapsulée
-    const v4 = ipv6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (v4) return ipInterdite(v4[1]);
-    return false;
-  }
-
-  return true; // ni IPv4 ni IPv6 : on refuse par défaut
-}
-
-/**
- * Valide une URL et la résout en IP. Renvoie { ok } ou { erreur }.
- * La résolution DNS est le cœur du contrôle : le nom d'hôte ne dit rien.
- */
-async function destinationAutorisee(parsedUrl) {
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    return { erreur: "URL invalide. Utilisez une adresse http:// ou https://." };
-  }
-
-  const hote = parsedUrl.hostname.replace(/^\[|\]$/g, "");
-
-  // Noms locaux qui ne passent parfois même pas par le résolveur.
-  if (/^(localhost|.*\.localhost|.*\.local|.*\.internal|metadata\.google\.internal)$/i.test(hote)) {
-    return { erreur: "Cette adresse pointe vers le réseau interne et ne peut pas être chargée." };
-  }
-
-  let adresses;
-  if (isIP(hote)) {
-    adresses = [{ address: hote }];
-  } else {
-    try {
-      adresses = await lookup(hote, { all: true });
-    } catch {
-      return { erreur: "Nom de domaine introuvable. Vérifiez l'URL." };
-    }
-  }
-
-  // Une seule adresse interdite suffit à refuser : un nom peut résoudre vers
-  // plusieurs IP et le client choisirait ensuite librement.
-  if (!adresses.length || adresses.some((a) => ipInterdite(a.address))) {
-    return { erreur: "Cette adresse pointe vers le réseau interne et ne peut pas être chargée." };
-  }
-
-  return { ok: true };
-}
+// ipInterdite() et destinationAutorisee() vivent dans lib/requeteSure.js,
+// partagées avec l'analyse du site web de l'entreprise (audit du 10/11, S1).
 
 /**
  * Fetches a job posting URL server-side (no CORS issues) and extracts plain text.
