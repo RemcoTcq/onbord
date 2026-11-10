@@ -137,7 +137,11 @@ export default function ResponseRecorder({ token, stepId, maxDuration = 120, exi
       const supabase = createClient();
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const path = `${token}/${stepId}_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("video-responses").upload(path, blob, { contentType: blob.type, upsert: true });
+      // upsert: false — le chemin est neuf (horodaté), rien à remplacer. Avec
+      // upsert, le stockage exige un droit de LECTURE sur l'objet, que ni le
+      // candidat anonyme ni le learner n'ont : le dépôt était refusé (vérifié
+      // le 10/11/2026).
+      const { error: upErr } = await supabase.storage.from("video-responses").upload(path, blob, { contentType: blob.type, upsert: false });
       if (upErr) throw new Error(upErr.message);
       // Bucket PRIVÉ : on enregistre le chemin de l'objet. Le serveur signe une
       // URL temporaire quand il en a besoin (transcription, rapport recruteur).

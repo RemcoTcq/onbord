@@ -685,7 +685,11 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
         const supabase = createClient();
         const ext = blob.type.includes("mp4") ? "mp4" : "webm";
         const path = `${token}/${stepId}_appel_${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("video-responses").upload(path, blob, { contentType: blob.type, upsert: true });
+        // upsert: false — le chemin est neuf (horodaté), rien à remplacer. Avec
+        // upsert, le stockage exige un droit de LECTURE sur l'objet, que ni le
+        // candidat anonyme ni le learner n'ont : le dépôt était refusé (vérifié
+        // le 10/11/2026).
+        const { error } = await supabase.storage.from("video-responses").upload(path, blob, { contentType: blob.type, upsert: false });
         if (!error) await savePersonaCallVideo(token, stepId, path, duree);
       } catch { /* l'appel reste noté sur sa transcription, même sans vidéo */ }
     }

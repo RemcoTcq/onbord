@@ -46,7 +46,7 @@ donc l'appliquer en production avant que le code qui s'en sert soit en ligne.
 | 040 | `personas` | une fiche par personnage distinct, `config.persona_id` posé dans l'étape | **appliquée** |
 | 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | **appliquée** |
 | 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | **appliquée** |
-| 043 | Dépôt des enregistrements d'un essai de learner dans `video-responses` (dossier = son essai en cours) | — | phase 3, **à appliquer** |
+| 043 | Dépôt des enregistrements d'un essai de learner dans `video-responses` (dossier = son essai en cours) | — | **appliquée** |
 | 044 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
 
 Avant chaque migration de policies : relire `pg_policies` (les policies
@@ -382,8 +382,16 @@ validation automatique) : essai n° 2, assignation `validated`, e-mail
 réglage remis. Non-régression : le lien d'un candidat de test ouvre toujours
 son parcours.
 
-Non vérifié : le dépôt d'un enregistrement par un learner (attend 043), un
-e-mail réellement reçu.
+043 appliquée, contrôlée : un learner connecté dépose sous son essai en cours ;
+refusé sur un essai noté, un dossier quelconque, ou sans session.
+
+**Trouvé en le testant** : un dépôt avec `upsert: true` est refusé à TOUT le
+monde, candidats anonymes compris (le stockage exige alors un droit de
+lecture) — or les deux composants d'enregistrement l'utilisaient. La dernière
+vidéo enregistrée en production date du 23/10. Correctif : `upsert: false`
+(le chemin est horodaté, toujours neuf), commit à part, à reporter sur `main`.
+
+Non vérifié : un e-mail réellement reçu.
 
 À reprendre : sous la synthèse, les justifications de chaque point restent
 écrites pour un recruteur (« the candidate… »).
