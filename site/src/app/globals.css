@@ -102,20 +102,17 @@
   --warn: #b45309;
   --bad: #dc2626;
 
-  /* Le contenu s'est RESSERRÉ (1180 → 1060) pour creuser l'écart avec les
-     deux filets verticaux, qui eux doivent rester sur une ligne du
-     quadrillage du hero (10 pas exactement). Écarter les filets aurait été
-     l'autre solution, mais au-delà de 10 pas ils sortent de l'écran sur un
-     portable et retombent sur une valeur qui ne suit plus la grille. */
   --wrap: 1060px;
   --gutter: 28px;
-  /* ⚠️ LA BARRE FAIT EXACTEMENT UN CARREAU DE HAUT, et les deux valeurs
-     vont par paire. Elle etait a 66px pour un pas de 85 : la premiere
-     rangee de la trame etait donc plus courte que toutes les autres, et la
-     barre se lisait comme un bandeau pose dessus au lieu d'etre la premiere
-     cellule de la feuille. Si vous changez --grid-step, changez celle-ci
-     avec. */
-  --header-h: var(--grid-step);
+  /* La LARGEUR DE LA BARRE, partagée avec la fenêtre de la plateforme du
+     hero (.vitrine) : la fenêtre va exactement du logo au bouton « Book a
+     demo » (demande directe, 05/11/2026). Changez-les ici, jamais d'un seul
+     côté. */
+  --bar-w: 1280px;
+  --bar-pad: clamp(var(--gutter), 3.4vw, 48px);
+  /* La barre a une hauteur FIXE depuis le 05/11/2026. Elle valait un carreau
+     de la trame de fond (1/12 de l'écran), et la trame est partie. */
+  --header-h: 72px;
 
   /* Des angles SOBRES. Ils étaient nettement plus ronds (8/14/20/26) : sur
      fond blanc, un grand rayon donne un air d'application grand public, là où
@@ -134,11 +131,16 @@
      cartes 14, pages 18). Demande directe : « que tout soit cohérent » entre
      les visuels du produit, maintenant à l'image de l'application, et le
      reste du site. Valeurs un cran sous celles de l'application : le site
-     reste une vitrine posée sur des filets, pas une application. */
-  --r-sm: 7px;
-  --r: 10px;
-  --r-lg: 12px;
-  --r-xl: 16px;
+     reste une vitrine posée sur des filets, pas une application.
+     ⚠️ DESCENDUS D'UN CRAN le 10/11/2026 (demande directe, « arrondis un
+     peu moins les bords, sur tout le site ») : 7/10/12/16 → 5/8/10/12, et
+     les grands cadres du site écrits en dur suivent (12 au lieu de 16).
+     Les copies de l'application (`ap-*`, `.peek__win`) gardent les arrondis
+     de l'application : ce sont des captures, pas le style du site. */
+  --r-sm: 5px;
+  --r: 8px;
+  --r-lg: 10px;
+  --r-xl: 12px;
 
   /* `--edge` était le liseré clair en haut des surfaces en verre. Sur du
      blanc, un liseré blanc ne se voit pas : c'est devenu une OMBRE DOUCE
@@ -147,95 +149,6 @@
   --edge: 0 1px 2px rgba(20, 32, 74, 0.04), 0 12px 32px -18px rgba(20, 32, 74, 0.18);
   --glow-blue: 0 0 0 1px rgba(37, 99, 235, 0.18), 0 18px 50px -18px rgba(37, 99, 235, 0.3);
 
-  /* La trame de fond. Un pas de 72px : assez large pour rester discrète,
-     assez serrée pour qu'on la lise comme du papier millimétré. */
-  --grid: rgba(7, 41, 75, 0.055);
-  /* Pas du quadrillage fin, réservé au hero. */
-  /* ⚠️ LE PAS ET LA HAUTEUR DE LA BARRE VONT PAR PAIRE. La barre de
-     navigation doit faire exactement UN carreau (--header-h, juste en
-     dessous), sans quoi la premiere rangee est d'une autre taille que les
-     suivantes et la barre se lit comme un bandeau pose sur la trame.
-
-     Le pas est passe de 68 a 85 puis revenu a 68 : a 85 les carreaux
-     etaient assez grands pour que la barre, a la meme hauteur, paraisse
-     lourde. 68 donne plus de carreaux, plus petits, et une barre de hauteur
-     normale.
-
-     L'ecart des deux filets, lui, n'est plus a recalculer : --rule-x se
-     deduit du pas (voir plus bas). */
-  /* ⚠️ LE PAS SE DEDUIT DE LA HAUTEUR D'ECRAN, il n'est plus un nombre.
-
-     On veut que la barre de navigation et les rangees du hero remplissent
-     le premier ecran EXACTEMENT : une barre, onze rangees, et le bas du
-     hero tombe pile sur le bas de la fenetre. Comme la barre fait un
-     carreau, ca s'ecrit hauteur d'ecran / 12.
-
-     La version precedente rabotait la hauteur du hero au multiple inferieur
-     (round(down, ...)). Elle garantissait des rangees pleines, mais elle
-     JETAIT jusqu'a un carreau entier : il restait une bande blanche entre
-     la derniere rangee et le bas de l'ecran. Ici il ne reste rien.
-
-     Consequence a accepter : le pas n'est plus rond (75px sur un ecran de
-     900, 86,67 sur un de 1040) et il change d'une machine a l'autre. C'est
-     sans importance, tout ce qui touche a la trame en derive : la hauteur
-     de la barre, l'ecart des deux filets, la taille des cellules. */
-  --grid-step: calc(100svh / 12);
-  /* Repli pour les navigateurs sans round() : la valeur fixe d'avant. */
-  --rule-x: min(calc(var(--grid-step) * 8), calc(50vw - 18px));
-  /* ⚠️ LES FILETS SE POSENT MAINTENANT TOUT SEULS, et c'est le point de
-     la regle. Ils etaient a une distance FIXE du centre (8 pas), calculee
-     pour tomber sur une ligne de la trame a 1440px de large. Sur un ecran
-     plus large, la trame continuait bien au-dela d'eux et ils se
-     retrouvaient plantes au milieu du quadrillage.
-
-     round(down, ...) prend la moitie de la fenetre, retire une marge, et
-     REDESCEND AU MULTIPLE DE PAS inferieur : le filet va donc aussi loin
-     que l'ecran le permet ET tombe toujours exactement sur une ligne,
-     quelle que soit la largeur. Plus rien a recalculer a la main quand le
-     pas de la trame change.
-
-     ⚠️ Et il RECULE D'UN CARREAU (le - var(--grid-step) final). Sans lui,
-     round() posait le filet sur la toute derniere ligne qui tient a
-     l'ecran, donc a une trentaine de pixels du bord : le site n'avait plus
-     de marge, il etait coupe net. Un carreau en arriere, il reste une
-     colonne pleine de chaque cote, ou seules courent les horizontales, et
-     c'est cette colonne qui fait respirer la page.
-
-     Le max() est un plancher, pas un reglage : sous 1266px de large, le
-     recul ferait passer le filet DANS le contenu (--wrap fait 1060, donc
-     530 de demi-largeur). 7 pas = 595px le garde dehors. Sur un telephone
-     les deux filets sortent de l'ecran et ne se voient plus, ce qui est le
-     bon comportement : a cette largeur, il n'y a plus de marge a encadrer. */
-  /* Hauteur du hero, rabotee sur un nombre entier de carreaux. Elle est
-     ici et non sur .hero--full parce que le CIEL, qui doit couvrir la barre
-     de navigation EN PLUS du hero, vit en dehors de lui (voir .home). */
-  /* Onze carreaux pile, par construction : plus rien a raboter. */
-  --hero-h: calc(100svh - var(--header-h));
-
-  /* ⚠️ TROIS carreaux de recul. round() pose le filet sur la
-     derniere ligne qui tient a l'ecran, a une trentaine de pixels du bord :
-     la page n'a alors plus de marge. Un premier recul a ete ajoute pour
-     laisser une colonne, puis deux, puis trois, sur demande
-     directe. Le filet quitte donc la ligne ou il etait, et la trame reprend
-     seule a partir de la : c'est ce qui fait disparaitre le trait qui s'y
-     trouvait.
-
-     Le max() est un plancher, pas un reglage : il garde le filet HORS du
-     contenu (--wrap fait 1060, donc 530 de demi-largeur) sur les ecrans
-     etroits. Sur un telephone les deux filets sortent de l'ecran et ne se
-     voient plus, ce qui est le bon comportement : a cette largeur, il n'y a
-     plus de marge a encadrer. */
-  /* ⚠️ Le plancher est en PIXELS, arrondi VERS LE HAUT a une ligne de la
-     trame. Il valait 7 carreaux : or le carreau suit la hauteur d'ecran, et
-     sur un portable (1520 x 690 une fois le zoom Windows a 125% applique) il
-     tombe a 58px, donc 7 carreaux = 403px, alors que la colonne de contenu
-     fait 530px de demi-largeur. Les filets passaient DANS le contenu et dans
-     la barre de navigation. 560px garde toujours 30px d'air autour de la
-     colonne, et round(up, ...) le pose sur une ligne de la trame. */
-  --rule-x: max(
-    round(up, 560px, var(--grid-step)),
-    calc(round(down, calc(50vw - 34px), var(--grid-step)) - var(--grid-step) * 3)
-  );
 }
 
 /* ─── 2. SOCLE ET TYPOGRAPHIE ────────────────────────────────────────────── */
@@ -271,79 +184,6 @@ body {
      `position: sticky` de la page (le titre du hero, le bloc des etapes).
      `clip` rogne pareil sans creer ce conteneur. */
   overflow-x: clip;
-}
-
-/* LA TRAME DE FOND, EN DEUX RÉGIMES. C'est le point qui fait ressembler la
-   page au gabarit, et la nuance est facile à rater :
-
-   • dans le HERO, un quadrillage fin complet, avec des « + » aux
-     intersections. C'est dense, c'est technique, et ça ne dure qu'un écran ;
-   • PARTOUT AILLEURS, plus de quadrillage du tout : seulement QUELQUES
-     VERTICALES, comme les filets de colonne d'une maquette d'imprimeur. Une
-     trame carrée qui continue sur toute la page fatigue et salit le blanc.
-
-   Les verticales sont posées ici, en calque fixe : elles ne défilent pas, le
-   contenu glisse devant. `background-position: center` centre le motif, donc
-   les filets restent symétriques quelle que soit la largeur de fenêtre. */
-body::before {
-  content: "";
-  position: fixed;
-  /* ⚠️ CE CALQUE-CI S'ARRETE SOUS LA BARRE, et la barre dessine les deux
-     memes filets elle-meme (.header::after). Ce n'est pas un doublon :
-     c'est le seul moyen de les avoir BLANCS dans la barre et GRIS sur le
-     reste de la page.
-
-     Pourquoi il le faut : ce calque est `fixed`, il ne defile pas avec la
-     page. Il ne peut donc pas savoir s'il se trouve au-dessus du ciel du
-     hero, ou une encre blanche s'impose, ou au-dessus du blanc des sections
-     suivantes, ou elle serait invisible. La barre, elle, sait : en haut de
-     page elle est transparente sur le ciel, une fois posee elle est blanche
-     opaque et recouvre tout. */
-  inset: var(--header-h) 0 0 0;
-  z-index: 0;
-  pointer-events: none;
-  /* DEUX filets, un à gauche et un à droite, et rien entre les deux : ils
-     encadrent le contenu, qui garde donc la même distance à l'un et à
-     l'autre. Il y en avait quatre ou cinq, et la page finissait rayée.
-
-     Ils tombent à 9 pas de grille du centre (9 × 68 = 612px), donc EXACTEMENT
-     sur deux lignes du quadrillage du hero : en descendant, on voit les deux
-     filets prolonger la trame au lieu de la contredire.
-
-     Le `min()` les ramène en bord d'écran sur une fenêtre étroite, sinon ils
-     sortiraient du cadre et la page perdrait son encadrement. */
-  background-image:
-    linear-gradient(var(--grid), var(--grid)),
-    linear-gradient(var(--grid), var(--grid));
-  background-size: 1px 100%, 1px 100%;
-  background-repeat: no-repeat, no-repeat;
-  /* ⚠️ LE DEMI-PIXEL COMPTE, et son absence se voyait.
-
-     La trame dessine ses verticales CENTREES sur la ligne : le trait occupe
-     [x - 0.5px, x + 0.5px]. Ce calque, lui, posait son trait de 1px a PARTIR
-     de x, donc sur [x, x + 1px]. Les deux traits se chevauchaient a moitie :
-     au lieu d'une ligne nette, on voyait une bavure de deux pixels, et le
-     raccord entre la trame et le filet du site se lisait comme un ecart.
-
-     Le demi-pixel de recul les fait coincider exactement. C'est la meme
-     raison qui a fait deplacer le trait au milieu de sa tuile dans
-     .colonnes : tant que les deux calques ne dessinent pas leur ligne de la
-     meme facon, ils ne peuvent pas se superposer. */
-  /* ⚠️ `50vw` ET NON `50%`, et c'est la source du mauvais alignement.
-
-     Dans `background-position`, un POURCENTAGE ne veut pas dire ce qu'on
-     croit : il aligne le point 50% de l'IMAGE sur le point 50% du
-     conteneur, ce qui pour une image d'1px de large donne
-     (largeur - 1) / 2, soit un demi-pixel plus a gauche que le milieu. Le
-     trait tombait donc a cheval sur deux pixels, d'ou son air epais et
-     legerement decale par rapport a la trame, qui elle vise le vrai milieu.
-
-     Une LONGUEUR, elle, se mesure bord a bord, sans cette subtilite :
-     50vw donne exactement le milieu, et -1px place le trait sur le meme
-     pixel que la verticale de la trame. */
-  background-position:
-    calc(50vw - var(--rule-x) - 1px) 0,
-    calc(50vw + var(--rule-x) - 1px) 0;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -429,8 +269,7 @@ ul, ol { list-style: none; }
    cumuler avec la couleur faisait decoratif. Ici les deux se cumulent, et
    c est voulu : il n y a plus qu UN mot accentue sur tout le site, donc il
    peut porter les deux marques sans que ca devienne un tic. */
-.hero .em,
-.hero--full .em {
+.hero .em {
   font-style: italic;
   background: linear-gradient(104deg, #1e3a8a 0%, var(--blue) 55%, #3b82f6 100%);
   -webkit-background-clip: text;
@@ -441,7 +280,7 @@ ul, ol { list-style: none; }
   -webkit-text-fill-color: transparent;
 }
 @supports not (background-clip: text) {
-  .hero .em, .hero--full .em { color: var(--blue-300); -webkit-text-fill-color: currentColor; }
+  .hero .em { color: var(--blue-300); -webkit-text-fill-color: currentColor; }
 }
 
 /* Corps de texte. */
@@ -558,14 +397,6 @@ ul, ol { list-style: none; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
 }
 
-/* Filet horizontal lumineux, qui s'éteint sur les bords. */
-.hr {
-  height: 1px;
-  max-width: var(--wrap);
-  margin-inline: auto;
-  background: linear-gradient(90deg, transparent, var(--border), transparent);
-}
-
 .stack { display: grid; gap: 18px; align-content: start; }
 .stack--sm { gap: 10px; }
 .stack--lg { gap: 30px; }
@@ -615,14 +446,15 @@ ul, ol { list-style: none; }
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 12px 22px;
-  border-radius: 10px;
+  padding: 12px 24px;
+  /* EN PILULE, et plats (05/11/2026, maquette Claude Design) : ni ombre, ni
+     dégradé, ni soulèvement au survol. Seule la couleur change. */
+  border-radius: 999px;
   font-size: 0.9375rem;
   font-weight: 500;
   letter-spacing: -0.006em;
   border: 1px solid transparent;
-  transition: transform 160ms ease, box-shadow 200ms ease, background 200ms ease,
-    border-color 200ms ease, color 200ms ease;
+  transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
   white-space: nowrap;
 }
 .btn svg { transition: transform 240ms cubic-bezier(0.2, 0.8, 0.3, 1); }
@@ -634,10 +466,8 @@ ul, ol { list-style: none; }
 .btn--primary {
   background: var(--blue);
   color: #fff;
-  /* Le liseré clair en haut, celui des boutons de l'application. */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 24px -10px rgba(27, 69, 196, 0.7);
 }
-.btn--primary:hover { transform: translateY(-1px); background: var(--blue-300); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 14px 32px -10px rgba(27, 69, 196, 0.8); }
+.btn--primary:hover { background: var(--blue-300); }
 /* Sur le bloc d'appel final, qui est lui-même bleu, le bouton bleu
    disparaîtrait : il repasse en blanc, seul endroit du site où c'est le cas. */
 /* Le bouton reprend le traitement de tous les autres : sur fond clair, un
@@ -645,19 +475,18 @@ ul, ol { list-style: none; }
 
 /* Bouton bleu, pour les pages où le blanc est déjà pris. */
 .btn--blue {
-  background: linear-gradient(180deg, var(--blue-400), var(--blue));
+  background: var(--blue);
   color: #fff;
-  box-shadow: var(--glow-blue);
 }
-.btn--blue:hover { transform: translateY(-1px); }
+.btn--blue:hover { background: var(--blue-300); }
 
+/* Le bouton secondaire : blanc, un contour à peine marqué. */
 .btn--ghost {
-  border-color: var(--border-2);
+  border-color: var(--border);
   color: var(--text);
-  background: var(--surface);
-  backdrop-filter: blur(10px);
+  background: #fff;
 }
-.btn--ghost:hover { background: var(--surface-2); border-color: var(--border-2); }
+.btn--ghost:hover { background: var(--bg-2); border-color: var(--border-2); }
 /* Le bouton secondaire des cartes de tarifs (Core, Custom). La classe etait
    utilisee par PlanTable.js mais n'existait plus dans cette feuille : ces
    boutons s'affichaient en simple texte, sans cadre. Tant qu'ils etaient au
@@ -665,7 +494,7 @@ ul, ol { list-style: none; }
    bouton bleu plein de Pro se lisait comme un oubli. Fond blanc et filet
    franc : un vrai bouton, un cran sous celui du plan mis en avant. */
 .btn--line {
-  border-color: var(--border-2);
+  border-color: var(--border);
   color: var(--text);
   background: #fff;
 }
@@ -710,170 +539,35 @@ ul, ol { list-style: none; }
   height: var(--header-h);
   display: flex;
   align-items: center;
-  transition: background 240ms ease, border-color 240ms ease, backdrop-filter 240ms ease;
-  /* ⚠️ LE FILET DU BAS EXISTE DES LE HAUT DE PAGE, il n'apparait plus au
-     defilement. C'est LUI la premiere horizontale de la trame : la barre
-     n'est pas un bloc pose sur le quadrillage, elle est DESSINEE PAR lui,
-     comme la premiere cellule d'une feuille. D'ou son encre, celle des
-     lignes en haut du hero, et non une bordure de plus.
-
-     Corollaire, et c'est l'autre moitie de la regle : plus AUCUNE verticale
-     ne traverse la barre. La trame commence sous elle (voir les `inset` de
-     .colonnes--hero, de .hero--full::after et de body::before). Des
-     verticales qui montent jusqu'en haut de l'ecran hachent la navigation et
-     lui font perdre son statut de barre.
-
-     ⚠️ ET LA BARRE NE DESSINE PLUS ELLE-MEME CE FILET, en haut de page.
-     Elle en portait un, blanc, POSE JUSTE AU-DESSUS de la premiere
-     horizontale de la trame : deux traits d'un pixel colles l'un a l'autre,
-     donc un filet qui paraissait deux fois trop epais. La trame le dessine
-     seule desormais ; la barre ne reprend le sien qu'une fois posee
-     (.header--stuck), ou elle est blanche opaque et recouvre la trame. */
-  border-bottom: 1px solid transparent;
+  /* LE SEUL FILET DU SITE : il délimite le bas de la barre, en haut de page
+     comme au défilement (05/11/2026, demande directe, juste après le retrait
+     de toutes les autres lignes de séparation). */
+  border-bottom: 1px solid var(--border);
+  transition: background 240ms ease;
 }
-/* Les deux filets de la page, repris DANS la barre et a son encre : blanche,
-   comme la trame du haut du hero, parce que le ciel est bleu derriere. Memes
-   positions que le calque fixe (calc(50% ± --rule-x)), meme facon de
-   dessiner le trait (decale d'un demi-pixel, voir body::before) : les deux
-   se prolongent sans decrochage a la frontiere de la barre.
-
-   Une fois la barre posee, son fond blanc opaque passe par-dessus et les
-   fait disparaitre : c'est le bon comportement, la barre devient alors une
-   bande pleine qui se detache du contenu qui defile dessous. */
-.header::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  /* Blanc PUR, comme le premier arret du degrade de la trame : a 0.95 le
-     trait de la barre etait deja un cheveu plus terne que celui d'en
-     dessous. */
-  background-image:
-    linear-gradient(#fff, #fff),
-    linear-gradient(#fff, #fff);
-  background-size: 1px 100%, 1px 100%;
-  background-repeat: no-repeat, no-repeat;
-  /* Memes positions que le calque fixe, et pour la meme raison : voir la
-     note sur 50vw dans body::before. */
-  background-position:
-    calc(50vw - var(--rule-x) - 1px) 0,
-    calc(50vw + var(--rule-x) - 1px) 0;
-}
-
-/* ⚠️ SUR LE CIEL, LA BARRE PASSE EN BLANC ; DES QU'ELLE SE POSE, ELLE
-   REPASSE EN NOIR.
-
-   En haut de l'accueil la barre est transparente sur le ciel bleu : la
-   marque, les liens, le selecteur de langue et le menu mobile y sont
-   blancs. Des qu'on defile, .header--stuck lui donne un fond blanc opaque
-   et tout reprend l'encre ordinaire. Le bouton « Book a demo » ne change
-   pas : bleu plein a texte blanc, il se lit sur les deux fonds.
-
-   Deux choses a ne pas defaire :
-     • le `body:has(.hero--full)`. La barre est dans le layout, commune a
-       toutes les pages, et seul l'accueil a un ciel derriere elle. Sur
-       /pricing ou une page legale, elle est transparente sur du BLANC :
-       du texte blanc y disparaitrait purement et simplement ;
-     • le logo suit parce que son SVG est en `fill: currentColor` (Icons.js).
-       Une couleur ecrite en dur dans le SVG le laisserait noir ici. */
-body:has(.hero--full) .header:not(.header--stuck) .brand,
-body:has(.hero--full) .header:not(.header--stuck) .nav > a,
-body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
-body:has(.hero--full) .header:not(.header--stuck) .burger { color: #fff; }
-/* Un cran de graisse en plus, tant qu'ils sont blancs : un texte clair sur
-   fond fonce parait plus maigre que le meme texte en noir sur blanc.
-
-   ⚠️ `.nav > a` et JAMAIS `.nav a` dans toutes ces règles : les entrées du
-   menu « Roles » sont AUSSI des liens dans `.nav`. Avec `.nav a`, elles
-   héritaient sur l'accueil de l'ombre bleu nuit et de la graisse prévues
-   pour du blanc sur le ciel : texte noir sur panneau blanc, empâté comme une
-   mauvaise impression, et seulement sur l'accueil (les autres pages n'ont
-   pas de ciel). Corrigé le 14/10/2026. */
-body:has(.hero--full) .header:not(.header--stuck) .nav > a,
-body:has(.hero--full) .header:not(.header--stuck) .nav__trigger { font-weight: 500; }
-/* ⚠️ LA LISIBILITE PASSE PAR UNE OMBRE, PAS PAR LE FOND.
-
-   Le blanc sur le ciel clair ne tient pas seul (1,4:1 de contraste pour
-   les liens). Un premier essai a fonce le haut du ciel en bleu moyen pour
-   atteindre 5:1 : lisible, mais le hero entier devenait bleu fonce, et ca a
-   ete refuse aussitot. L'ombre ci-dessous, tres courte et bleu nuit, pose
-   un liseré sombre au bord de chaque lettre : c'est lui que l'oeil lit, et
-   le ciel ne change pas. Ne la grossissez pas : au-dela, elle se voit comme
-   une ombre portee et le texte parait flou. */
-body:has(.hero--full) .header:not(.header--stuck) .brand,
-body:has(.hero--full) .header:not(.header--stuck) .nav > a,
-body:has(.hero--full) .header:not(.header--stuck) .nav__trigger,
-body:has(.hero--full) .header:not(.header--stuck) .lang__btn {
-  text-shadow: 0 1px 2px rgba(7, 41, 75, 0.45), 0 0 1px rgba(7, 41, 75, 0.35);
-}
-/* Le logo est un SVG : text-shadow ne l'atteint pas, filter si. */
-body:has(.hero--full) .header:not(.header--stuck) .brand svg {
-  filter: drop-shadow(0 1px 1.5px rgba(7, 41, 75, 0.4));
-}
-body:has(.hero--full) .header:not(.header--stuck) .nav > a:hover,
-body:has(.hero--full) .header:not(.header--stuck) .nav__trigger:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
-body:has(.hero--full) .header:not(.header--stuck) .nav > a[aria-current="page"] { color: #fff; background: rgba(255, 255, 255, 0.2); }
-body:has(.hero--full) .header:not(.header--stuck) .lang__btn,
-body:has(.hero--full) .header:not(.header--stuck) .burger {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.12);
-}
-body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff; border-color: #fff; }
-/* Le passage du blanc au noir se fait en fondu, au meme rythme que le fond
-   de la barre (240ms, voir .header) : sinon le texte basculait d'un coup
-   pendant que le fond, lui, glissait. */
+/* Les couleurs de la barre changent en fondu, au meme rythme que son fond
+   (240ms, voir .header). Elle passait du blanc au noir sur le ciel bleu de
+   l'accueil, retire le 05/11/2026 : il reste le survol. */
 .brand,
 .nav a { transition: color 240ms ease, background 160ms ease; }
 .lang__btn,
 .burger { transition: color 240ms ease, border-color 240ms ease, background 240ms ease; }
 
-/* Tant que la page est en haut, l'en-tête est transparent et le hero respire.
-   Dès qu'on descend, il se pose : fond flouté et filet. */
-.header--stuck {
-  /* BLANC PLEIN, et pas un voile. Il a été translucide un temps ; la demande
-     est un en-tête franc, qui sépare nettement la barre du contenu qui
-     défile dessous. */
-  background: #fff;
-  border-bottom-color: var(--border);
-}
+/* Tant que la page est en haut, l'en-tête est transparent. Dès qu'on
+   descend, il passe en blanc plein. Son filet du bas, lui, est là dans les
+   deux cas (voir .header). */
+.header--stuck { background: #fff; }
 
 /* Trois zones, et la navigation au MILIEU : la marque prend la gauche, les
    liens se centrent sur la page, la langue et l'appel à l'action tiennent la
    droite. Les deux colonnes latérales ont la même base en flex pour que
    le centre soit vraiment le centre de la page, et non le centre de ce qui
    reste entre deux blocs de largeurs différentes. */
-/* L'en-tête a sa PROPRE largeur, plus large que la colonne de contenu : la
-   marque et l'appel à l'action s'écartent vers les bords, et les liens du
-   milieu respirent au lieu d'être serrés entre eux. */
-/* L'en-tete a sa PROPRE largeur, plus large que la colonne de contenu : la
-   marque et l'appel a l'action s'ecartent vers les bords, et les liens du
-   milieu respirent au lieu d'etre serres entre eux.
-
-   ⚠️ Elle a ete calee un moment sur les deux filets, marque a ras du filet
-   gauche et bouton a ras du droit. Annule : colles aux traits, les deux
-   elements donnaient une barre a l'etroit. Les filets passent maintenant
-   AUTOUR du contenu de la barre, et c'est le role d'un filet, encadrer.
-
-   ⚠️ SA LARGEUR SE DEDUIT DES FILETS, elle n'est plus un nombre fixe. Elle
-   valait 1320px, calee a l'oeil sur un grand ecran, alors que les filets se
-   calculent a partir de la fenetre. Sur un grand ecran, la barre tombait
-   entre les deux filets ; sur un portable, les filets passaient A
-   L'INTERIEUR de la barre : le logo sortait a gauche du filet, le bouton
-   le traversait a droite. La barre fait maintenant exactement la largeur
-   entre les deux filets, et son contenu garde un retrait constant de
-   chaque cote : ce qui a ete valide sur le grand ecran (logo a 53px du
-   filet) vaut a toutes les tailles. */
+/* L'en-tête a sa PROPRE largeur, plus large que la colonne de contenu. Elle
+   se déduisait des deux filets verticaux de la page, retirés le 05/11/2026. */
 .header .wrap {
-  max-width: calc(var(--rule-x) * 2);
-  padding-left: clamp(var(--gutter), 3.4vw, 52px);
-  /* Retrait DROIT plus court que le gauche, et c'est voulu. A retrait egal,
-     le groupe de droite (langue + bouton) paraissait plus loin de son filet
-     que le logo du sien : un bloc bleu plein a un bord net, un logo a un
-     bord « ouvert », et l'oeil ne mesure pas les deux pareil. Un tiers de
-     moins a droite les fait paraitre a la meme distance. */
-  padding-right: clamp(var(--gutter), 2.4vw, 36px);
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
 }
 .header__in { display: flex; align-items: center; gap: 20px; width: 100%; }
 .header__in > .brand { flex: 1; margin-right: 0; }
@@ -897,16 +591,21 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 }
 .brand svg { height: 28px; width: auto; }
 
-.nav { display: flex; align-items: center; gap: 4px; }
+/* Les liens, à l'encre du texte, DIRECTEMENT SUR LE BLANC de la barre.
+   ⚠️ Une pilule noire les a portés quelques heures le 05/11/2026 (maquette
+   Claude Design) ; retirée sur retour direct : « pas de bord noir autour,
+   juste en blanc ». Le survol garde la forme en pilule, en gris très clair. */
+.nav { display: flex; align-items: center; gap: 2px; }
 .nav a {
   position: relative;
   font-size: 0.875rem;
+  font-weight: 500;
   color: var(--text-2);
-  padding: 7px 13px;
-  border-radius: var(--r-sm);
+  padding: 7px 14px;
+  border-radius: 999px;
   transition: color 160ms ease, background 160ms ease;
 }
-.nav a:hover { color: var(--text); background: var(--surface); }
+.nav a:hover { color: var(--text); background: var(--surface-2); }
 .nav a[aria-current="page"] { color: var(--text); background: var(--surface-2); }
 
 /* ── Le menu « Roles » (12/10/2026) ───────────────────────────────────────
@@ -920,14 +619,16 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   align-items: center;
   gap: 5px;
   font-size: 0.875rem;
+  font-weight: 500;
   color: var(--text-2);
-  padding: 7px 11px 7px 13px;
-  border-radius: var(--r-sm);
-  transition: color 240ms ease, background 160ms ease;
+  padding: 7px 12px 7px 14px;
+  border-radius: 999px;
+  transition: color 160ms ease, background 160ms ease;
 }
-.nav__trigger:hover { color: var(--text); background: var(--surface); }
+.nav__trigger:hover,
+.nav__trigger[aria-expanded="true"],
 .nav__trigger[aria-current="page"] { color: var(--text); background: var(--surface-2); }
-.nav__trigger svg { transition: transform 160ms ease; }
+.nav__trigger svg { opacity: 0.6; transition: transform 160ms ease; }
 .nav__trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
 .roles__menu {
   position: absolute;
@@ -950,6 +651,41 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   transition: background 140ms ease;
 }
 .roles__item:hover, .roles__item[aria-current="page"] { background: var(--surface-2); }
+/* ── Le grand panneau du menu « Solutions » (10/11/2026, retour direct) ── */
+/* « Pas un carré qui s'ouvre » : un panneau de toute la largeur de la barre,
+   collé sous elle, les deux groupes côte à côte (Use cases à gauche,
+   Industries à droite) et leurs entrées en LIGNE plutôt qu'en colonne. Il
+   est fixé sous la barre (elle-même collée en haut, sans filtre ni
+   transformation qui changeraient le repère d'un `fixed`). Le survol remplit
+   toute l'entrée, à petits rayons (4px) : « trop arrondi » avant. */
+.roles__menu--large {
+  position: fixed;
+  top: calc(var(--header-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(var(--bar-w) - 2 * var(--bar-pad)), calc(100vw - 32px));
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0;
+  border-radius: 10px;
+}
+/* « Resources » : un seul groupe, sans intitulé, ses quatre entrées sur
+   une ligne. */
+.roles__menu--resources { grid-template-columns: minmax(0, 1fr); }
+.nav .roles__item--off:hover { background: none; }
+.roles__item--off .roles__icon { color: var(--text-4); }
+.roles__col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.roles__col + .roles__col { margin-left: 20px; padding-left: 20px; border-left: 1px solid var(--border); }
+.roles__group { padding: 0 14px 4px; font-size: 0.75rem; font-weight: 500; color: var(--text-4); }
+.roles__items { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+/* `.nav .` : la règle `.nav a` de la barre (pilule, 7px de marge) passait
+   devant une classe seule. */
+.nav .roles__item--large { display: flex; align-items: flex-start; gap: 14px; padding: 16px 14px; border-radius: 4px; }
+.roles__icon { flex: none; width: 38px; height: 38px; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--blue); transition: background 140ms ease; }
+.roles__item--large:hover .roles__icon,
+.roles__item--large[aria-current="page"] .roles__icon { background: #fff; }
+.roles__text { display: grid; gap: 4px; min-width: 0; }
 .roles__label { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
 .roles__desc { font-size: 0.8125rem; color: var(--text-3); line-height: 1.45; }
 /* Une entrée SANS page (la tech, depuis le 14/10/2026) : pas de survol, pas
@@ -969,24 +705,30 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   padding: 2px 8px;
 }
 
-.header__right { display: flex; align-items: center; gap: 8px; }
+.header__right { display: flex; align-items: center; gap: 6px; }
+/* Le bouton de la barre, NETTEMENT PLUS PETIT que ceux de la page (retour
+   direct du 05/11/2026 : « il reste énorme »). Il est à la taille du texte
+   des liens, pas à celle d'un appel à l'action de hero. */
+.header__right .btn {
+  /* Un cran remonté après coup (« vraiment petit ») : entre les deux. */
+  padding: 9px 19px;
+  font-size: 0.875rem;
+  gap: 6px;
+}
 
 .lang { position: relative; }
 .lang__btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.07em;
-  color: var(--text-2);
-  transition: border-color 160ms ease, color 160ms ease;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-4);
+  transition: color 160ms ease, background 160ms ease;
 }
-.lang__btn:hover { border-color: var(--border-2); color: var(--text); }
+.lang__btn:hover { color: var(--text); background: var(--surface); }
 .lang__menu {
   position: absolute;
   right: 0;
@@ -1025,8 +767,8 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
   width: 38px;
   height: 38px;
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface);
+  border-radius: 999px;
+  background: #fff;
 }
 
 .mobile {
@@ -1074,248 +816,6 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 
 .hero { padding-top: clamp(56px, 8vw, 104px); padding-bottom: clamp(56px, 7vw, 96px); position: relative; }
 
-/* ── Le ciel du hero ─────────────────────────────────────────────────────── */
-/* Le gabarit pose une photo de nuages derrière son hero. Ici c'est du CSS :
-   trois voiles bleus qui se recouvrent et blanchissent vers le bas. Une photo
-   aurait voulu dire un fichier lourd, un recadrage par largeur d'écran, et un
-   ciel qui n'a rien à voir avec le produit — le dégradé donne la même
-   sensation d'air pour quelques lignes.
-
-   Tout est en `::before`/`::after` et en `z-index: 0` : le contenu du hero
-   est en `position: relative` au-dessus, donc rien de tout ça ne l'attrape. */
-.hero--full::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-/* ⚠️ LE CIEL N'EST PLUS DANS LE HERO, il est sur la page.
-
-   Il etait un pseudo du hero, deborde de 68px vers le haut pour passer
-   DERRIERE la barre de navigation, qui est transparente en haut de page. Le
-   jour ou le hero a du rogner ce qui depasse de lui (overflow: clip, pour
-   que la fenetre de l'application s'arrete pile sur sa derniere rangee), ce
-   debordement a ete rogne aussi : la barre s'est retrouvee sur du blanc.
-
-   Il couvre donc maintenant la barre ET le hero, depuis .home, qui ne rogne
-   rien. z-index -1 : sous le contenu, au-dessus du fond de page. */
-.home { position: relative; }
-.home::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--header-h) * -1);
-  left: 0;
-  right: 0;
-  height: calc(var(--header-h) + var(--hero-h));
-  z-index: -1;
-  pointer-events: none;
-  /* Le ciel a ete FONCE en meme temps que le bleu de marque : un ciel trop
-     pale sous un bouton fonce donnait deux bleus sans rapport. Le blanc
-     reste en bas, c'est lui qui fait le passage vers la page. */
-  /* ⚠️ UNE ELLIPSE, PAS UNE BANDE. Trois essais en bande horizontale ont
-     ete juges trop bleus, du plus fonce au plus clair : une bande colore
-     toute la largeur de l'ecran pour servir des liens qui n'en occupent que
-     le tiers central. L'ellipse est soutenue AU MILIEU, derriere les liens,
-     et s'eteint vers les cotes et vers le bas : le reste du ciel garde sa
-     clarte. Elle sert a ce que la barre blanche s'y lise, juste assez pour
-     que la barre blanche s'y lise avec son ombre (voir .header). Un premier
-     essai l'avait pousse a un bleu moyen (#4270d4, 5:1 de contraste) et a
-     ete refuse : tout le hero virait au bleu fonce. Celui-ci reste un ciel
-     clair. Il est en PREMIER calque, sinon les halos clairs du dessous le
-     delavent. */
-  background:
-    radial-gradient(
-      ellipse 34% calc(var(--header-h) * 2.6) at 50% 0,
-      rgba(128, 162, 230, 0.55) 0%,
-      rgba(142, 174, 235, 0.3) 45%,
-      rgba(151, 181, 238, 0) 100%),
-    radial-gradient(1000px 500px at 18% 2%, rgba(120, 172, 246, 0.46), transparent 68%),
-    radial-gradient(900px 500px at 82% 0%, rgba(158, 197, 251, 0.5), transparent 66%),
-    radial-gradient(1200px 460px at 50% 100%, #fff, transparent 74%),
-    linear-gradient(180deg, #d2e2fb 0%, #e8f0fe 40%, #fff 88%);
-}
-/* Le quadrillage fin, ET SEULEMENT ICI. Les « + » aux intersections sont le
-   détail qui fait « outil » plutôt que « papier millimétré » : ils tombent un
-   cran sur deux (`--grid-step` × 3) pour rester rares. Le masque éteint toute
-   la trame avant le bas du hero, sinon elle se couperait net sur la section
-   suivante, qui n'en a pas. */
-.hero--full::after {
-  /* Le ciel (::before) remonte derriere la barre, qui est transparente en
-     haut de page ; les horizontales, elles, commencent sous elle. */
-  top: 0;
-
-  /* ⚠️ ICI, LES HORIZONTALES SEULEMENT. Les verticales et les croisillons
-     ont demenage dans .colonnes, qui ne couvre que la bande entre les deux
-     filets. Les horizontales, elles, traversent toute la fenetre : c'est
-     ce contraste qui fait le decor du gabarit de reference, une trame
-     complete au centre et de simples lignes de portee sur les cotes. */
-
-  /* ⚠️ LA TRAME DU HERO CHANGE D'ENCRE EN DESCENDANT : blanche en haut, sur
-     le bleu du ciel, grise en bas, sur le blanc de la page. Sans ça, une
-     seule encre devait convenir aux deux fonds : le gris se perdait dans le
-     bleu, le blanc disparaissait sur le blanc.
-
-     C'est un RETOURNEMENT de la technique habituelle, et c'est ce qui
-     permet le dégradé : ce n'est plus le fond qui dessine les lignes et le
-     masque qui les estompe, c'est le FOND qui porte le dégradé d'encre et
-     le MASQUE qui découpe les lignes dedans. Un motif de fond ne peut pas
-     changer de couleur selon sa position ; un aplat dégradé masqué, si.
-
-     Le masque fait donc ici le travail du motif : une ligne par tuile de
-     85px, répétée. Ne remettez pas de `mask-image` d'estompage par-dessus,
-     il remplacerait celui-ci et toutes les lignes disparaîtraient d'un
-     coup. La trame ne s'arrête plus avant le bas du hero, et elle n'y est
-     plus estompée non plus : ses lignes s'y terminent sur exactement
-     l'encre des deux filets du site, qui prennent le relais pour le reste
-     de la page. Le raccord est donc invisible sans rien avoir à fondre. */
-  /* ⚠️ LE DÉGRADÉ NE PASSE PAS PAR LE TRANSPARENT. Première version : blanc
-     qui s'efface à 46%, gris qui reprend à 58%. Entre les deux, les lignes
-     DISPARAISSAIENT sur une douzaine de pourcents de hauteur, et la trame
-     avait un trou au milieu du hero. Il faut passer par une teinte
-     intermédiaire visible (ce bleu-gris pâle), pas par du vide. */
-  /* ⚠️ DEUX COULEURS OPAQUES, ET RIEN D'AUTRE ENTRE LES DEUX.
-
-     Les versions precedentes interpolaient entre un blanc TRANSPARENT et un
-     bleu nuit TRANSPARENT. Deux defauts qui se suivent : au milieu,
-     l'opacite tombe et la ligne disparait ; et si on remonte l'opacite de
-     la teinte de passage pour la rattraper, elle vire au gris ou au bleu
-     beaucoup trop tot, alors que le fond est encore presque blanc.
-
-     Ici les deux bouts sont OPAQUES : blanc pur en haut, et en bas
-     exactement la couleur que donne --grid pose sur du blanc (#f1f3f5).
-     L'interpolation reste donc claire d'un bout a l'autre, ne passe par
-     aucun creux d'opacite, et le bas se raccorde pile sur les deux filets
-     du site, qui prennent le relais sous le hero. */
-  background-image: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #ffffff 30%,
-    #f4f6f9 46%,
-    #f1f3f5 60%,
-    #f1f3f5 100%);
-  /* ⚠️ PLUS DE CARREAUX DANS LE HERO (12/10/2026, demande directe). Le
-     masque ne découpe plus une ligne par rangée mais UNE SEULE, la première :
-     c'est le filet du bas de la barre de navigation, qui doit rester. Taille
-     du masque = tout le bloc, sans répétition. Le dégradé d'encre ci-dessus
-     reste en place : la ligne gardée est en haut, donc blanche, sur le ciel. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 1px, transparent 1px);
-  mask-image: linear-gradient(to bottom, #000 1px, transparent 1px);
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  /* ⚠️ `top`, ET SURTOUT PAS `center`. Le motif etait ancre au MILIEU du
-     bloc : la premiere rangee sous la barre de navigation tombait donc ou
-     elle voulait, et elle etait presque toujours COUPEE. On voyait un
-     demi-bloc coince entre la barre et la premiere vraie rangee, ce qui
-     donnait a la barre l'air d'avoir un gros soulignement.
-
-     Ancrees en haut, les rangees partent du filet de la barre : la premiere
-     ligne EST ce filet, et toutes les suivantes font un bloc plein. */
-  -webkit-mask-position: left top;
-  mask-position: left top;
-}
-/* Seuls les BLOCS DE CONTENU repassent au-dessus du ciel. La règle visait
-   `> *` au départ, et elle écrasait le `position: absolute` du halo `.glow`
-   (même spécificité, déclarée plus bas) : le halo redevenait un élément de
-   flux et poussait le titre de 320px vers le bas. */
-.hero--full > .wrap { position: relative; z-index: 1; }
-
-/* ── L'arrivée : la fenêtre penchée, le texte qui passe derrière ─────────── */
-/* Trois variables posées par le défilement (voir AppPeek.js), et trois
-   effets qui en découlent. Les valeurs par défaut sont celles du HAUT DE
-   PAGE : si le script ne tourne jamais (JavaScript coupé, robot
-   d'indexation), la page reste dans cet état, qui est lisible. Le pire cas
-   est une fenêtre légèrement inclinée, pas une page vide. */
-/* Le filet qui ferme le hero. Il repond a celui de la barre de navigation,
-   qui ouvre la page : la trame commence sous l'un et se termine sur
-   l'autre, et le hero devient une bande fermee plutot qu'une zone qui
-   s'arrete.
-
-   ⚠️ Il tombe PILE sur la coupe de la fenetre de l'application. Ce n'est
-   pas une coincidence a entretenir a la main : `.peek` est masquee sur le
-   bas du hero, donc son bord visible EST le bas du hero (mesure : les deux
-   a 917px). Un filet pose ailleurs, meme de quelques pixels, donnerait deux
-   horizontales presque superposees. */
-.hero--full { border-bottom: 1px solid var(--grid); }
-.hero--full { --fade: 1; }
-
-/* La scène passe AU-DESSUS du texte : c'est ce qui fait que le titre glisse
-   dessous au lieu de glisser dessus. */
-.hero--full > .stage { z-index: 2; }
-/* ⚠️ La specificite compte ICI : `.hero--full > .wrap` pose
-   `position: relative`, qui ecrasait le `sticky` de `.hero__in` (une seule
-   classe contre deux). Le collage ne prenait pas, sans aucune erreur. */
-.hero--full > .wrap.hero__in {
-  position: sticky;
-  top: calc(var(--header-h) + 34px);
-  z-index: 1;
-  /* Pose par le balayage de la fenetre (voir AppPeek.js). Vaut 1 en haut
-     de page, donc la page reste lisible si le script ne tourne pas. */
-  opacity: var(--fade, 1);
-}
-
-/* Le titre, le sous-titre et le bouton. Ils montent plus vite que la page et
-   s'effacent, donc ils disparaissent SOUS la fenêtre. */
-/* ⚠️ L'EFFET DU HERO TIENT ICI, ET EN CSS SEULEMENT.
-   Le titre, le sous-titre et le bouton se COLLENT sous l'en-tête pendant
-   qu'on descend : ils restent à l'écran, la fenêtre en dessous remonte
-   normalement, et elle finit par les recouvrir. Quand la section se termine,
-   le bloc se décolle et repart avec la page.
-
-   Ça a été écrit en JavaScript d'abord (un écouteur de défilement qui
-   déplaçait le texte au pixel près) et c'était une erreur : ce script
-   s'auto-désactivait sous « réduire les animations », donc l'effet
-   n'existait pas du tout sur une machine où ce réglage est activé — ce qui
-   est courant sous Windows. En `position: sticky`, il n'y a plus de script,
-   donc plus rien à désactiver, et le comportement est le même partout.
-
-   Ne remettez pas de `transform` ici : un `transform` sur un élément collé
-   crée un nouveau bloc conteneur et casse le collage. */
-.hero__in {
-  position: sticky;
-  top: calc(var(--header-h) + 34px);
-}
-
-/* L'accueil SEUL : le hero occupe l'écran entier, en-tête déduit. Les pages
-   intérieures gardent `.hero` nu — un plein écran pour un titre et une phrase
-   y ouvrirait un grand vide avant le contenu.
-
-   `100svh` et non `100vh` : sur un téléphone, `vh` ignore la barre d'adresse et
-   le bac à sable se retrouvait coupé au chargement. `svh` prend la plus petite
-   hauteur possible, donc celle où tout tient quoi qu'il arrive. Repli en `vh`
-   pour les navigateurs qui ne connaissent pas l'unité.
-
-   C'est un MINIMUM : si le néerlandais passe le titre sur trois lignes, la
-   section s'allonge au lieu de rogner. */
-.hero--full {
-  /* ⚠️ HAUTEUR RABOTEE SUR UN NOMBRE ENTIER DE CARREAUX.
-
-     Le hero faisait la hauteur de l'ecran moins la barre, soit une valeur
-     quelconque : sa DERNIERE rangee etait donc coupee, exactement le meme
-     defaut que la premiere avait sous la barre. C'est le PAS qui se deduit
-     maintenant de la hauteur d'ecran (voir --grid-step), si bien que la
-     premiere et la derniere rangee sont pleines et qu'il ne reste aucune
-     bande blanche sous le hero.
-
-     La hauteur est IMPOSEE (height, pas seulement min-height) : le contenu
-     depassait de quelques dizaines de pixels et reimposait sa propre
-     hauteur. Ce qui deborde est la fenetre de l'application, qui est DEJA
-     coupee par le bas du hero (voir .peek) : la rogner d'un cran de plus ne
-     change rien a ce qu'elle raconte.
-
-     `clip` et NON `hidden` : `hidden` ferait du hero un conteneur de
-     defilement et neutraliserait le `sticky` de son titre. */
-  min-height: var(--hero-h);
-  height: var(--hero-h);
-  overflow: clip;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding-top: clamp(48px, 8vh, 92px);
-  padding-bottom: 0;
-}
 .hero__in { display: grid; justify-items: center; text-align: center; gap: 26px; }
 .hero .display { max-width: 15ch; }
 /* Le titre des pages interieures n'a pas ce plafond. Il est aussi pose dans
@@ -1348,43 +848,16 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 }
 .hero .lede { max-width: 62ch; font-size: clamp(1.0625rem, 1.6vw, 1.3125rem); }
 
-/* ⚠️ LE HAUT DU HERO SE TASSE SUR LES ECRANS PEU HAUTS.
-
-   Le hero fait exactement la hauteur de l'ecran. Tout ce qui est au-dessus
-   de la fenetre de l'application (marge, titre, espacements) etait regle en
-   pixels ou en largeur d'ecran : sur un portable peu haut, il mangeait
-   toute la place, et on ne voyait plus que 144px de fenetre (1520 x 690),
-   contre 470 sur un ecran 1920 x 1080. Ces valeurs suivent maintenant AUSSI
-   la hauteur (vh), chacune avec son plafond d'origine : un grand ecran ne
-   change pas, un ecran bas rend la place a la fenetre. */
-.hero--full { padding-top: clamp(24px, calc(11vh - 40px), 92px); }
-.hero--full .hero__in { gap: clamp(14px, 2.9vh, 26px); }
-.hero--full .display { font-size: min(clamp(2.7rem, 6vw, 5rem), 9.2vh); }
-.hero--full .display--ajuste {
-  font-size: max(1.625rem, min(clamp(2.7rem, 6vw, 5rem), 9.2vh, calc(100cqw / (var(--car) * 0.46))));
+.hero__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 6px; }
+/* Les boutons du hero sont de la MÊME FAMILLE que celui de la barre
+   (05/11/2026, demande directe : « plus cohérents avec la nav ») : même corps
+   de texte, juste un cran plus hauts. Les boutons standard (.btn) restaient
+   nettement plus gros, et le hero avait l'air d'un autre site que sa barre. */
+.hero__actions .btn {
+  padding: 11px 22px;
+  font-size: 0.875rem;
+  gap: 6px;
 }
-.hero--full .stage { margin-top: clamp(20px, 3.4vh, 32px); }
-
-/* TOUT LE HAUT DU HERO SUIT LE MEME RAPPORT QUE LE TITRE. Reduire le titre
-   seul laissait un sous-titre, un bouton et une barre de saisie a pleine
-   taille sous un titre rapetisse : le bloc paraissait mal proportionne.
-
-   --s vaut 1px sur un ecran haut et moins sur un ecran bas, dans le MEME
-   rapport que le titre (9,2vh pour 80px, soit 0,115vh par pixel). Chaque
-   taille s'ecrit « sa valeur d'origine x --s », avec un plancher pour rester
-   lisible. Reserve aux ecrans larges : sur telephone, c'est la largeur qui
-   commande, et un ecran de telephone bas ne doit pas rapetisser les textes. */
-@media (min-width: 761px) {
-  .hero--full { --s: min(1px, 0.115vh); }
-  .hero--full .lede {
-    font-size: max(0.9375rem, min(clamp(1.0625rem, 1.6vw, 1.3125rem), calc(21 * var(--s))));
-  }
-  .hero--full .hero__actions .btn {
-    font-size: max(0.8125rem, calc(15 * var(--s)));
-    padding: calc(12 * var(--s)) calc(22 * var(--s));
-  }
-}
-.hero__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 6px; }
 .hero__note {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.6875rem;
@@ -1403,75 +876,563 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 }
 .trust svg { color: var(--blue-400); flex: none; }
 
-/* ── La scène du hero : la fenêtre de la plateforme (19/10/2026) ────────── */
-/* La fenêtre de la plateforme en grand, DROITE, sur le modèle du hero de
-   spott.io, et ses écrans qui défilent tout seuls (AppPeek.js). Demandes
-   directes, dans l'ordre : la barre de saisie (le bac à sable) retirée, des
-   onglets au-dessus de la fenêtre essayés puis retirés, l'inclinaison
-   retirée, et le verre réduit à un contour. */
-/* ⚠️ LA SCENE A SA PROPRE LARGEUR, plus large que la colonne de contenu.
+/* ── Le hero de l'accueil, en blanc (05/11/2026) ─────────────────────────── */
+/* Demande directe, sur une maquette Claude Design envoyée comme modèle de
+   STYLE (pas à recopier) : un hero tout blanc et plus posé. Le ciel bleu, le
+   halo, le contour de verre et le titre collé qui passait sous la fenêtre
+   sont retirés. Il reste, dans l'ordre : le titre en deux lignes, le
+   sous-titre, les deux boutons, un sélecteur Recrutement / Onboarding, et la
+   fenêtre de la plateforme ENTIÈRE dans un cadre bleu très pâle.
 
-   `.peek` a beau etre autorisee a 1080px, elle est fille d'un `.wrap`, donc
-   plafonnee a 1060 moins les gouttieres, soit 1004 : elargir la fenetre
-   seule ne changeait rien du tout. C'est le meme cas que l'en-tete, qui a
-   deja sa largeur propre pour la meme raison. */
-.stage { position: relative; }
-.wrap.stage { max-width: 1140px; }
+   Le hero n'a plus de hauteur imposée : c'est son contenu qui la donne. */
+.hero--accueil { padding-top: clamp(56px, 9vh, 104px); padding-bottom: clamp(64px, 8vw, 104px); }
+.hero--accueil .hero__in { gap: 22px; }
+/* La bulle au-dessus du titre (05/11/2026, sur un modèle donné) : une
+   pilule GRISE PLEINE, sans contour, la marque bleue à gauche, une pastille
+   blanche fléchée à droite. C'est un lien (vers la page des métiers). */
+.bulle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 7px 7px 7px 16px;
+  border-radius: 999px;
+  background: #ececf0;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  transition: background 160ms ease;
+}
+.bulle:hover { background: #e4e4ea; }
+.bulle__mark { display: grid; place-items: center; color: var(--blue); }
+/* Une seule phrase, d'une seule encre, comme le modèle. */
+.bulle__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bulle__go {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  transition: transform 200ms ease;
+}
+.bulle__go svg { stroke-width: 2.4; }
+.bulle:hover .bulle__go { transform: translateX(2px); }
+.hero--accueil .display { letter-spacing: -0.045em; line-height: 1.02; }
+/* Le sous-titre de l'accueil, un cran sous celui des autres heros (retour
+   direct : « un peu plus petit »). */
+.hero--accueil .lede { font-size: clamp(1rem, 1.35vw, 1.125rem); }
 
-/* LE VERRE, RÉDUIT À UN CONTOUR (19/10/2026, demande directe). Une bande
-   translucide et floutée de 8px autour de la fenêtre, comme un cadre de
-   verre. C'était une grande plaque qui débordait de 26 à 30px et portait
-   aussi la barre de saisie ; il n'en reste que le bord.
+/* Le sélecteur : DEUX ONGLETS PLEINS ET SÉPARÉS, chacun son cadre fin
+   (05/11/2026, sur deux modèles donnés). L'onglet choisi est blanc, texte et
+   icône en bleu ; l'autre est un aplat gris, qui fonce un peu au survol.
+   ⚠️ Il a d'abord été un rail gris avec un segment blanc soulevé dedans :
+   refusé, « ce n'est pas comme ça, c'est un truc plein ». Puis deux moitiés
+   collées dans un même cadre : refusé aussi, « sépare-les ». */
+/* L'écart boutons → onglets a été CREUSÉ (retour direct : 48-72px collait
+   le sélecteur aux boutons, on lisait un seul bloc). */
+/* LA LARGEUR DE LA BARRE DE NAVIGATION (retour direct : « jusqu'au logo et
+   jusqu'au bouton Book a demo ») : même largeur et même retrait que
+   `.header .wrap`, par les deux mêmes variables. */
+.vitrine {
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
+  margin-top: clamp(80px, 11vh, 120px);
+}
+.vitrine__tabs {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 20px;
+  /* SÉPARÉS (retour direct, même jour, sur un second modèle) : deux onglets
+     côte à côte, chacun son cadre, avec un écart entre eux, et non plus deux
+     moitiés collées dans un même cadre. */
+  gap: 12px;
+}
+.vitrine__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* Entre les deux réglages essayés le même jour : 196px / 13px était trop
+     gros, 150px / 8px trop petit. */
+  /* Plus LONGS, pas plus hauts (retour direct) : la largeur monte, le
+     padding vertical ne bouge pas. */
+  min-width: 260px;
+  padding: 10px 28px;
+  /* Moins arrondi (retour direct, même jour) : 12px faisait trop doux. */
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #f4f5f8;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+.vitrine__tab:hover { background: #eceef3; color: var(--text); }
+.vitrine__tab[aria-selected="true"],
+.vitrine__tab[aria-selected="true"]:hover {
+  background: #fff;
+  color: var(--blue);
+  box-shadow: 0 1px 2px rgba(20, 32, 74, 0.05);
+  cursor: default;
+}
+.vitrine__tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-   Deux calques, et il faut les deux :
-     • `::before` est le verre proprement dit — un fond presque transparent,
-       un `backdrop-filter` qui floute le ciel derrière, une bordure blanche
-       et un liseré clair en haut. C'est le liseré qui fait « plaque » plutôt
-       que « rectangle gris » ;
-     • `::after` est la lumière bleue diffuse au centre, floutée très large.
-       Sans elle, le verre est propre mais mort.
+/* ⚠️ PLUS DE CADRE AUTOUR DE LA FENÊTRE (retour direct, même jour) : un aplat
+   bleu pâle cerné d'un filet la portait, il est retiré. La fenêtre est posée
+   seule sur le blanc, sans bordure, et c'est son OMBRE qui la décolle (voir
+   .peek__win). `.vitrine__cadre` ne garde que son rôle de panneau d'onglet. */
+.vitrine__cadre { padding: 0; }
 
-   `backdrop-filter` n'a d'effet que s'il y a quelque chose derrière : le
-   verre ne vit que dans le hero, au-dessus du ciel. Posé sur du blanc plat,
-   il ne se verrait pas. */
-.stage__peek::before,
-.stage::after {
-  content: "";
-  position: absolute;
+/* ── Sous le hero : une phrase seule, centrée (05/11/2026) ───────────────── */
+/* Grise, elle passe à l'encre mot après mot au défilement (Encre.js). Les
+   quatre chiffres qui la suivaient ont été retirés (demande directe). */
+.chiffres__texte {
+  max-width: 14.5em;
+  margin-inline: auto;
+  text-align: center;
+  font-size: clamp(1.625rem, 4.1vw, 3.125rem);
+  font-weight: 400;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+  color: var(--text-4);
+  text-wrap: balance;
+}
+/* Les mots passent du gris au noir au défilement (Encre.js). */
+.encre__mot { transition: color 180ms ease; }
+.encre__mot.is-on { color: var(--text); }
+
+/* ── « Two moments that matter » (05/11/2026), Moments.js ───────────────── */
+/* Deux colonnes : à gauche le titre puis les deux moments en CARTES
+   EMPILÉES (celle du moment affiché ouverte, l'autre refermée sur son nom),
+   à droite la fenêtre de l'application du moment, en fondu. Le nom du moment
+   et son texte sont au même endroit : en trois colonnes, repères en bas à
+   gauche et texte en bas à droite, la section se lisait mal (retour direct).
+   Sur bureau, la section fait n × 150svh de haut et son contenu y est collé :
+   le passage tombe après un écran entier de défilement (à 105svh, on perdait
+   le premier moment dès le début du défilement). */
+.moments {
+  --mo-h: min(560px, calc(100svh - var(--header-h) - 96px));
+  position: relative;
+  height: calc(var(--n, 2) * 150svh);
+}
+.moments__sticky {
+  position: sticky;
+  top: var(--header-h);
+  height: calc(100svh - var(--header-h));
+  display: flex;
+  align-items: center;
+}
+.moments__grid {
+  /* Même largeur que la barre et la fenêtre du hero (--bar-w, --bar-pad). */
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(40px, 5vw, 72px);
+  align-items: center;
+}
+.moments .h2 { font-size: clamp(1.75rem, 2.6vw, 2.375rem); font-weight: 500; letter-spacing: -0.03em; }
+.moments__list { display: flex; flex-direction: column; gap: clamp(24px, 4vh, 36px); margin-top: clamp(32px, 6vh, 56px); }
+
+/* Les deux moments en TYPOGRAPHIE SEULE : pas de carte, pas d'ombre, pas
+   d'icône, pas de trait de progression (la version en cartes « faisait trop
+   section faite par IA », retour direct). Les deux titres restent visibles ;
+   celui du moment affiché passe à l'encre et déroule son texte (grille
+   0fr → 1fr, la seule façon d'animer une hauteur inconnue), l'autre reste
+   gris pâle. Même geste que la phrase au-dessus, qui noircit au défilement. */
+.moments__item { position: relative; }
+.moments__h { font: inherit; margin: 0; }
+.moments__itemHead {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.moments__item.is-on .moments__itemHead { cursor: default; }
+.moments__itemHead:focus-visible { outline: 2px solid var(--blue); outline-offset: 6px; border-radius: 4px; }
+.moments__title {
+  font-size: clamp(1.375rem, 2vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #c9cedb;
+  text-wrap: balance;
+  transition: color 600ms ease;
+}
+.moments__item:not(.is-on) .moments__itemHead:hover .moments__title { color: var(--text-4); }
+.moments__item.is-on .moments__title { color: var(--text); }
+.moments__itemBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 700ms cubic-bezier(0.4, 0, 0.2, 1), opacity 500ms ease;
+}
+.moments__itemBody > div { min-height: 0; overflow: hidden; }
+.moments__item.is-on .moments__itemBody { grid-template-rows: 1fr; opacity: 1; transition-delay: 0ms, 200ms; }
+.moments__lede { max-width: 44ch; padding-top: 12px; font-size: 1rem; line-height: 1.6; color: var(--text-3); }
+.moments__lede b { font-weight: 500; color: var(--text); }
+.moments__link { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; font-size: 0.9375rem; font-weight: 500; color: var(--blue); }
+.moments__link svg { transition: transform 200ms ease; }
+.moments__link:hover svg { transform: translateX(2px); }
+
+/* Les fenêtres, superposées dans la même case : même taille, fondu lent. */
+/* `minmax(0, 1fr)` et `min-width: 0` : sans eux, la largeur de la case
+   suivait celle de la fenêtre, qui suit elle-même celle de la case (--k), et
+   les deux s'emballaient. */
+.moments__visuals { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.moments__visual {
+  grid-area: 1 / 1;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1), transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
-/* Posé sur `.stage__peek` et non sur `.stage` : la scène est plus large que
-   la fenêtre (1140 contre 1080), et le contour flottait à 30px d'elle.
-   `z-index: -1` le range SOUS la fenêtre, dans le contexte d'empilement de
-   `.stage__peek`. */
-.stage__peek::before {
-  z-index: -1;
-  inset: -8px -8px auto -8px;
-  height: calc(100% + 8px);
-  /* Le rayon de la fenêtre (16px à l'échelle de l'application, ~14px une
-     fois réduite) plus l'épaisseur du contour : les deux arrondis restent
-     parallèles. */
-  border-radius: 22px 22px 0 0;
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  border-bottom: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 30px 80px -50px rgba(7, 41, 75, 0.5);
+.moments__visual.is-on { opacity: 1; transform: none; transition-delay: 150ms; }
+.moments__visualPile { display: none; }
+
+/* Le cadre de la fenêtre (AppFenetre, AppPeek.js) : un aplat clair de taille
+   FIXE, identique pour les deux moments (retour direct : des visuels de
+   tailles différentes faisaient sauter la page au passage). La fenêtre y
+   entre par le haut à gauche et en sort à droite et en bas, comme sur le
+   modèle ; un fondu clair l'efface en bas. Le retrait est en px du SITE
+   (padding du cadre), pas de l'application : le zoom ne s'applique qu'à la
+   fenêtre. */
+.mo-frame {
+  position: relative;
+  height: var(--mo-h);
+  padding: 40px 0 0 40px;
+  border-radius: 12px;
+  background: #f3f5f9;
+  overflow: hidden;
 }
-.stage::after {
-  left: 50%;
-  top: 4%;
-  width: min(720px, 84%);
-  height: 56%;
-  transform: translateX(-50%);
-  background: radial-gradient(60% 60% at 50% 40%, rgba(37, 99, 235, 0.26), transparent 72%);
-  filter: blur(56px);
+.mo-frame::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 72px;
+  background: linear-gradient(rgba(243, 245, 249, 0), #f3f5f9);
+  pointer-events: none;
+}
+.mo-frame .peek__win { margin: 0; height: 1100px; zoom: var(--k, 0.66); }
+.mo-frame .ap-main { animation: none; }
+/* La fenêtre est coupée à droite : les colonnes se resserrent à gauche pour
+   que les scores et les statuts restent dans la partie visible. */
+.mo-frame .ap-tr { grid-template-columns: 28px 170px 200px 110px minmax(0, 1fr); }
+.mo-frame .ap-tr.ob__tr { grid-template-columns: 34px 168px 112px 70px minmax(0, 1fr); }
+
+/* L'écran d'onboarding (EcranOnboarding, AppPeek.js). */
+/* `.ap-card.ob__summary` : `.ap-card`, déclarée plus bas, l'emportait. */
+.ap-card.ob__summary { flex-direction: row; align-items: center; justify-content: flex-start; gap: 32px; }
+.ob__summary .ap-who { flex: none; }
+.ob__progress { flex: 0 1 300px; display: flex; flex-direction: column; gap: 10px; }
+.ob__progLine { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; }
+.ob__track { display: flex; height: 6px; border-radius: 999px; background: var(--ap-blue-10); overflow: hidden; }
+.ob__track i { border-radius: 999px; background: var(--ap-blue); }
+.ap-tr.ob__tr { grid-template-columns: 34px minmax(0, 1fr) 130px 90px; }
+.ob__icon { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--ap-line); display: flex; align-items: center; justify-content: center; color: var(--ap-ink-3); }
+.ob__tr--done .ob__icon { border-color: transparent; background: var(--ap-green-bg); color: var(--ap-green-ink); }
+.ob__tr--current .ob__icon { border-color: transparent; background: var(--ap-blue-10); color: var(--ap-blue); }
+.ob__tr--todo .ap-strong { color: var(--ap-ink-3); }
+.ap-status--cur { color: var(--ap-blue); }
+.ap-status--cur i { background: var(--ap-blue); }
+
+@media (max-width: 980px) {
+  .moments { --mo-h: 440px; height: auto; padding-block: clamp(64px, 10vw, 96px); }
+  .moments__sticky { position: static; height: auto; display: block; }
+  .moments__grid { display: block; }
+  .moments__visuals { display: none; }
+  .moments__list { gap: 56px; }
+  .moments__visualPile { display: block; margin-top: 24px; }
+  .mo-frame { padding: 24px 0 0 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moments__title,
+  .moments__itemBody,
+  .moments__visual { transition: none; }
 }
 
-.stage__peek { position: relative; z-index: 2; max-width: 1080px; margin-inline: auto; }
+/* ── « How it works », trois grands blocs (09/11/2026), Etapes.js ──────── */
+/* Le titre en haut à gauche, puis trois GRANDS CADRES HAUTS côte à côte,
+   chacun avec son visuel au centre, le titre et le texte de l'étape DESSOUS,
+   sur le blanc. La mise en page vient d'un modèle fourni ; les couleurs
+   restent celles d'Onbord (l'aplat clair des fenêtres de Moments) : une
+   version bleu, rose et pêche a été refusée. Retenue contre la section des
+   quatre canaux (`.canaux`), supprimée. ⚠️ Préfixe `parcours__` et pas
+   `flow__` : un ancien `.flow` (plus appelé nulle part) traîne plus bas
+   dans cette feuille et imposait sa graisse 600 aux titres. */
+.parcours__head { max-width: var(--bar-w); padding-inline: var(--bar-pad); }
+.parcours__head .h2 { font-size: clamp(1.75rem, 2.6vw, 2.375rem); font-weight: 500; letter-spacing: -0.03em; }
+.parcours__head .lede { max-width: 52ch; margin-top: 14px; }
+.parcours__grid {
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 1.2vw, 16px);
+  margin-top: clamp(36px, 5vw, 56px);
+  list-style: none;
+}
+.parcours__step { min-width: 0; }
+.parcours__frame { display: flex; align-items: center; justify-content: center; aspect-ratio: 5 / 6; padding: 24px; border-radius: 10px; background: #f3f5f9; }
+.parcours__title { margin-top: 18px; font-size: 1.1875rem; font-weight: 400; line-height: 1.3; letter-spacing: -0.015em; color: var(--text); }
+.parcours__body { max-width: 46ch; margin-top: 6px; font-size: 0.9375rem; line-height: 1.55; color: var(--text-3); }
+
+/* La carte blanche des visuels 1 et 3. */
+.fl-card { width: 100%; max-width: 340px; padding: 16px; border-radius: 12px; background: #fff; box-shadow: var(--edge); font-size: 12.5px; line-height: 1.45; color: var(--ap-ink); }
+
+/* 1. Le personnage. */
+.fl-persona { display: flex; align-items: center; gap: 10px; }
+.fl-persona img { flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.fl-persona p { min-width: 0; }
+.fl-persona b { display: block; font-size: 14px; font-weight: 600; }
+.fl-persona span { display: block; font-size: 11.5px; color: var(--ap-ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-persona .fl-tag { flex: none; margin-left: auto; padding: 2px 8px; border-radius: 999px; background: var(--ap-blue-10); color: var(--ap-blue); font-size: 10.5px; font-weight: 500; }
+.fl-props { margin-top: 12px; border-top: 1px solid var(--ap-line-2); }
+.fl-props p { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--ap-line-2); }
+.fl-props span { color: var(--ap-ink-4); }
+.fl-props b { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.fl-level { display: inline-flex; gap: 3px; }
+.fl-level i { width: 10px; height: 4px; border-radius: 2px; background: var(--ap-line); }
+.fl-level i.is-on { background: var(--ap-amber); }
+.fl-from { margin-top: 12px; font-size: 11px; color: var(--ap-ink-4); }
+.fl-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fl-sources span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--ap-line); border-radius: 6px; font-size: 11.5px; color: var(--ap-ink-2); }
+.fl-sources svg { color: var(--ap-ink-4); }
+
+/* 2. Les quatre canaux. */
+.fl-channels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 340px; }
+.fl-channel { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 12px; border: 1.5px solid transparent; border-radius: 11px; background: #fff; box-shadow: var(--edge); }
+.fl-channel.is-on { border-color: var(--ap-blue); }
+.fl-channel__ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--ap-soft-2); color: var(--ap-ink-2); }
+.fl-channel.is-on .fl-channel__ic { background: var(--ap-blue-10); color: var(--ap-blue); }
+.fl-channel__ok { position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--ap-blue); color: #fff; }
+.fl-channel b { margin-top: 10px; font-size: 13px; font-weight: 600; }
+.fl-channel > span:last-child { margin-top: 1px; font-size: 11px; color: var(--ap-ink-4); }
+
+/* 3. La note. */
+.fl-report__head { display: flex; align-items: center; gap: 8px; }
+.fl-report__name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-report__pct { margin-left: auto; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--ap-green-ink); }
+.fl-crit { margin-top: 12px; }
+.fl-crit b { font-weight: 600; }
+.fl-bar { display: block; height: 5px; margin-top: 6px; border-radius: 999px; background: var(--ap-line-2); overflow: hidden; }
+.fl-bar i { display: block; height: 100%; border-radius: 999px; background: var(--ap-green); }
+.fl-checks { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.fl-checks li { display: flex; align-items: flex-start; gap: 8px; color: var(--ap-ink-2); }
+.fl-checks li p { flex: 1; min-width: 0; }
+/* L'extrait de l'appel qui prouve le point, juste sous son énoncé. */
+.fl-said { display: block; margin-top: 4px; padding: 5px 8px; border-radius: 6px; background: var(--ap-soft); font-size: 11.5px; font-style: italic; line-height: 1.45; color: var(--ap-ink-3); }
+.fl-checks li > span { flex: none; margin-top: 1px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.fl-checks .is-ok > span { background: var(--ap-green-bg); color: var(--ap-green-ink); }
+.fl-checks .is-miss > span { background: var(--ap-red-bg); color: var(--ap-red); }
+.fl-checks .is-miss { color: var(--ap-ink-4); }
+
+@media (max-width: 980px) {
+  .parcours__grid { grid-template-columns: minmax(0, 1fr); max-width: 520px; row-gap: 40px; }
+  .parcours__frame { aspect-ratio: 1 / 1; }
+}
+
+/* ── La confiance, à notre façon (09/11/2026), Confiance.js ─────────────── */
+/* Une BANDE pleine largeur, d'un bord à l'autre de la fenêtre, dans l'aplat
+   clair des cadres de « How it works » : c'est elle qui coupe la page. Le
+   titre à gauche (la typographie des moments), quatre engagements à droite,
+   en cartes blanches. Le double anneau autour de chaque icône rappelle un
+   sceau sans en imiter aucun : Onbord n'a pas encore de certification, et
+   n'en affiche donc pas. */
+.confiance { position: relative; isolation: isolate; }
+.confiance::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  z-index: -1;
+  background: #f3f5f9;
+}
+.confiance__grid,
+.questions {
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(40px, 5vw, 72px);
+  align-items: start;
+}
+.confiance .h2,
+.questions .h2 { font-size: clamp(1.75rem, 2.6vw, 2.375rem); font-weight: 500; letter-spacing: -0.03em; }
+.confiance__head .lede { max-width: 40ch; margin-top: 14px; }
+.confiance__lien { display: inline-flex; align-items: center; gap: 6px; margin-top: 22px; font-size: 0.9375rem; font-weight: 500; color: var(--blue); text-underline-offset: 3px; }
+.confiance__lien:hover { text-decoration: underline; }
+.confiance__lien svg { transition: transform 220ms ease; }
+.confiance__lien:hover svg { transform: translateX(3px); }
+.confiance__items { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.confiance__items li { padding: 24px 22px; border-radius: 10px; background: #fff; }
+.confiance__sceau {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 5px;
+  background: #eef3fd;
+  color: var(--blue);
+  box-shadow: 0 0 0 4px #fff, 0 0 0 5px rgba(27, 69, 196, 0.22);
+}
+.confiance__sceau svg { border-radius: 1px; }
+.confiance__items h3 { margin-top: 16px; font-size: 1rem; font-weight: 500; line-height: 1.35; letter-spacing: -0.01em; color: var(--text); }
+.confiance__items p { margin-top: 6px; font-size: 0.875rem; line-height: 1.55; color: var(--text-3); }
+
+/* ── La FAQ de l'accueil (09/11/2026), Faq.js ──────────────────────────── */
+/* Des <details> natifs. ⚠️ Préfixe `questions` et pas `faq` : `.faq` est
+   celle de /pricing, une liste toujours ouverte, sans accordéon. */
+.questions__item { border-bottom: 1px solid var(--border); }
+.questions__item:first-child { border-top: 1px solid var(--border); }
+.questions__item summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 0;
+  cursor: pointer;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.questions__item summary::-webkit-details-marker { display: none; }
+.questions__item summary i {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f5f9;
+  color: var(--text-2);
+  transition: transform 200ms ease;
+}
+.questions__item[open] summary i { transform: rotate(45deg); }
+.questions__item p { max-width: 62ch; padding: 0 52px 24px 0; font-size: 0.9375rem; line-height: 1.65; color: var(--text-3); }
+/* Le lien de l'essai, pas encore branché (voir Faq.js). */
+.questions__lien { display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.questions__lien svg { flex: none; transition: transform 220ms ease; }
+.questions__lien:hover svg { transform: translateX(3px); }
+
+@media (max-width: 980px) {
+  .confiance__grid,
+  .questions { grid-template-columns: minmax(0, 1fr); row-gap: 32px; }
+}
+@media (max-width: 560px) {
+  .confiance__items { grid-template-columns: minmax(0, 1fr); }
+  .questions__item p { padding-right: 0; }
+}
+
+/* ── Les pages « Solutions » (10/11/2026), CasUsage.js et CasVisuels.js ── */
+/* Le hero centré, puis quatre blocs texte + visuel qui ALTERNENT de côté,
+   dans la largeur de la barre. Les titres ont la typographie de « Two
+   moments that matter ». Les cartes sont posées dans le cadre clair des
+   étapes de « How it works » ; les écrans de la plateforme sont la fenêtre
+   de Moments (.mo-frame), qui lit la même hauteur, --mo-h. */
+.cas { --mo-h: 480px; }
+.cas__hero { padding-bottom: clamp(40px, 5vw, 72px); }
+.cas__hero .hero__in { gap: 22px; }
+.cas__hero .lede { max-width: 60ch; }
+.cas__bloc { padding-block: clamp(40px, 5vw, 64px); }
+.cas__grid {
+  max-width: var(--bar-w);
+  padding-inline: var(--bar-pad);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(40px, 5vw, 72px);
+  align-items: center;
+}
+.cas__bloc--inverse .cas__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+.cas__bloc--inverse .cas__texte { order: 2; }
+.cas__texte .h2 { font-size: clamp(1.75rem, 2.6vw, 2.375rem); font-weight: 500; letter-spacing: -0.03em; }
+.cas__texte .lede { max-width: 44ch; margin-top: 14px; }
+.cas__visuel { min-width: 0; }
+.cas__cadre { display: flex; align-items: center; justify-content: center; min-height: var(--mo-h); padding: 40px 24px; border-radius: 12px; background: #f3f5f9; }
+.cas__cadre .fl-card { max-width: 380px; }
+.cas .section--cta { padding-top: clamp(40px, 5vw, 64px); }
+
+/* Le chat du candidat avec le client simulé (Conversation). */
+.cv__head { display: flex; align-items: center; gap: 10px; }
+.cv__who { display: flex; flex-direction: column; min-width: 0; }
+.cv__who b { font-size: 14px; font-weight: 600; }
+.cv__online { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ap-green-ink); }
+.cv__online i { width: 6px; height: 6px; border-radius: 50%; background: var(--ap-green); }
+.cv__step { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: var(--ap-soft-2); font-size: 10.5px; color: var(--ap-ink-3); white-space: nowrap; }
+.cv__context { margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: var(--ap-soft); font-size: 11.5px; color: var(--ap-ink-3); }
+.cv__context b { font-weight: 600; color: var(--ap-ink-2); }
+.cv__fil { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.cv__msg { max-width: 84%; padding: 8px 11px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; }
+.cv__msg--them { align-self: flex-start; border-bottom-left-radius: 4px; background: var(--ap-soft-2); color: var(--ap-ink); }
+.cv__msg--me { align-self: flex-end; border-bottom-right-radius: 4px; background: var(--ap-blue); color: #fff; }
+.cv__typing { font-size: 11px; font-style: italic; color: var(--ap-ink-4); }
+.cv__input { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 7px 7px 7px 12px; border: 1px solid var(--ap-line); border-radius: 10px; font-size: 12px; color: var(--ap-ink-4); }
+.cv__input i { flex: none; width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--ap-blue); color: #fff; opacity: 0.45; }
+
+/* L'e-mail de retour envoyé au candidat (Retour). */
+.rt__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ap-line-2); }
+.rt__head b { font-size: 14px; font-weight: 600; }
+.rt__field { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--ap-line-2); font-size: 12px; color: var(--ap-ink-2); }
+.rt__field span { flex: none; width: 52px; color: var(--ap-ink-4); }
+.rt__body { display: grid; gap: 8px; margin-top: 10px; font-size: 12px; line-height: 1.55; color: var(--ap-ink-2); }
+
+/* Un module d'onboarding (ModuleCarte) : l'icône du format à la place de la
+   photo du personnage, et la pastille « Updated » en vert. */
+.fl-persona .mc__ic { flex: none; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--ap-blue-10); color: var(--ap-blue); }
+.fl-persona .mc__updated { background: var(--ap-green-bg); color: var(--ap-green-ink); }
+
+/* Les nouvelles recrues et leur avancée (Recrues). */
+.rc__title { font-size: 14px; font-weight: 600; }
+.rc__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px 10px; padding: 12px 0; border-top: 1px solid var(--ap-line-2); }
+.rc__title + .rc__row { margin-top: 10px; }
+.rc__who { display: flex; flex-direction: column; min-width: 0; }
+.rc__who b { font-size: 13px; font-weight: 600; }
+.rc__who span { font-size: 11.5px; color: var(--ap-ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc__prog { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 6px; }
+.rc__line { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ap-ink-4); }
+.rc__line b { font-weight: 500; color: var(--ap-ink-2); }
+.rc__track { display: flex; height: 5px; border-radius: 999px; background: var(--ap-blue-10); overflow: hidden; }
+.rc__track i { border-radius: 999px; background: var(--ap-blue); }
+.rc__row:not(.rc__row--main) .rc__track i { opacity: 0.45; }
+
+/* Les quatre canaux côte à côte (QuatreCanaux). */
+.cas__cadre .qc { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: none; }
+.cas__cadre .qc .fl-channel { padding: 16px 14px; }
+.cas__cadre .qc .fl-channel b { margin-top: 28px; font-size: 14px; }
+
+/* « Passed » / « Missed » sur les points de contrôle (Rapport, Etapes.js). */
+.fl-state { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 500; vertical-align: 1px; }
+.fl-state--ok { background: var(--ap-green-bg); color: var(--ap-green-ink); }
+.fl-state--miss { background: var(--ap-red-bg); color: var(--ap-red); }
+
+@media (max-width: 980px) {
+  .cas { --mo-h: 420px; }
+  .cas__grid,
+  .cas__bloc--inverse .cas__grid { grid-template-columns: minmax(0, 1fr); row-gap: 28px; }
+  .cas__bloc--inverse .cas__texte { order: 0; }
+}
+@media (max-width: 560px) {
+  .cas__cadre { padding: 28px 16px; }
+  .cas__cadre .qc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* ── La fenêtre de la plateforme ─────────────────────────────────────────── */
 /* Elle est COUPÉE EN BAS : une fenêtre entière posée dans le hero se lit
@@ -1482,21 +1443,17 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
    (1200px de large, texte à 14px) et `zoom` la ramène à la largeur de la
    colonne (--k, posé par AppPeek.js). `zoom` et non `transform: scale` : le
    zoom réduit aussi la place qu'elle occupe, une échelle laisserait la
-   fenêtre déborder de toute sa taille d'origine. La hauteur visible se
-   déduit donc du même rapport (`--k × 640px`), et le repli de --k (0,9 =
-   1080 / 1200) sert au premier affichage, avant le script. */
-.peek {
-  max-width: 1080px;
-  margin-inline: auto;
-  height: calc(var(--k, 0.9) * 640px);
-  overflow: hidden;
-  /* Le fondu du bas commence TRES tard (98%). A 66%, un tiers de la fenetre
-     etait semi-transparent, et le titre colle du hero transparaissait au
-     travers au lieu de disparaitre derriere : l occultation ratait
-     exactement la ou elle devait se voir. */
-  -webkit-mask-image: linear-gradient(180deg, #000 98%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 98%, transparent 100%);
-}
+   fenêtre déborder de toute sa taille d'origine. Le repli de --k (0,9)
+   sert au premier affichage, avant le script.
+
+   ⚠️ DEPUIS LE 05/11/2026, LA FENÊTRE EST ENTIÈRE. Elle était coupée par le
+   bas du hero, en fondu ; elle est maintenant posée dans le cadre de
+   `.vitrine`, bord bas et arrondis compris. Sa hauteur est celle de
+   `.peek__win` (640px à l'échelle de l'application). */
+.peek { margin-inline: auto; }
+/* Centrée dans son bloc quoi qu'il arrive, même le temps que --k soit
+   recalculé. */
+.peek__win { margin-inline: auto; }
 
 /* Les couleurs de l'application, recopiées de `app/recruteur.css` (racine du
    dépôt, bloc `.ds`). Elles ne valent QUE dans la fenêtre du hero et dans
@@ -1547,15 +1504,16 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .app-ui .ap-strong { font-weight: 500; }
 .peek__win {
   width: 1200px;
-  height: 900px;
+  height: 640px;
   zoom: var(--k, 0.9);
   display: flex;
   gap: 10px;
   padding: 10px;
   background: var(--ap-page);
-  border: 1px solid #d8dfec;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 40px 80px -44px rgba(7, 41, 75, 0.5);
+  /* Sans bordure, une petite ombre douce tout autour (demande directe). */
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(20, 32, 74, 0.06), 0 16px 40px -12px rgba(20, 32, 74, 0.16);
   overflow: hidden;
   color: var(--ap-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
@@ -1898,24 +1856,12 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
    menu de gauche disparait et la largeur de reference tombe a 880px, sinon
    le texte deviendrait microscopique (l'application fait de meme sur un
    ecran etroit).
-   Plus haute que la place restante : c'est le bas du hero qui la coupe,
-   comme sur bureau, et le filet du hero tombe sur sa coupe. */
+   Depuis le 05/11/2026, elle y est entière elle aussi, dans son cadre. */
 @media (max-width: 760px) {
-  /* 1000px de haut à l'échelle de l'application : assez pour atteindre le
-     bas du hero sur les grands téléphones (Pixel 7, 412 × 915). Le surplus
-     est coupé par le hero, il ne se voit jamais. */
-  .peek { height: calc(var(--k, 0.37) * 1000px); }
-  .peek__win { width: 880px; height: 1000px; zoom: var(--k, 0.37); }
+  .peek__win { width: 880px; height: 760px; zoom: var(--k, 0.37); border-radius: 22px; }
   .ap-side { display: none; }
-  /* ⚠️ Le hero a une hauteur IMPOSÉE et c'est une colonne flex : quand le
-     contenu dépasse (petit écran, sous-titre sur quatre lignes), le bloc du
-     titre RÉTRÉCISSAIT, et la scène remontait sur le bouton « Book a demo »
-     (iPhone SE). Il garde sa hauteur ; c'est la fenêtre, en bas, que le
-     hero coupe un peu plus tôt. */
-  .hero--full > .wrap { flex-shrink: 0; }
-  /* Le contour de verre déborde de 8px au-dessus de la fenêtre
-     (`.stage__peek::before`) : l'écart laisse de l'air sous le bouton. */
-  .hero--full .stage { margin-top: 28px; }
+  .vitrine__tab { min-width: 0; flex: 1; padding-inline: 14px; }
+  .vitrine__tabs { width: 100%; }
 }
 /* ─── 7. SURFACES EN VERRE ET BENTO ──────────────────────────────────────── */
 
@@ -3299,295 +3245,52 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 
 /* ─── 11. PIED DE PAGE ───────────────────────────────────────────────────── */
 
-/* Le bloc d'appel final : une grande surface bleue, arrondie, posée juste
-   au-dessus du pied de page. */
-/* ⚠️ LA BANDE FINALE. Ce n'est plus un bloc, c'est tout le bas de la page.
-   Trois états successifs, et il faut connaître les deux premiers pour ne pas
-   y revenir :
-
-     1. un pavé BLEU NUIT à texte blanc, posé sur le blanc de la page ;
-     2. un PANNEAU clair quadrillé, avec sa bordure et son ombre, toujours
-        posé sur du blanc, et le pied de page quadrillé juste en dessous.
-        Retour direct : on lisait deux rectangles à trame, séparés par une
-        bande de blanc, au lieu d'une fin de page ;
-     3. celui-ci. Une SEULE bande pleine largeur qui part du haut de la
-        section d'appel et descend jusqu'au bas du pied de page, sans
-        interruption. Le ciel du hero, retourné.
-
-   Comment elle tient : `.section--tail` et `.footer` portent chacun un calque
-   `::before` pleine fenêtre (`left: calc(50% - 50vw); width: 100vw`), avec le
-   MÊME motif et deux moitiés de dégradé qui se rejoignent sur la même valeur
-   (#eef4ff). Un seul élément aurait été plus simple, mais l'appel est rendu
-   par la page et le pied de page par le layout : ils n'ont aucun parent
-   commun sous la main.
-
-   ⚠️ Les deux moitiés doivent se toucher. Le pied de page n'a donc NI marge
-   haute NI bordure haute : l'une comme l'autre rouvrirait la couture. */
-/* ── LA BANDE DE VERTICALES ──────────────────────────────────────────────
-   Les lignes verticales de la trame ne vivent QU'ENTRE LES DEUX FILETS,
-   avec les croisillons. Au-dela, il ne reste que les horizontales. C'est le
-   decor du gabarit de reference : une trame complete sur la colonne de
-   contenu, de simples lignes de portee sur les cotes.
-
-   C'est un ELEMENT et non un pseudo, aux trois endroits ou il sert (hero,
-   bande finale, pied de page) : les pseudos de ces trois blocs sont deja
-   pris par le ciel, la trame horizontale et la couture floutee.
-
-   ⚠️ La bande est centree sur la fenetre et large de 2 × --rule-x, donc
-   d'un multiple exact du pas : ses lignes tombent au meme endroit que si la
-   trame etait pleine, et le dernier filet de la bande EST le filet de la
-   page. Si vous changez sa largeur autrement qu'en pas entiers, les deux se
-   decalent et le raccord devient visible. */
-.colonnes {
-  position: absolute;
-  /* ⚠️ LA BANDE COMMENCE SUR UNE LIGNE, ET LE MOTIF S'ANCRE A GAUCHE.
-
-     Avant : bord gauche a 50% - rule-x, motif centre, trait au milieu de sa
-     tuile. Trois centrages empiles, et le resultat tombait a cote : la
-     premiere verticale se retrouvait un carreau A L'INTERIEUR de la bande
-     (la ligne du bord etait rognee), alors que la derniere tombait pile sur
-     le bord droit. Les deux cotes de la page n'etaient donc pas symetriques,
-     et le filet gris du calque fixe ne coincidait plus avec la trame a
-     gauche : on voyait un trait gris epais d'un cote, un trait blanc fin de
-     l'autre.
-
-     Maintenant : le bord gauche EST la premiere ligne, le trait est au bord
-     de sa tuile, et le motif part de la gauche. Plus aucun centrage, donc
-     plus rien a compenser : les lignes tombent a 50vw - 1px ± n × pas, et
-     les deux filets de la page se posent sur la premiere et la derniere. */
-  left: calc(50vw - var(--rule-x) - 1px);
-  /* ⚠️ PAS DE +1px ICI, et c'est tout sauf un detail.
-
-     La bande avait 1px de plus "pour ne pas perdre le dernier trait". Mais
-     son motif est centre : une largeur impaire decale donc TOUTE la serie
-     d'un demi-pixel. Les verticales tombaient a 196,5 la ou les deux filets
-     de la page tombent a 196 ; aucun des deux ne coincidait plus avec une
-     limite de pixel, et les deux se retrouvaient etales sur deux pixels,
-     donc plus epais et visiblement decales l'un de l'autre a la frontiere
-     de la barre de navigation.
-
-     Largeur paire : la serie retombe sur les memes demi-pixels que les
-     filets, et tout redevient net. */
-  width: calc(var(--rule-x) * 2 + 1px);
-  pointer-events: none;
-  /* ⚠️ LE TRAIT EST AU MILIEU DE LA TUILE, pas sur son bord, et c'est ce
-     qui fait tomber les verticales au bon endroit.
-
-     Un motif de 85px positionne en `center` est ancre a (largeur - 85) / 2 :
-     si le trait est sur le bord gauche de la tuile, toute la serie se
-     retrouve decalee d'un DEMI-CARREAU par rapport au centre de la fenetre.
-     Les verticales tombaient donc a 42px des deux filets, assez pour qu'on
-     voie le raccord sans pouvoir dire pourquoi.
-
-     Avec le trait au centre de la tuile, `center` met une verticale
-     exactement au milieu de la fenetre, et toutes les autres a un multiple
-     du pas de la : les deux filets de la page, poses eux aussi a un multiple
-     du pas, tombent pile sur la premiere et la derniere. Meme raison pour
-     les croisillons, dont la croix est deja au centre de sa tuile. */
-  background-image:
-    linear-gradient(to right, var(--grid) 0px, var(--grid) 1px, transparent 1px);
-  background-size: var(--grid-step) var(--grid-step);
-  background-position: left top;
-}
-/* Dans le hero, elle suit la trame horizontale : meme boite, meme masque.
-
-   ⚠️ PLUS AUCUN CROISILLON SUR LE SITE. Des « + » marquaient une
-   intersection sur trois, dans le hero et dans la bande finale : c'etait le
-   detail repris du gabarit de reference. Retires des deux endroits, sur
-   demande directe et en deux fois. Une trame nue se voit moins et se
-   supporte plus longtemps ; les croix, elles, se comptent. La tuile SVG qui
-   les dessinait a quitte la feuille, elle n'a pas ete laissee en commentaire
-   ni en classe morte. */
-.colonnes--hero {
-  /* Sous la barre, pas derriere elle : voir .header. */
-  inset-block: 0;
-  /* ⚠️ 1 et non 0 : le calque fixe des deux filets (body::before, z-index 0)
-     passe derriere le hero, et ses deux traits gris tombent exactement sur
-     les deux verticales blanches de la trame. A egalite de z-index, c'est
-     l'ordre du document qui tranchait, et il donnait le gris a GAUCHE et le
-     blanc a DROITE : les deux bords de la page n'avaient pas la meme
-     couleur. A 1, la trame gagne des deux cotes. Elle reste sous le texte
-     du hero, qui est lui aussi en 1 mais plus loin dans le document. */
-  z-index: 1;
-  /* Même dégradé d'encre et même retournement que les horizontales
-     ci-dessus : le fond porte la couleur, le masque découpe les lignes.
-     Le trait reste au MILIEU de sa tuile (calc(50% ± 0.5px)), sans quoi la
-     série se décale d'un demi-carreau et les deux filets du site ne tombent
-     plus dessus. */
-  /* ⚠️ LE DÉGRADÉ NE PASSE PAS PAR LE TRANSPARENT. Première version : blanc
-     qui s'efface à 46%, gris qui reprend à 58%. Entre les deux, les lignes
-     DISPARAISSAIENT sur une douzaine de pourcents de hauteur, et la trame
-     avait un trou au milieu du hero. Il faut passer par une teinte
-     intermédiaire visible (ce bleu-gris pâle), pas par du vide. */
-  /* ⚠️ DEUX COULEURS OPAQUES, ET RIEN D'AUTRE ENTRE LES DEUX.
-
-     Les versions precedentes interpolaient entre un blanc TRANSPARENT et un
-     bleu nuit TRANSPARENT. Deux defauts qui se suivent : au milieu,
-     l'opacite tombe et la ligne disparait ; et si on remonte l'opacite de
-     la teinte de passage pour la rattraper, elle vire au gris ou au bleu
-     beaucoup trop tot, alors que le fond est encore presque blanc.
-
-     Ici les deux bouts sont OPAQUES : blanc pur en haut, et en bas
-     exactement la couleur que donne --grid pose sur du blanc (#f1f3f5).
-     L'interpolation reste donc claire d'un bout a l'autre, ne passe par
-     aucun creux d'opacite, et le bas se raccorde pile sur les deux filets
-     du site, qui prennent le relais sous le hero. */
-  background-image: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #ffffff 30%,
-    #f4f6f9 46%,
-    #f1f3f5 60%,
-    #f1f3f5 100%);
-  /* ⚠️ PLUS DE CARREAUX DANS LE HERO (12/10/2026, demande directe). Des
-     verticales, il ne reste que la PREMIÈRE et la DERNIÈRE de la bande :
-     ce sont exactement les deux filets continus de la page (même position,
-     voir `left` et `width` de .colonnes), qu'on garde ici en BLANC sur le
-     ciel, comme dans la barre. Toutes les verticales entre les deux sont
-     éteintes. Le masque couvre la bande entière, sans répétition : un trait
-     d'un pixel à chaque bord. */
-  -webkit-mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
-  mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  /* ⚠️ LE DÉGRADÉ COUVRE TOUT LE BLOC, IL NE SE RÉPÈTE PAS.
-
-     .colonnes pose `background-size: var(--grid-step) var(--grid-step)` du
-     temps où le fond dessinait lui-même les lignes. Depuis le retournement
-     (le fond porte l'encre, le masque découpe les lignes), cette taille
-     héritée DÉCOUPAIT LE DÉGRADÉ EN CARREAUX : chaque cellule de 85px
-     rejouait le passage du blanc au gris, donc chaque petit trait allait du
-     blanc en haut au gris en bas, et la page entière n'avait aucun dégradé.
-     C'est un bug invisible à la lecture de la règle, parce que la
-     déclaration fautive est dans l'autre.
-
-     `100% 100%` étire le dégradé sur toute la hauteur du hero : le blanc
-     est en haut de la PAGE, le gris en bas de la PAGE. */
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  -webkit-mask-position: left top;
-  mask-position: left top;
-}
-/* Dans la bande finale, elle se glisse entre le ciel (-1) et le contenu.
-   ⚠️ Comme dans le hero, elle ne garde que sa PREMIÈRE et sa DERNIÈRE
-   verticale : les deux filets de la page, qui continuent jusqu'en bas. Le
-   ciel de la bande est opaque et passe devant le calque fixe des filets
-   (body::before) : sans ces deux traits, ils s'arrêteraient à l'entrée de
-   la bande. Toutes les verticales entre les deux sont éteintes. */
-.colonnes--tail {
-  inset-block: 0;
-  z-index: -1;
-  -webkit-mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
-  mask-image: linear-gradient(to right, #000 1px, transparent 1px, transparent calc(100% - 1px), #000 calc(100% - 1px));
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-/* ⚠️ LES DEUX BLOCS QUI PORTENT LA BANDE LA ROGNENT. Sur telephone, --rule-x
-   a un plancher de 7 carreaux, bien plus que la demi-largeur de l'ecran : la
-   bande depassait de 330px a droite et toute la page defilait de cote, sur
-   CHAQUE page du site puisque le pied de page est partout. `clip` et non
-   `hidden` : pas de conteneur de defilement cree, rien ne casse. */
-.section--tail,
-.footer { overflow-x: clip; }
-
-/* ── PLUS DE COUTURE FLOUTÉE ─────────────────────────────────────────────
-   Une bande de flou (`backdrop-filter`) dissolvait l'entrée de la trame en
-   haut de la bande finale. Retirée le 14/10/2026 avec les carreaux : sans
-   trame, elle n'avait plus rien à flouter. */
-/* ⚠️ L'APPEL EST UNE BANDE QUI SÉPARE (14/10/2026, demande directe).
-   Avant : le padding de `.section` PLUS celui de `.cta` en haut, sur un ciel
-   qui partait du blanc pur. On lisait un grand vide, puis l'appel, puis le
-   pied de page, sans savoir où finissait la page. Maintenant la bande commence
-   SUR un filet pleine largeur (`::after`), sans padding de section au-dessus
-   (c'est la section précédente qui donne l'air), sur un ciel déjà teinté :
-   contenu, filet, appel, filet, pied de page. L'appel tient le rôle de la
-   frontière. */
-.section--tail {
-  position: relative;
-  isolation: isolate;
-  padding-block: 0;
-}
-.section--tail::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  height: 1px;
-  background: var(--border);
-  pointer-events: none;
-}
-/* Le contenu repasse au-dessus du calque. */
-.section--tail > .wrap { position: relative; z-index: 1; }
-.section--tail::before,
-.footer::before {
-  content: "";
-  position: absolute;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  z-index: -1;
-  pointer-events: none;
-  /* ⚠️ LE CIEL SEUL, PLUS DE CARREAUX (14/10/2026, demande directe, comme
-     le hero le 12/10). Les horizontales ont quitté ce calque ; des
-     verticales, `.colonnes--tail` ne garde que les deux filets de la page. */
-  background-image: var(--ciel);
-}
-.section--tail::before {
-  top: 0;
-  /* 1px de recouvrement : sans lui, un arrondi de rendu laisse parfois
-     apparaitre une ligne blanche d'un pixel a la couture. */
-  bottom: -1px;
-  --ciel: linear-gradient(180deg, #f7f9fe 0%, #f2f6fe 55%, #eef4ff 100%);
-}
-
-/* Le bloc d'appel lui-meme n'a plus de matiere : ni fond, ni bordure, ni
-   ombre, ni angles. Il n'est plus qu'un bloc de texte centre sur la bande. */
+/* ⚠️ L'APPEL FINAL ET LE PIED DE PAGE, DEPUIS LE 09/11/2026 (demande
+   directe, « à la vue du nouveau site »). Il y avait ici une BANDE de ciel
+   pleine largeur (`.section--tail` + `.footer::before`), blanche en haut et
+   bleue en bas, qui reprenait le ciel du hero retourné. Le hero est blanc
+   depuis le 05/11 : la bande est partie avec lui. L'appel est maintenant un
+   grand PANNEAU dans la largeur de la barre, posé sur le blanc ; le pied de
+   page est blanc.
+   ⚠️ Le panneau est un DÉGRADÉ du gris clair des cadres (en haut) vers un
+   bleu franc (en bas), depuis le 10/11/2026. La veille il allait du blanc à
+   un bleu à peine teinté, qu'on ne voyait pas ; un aplat au bleu d'Onbord,
+   texte blanc, a été essayé et refusé le même jour (« je veux le dégradé
+   gris à bleu, juste un plus gros bleu »). Le bas reste assez clair pour que
+   le bouton bleu et le texte s'y lisent. Les règles visent les ENFANTS
+   DIRECTS (`.cta__in > …`) : le pop-up de TryModal est rendu dans ce
+   panneau, et `.cta p` l'habillerait aussi. */
+/* Collé à la section du dessus, et le pied de page juste dessous : le
+   panneau a sa propre respiration. `.home .section.section--cta` passe
+   devant la règle de respiration de l’accueil (même poids, plus bas). */
+.section--cta { padding-block: clamp(24px, 3vw, 40px) 0; }
+.home .section.section--cta { padding-block: 0; }
+.section--cta .wrap,
+.footer > .wrap { max-width: var(--bar-w); padding-inline: var(--bar-pad); }
 .cta {
   position: relative;
   padding: clamp(56px, 7vw, 96px) clamp(20px, 4vw, 48px);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f3f5f9 0%, #dfe7fb 45%, #b9cbf6 100%);
   text-align: center;
 }
-.cta__in { display: grid; justify-items: center; gap: 20px; position: relative; }
-.cta .h2 { max-width: 17ch; }
-.cta p { color: var(--text-2); max-width: 50ch; }
-.cta__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 8px; }
+.cta__in { display: grid; justify-items: center; gap: 18px; position: relative; }
+.cta__in > .h2 { max-width: 20ch; font-size: clamp(1.875rem, 3.2vw, 2.75rem); font-weight: 500; letter-spacing: -0.03em; }
+.cta__in > p { color: var(--text-2); max-width: 50ch; }
+.cta__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 10px; }
+/* Le bouton blanc garde un contour : sur le bas bleu du dégradé, le filet
+   gris par défaut disparaissait. */
+.cta__actions > .btn--ghost { border-color: rgba(27, 69, 196, 0.18); }
 
-/* La moitie basse de la bande. Voir le pave de `.section--tail` ci-dessus :
-   le calque `::before` est partage, seul le degrade change. */
 .footer {
   position: relative;
-  isolation: isolate;
-  padding-block: 72px 30px;
+  padding-block: 64px 30px;
 }
-.footer::before {
-  inset-block: 0;
-  --ciel: linear-gradient(180deg, #eef4ff 0%, #dce8fc 100%);
-}
-/* Le FILET qui ouvre le pied de page (14/10/2026) : une horizontale pleine
-   largeur, le pendant de celle qui ferme la barre de navigation. Sans la
-   trame, rien ne disait plus où finissait l'appel et où commençait le pied
-   de page. Un pseudo et non une `border-top` : la bordure suivrait la
-   largeur du bloc, ce filet traverse toute la fenêtre. */
-.footer::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: calc(50% - 50vw);
-  width: 100vw;
-  height: 1px;
-  background: var(--border);
-  pointer-events: none;
-}
-/* Le contenu repasse au-dessus du calque. */
-.footer > .wrap { position: relative; z-index: 1; }
-/* Six colonnes depuis « Resources » et « Comparisons » (15/10/2026). La
-   colonne de la marque rétrécit pour leur faire place ; « Comparisons »
-   est un peu plus large, ses liens sont les plus longs. */
-.footer__grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.25fr 1fr 1fr; gap: 32px; }
+/* Six colonnes depuis le 10/11/2026 : la marque, puis Solutions, Product,
+   Resources, Legal, Contact. « Solutions » est un peu plus large, ses liens
+   sont les plus longs. « Comparisons » (15/10/2026) est partie avec les
+   deux comparaisons. */
+.footer__grid { display: grid; grid-template-columns: 1.6fr 1.25fr 1fr 1fr 1fr 1fr; gap: 32px; }
 .footer__tag { color: var(--text-3); font-size: 0.9375rem; margin-top: 14px; max-width: 28ch; }
 /* Plus de « [ PRODUCT ] » en capitales (19/10/2026) : un intitulé simple,
    comme les libellés de section du menu de l'application. */
@@ -3809,6 +3512,70 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 /* L'écran de confirmation : la coche verte de l'application. */
 .sim__done { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #e7f6ef; color: #137449; }
 
+/* ── Le pop-up « Try it now » (TryModal.js, 05/11/2026) ──────────────────── */
+/* Un <dialog> natif : le navigateur le pose au-dessus de tout, centré. La
+   remise à zéro du haut de la feuille (`margin: 0` partout) lui retire son
+   centrage, d'où le `margin: auto` explicite. Les champs reprennent ceux des
+   formulaires du site (.demo__field), pour ne pas en dessiner un second jeu. */
+.essai {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100svh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(20, 32, 74, 0.06), 0 32px 80px -24px rgba(20, 32, 74, 0.4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.essai::backdrop { background: rgba(12, 18, 41, 0.4); backdrop-filter: blur(3px); }
+.essai__in { position: relative; padding: clamp(24px, 5vw, 36px); }
+.essai__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--text-3);
+  transition: background 160ms ease, color 160ms ease;
+}
+.essai__close:hover { background: var(--surface-2); color: var(--text); }
+.essai__head { display: grid; gap: 8px; padding-right: 32px; }
+.essai__eyebrow { font-size: 0.8125rem; font-weight: 500; color: var(--blue); }
+.essai__title { font-size: 1.625rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+.essai__lede { font-size: 0.9375rem; line-height: 1.55; color: var(--text-3); }
+.essai__form { margin-top: 24px; }
+/* La zone de dépôt de la fiche : le champ fichier natif est posé dessus,
+   transparent, si bien que tout le cadre se clique. */
+.essai__file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px dashed var(--border-2);
+  border-radius: 10px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.essai__file:hover { border-color: var(--blue); background: #f2f6fe; }
+.essai__file:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 69, 196, 0.15); }
+.essai__file--ok { border-style: solid; border-color: rgba(27, 69, 196, 0.35); background: #f2f6fe; color: var(--blue); }
+.essai__file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.essai__fileText { display: grid; gap: 2px; min-width: 0; }
+.essai__fileText b { font-size: 0.875rem; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.essai__fileText small { font-size: 0.75rem; color: var(--text-4); }
+.essai__done { display: grid; justify-items: center; gap: 14px; padding-block: 12px; text-align: center; }
+.essai__done .essai__lede { max-width: 38ch; }
+.essai__done .btn { margin-top: 8px; }
+
 .demo__pick { max-width: 1060px; margin-inline: auto; }
 .demo__edit { font-size: 0.8125rem; color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
 .demo__edit:hover { color: var(--text); }
@@ -3942,7 +3709,7 @@ body:has(.hero--full) .header:not(.header--stuck) .lang__btn:hover { color: #fff
 .feed__value { font-size: 13px; line-height: 1.5; color: var(--ap-ink-2); }
 .feed__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .feed__arrow { display: grid; place-items: center; color: var(--ap-ink-5); }
-.feed__out { display: grid; gap: 8px; padding: 18px; background: #fff; border: 1px solid #c9d5f3; border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 30px 60px -30px rgba(27, 69, 196, 0.35); }
+.feed__out { display: grid; gap: 8px; padding: 18px; background: #fff; border: 1px solid #c9d5f3; border-radius: 12px; box-shadow: 0 1px 2px rgba(20, 32, 74, 0.04), 0 30px 60px -30px rgba(27, 69, 196, 0.35); }
 .feed__out .feed__label { color: var(--ap-blue); }
 .feed__title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--ap-ink); }
 .feed__meta { font-size: 13px; color: var(--ap-ink-3); }
@@ -4035,7 +3802,7 @@ span.copilot__icon { cursor: default; }
    hero suit un même rapport (--s, plus haut) ; sur téléphone, c'est ici. La
    barre perd surtout de la HAUTEUR (58 → 44px), c'est elle qui pesait. */
 @media (max-width: 760px) {
-  .hero--full .lede { font-size: 0.9375rem; line-height: 1.55; }
+  .hero--accueil .lede { font-size: 0.9375rem; line-height: 1.55; }
   /* Les boutons, partout sur le site : un cran plus petits. */
   .btn { padding: 10px 18px; font-size: 0.875rem; }
 }
@@ -4083,19 +3850,6 @@ span.copilot__icon { cursor: default; }
 @media (max-width: 459px) { .compo { zoom: 0.7; } }
 @media (max-width: 409px) { .compo { zoom: 0.64; } }
 @media (max-width: 369px) { .compo { zoom: 0.55; } }
-
-/* ── Bureau : le hero s'arrête AVEC la fenêtre (14/10/2026) ───────────────
-   Demande directe, constatée en 1920 × 1080 : avec une hauteur imposée à
-   l'écran, la fenêtre finissait avant le bas, sur une bande blanche. La
-   hauteur du hero n'est plus imposée : c'est son contenu qui la donne, et
-   le filet du hero tombe donc toujours sur la coupe de la fenêtre.
-   La hauteur VISIBLE de la fenêtre, elle, est réglée sur `.peek` (19/10,
-   `--k × 640px`) : la plateforme se montre en grand, et la suite de la page
-   commence sous le premier écran, comme sur le modèle de spott.io. Le
-   téléphone garde son propre réglage (bloc « 17. TÉLÉPHONE »). */
-@media (min-width: 761px) {
-  .hero--full { height: auto; min-height: 0; }
-}
 
 /* ─── 18. RESSOURCES : BLOG, COMPARAISONS (15/10/2026) ───────────────────── */
 /* Le modèle est spott.io/resources (demande directe) : des catégories en

@@ -26,6 +26,10 @@ const nextConfig = {
     return [
       { source: "/tech-roles", destination: "/en/business-roles", permanent: false },
       { source: "/:lang/tech-roles", destination: "/:lang/business-roles", permanent: false },
+      // Les comparaisons, retirées le 10/11/2026 « pour l'instant » : leur
+      // catégorie et leurs deux articles renvoient à toutes les ressources.
+      { source: "/:lang/resources/comparisons", destination: "/:lang/resources", permanent: false },
+      { source: "/:lang/resources/comparisons/:slug", destination: "/:lang/resources", permanent: false },
     ];
   },
 };

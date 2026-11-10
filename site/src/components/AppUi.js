@@ -51,6 +51,10 @@ export const IcUsers = (p) => <Ic {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 
 export const IcCheckDone = (p) => <Ic sw={2.2} {...p}><circle cx="12" cy="12" r="8" /><path d="M12 8v8M9 11l3-3 3 3" /></Ic>;
 
 export const IcMail = (p) => <Ic {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></Ic>;
+// Pour les modules de l'onboarding (OnboardingMock, Mocks.js).
+export const IcPhone = (p) => <Ic {...p}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" /></Ic>;
+export const IcCap = (p) => <Ic {...p}><path d="M22 10 12 5 2 10l10 5z" /><path d="M6 12v5c3 2 9 2 12 0v-5" /></Ic>;
+export const IcInbox = (p) => <Ic {...p}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z" /></Ic>;
 
 // Pour les autres visuels de l'accueil (Mocks.js, Steps.js, FeedbackTabs.js).
 export const IcFile = (p) => <Ic {...p}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></Ic>;

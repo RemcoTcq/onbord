@@ -10,6 +10,8 @@
 //   pages   les quatre pages intérieures (comment ça marche, simulations,
 //           notation, tarifs). Groupées : elles se lisent à la suite et
 //           partagent leur vocabulaire.
+//   solutions  les trois pages « Solutions » (recrutement, onboarding,
+//           SaaS B2B), qui partagent le même gabarit (CasUsage.js).
 //   legal   les trois pages légales.
 //
 // Module SERVEUR uniquement. Ne l'importez pas depuis un composant client : les
@@ -22,18 +24,21 @@ const LOADERS = {
     common: () => import("./en/common"),
     home: () => import("./en/home"),
     pages: () => import("./en/pages"),
+    solutions: () => import("./en/solutions"),
     legal: () => import("./en/legal"),
   },
   fr: {
     common: () => import("./fr/common"),
     home: () => import("./fr/home"),
     pages: () => import("./fr/pages"),
+    solutions: () => import("./fr/solutions"),
     legal: () => import("./fr/legal"),
   },
   nl: {
     common: () => import("./nl/common"),
     home: () => import("./nl/home"),
     pages: () => import("./nl/pages"),
+    solutions: () => import("./nl/solutions"),
     legal: () => import("./nl/legal"),
   },
 };

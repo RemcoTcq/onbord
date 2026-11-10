@@ -12,12 +12,50 @@ const home = {
   },
 
   hero: {
-    titleA: "Werf aan op",
-    titleEm: "echte vaardigheden.",
-    titleB: "Niet op cv's.",
-    lede: "Plak een vacature. Onbord bouwt de simulatie, stuurt ze naar uw kandidaten, en rangschikt hen op wat ze werkelijk deden.",
+    // La bulle au-dessus du titre (voir la version anglaise).
+    badge: "Gemaakt voor klantgerichte functies",
+    // Le titre du 05/11/2026, traduit de l'anglais (« You hire better. They
+    // ramp faster. ») : le recrutement, puis l'onboarding.
+    titleA: "U werft beter aan.",
+    titleEm: "",
+    titleB: "Zij draaien sneller mee.",
+    lede: "Kandidaten bewijzen hun vaardigheden in het echte werk, nieuwe medewerkers oefenen het vóór hun eerste dag.",
 
     // Het venster van het platform (AppPeek.js). Zie de Engelse versie.
+    // De keuze boven het venster (Vitrine.js). Zie de Engelse versie.
+    tabs: { label: "Wat het platform toont", recruitment: "Werving", onboarding: "Onboarding" },
+    // Le pop-up « Try it now » (TryModal.js), second bouton du hero. TEXTE
+    // PROVISOIRE, à reprendre au copywriting. La promesse des 24 heures est
+    // tenue À LA MAIN par l'équipe : ne la raccourcissez pas sans elle.
+    try: {
+      button: "Test het op uw eigen functie",
+      eyebrow: "Testsimulatie",
+      title: "Probeer het nu",
+      lede: "Stuur ons een functieomschrijving. Wij bouwen de simulatie voor die functie en openen uw privéomgeving.",
+      firstName: "Voornaam",
+      firstNamePh: "Emma",
+      lastName: "Achternaam",
+      lastNamePh: "Peeters",
+      email: "Zakelijk e-mailadres",
+      emailPh: "emma@bedrijf.be",
+      file: "Functieomschrijving",
+      filePick: "Upload uw functieomschrijving",
+      fileHint: "PDF, Word of tekst, maximaal 4 MB",
+      fileChange: "Klik om een ander bestand te kiezen",
+      submit: "Versturen",
+      sending: "Versturen…",
+      privacy: "We gebruiken uw gegevens alleen om uw omgeving klaar te zetten.",
+      missing: "Vul uw voornaam, achternaam en e-mailadres in.",
+      badEmail: "Dit e-mailadres lijkt niet te kloppen.",
+      noFile: "Upload uw functieomschrijving.",
+      tooBig: "Dit bestand is groter dan 4 MB. Upload een lichter bestand.",
+      badType: "Upload een PDF-, Word- of tekstbestand.",
+      failed: "Uw aanvraag kon niet worden verstuurd. Mail uw functieomschrijving naar",
+      close: "Sluiten",
+      doneTitle: "Bedankt, {name}.",
+      doneLede: "Binnen 24 uur krijgt u toegang tot uw privéomgeving, met een simulatie op basis van uw functieomschrijving. We schrijven u op {email}.",
+      doneClose: "Sluiten",
+    },
     app: {
       // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
       alt: "De recruiterinterface van Onbord: het dashboard, kandidaten gerangschikt op totaalscore, en het rapport van een kandidaat.",
@@ -34,7 +72,7 @@ const home = {
       jobs: [
         { title: "Business developer", meta: "Gent · Hybride", invited: 34, done: 21, date: "7 okt." },
         { title: "Customer Success Manager", meta: "Brussel · Vast", invited: 18, done: 11, date: "2 okt." },
-        { title: "Office manager", meta: "Leuven · Op kantoor", invited: 12, done: 12, date: "24 sep." },
+        { title: "Klantensupport medewerker", meta: "Leuven · Op kantoor", invited: 12, done: 12, date: "24 sep." },
         { title: "Account executive", meta: "Antwerpen · Hybride", invited: 22, done: 10, date: "19 sep." },
       ],
       job: {
@@ -114,6 +152,110 @@ const home = {
     lede: "Daarom zet Onbord elke kandidaat twintig minuten in de functie zelf, met tools die zich als de echte gedragen, en toont u precies wat hij ermee deed.",
     cvLabel: "Cv",
     proofLabel: "Wat Onbord toont",
+  },
+
+  // Onder de hero (05/11/2026). VOORLOPIGE tekst, zie de Engelse versie.
+  figures: {
+    statement: "Kies de juiste mensen en help hen sneller hun functie te beheersen, met realistische werksimulaties.",
+  },
+
+  // « Two moments that matter » (05/11/2026). Zie de Engelse versie.
+  moments: {
+    title: "Twee momenten die tellen",
+    items: [
+      {
+        key: "hiring",
+        tag: "Werving",
+        title: "Zie wie het werk aankan voor u aanwerft.",
+        lede: "Kandidaten doen twintig minuten van het echte werk. U krijgt hen gerangschikt op uw criteria, met het bewijs achter elke score.",
+        link: "Ontdek werving",
+        alt: "De recruiterinterface van Onbord: de kandidaten voor een functie, gerangschikt op totaalscore.",
+      },
+      {
+        key: "onboarding",
+        tag: "Onboarding van nieuwe medewerkers",
+        title: "Nieuwe medewerkers klaar vóór hun eerste dag.",
+        lede: "Ze doorlopen de echte situaties van de functie, module per module, en u ziet waar elk van hen staat voor ze een klant spreken.",
+        link: "Ontdek onboarding",
+        alt: "Een onboardingtraject in Onbord: een nieuwe account executive doorloopt vijf werksimulaties vóór de eerste werkdag.",
+      },
+    ],
+    onboardingApp: {
+      alt: "Een onboardingtraject in Onbord: een nieuwe account executive doorloopt vijf werksimulaties vóór de eerste werkdag.",
+      initials: "LM",
+      name: "Lucas Martens",
+      nav: "Onboarding",
+      role: "Account executive",
+      starts: "Start op 16 nov.",
+      onTrack: "Op schema",
+      ready: "Klaar voor dag één",
+      progress: "{done} van {total} modules",
+      colModule: "Module",
+      colScore: "Score",
+      colStatus: "Status",
+      pct: "{n}%",
+      states: { done: "Afgerond", current: "Bezig", todo: "Nog te doen" },
+      modules: [
+        { kind: "call", title: "Verkennend gesprek met een prospect", format: "Live gesprek", min: "15 min", state: "done", score: "82" },
+        { kind: "email", title: "Een prijsbezwaar beantwoorden", format: "E-mail", min: "10 min", state: "done", score: "71" },
+        { kind: "inbox", title: "De inbox van maandagochtend sorteren", format: "Inbox", min: "10 min", state: "current" },
+        { kind: "document", title: "Een verlengingsvoorstel voorbereiden", format: "Document", min: "15 min", state: "todo" },
+        { kind: "chat", title: "Een ontevreden klant kalmeren via chat", format: "Chat", min: "10 min", state: "todo" },
+      ],
+    },
+  },
+
+  flow: {
+    title: "Hoe het werkt",
+    lede: "Waarvoor u het ook gebruikt, elke simulatie volgt dezelfde drie stappen.",
+    steps: [
+      {
+        key: "build",
+        title: "Bouw de simulatie",
+        body: "Realistische klantscenario's, gebouwd op uw bedrijf, uw product en uw klanten. Kies de personages, kanalen, moeilijkheid en taal.",
+        alt: "Een AI-personage, Daniel Visser, ingesteld voor een videogesprek in het Engels op gemiddelde moeilijkheid, gebouwd op de bedrijfscontext en de vacature.",
+      },
+      {
+        key: "channels",
+        title: "Zij voeren het gesprek",
+        body: "Uw medewerkers praten met gesimuleerde klanten via chat, e-mail, telefoon of videogesprek, zoals uw team dat elke dag doet, met dezelfde bezwaren, vragen en druk.",
+        alt: "De vier kanalen om uit te kiezen, met videogesprek en e-mail allebei geselecteerd voor dezelfde simulatie.",
+      },
+      {
+        key: "evaluate",
+        title: "Zie precies hoe ze het deden",
+        body: "Elk gesprek wordt beoordeeld op duidelijke checkpoints, met het bewijs achter elk ervan. Zo steunt elke beslissing op wat ze echt deden.",
+        alt: "Een beoordeeld videogesprek: 74%, met de gehaalde en gemiste checkpoints, elk met de woorden uit het gesprek die het bewijzen.",
+      },
+    ],
+    persona: {
+      tag: "AI-personage",
+      name: "Daniel Visser",
+      rows: [
+        { label: "Kanaal", value: "Videogesprek" },
+        { label: "Taal", value: "Engels" },
+        { label: "Moeilijkheid", value: "Gemiddeld", level: 2 },
+      ],
+      builtFrom: "Gebouwd op",
+      sources: ["Bedrijfscontext", "Vacature"],
+    },
+    channels: [
+      { key: "video", name: "Videogesprek", on: true },
+      { key: "phone", name: "Telefoongesprek" },
+      { key: "chat", name: "Chat" },
+      { key: "email", name: "E-mail", on: true },
+    ],
+    report: {
+      name: "Lucas Martens",
+      pct: "74%",
+      criterion: "Brengt de echte behoefte boven",
+      critPct: 80,
+      checks: [
+        { ok: true, text: "Vraagt wie het budget beheert", said: "\u201cWie keurt zo'n tool bij jullie goed?\u201d" },
+        { ok: true, text: "Herformuleert het probleem in de woorden van de klant", said: "\u201cDus het probleem is niet de tool, maar dat uw verkopers hun gesprekken niet meer registreren?\u201d" },
+        { ok: false, text: "Spreekt een gedateerde volgende stap af", said: "\u201cPrima, ik stuur u wat informatie en we houden contact.\u201d" },
+      ],
+    },
   },
 
   compare: {
@@ -211,11 +353,38 @@ const home = {
     body: "Ook wie u afwijst, in honderdvijftig woorden gebouwd op wat hij werkelijk deed. Stilte is wat een kandidaat van een bedrijf onthoudt, en ze kost u de volgende sollicitatie.",
   },
 
+  // La confiance, à notre façon (09/11/2026, Confiance.js) : quatre
+  // engagements, pas de sceau. ⚠️ Règle 2 : chacun est écrit dans les pages
+  // légales (données à Paris, pas d'entraînement, décision humaine) ou vrai
+  // dans l'application (citations vérifiées, runScoring.js).
+  trust: {
+    title: "Gebouwd om te vertrouwen",
+    lede: "Vier engagementen, vastgelegd in onze voorwaarden en ingebouwd in het product, zodat u AI met vertrouwen inzet bij werving en onboarding.",
+    link: "Hoe onze AI werkt",
+    items: [
+      { key: "eu", title: "Uw gegevens blijven in de EU", body: "Alle gegevens worden opgeslagen in de Europese Unie, op servers in Parijs." },
+      { key: "training", title: "Nooit gebruikt om AI te trainen", body: "Niets wat uw kandidaten of uw team in een simulatie zeggen, wordt gebruikt om een AI-model te trainen." },
+      { key: "human", title: "Een mens neemt elke beslissing", body: "Onbord beoordeelt en legt uit. Beslissingen over aanwerving en inzetbaarheid blijven altijd bij uw team." },
+      { key: "proof", title: "Elke score toont zijn bewijs", body: "Elk checkpoint toont de exacte woorden die het verdienden, rechtstreeks uit het gesprek." },
+    ],
+  },
+  // La FAQ (Faq.js). ⚠️ Le lien de la dernière réponse n'est pas encore
+  // branché : voir l'en-tête de Faq.js. Langues : EXPERIENCE_LOCALES de
+  // l'application (fr, en, nl).
+  faq: {
+    title: "Veelgestelde vragen",
+    items: [
+      { q: "Voor welke functies werkt het?", a: "Klantgerichte functies in B2B SaaS: SDR's, BDR's, account executives, account managers, sales managers, customer success managers en supportteams." },
+      { q: "Hoe lang duurt de opstart?", a: "Onbord bouwt in enkele minuten een eerste versie van een simulatie, op basis van uw bedrijfscontext en de functie. U past aan wat u wilt en verstuurt ze. Uw eigen omgeving staat binnen 24 uur klaar." },
+      { q: "Welke talen worden ondersteund?", a: "Engels, Frans en Nederlands. Elke simulatie verloopt in één taal, gekozen bij het aanmaken." },
+      { q: "Moeten we iets integreren?", a: "Nee. U deelt één link. Niets te installeren, niets te koppelen aan uw huidige tools." },
+      { q: "Kunnen we het uitproberen voor we een demo boeken?", a: "Ja. Probeer Onbord in 30 seconden, zonder kredietkaart of verkoopgesprek. ", link: "Probeer een rollenspel" },
+    ],
+  },
+  // L'appel final (Cta, Bits.js) : les boutons sont ceux du hero.
   cta: {
-    titleA: "Stuur ons één vacature.",
-    titleEm: "Wij bouwen",
-    titleB: "de simulatie.",
-    body: "Eén echte vacature, en u ziet het geheel: de taken, het beoordelingsrooster, en het rapport dat u daarna zou lezen.",
+    title: "Hoor uw team aan het werk, vóór uw klanten het doen.",
+    body: "Boek een demo, of stuur ons een functieomschrijving en krijg binnen 24 uur toegang tot uw eigen omgeving.",
   },
 };
 

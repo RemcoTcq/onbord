@@ -51,12 +51,19 @@ const SEGMENTS = {
     fr: "/metiers-business",
     nl: "/business-functies",
   },
+  // Les pages « Solutions » (10/11/2026, demande directe) : deux cas
+  // d'usage, le recrutement et l'onboarding, et un secteur, le SaaS B2B.
+  // Le menu « Solutions » de la barre les range en deux groupes (Header.js).
+  "/hiring": { en: "/hiring", fr: "/recrutement", nl: "/werving" },
+  "/new-hire-onboarding": { en: "/new-hire-onboarding", fr: "/onboarding", nl: "/onboarding" },
+  "/b2b-saas": { en: "/b2b-saas", fr: "/saas-b2b", nl: "/b2b-saas" },
   // Les ressources (15/10/2026) : la même orthographe dans toutes les
   // langues. Les articles, en anglais seulement, n'ont pas d'entrée ici : le
   // sitemap les prend dans src/content/resources.js.
   "/resources": { en: "/resources", fr: "/resources", nl: "/resources" },
   "/resources/blog": { en: "/resources/blog", fr: "/resources/blog", nl: "/resources/blog" },
-  "/resources/comparisons": { en: "/resources/comparisons", fr: "/resources/comparisons", nl: "/resources/comparisons" },
+  // "/resources/comparisons" : retirée le 10/11/2026 avec les deux
+  // comparaisons (voir src/content/resources.js). À remettre avec elles.
 };
 
 /** Index inverse, construit une fois : traduction → chemin canonique. */

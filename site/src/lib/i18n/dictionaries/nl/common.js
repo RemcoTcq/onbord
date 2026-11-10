@@ -29,6 +29,16 @@ const common = {
     },
     // Het menu « Functies » (Header.js): één pagina, en een niet-klikbare « binnenkort ».
     roles: "Toepassingen",
+    // Le menu « Solutions » (10/11/2026, Header.js) : deux groupes, les cas
+    // d'usage et les secteurs. Il remplace « Use cases » dans la barre ;
+    // `roles` et `rolesItems` restent lus par le pied de page.
+    solutions: "Oplossingen",
+    solutionsGroups: { useCases: "Toepassingen", industries: "Sectoren" },
+    solutionsItems: {
+      hiring: { title: "Werving", desc: "Zie wie uw klanten aankan voordat u aanwerft." },
+      onboarding: { title: "Onboarding van nieuwe medewerkers", desc: "Maak nieuwe medewerkers klaar voor hun eerste klant." },
+      saas: { title: "B2B SaaS", desc: "Voor sales-, customer success- en supportteams in SaaS." },
+    },
     soon: "Binnenkort",
     rolesItems: {
       business: { title: "Businessfuncties", desc: "Sales, customer success, finance, HR, operations. Vandaag beschikbaar." },
@@ -38,7 +48,7 @@ const common = {
     // documentatie « binnenkort », niet klikbaar.
     resources: "Resources",
     resourcesItems: {
-      all: { title: "Alle resources", desc: "Artikels, vergelijkingen en documentatie." },
+      all: { title: "Alle resources", desc: "Alles wat we publiceren, op één plek." },
       blog: { title: "Blog", desc: "Hoe werksimulaties in uw aanwerving passen." },
       comparisons: { title: "Vergelijkingen", desc: "Onbord naast de tools waarmee teams het vergelijken." },
       docs: { title: "Documentatie", desc: "Handleidingen om Onbord in te stellen en te gebruiken. Later beschikbaar." },
@@ -46,7 +56,9 @@ const common = {
   },
 
   footer: {
-    tagline: "Werf aan op wat mensen echt kunnen.",
+    tagline: "Klantsimulaties om sales- en supportteams aan te werven en in te werken.",
+    faq: "FAQ",
+    solutions: "Oplossingen",
     product: "Product",
     company: "Bedrijf",
     resources: "Resources",

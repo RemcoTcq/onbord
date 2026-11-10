@@ -2,8 +2,9 @@ import { LEADS_EMAIL } from "@/lib/i18n/config";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // L'envoi d'une demande du site vers LEADS_EMAIL (info@onbord.be), partagé
-// par les DEUX routes serveur du site : /api/demo (« Book a demo ») et
-// /api/simulation (« Get a free simulation »).
+// par les TROIS routes serveur du site : /api/demo (« Book a demo »),
+// /api/simulation (« Get a free simulation ») et /api/try (« Try it now »,
+// le pop-up du hero, la seule à joindre un fichier).
 //
 // Pas de base de données, pas de stockage : la demande part en e-mail par
 // l'API de Resend, le service qui envoie déjà les e-mails de l'application,
@@ -29,11 +30,12 @@ export function lireChamp(donnees, cle, limite) {
 /**
  * Envoie la demande. `lignes` : paires [libellé, valeur], affichées en
  * tableau. `extra` : un long bloc de texte facultatif (le texte d'une offre),
- * ajouté sous le tableau.
+ * ajouté sous le tableau. `piecesJointes` : [{ filename, content }], le
+ * contenu en base64, tel que l'API de Resend l'attend.
  *
  * @returns {Promise<{ ok: true } | { ok: false, statut: number, erreur: string }>}
  */
-export async function envoyerDemande({ sujet, intro, lignes, extra, replyTo, journal }) {
+export async function envoyerDemande({ sujet, intro, lignes, extra, replyTo, journal, piecesJointes }) {
   const cle = process.env.RESEND_API_KEY;
   if (!cle) {
     console.error(`[${journal}] RESEND_API_KEY absente : demande non transmise`, { replyTo });
@@ -63,6 +65,7 @@ export async function envoyerDemande({ sujet, intro, lignes, extra, replyTo, jou
         lignes.map(([k, v]) => `<tr><td><b>${html(k)}</b></td><td>${html(v)}</td></tr>`).join("") +
         "</table>" +
         htmlExtra,
+      ...(piecesJointes?.length ? { attachments: piecesJointes } : {}),
     }),
   }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
 

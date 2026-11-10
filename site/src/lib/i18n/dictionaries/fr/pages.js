@@ -553,11 +553,11 @@ const pages = {
   resources: {
     meta: {
       title: "Ressources | Onbord",
-      description: "Articles, comparaisons honnêtes et documentation pour recruter sur ce que les gens savent vraiment faire.",
+      description: "Des articles pour recruter sur ce que les gens savent vraiment faire.",
     },
     eyebrow: "Ressources",
     title: "Ressources",
-    lede: "Des articles, des comparaisons honnêtes et, bientôt, la documentation. Tout pour recruter sur ce que les gens savent vraiment faire.",
+    lede: "Des articles aujourd'hui, des comparaisons et la documentation bientôt. Tout pour recruter sur ce que les gens savent vraiment faire.",
     tabsLabel: "Catégories",
     all: "Tout",
     soon: "Bientôt",

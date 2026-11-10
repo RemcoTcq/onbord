@@ -33,10 +33,20 @@ const home = {
   },
 
   hero: {
-    titleA: "Hire on",
-    titleEm: "real skills.",
-    titleB: "Not CVs.",
-    lede: "Paste a job posting. Onbord builds a job simulation, sends it to your candidates, and ranks them on what they actually did.",
+    // La bulle au-dessus du titre. « Customer-facing » est le terme qui
+    // couvre les trois familles à la fois (sales, support, customer success).
+    badge: "Built for customer-facing roles",
+    // Le titre du 05/11/2026 (demande directe), une ligne par côté du
+    // produit : le recrutement, puis l'onboarding. ⚠️ PAS DE MOT EN BLEU :
+    // tout le titre dans la même typo et la même couleur (demande directe).
+    // `titleEm` reste vide, mais il reste là, TitleH1 le lit.
+    titleA: "You hire better.",
+    titleEm: "",
+    titleB: "They ramp faster.",
+    // ⚠️ La seconde moitié annonce l'ONBOARDING, pas encore construit dans
+    // l'application (règle 2) : décision de Remco du 05/11/2026, le site
+    // anticipe le produit. À relire le jour de la mise en ligne.
+    lede: "Candidates prove their skills on the real job, new hires practice it before day one.",
 
     // ── La fenêtre de la plateforme (AppPeek.js) ─────────────────────────────
     // Quatre écrans de l'application, qui défilent tout seuls. Les
@@ -44,6 +54,41 @@ const home = {
     // dashboard.js à la racine du dépôt) : un prospect les retrouvera mot pour
     // mot en démo. Les candidats et leurs notes viennent de common.mocks
     // (shortlist, score), pas d'une seconde série inventée.
+    // Le choix au-dessus de la fenêtre (Vitrine.js). L'onglet Onboarding
+    // montre encore la fenêtre du recrutement : son visuel arrivera avec lui.
+    tabs: { label: "What the platform shows", recruitment: "Recruitment", onboarding: "Onboarding" },
+    // Le pop-up « Try it now » (TryModal.js), second bouton du hero. TEXTE
+    // PROVISOIRE, à reprendre au copywriting. La promesse des 24 heures est
+    // tenue À LA MAIN par l'équipe : ne la raccourcissez pas sans elle.
+    try: {
+      button: "Test it on your own role",
+      eyebrow: "Test simulation",
+      title: "Try it now",
+      lede: "Send us a job description. We build the simulation for that role and open your private environment.",
+      firstName: "First name",
+      firstNamePh: "Emma",
+      lastName: "Last name",
+      lastNamePh: "Peeters",
+      email: "Work email",
+      emailPh: "emma@company.com",
+      file: "Job description",
+      filePick: "Upload your job description",
+      fileHint: "PDF, Word or text, up to 4 MB",
+      fileChange: "Click to choose another file",
+      submit: "Send",
+      sending: "Sending…",
+      privacy: "We only use your details to set up your environment.",
+      missing: "Please fill in your first name, last name and email.",
+      badEmail: "This email address doesn't look right.",
+      noFile: "Please upload your job description.",
+      tooBig: "This file is over 4 MB. Please upload a lighter one.",
+      badType: "Please upload a PDF, Word or text file.",
+      failed: "Your request couldn't be sent. Email your job description to",
+      close: "Close",
+      doneTitle: "Thanks, {name}.",
+      doneLede: "Within 24 hours, you'll get access to your private environment, with a simulation built from your job description. We'll write to {email}.",
+      doneClose: "Close",
+    },
     app: {
       // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
       alt: "Onbord's recruiter interface: the dashboard, candidates ranked by overall score, and a candidate report.",
@@ -60,7 +105,7 @@ const home = {
       jobs: [
         { title: "Sales Development Rep", meta: "Ghent · Hybrid", invited: 34, done: 21, date: "Oct 7" },
         { title: "Customer Success Manager", meta: "Brussels · Permanent", invited: 18, done: 11, date: "Oct 2" },
-        { title: "Office Manager", meta: "Leuven · On site", invited: 12, done: 12, date: "Sep 24" },
+        { title: "Support Specialist", meta: "Leuven · On site", invited: 12, done: 12, date: "Sep 24" },
         { title: "Account Executive", meta: "Antwerp · Hybrid", invited: 22, done: 10, date: "Sep 19" },
       ],
       job: {
@@ -144,11 +189,132 @@ const home = {
     proofLabel: "What Onbord shows",
   },
 
+  // ── Sous le hero : une phrase seule (05/11/2026), chiffres retirés ───────
+  // Texte PROVISOIRE, le copywriting vient après. Chaque chiffre doit rester
+  // vrai dans l'application (règle 2 de site/AGENTS.md).
+  figures: {
+    // ⚠️ Règle 2 : « help them reach proficiency faster » parle de
+    // l'onboarding, qui n'existe pas encore dans l'application.
+    statement: "Pick the right reps and help them reach proficiency faster with realistic job simulations.",
+  },
+
   // Le problème, ÉNUMÉRÉ. C'est un ajout tardif et il contredit à moitié la
   // règle 0 (« le problème ne se nomme pas ») : demandé explicitement, sur le
   // modèle des sites qui posent deux colonnes barrées et une cochée. Ce qui
   // reste de la règle : aucune de ces lignes n'invente un reproche, chacune
   // redit dans un autre format ce que la page affirme déjà ailleurs.
+  // ── « Two moments that matter » (05/11/2026), Moments.js ────────────────
+  // Texte PROVISOIRE, à reprendre au copywriting. ⚠️ Règle 2 : l'onboarding
+  // n'existe PAS ENCORE dans l'application ; son visuel (onboardingApp) est
+  // une projection, seuls les formats de ses modules existent déjà.
+  moments: {
+    title: "Two moments that matter",
+    items: [
+      {
+        key: "hiring",
+        tag: "Hiring",
+        title: "See who can do the job before you hire.",
+        lede: "Candidates do twenty minutes of the real job. You get them ranked on your criteria, with the evidence behind every score.",
+        link: "Explore hiring",
+        alt: "The Onbord recruiter view: candidates for a job, ranked by overall score.",
+      },
+      {
+        key: "onboarding",
+        tag: "New hire onboarding",
+        title: "Get new hires ready before day one.",
+        lede: "They work through the real situations of the role, module by module, and you see where each one stands before they meet a customer.",
+        link: "Explore onboarding",
+        alt: "An Onbord onboarding program: a new account executive works through five job simulations before their first day.",
+      },
+    ],
+    onboardingApp: {
+      alt: "An Onbord onboarding program: a new account executive works through five job simulations before their first day.",
+      initials: "LM",
+      name: "Lucas Martens",
+      nav: "Onboarding",
+      role: "Account executive",
+      starts: "Starts on 16 Nov",
+      onTrack: "On track",
+      ready: "Ready for day one",
+      progress: "{done} of {total} modules",
+      colModule: "Module",
+      colScore: "Score",
+      colStatus: "Status",
+      pct: "{n}%",
+      states: { done: "Completed", current: "In progress", todo: "Not started" },
+      modules: [
+        { kind: "call", title: "Discovery call with a new prospect", format: "Live call", min: "15 min", state: "done", score: "82" },
+        { kind: "email", title: "Answer a pricing objection", format: "Email", min: "10 min", state: "done", score: "71" },
+        { kind: "inbox", title: "Sort a Monday-morning inbox", format: "Inbox", min: "10 min", state: "current" },
+        { kind: "document", title: "Prepare a renewal proposal", format: "Document", min: "15 min", state: "todo" },
+        { kind: "chat", title: "Calm an unhappy client in chat", format: "Chat", min: "10 min", state: "todo" },
+      ],
+    },
+  },
+
+  // « How it works », trois étapes en TROIS GRANDS BLOCS aux couleurs
+  // d'Onbord, le visuel au centre, le titre et le texte dessous sur le
+  // blanc (09/11/2026, demande directe, Etapes.js). Retenue contre la section
+  // des quatre canaux, supprimée. Les étapes valent pour le recrutement comme pour
+  // l'onboarding : construire la simulation, la jouer sur les canaux de
+  // l'équipe, évaluer.
+  // ⚠️ Règle 2 : le NIVEAU DE DIFFICULTÉ n'existe pas dans l'application, et
+  // le personnage n'y a pas de photo (ses initiales). La langue et le
+  // contexte de l'entreprise, si. Appel vidéo et appel téléphonique sont le
+  // même module vocal.
+  flow: {
+    title: "How it works",
+    lede: "Whatever you use it for, every simulation follows the same three steps.",
+    steps: [
+      {
+        key: "build",
+        title: "Build the simulation",
+        body: "Realistic customer scenarios built from your company, your product and your customers. Set the personas, channels, difficulty and language.",
+        alt: "An AI persona, Daniel Visser, set up for a video call in English at medium difficulty, built from the company context and the job offer.",
+      },
+      {
+        key: "channels",
+        title: "They have the conversation",
+        body: "Your reps talk to simulated customers by chat, email, phone or video call, the way your team does every day, with the same objections, questions and pressure.",
+        alt: "The four channels to choose from, with video call and email both selected for the same simulation.",
+      },
+      {
+        key: "evaluate",
+        title: "See exactly how they performed",
+        body: "Every conversation is scored on clear checkpoints, with the evidence behind each one. So every decision rests on what they actually did.",
+        alt: "A scored video call: 74%, with the checkpoints met and missed, each with the words from the call that prove it.",
+      },
+    ],
+    persona: {
+      tag: "AI Persona",
+      name: "Daniel Visser",
+      rows: [
+        { label: "Channel", value: "Video call" },
+        { label: "Language", value: "English" },
+        { label: "Difficulty", value: "Medium", level: 2 },
+      ],
+      builtFrom: "Built from",
+      sources: ["Company Context", "Job Offer"],
+    },
+    channels: [
+      { key: "video", name: "Video call", on: true },
+      { key: "phone", name: "Phone call" },
+      { key: "chat", name: "Chat" },
+      { key: "email", name: "Email", on: true },
+    ],
+    report: {
+      name: "Lucas Martens",
+      pct: "74%",
+      criterion: "Uncovers the real need",
+      critPct: 80,
+      checks: [
+        { ok: true, text: "Asks who owns the budget", said: "\u201cWho signs off on a tool like this on your side?\u201d" },
+        { ok: true, text: "Restates the pain in the client's words", said: "\u201cSo the issue isn't the tool, it's that your reps stopped logging their calls?\u201d" },
+        { ok: false, text: "Agrees on a dated next step", said: "\u201cGreat, I'll send you some info and we'll be in touch.\u201d" },
+      ],
+    },
+  },
+
   compare: {
     eyebrow: "The difference",
     titleA: "Two ways to be",
@@ -247,11 +413,38 @@ const home = {
     body: "Including the ones you turn down, in a hundred and fifty words built from what they actually did. Silence is what a candidate remembers of a company, and it costs you the next application.",
   },
 
+  // La confiance, à notre façon (09/11/2026, Confiance.js) : quatre
+  // engagements, pas de sceau. ⚠️ Règle 2 : chacun est écrit dans les pages
+  // légales (données à Paris, pas d'entraînement, décision humaine) ou vrai
+  // dans l'application (citations vérifiées, runScoring.js).
+  trust: {
+    title: "Built to be trusted",
+    lede: "Four commitments, written into our terms and built into the product, so you can use AI in hiring and onboarding with confidence.",
+    link: "How our AI works",
+    items: [
+      { key: "eu", title: "Your data stays in the EU", body: "All data is stored in the European Union, on servers in Paris." },
+      { key: "training", title: "Never used to train AI", body: "Nothing your candidates or team say in a simulation is used to train any AI model." },
+      { key: "human", title: "A person makes every decision", body: "Onbord scores and explains. Hiring and readiness decisions always stay with your team." },
+      { key: "proof", title: "Every score shows its proof", body: "Each checkpoint shows the exact words that earned it, straight from the conversation." },
+    ],
+  },
+  // La FAQ (Faq.js). ⚠️ Le lien de la dernière réponse n'est pas encore
+  // branché : voir l'en-tête de Faq.js. Langues : EXPERIENCE_LOCALES de
+  // l'application (fr, en, nl).
+  faq: {
+    title: "Frequently asked questions",
+    items: [
+      { q: "Which roles does it work for?", a: "Customer-facing roles in B2B SaaS: SDRs, BDRs, account executives, account managers, sales managers, customer success managers and support teams." },
+      { q: "How long does setup take?", a: "Onbord builds a first version of a simulation in a few minutes, from your company context and the role. You adjust what you want, then send it. Your private environment is ready within 24 hours." },
+      { q: "Which languages does it support?", a: "English, French and Dutch. Each simulation runs in one language, chosen when you create it." },
+      { q: "Do we need to integrate anything?", a: "No. You share one link. Nothing to install, nothing to connect to your current tools." },
+      { q: "Can we try it before booking a demo?", a: "Yes. Try Onbord in 30 seconds, with no credit card or sales call required. ", link: "Try a roleplay" },
+    ],
+  },
+  // L'appel final (Cta, Bits.js) : les boutons sont ceux du hero.
   cta: {
-    titleA: "Send us one job posting.",
-    titleEm: "We'll build",
-    titleB: "the simulation.",
-    body: "One real posting, and you see the whole thing: the tasks, the scoring grid, and the report you would read afterwards.",
+    title: "Hear your team at work, before your customers do.",
+    body: "Book a demo, or send us a job description and get your private environment within 24 hours.",
   },
 };
 

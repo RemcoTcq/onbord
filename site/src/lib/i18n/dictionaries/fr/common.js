@@ -26,6 +26,16 @@ const common = {
     },
     // Le menu « Métiers » (Header.js) : une page, et une entrée « bientôt » non cliquable.
     roles: "Cas d'usage",
+    // Le menu « Solutions » (10/11/2026, Header.js) : deux groupes, les cas
+    // d'usage et les secteurs. Il remplace « Use cases » dans la barre ;
+    // `roles` et `rolesItems` restent lus par le pied de page.
+    solutions: "Solutions",
+    solutionsGroups: { useCases: "Cas d'usage", industries: "Secteurs" },
+    solutionsItems: {
+      hiring: { title: "Recrutement", desc: "Voyez qui sait gérer vos clients avant d'embaucher." },
+      onboarding: { title: "Onboarding des nouvelles recrues", desc: "Préparez vos recrues avant leur premier client." },
+      saas: { title: "SaaS B2B", desc: "Pour les équipes sales, customer success et support du SaaS." },
+    },
     soon: "Bientôt",
     rolesItems: {
       business: { title: "Métiers business", desc: "Commercial, customer success, finance, RH, opérations. Disponible aujourd'hui." },
@@ -35,7 +45,7 @@ const common = {
     // documentation « bientôt », non cliquable.
     resources: "Ressources",
     resourcesItems: {
-      all: { title: "Toutes les ressources", desc: "Articles, comparaisons et documentation." },
+      all: { title: "Toutes les ressources", desc: "Tout ce que nous publions, au même endroit." },
       blog: { title: "Blog", desc: "Comment les simulations s'intègrent à votre recrutement." },
       comparisons: { title: "Comparaisons", desc: "Onbord face aux outils auxquels on le compare." },
       docs: { title: "Documentation", desc: "Guides pour configurer et utiliser Onbord. Disponible plus tard." },
@@ -43,7 +53,9 @@ const common = {
   },
 
   footer: {
-    tagline: "Recrutez sur ce que les gens savent vraiment faire.",
+    tagline: "Des simulations client pour recruter et intégrer vos équipes de vente et de support.",
+    faq: "FAQ",
+    solutions: "Solutions",
     product: "Produit",
     company: "Entreprise",
     resources: "Ressources",

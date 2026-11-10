@@ -55,7 +55,9 @@ l'application). Retouche légère, faite dans les jetons de `globals.css` :
 - **l'encre** est celle de l'application : `--text` #14204A (bleu nuit, plus
   le quasi-noir #070d1a), `--text-2` #3D4866, `--text-3` #5A6685 ;
 - **les arrondis** remontent : `--r-sm` 7, `--r` 10, `--r-lg` 12, `--r-xl` 16,
-  boutons à 10px. ⚠️ C'est l'INVERSE de la demande « plus carré » d'octobre
+  boutons à 10px. ⚠️ **Redescendus d'un cran le 10/11/2026** (demande
+  directe, « arrondis un peu moins ») : 5, 8, 10, 12, les grands cadres du
+  site à 12px ; les copies de l'application gardent les siens. ⚠️ C'est l'INVERSE de la demande « plus carré » d'octobre
   (2/3/4/4) : la cohérence avec l'application l'a emporté. Ne les refaites
   pas descendre sans en reparler ;
 - **les intitulés de section** ne sont plus « [ HOW IT WORKS ] » en capitales
@@ -74,6 +76,159 @@ l'application). Retouche légère, faite dans les jetons de `globals.css` :
 
 Ce qui suit sur les crochets, les angles « coupés » et le quasi-noir décrit
 l'état d'AVANT.
+
+⚠️ **MISE À JOUR DU 05/11/2026, demande directe, sur la maquette Claude
+Design : PLUS AUCUNE LIGNE DE SÉPARATION SUR LE SITE.** Les deux filets
+verticaux de la page (`body::before`, `.header::after`, `--rule-x`), les
+bandes de verticales (`.colonnes`, `.colonnes--tail`), les filets
+horizontaux entre les sections (`<Hr />`, `.hr`), ceux de la bande finale
+et du pied de page (`.section--tail::after`, `.footer::after`) sont
+**supprimés**, CSS et balisage compris. ⚠️ **Une seule exception, demandée
+le même jour** : un filet fin sous la barre de navigation, toujours visible,
+en haut de page comme au défilement (`border-bottom` de `.header`). La
+trame et `--grid-step` aussi : la barre fait 72px fixes. C'est le blanc qui
+sépare les sections. Les bordures PROPRES à un composant (une carte, un
+tableau, les chiffres de `figures`) restent. Le même jour, d'après la même
+maquette :
+
+- **la barre** : la marque à gauche, les liens au centre **directement sur
+  le blanc**, puis à droite la langue en texte gris et **UN SEUL petit
+  bouton bleu, « Book a demo »** (`.header__right .btn`, bien plus petit que
+  ceux de la page). ⚠️ Il portait « Get a free simulation » depuis le
+  20/10/2026 (voir la règle de l'appel principal) : la barre passe à la démo,
+  la simulation gratuite reste l'appel du hero, de la bande finale et du menu
+  mobile. Pas de « Log in » dans la barre : il est dans le menu mobile. ⚠️ Une
+  pilule noire autour des liens, reprise de la maquette, a été retirée le
+  jour même : « pas de bord noir autour, juste en blanc » ;
+- **les boutons** sont **en pilule et plats** : ni ombre, ni dégradé, ni
+  soulèvement au survol, et **plus de flèche** dans les boutons. Le
+  principal est bleu plein, le secondaire blanc à contour léger.
+- **les deux boutons du hero** sont de la même taille de texte que celui de
+  la barre, juste un cran plus hauts (`.hero__actions .btn`) : **« Book a
+  demo » d'abord**, en bleu, puis **« Test it on your own role »** (titre du
+  pop-up : « Try it now »), qui n'ouvre pas de page mais un **pop-up**
+  (`TryModal.js`, `<dialog>` natif, textes `hero.try`). On y demande
+  prénom, nom, e-mail et la **fiche de poste en fichier, obligatoire**
+  (PDF, Word, texte, 4 Mo au plus, limite fixée par Vercel). La demande
+  part par e-mail vers LEADS_EMAIL, la fiche en pièce jointe, par une
+  TROISIÈME route serveur, `/api/try` (même exception à la règle 6 que
+  `/api/demo` et `/api/simulation`). À l'envoi : « sous 24 heures, vous aurez
+  accès à votre environnement privé ». ⚠️ **Cette promesse est tenue À LA
+  MAIN** : l'équipe construit la simulation et ouvre l'accès elle-même. La
+  page `/free-simulation` existe toujours, mais le hero n'y mène plus.
+- **sous le hero** : une phrase seule, centrée, grise, qui se peint en noir
+  mot après mot au défilement (`Encre.js`, `home.figures.statement`) ; les
+  quatre chiffres qui la suivaient sont retirés. Puis **« Two moments that
+  matter »** (`Moments.js`, `home.moments`) : à gauche le titre puis les deux
+  moments en TYPOGRAPHIE SEULE et LÉGÈRE (graisse 400, titre compris), sur
+  deux niveaux : le nom du moment en titre, puis un paragraphe dont la
+  première phrase à l'encre sert d'accroche. Celui du moment affiché est à
+  l'encre et déroulé, l'autre gris pâle et replié ; à droite la fenêtre de
+  l'application. (Petit nom + grand titre + texte + lien, quatre niveaux,
+  c'était « pas propre ».) ⚠️ Deux versions refusées avant
+  celle-ci : trois colonnes façon spott.io (repères en bas à gauche, texte en
+  bas à droite : « on ne le lit pas facilement »), puis des cartes blanches à
+  ombre avec icônes bleues et trait de progression (« ça fait trop section
+  faite par IA »). Pas de carte, pas d'icône, pas de barre ici. Au défilement, le recrutement passe en
+  fondu LENT à l'onboarding, après un écran entier de défilement (150svh
+  par moment) : plus court, on perdait le premier dès le début. ⚠️ Les
+  visuels sont la VRAIE fenêtre de l'application (`AppFenetre`, dans
+  `AppPeek.js` : même menu, mêmes écrans que le hero, l'écran des candidats
+  et un écran d'onboarding `EcranOnboarding`), dans un cadre clair de
+  taille FIXE qui la coupe à droite et en bas. Les deux visuels ont la même
+  taille, sinon la page saute au passage (retour direct). Des panneaux
+  flottants « au style de l'application » ont été essayés et refusés : ils
+  ne ressemblaient pas assez à la plateforme. ⚠️ Règle 2 : l'onboarding
+  n'existe PAS ENCORE dans l'application, son écran est une projection ; et
+  les pages « hiring » et « onboarding » non plus, d'où des liens provisoires
+  (`#how` et la démo) à remplacer le jour où elles existent.
+- **sous les deux moments (09/11/2026, demande directe)** : « How it
+  works », titre à la typographie de celui des moments, sous-titre qui
+  vaut pour tous les usages sans nommer recrutement ni onboarding (`Etapes.js`, `home.flow`, `.parcours__*` et `.fl-*` dans
+  globals.css), trois étapes en TROIS GRANDS CADRES HAUTS côte à côte,
+  aux couleurs d'Onbord (l'aplat clair des fenêtres de Moments), le visuel
+  au centre et le titre et le texte DESSOUS, sur le blanc : construire la
+  simulation (le personnage IA, son canal, sa langue, sa difficulté, et ce
+  sur quoi il est construit), utiliser l'écosystème de l'équipe (les
+  quatre canaux, deux sélectionnés, l'appel vidéo ET l'e-mail : une
+  simulation en combine plusieurs), évaluer (critère,
+  points de contrôle atteints ou manqués, la phrase qui prouve). La mise en
+  page vient d'un modèle fourni par Remco, PAS ses couleurs : une version
+  bleu, rose et pêche, aux visuels refaits sur le modèle, a été refusée le
+  jour même. Les mêmes étapes pour le recrutement et l'onboarding. Les
+  trois visuels racontent la même scène (Daniel Visser,
+  l'appel de découverte). Elle porte l'`id="how"` visé par le pied de page
+  et par « Explore hiring ». ⚠️ Retenue contre « Every conversation of the
+  job, simulated » (les quatre canaux, en onglets puis en image
+  d'ensemble), SUPPRIMÉE le même jour, code et textes compris. Avant elles,
+  « How it works » en trois étapes de texte a été refusé deux fois, et
+  l'ancienne section `how` (« You paste. It builds. You decide. »)
+  retirée : ⚠️ `Steps.js` et `home.how` ne sont plus appelés sur
+  l'accueil, à supprimer ou à replacer.
+  ⚠️ Règle 2 : le NIVEAU DE DIFFICULTÉ n'existe pas dans l'application, et
+  le personnage n'y a pas de photo, seulement ses initiales.
+- **le bas de l'accueil (09/11/2026, demande directe)** : sous « How it
+  works », trois blocs puis le pied de page.
+  1. **la confiance, à notre façon** (`Confiance.js`, `home.trust`,
+     `.confiance*`), une bande pleine largeur dans l'aplat clair : là où
+     d'autres posent ISO ou « GDPR compliant », Onbord n'a pas encore de
+     certification, donc AUCUN faux sceau, quatre engagements vrais
+     (données à Paris, pas d'entraînement IA, décision humaine, preuve de
+     chaque note). ⚠️ Règle 2 : chacun doit rester écrit dans les pages
+     légales ou vrai dans le code ;
+  2. **la FAQ** (`Faq.js`, `home.faq`, `.questions*`, en `<details>`).
+     ⚠️ Préfixe `questions` : `.faq` est celle de /pricing. ⚠️ Le lien
+     « Try a roleplay » de la dernière réponse N'EST PAS BRANCHÉ : il
+     mènera à un essai où le visiteur laisse e-mail et téléphone (des
+     leads) puis parle à un client simulé ;
+  3. **l'appel final** (`Cta`, Bits.js), sur TOUTES les pages : un panneau
+     en DÉGRADÉ du gris clair vers un bleu franc (10/11/2026 ; un aplat au
+     bleu d'Onbord à texte blanc a été refusé le même jour ; il
+     était bleu très pâle la veille), arrondi à 12px, et les boutons du
+     hero, « Book a demo »
+     puis « Test it on your own role » (TryModal). La bande de ciel qui
+     descendait jusqu'au bas du pied de page est retirée, et le pied de
+     page est BLANC (la règle 0 bis ter ci-dessous décrit l'état d'avant).
+  ⚠️ Les quatre sections de l'ANCIEN accueil, écrites pour le seul
+  recrutement (`compare`, `work`, `proof`, `answer`), ont quitté la page ;
+  composants et textes restent, en sommeil. Les ancres `#work` et `#proof`
+  (barre, pied de page) mènent aux étapes 2 et 3 de « How it works ».
+
+⚠️ **LES PAGES « SOLUTIONS » (10/11/2026, demande directe).** Le menu
+« Use cases » de la barre s'appelle **« Solutions »** et range trois pages en
+DEUX GROUPES (`SOLUTIONS` et `.roles__group` dans Header.js, `nav.solutions*`
+dans common) : **Use cases** (`/hiring`, `/new-hire-onboarding`) et
+**Industries** (`/b2b-saas`). « Business roles » et « Tech roles » ont quitté
+le menu ; `/business-roles` existe toujours (pied de page, bulle du hero). Le
+pied de page a une colonne « Solutions », et les liens des deux moments de
+l'accueil (« Explore hiring », « Explore onboarding ») mènent aux deux pages.
+Le menu s'ouvre en GRAND PANNEAU (même jour, retour direct : « pas un carré
+qui s'ouvre », « plus en largeur ») : toute la largeur de la barre, Use cases
+à gauche et ses deux entrées côte à côte, Industries à droite, une icône par
+entrée, survol plein à 4px (`.roles__menu--large`). Product et Resources
+gardent la petite carte.
+
+- **un seul gabarit**, `CasUsage.js` : hero centré (pastille, titre, intro,
+  « Book a demo » puis le pop-up), quatre blocs texte + visuel qui ALTERNENT
+  de côté, la FAQ (Faq.js) et l'appel final au titre de la page. Textes dans
+  un espace de noms à part, `solutions` (`dictionaries/*/solutions.js`) ;
+- **les textes sont ceux de Remco** (titres, intros, blocs, questions,
+  appels) ; les RÉPONSES de la FAQ et le contenu des visuels ont été écrits
+  ici ;
+- **les visuels** se choisissent par une clé (`visual`) : la fenêtre de
+  Moments (`AppFenetre`, candidats ou onboarding) ou une carte de
+  `CasVisuels.js` (le chat du candidat, l'e-mail de retour, un module, les
+  recrues, les quatre canaux) dans le cadre clair des étapes (`.cas__cadre`).
+  `Rapport` et `Canaux` d'Etapes.js sont exportés pour servir ici ;
+- ⚠️ **Règle 2 : l'ONBOARDING N'EXISTE PAS ENCORE dans l'application.**
+  `/new-hire-onboarding` entière, et les blocs « Faster onboarding » et
+  « Keep up with your product » de `/b2b-saas`, décrivent le produit à
+  venir. « Weeks sooner » n'est mesuré nulle part. Le recrutement, lui, est
+  vrai (chat `persona`, points de contrôle, « Shortlist », retour
+  modifiable puis envoyé, ~20 minutes, consentement IA du candidat).
+
+Tout ce qui suit sur la trame, les filets et leur placement décrit l'état
+d'AVANT.
 
 Les partis pris, à respecter en ajoutant quoi que ce soit :
 
@@ -659,6 +814,11 @@ assessments ». Ce que le site fait pour ça, à ne pas défaire :
 
 ### 0 quinquies. La barre : trois menus et un lien (15/10/2026)
 
+⚠️ **Depuis le 10/11/2026 (demande directe), la barre dit Solutions ▾,
+Pricing, Resources ▾**, dans cet ordre : le menu « Product » en est retiré
+(son code reste, inutilisé ; le menu mobile garde ses trois ancres). Ce qui
+suit décrit l'état d'avant.
+
 Demande directe, « décharger la barre » : **Product ▾** (Simulations, How it
 works, Scoring, les trois ANCRES de l'accueil, `PRODUIT`), **Use cases ▾**,
 **Resources ▾**, puis **Pricing**, seul lien direct. Les trois menus passent
@@ -667,6 +827,18 @@ entrée a un `path` (une page), une `ancre` (une section de l'accueil), ou
 rien (inerte, « Soon »). Le menu mobile, lui, garde la liste à plat.
 
 ### 0 quater. Les RESSOURCES : blog, comparaisons, documentation (15/10/2026)
+
+⚠️ **Depuis le 10/11/2026 (demande directe, « pour l'instant »), il ne
+reste QUE l'article sur l'ATS.** Les deux comparaisons (TestGorilla,
+AssessFirst) sont retirées de `src/content/resources.js` (leur texte est
+dans Git), la catégorie `comparisons` est « Soon » comme la documentation,
+son segment a quitté `routes.js` (donc le plan du site), et ses adresses
+redirigent (307) vers `/resources` (`next.config.mjs`). Le menu
+« Resources » s'ouvre en grand panneau comme « Solutions » : All resources,
+Blog, puis Comparisons et Documentation inertes, marquées « Soon ». Le pied
+de page suit la barre : Solutions, Product (How it works, FAQ, Pricing),
+Resources, Legal, Contact ; Simulations, Scoring, Business roles et la
+colonne Comparisons en sont partis.
 
 Sur demande directe, sur le modèle de spott.io/resources. Un menu
 « Resources » dans la barre (`RESSOURCES` dans `Header.js`, à côté de
@@ -1129,6 +1301,22 @@ Pour la prochaine maquette : pas d'étiquette flottante au-dessus du panneau.
 Le texte à côté de la maquette dit déjà ce qu'elle montre.
 
 ### 4 octies. La fenêtre de la plateforme, DROITE, et ses écrans qui défilent (19/10/2026)
+
+⚠️ **MISE À JOUR DU 05/11/2026, demande directe, sur une maquette Claude
+Design donnée comme modèle de STYLE** : le hero de l'accueil est **tout
+blanc**. Le ciel bleu (`.home::before`), le halo, le contour de verre
+(`.stage`), la trame du hero (`.colonnes--hero`, `.hero--full::after`), le
+titre collé qui passait sous la fenêtre et la barre blanche sur le ciel ont
+été retirés. Le hero (`.hero--accueil`) n'a plus de hauteur imposée. Sous
+les boutons : un sélecteur **Recrutement / Onboarding** (`Vitrine.js`,
+`hero.tabs`), puis la fenêtre **entière** dans un cadre bleu très pâle
+(`.vitrine__cadre`, `.peek__win` à 640px de haut). ⚠️ Ces onglets-là sont
+VOULUS, contrairement à ceux retirés le 19/10 : ils choisissent un produit,
+pas un écran. L'onglet Onboarding montre la fenêtre du recrutement tant que
+l'onboarding n'existe pas dans l'application. Sous le hero, une section
+`figures` : une phrase, quatre chiffres (texte provisoire, copywriting à
+venir). Ce qui suit sur le verre, le masque et le titre collé décrit l'état
+d'AVANT.
 
 ⚠️ **CETTE RÈGLE REMPLACE 4 octies, 4 undecies et 4 duodecies ci-dessous**,
 gardées pour l'historique. Demande directe, avec le hero de spott.io en

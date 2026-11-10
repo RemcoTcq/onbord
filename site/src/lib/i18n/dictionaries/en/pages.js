@@ -582,11 +582,11 @@ const pages = {
   resources: {
     meta: {
       title: "Resources | Onbord",
-      description: "Articles, honest comparisons and documentation about hiring on what people can actually do.",
+      description: "Articles about hiring on what people can actually do.",
     },
     eyebrow: "Resources",
     title: "Resources",
-    lede: "Articles, honest comparisons and, soon, documentation. Everything about hiring on what people can actually do.",
+    lede: "Articles now, comparisons and documentation soon. Everything about hiring on what people can actually do.",
     tabsLabel: "Categories",
     all: "All",
     soon: "Soon",

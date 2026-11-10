@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Icons";
-import { IcArrow, IcCalendar, IcCheckDone, IcChevron, IcChevronDown, IcExpand, IcGear, IcHome, IcJobs, IcLink, IcMail, IcMessage, IcPanel, IcPlus, IcSearch, IcTrash, IcUsers, Note, PASTILLES, Statut, ton } from "./AppUi";
+import { IcCap, IcFile, IcInbox, IcPhone, IcArrow, IcCalendar, IcCheckDone, IcChevron, IcChevronDown, IcExpand, IcGear, IcHome, IcJobs, IcLink, IcMail, IcMessage, IcPanel, IcPlus, IcSearch, IcTrash, IcUsers, Note, PASTILLES, Statut, ton } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La fenêtre de la plateforme, dans le hero. Ses écrans défilent tout seuls.
@@ -36,9 +36,9 @@ import { IcArrow, IcCalendar, IcCheckDone, IcChevron, IcChevronDown, IcExpand, I
 // le site. Sur téléphone, le menu de gauche disparaît et la largeur de
 // référence tombe à DESIGN_PETIT, sinon le texte deviendrait microscopique.
 //
-// ── Ce qui reste de l'ancienne fenêtre ───────────────────────────────────────
-// Le titre du hero, collé sous l'en-tête, passe dessous au défilement. Elle
-// n'arrive plus couchée : elle est droite dès l'arrivée (demande directe).
+// ── Depuis le 05/11/2026 ─────────────────────────────────────────────────────
+// La fenêtre est ENTIÈRE, dans le cadre de `Vitrine.js`, qui pose au-dessus
+// le choix Recrutement / Onboarding. Le titre ne passe plus dessous.
 //
 // Les candidats et leurs notes viennent de `common.mocks` (shortlist, score),
 // comme partout sur le site : deux jeux de faux noms sur la même page
@@ -54,8 +54,10 @@ const ROTATION = 5000;
 
 // ── Les morceaux communs à tous les écrans ──────────────────────────────────
 
-/** Le menu de gauche. `actif` : "home" (tableau de bord) ou l'indice du job. */
-function Menu({ a, actif }) {
+/** Le menu de gauche. `actif` : "home" (tableau de bord), "onboarding" ou
+ *  l'indice du job. `onboarding` : le libellé de l'entrée Onboarding, posée
+ *  seulement dans les fenêtres de « Two moments that matter » (AppFenetre). */
+function Menu({ a, actif, onboarding }) {
   return (
     <aside className="ap-side">
       <div className="ap-brand">
@@ -71,6 +73,7 @@ function Menu({ a, actif }) {
         <span className="ap-label">{a.nav.menu}</span>
         <span className={`ap-nav${actif === "home" ? " ap-nav--on" : ""}`}><IcHome />{a.nav.home}</span>
         <span className="ap-nav"><IcJobs /><span className="ap-grow">{a.nav.jobs}</span><span className="ap-count">{a.jobs.length}</span></span>
+        {onboarding ? <span className={`ap-nav${actif === "onboarding" ? " ap-nav--on" : ""}`}><IcCap />{onboarding}</span> : null}
       </div>
       <div className="ap-group">
         <span className="ap-label">{a.nav.recent}</span>
@@ -380,88 +383,148 @@ function EcranAccueil({ a, liste }) {
   );
 }
 
+// ── Écran : le parcours d'onboarding d'une nouvelle recrue ────────────────
+// ⚠️ Cet écran N'EXISTE PAS ENCORE dans l'application (règle 2 de
+// site/AGENTS.md) : c'est une projection, construite avec les briques de
+// l'interface recruteur (en-tête, carte, tableau) pour qu'elle ait l'air de
+// venir du même logiciel. Les FORMATS des modules existent tous.
+const OB_ICONES = { call: IcPhone, email: IcMail, inbox: IcInbox, document: IcFile, chat: IcMessage };
+const OB_STATUT = { done: "ok", current: "cur", todo: "wait" };
+
+function EcranOnboarding({ a, o }) {
+  const faits = o.modules.filter((x) => x.state === "done").length;
+  const total = o.modules.length;
+  return (
+    <>
+      <Tete a={a} chemin={[o.nav]} titre={o.name}>
+        <Statut t="ok">{o.onTrack}</Statut>
+      </Tete>
+      <div className="ap-body">
+        <div className="ap-card ap-card--pad ob__summary">
+          <span className="ap-who">
+            <span className="ap-avatar ap-avatar--big">{o.initials}</span>
+            <span className="ap-stack">
+              <b className="ap-strong">{o.role}</b>
+              <span className="ap-sub">{o.starts}</span>
+            </span>
+          </span>
+          <div className="ob__progress">
+            <span className="ob__progLine">
+              <b>{o.ready}</b>
+              <span className="ap-sub">{o.progress.replace("{done}", faits).replace("{total}", total)}</span>
+            </span>
+            <span className="ob__track"><i style={{ width: `${(faits / total) * 100}%` }} /></span>
+          </div>
+        </div>
+        <div className="ap-table">
+          <div className="ap-tr ap-tr--head ob__tr">
+            <span />
+            <span>{o.colModule}</span>
+            <span>{o.colStatus}</span>
+            <span>{o.colScore}</span>
+          </div>
+          {o.modules.map((x) => {
+            const Icone = OB_ICONES[x.kind];
+            return (
+              <div className={`ap-tr ob__tr ob__tr--${x.state}`} key={x.title}>
+                <span className="ob__icon"><Icone size={16} /></span>
+                <span className="ap-stack">
+                  <b className="ap-strong ap-ell">{x.title}</b>
+                  <span className="ap-sub">{x.format} · {x.min}</span>
+                </span>
+                <span><Statut t={OB_STATUT[x.state]}>{o.states[x.state]}</Statut></span>
+                <span>{x.score ? <Note fmt={o.pct} n={x.score} /> : <span className="ap-dash">-</span>}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Une fenêtre FIXE, pour « Two moments that matter » (Moments.js) ─────────
+// La même fenêtre que celle du hero (menu, page, briques), sur UN écran et
+// sans rotation, posée dans un cadre clair qui la COUPE à droite et en bas,
+// à la manière du modèle de spott.io fourni par Remco. Le cadre a une taille
+// fixe : les deux moments ont donc exactement la même, et rien ne saute au
+// passage de l'un à l'autre (retour direct). Le menu porte l'entrée
+// Onboarding dans les DEUX fenêtres, pour la même raison.
+// --k : on montre VISIBLE px de l'application dans la largeur du cadre.
+const VISIBLE = 690;
+const VISIBLE_PETIT = 520;
+
+export function AppFenetre({ a, ecran, shortlist, o, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cadre = ref.current;
+    if (!cadre) return;
+    const petit = window.matchMedia("(max-width: 760px)");
+    const ajuster = () => {
+      const k = cadre.clientWidth / (petit.matches ? VISIBLE_PETIT : VISIBLE);
+      if (k > 0) cadre.style.setProperty("--k", k.toFixed(4));
+    };
+    ajuster();
+    const suivi = new ResizeObserver(ajuster);
+    suivi.observe(cadre);
+    petit.addEventListener("change", ajuster);
+    return () => {
+      suivi.disconnect();
+      petit.removeEventListener("change", ajuster);
+    };
+  }, []);
+
+  return (
+    <div className="mo-frame" ref={ref} role="img" aria-label={label}>
+      <div className="peek__win" aria-hidden="true">
+        <Menu a={a} actif={ecran === "onboarding" ? "onboarding" : 0} onboarding={o.nav} />
+        <div className="ap-main">
+          {ecran === "onboarding" ? <EcranOnboarding a={a} o={o} /> : <EcranCandidats a={a} liste={shortlist} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppPeek({ a, shortlist, score }) {
   const [actif, setActif] = useState(0);
-  const cadre = useRef(null);
+  const scene = useRef(null);
   const survol = useRef(false);
 
-  // ── L'ÉCHELLE, ET LE TITRE QUI PASSE DESSOUS ─────────────────────────────
-  // Le titre, le sous-titre et le bouton sont collés sous l'en-tête pendant
-  // qu'on descend, et la fenêtre remonte par-dessus. Les valeurs sont écrites
-  // en variables CSS sur la section du hero, pas en état React : le
-  // défilement en produirait des dizaines par seconde, et chacune relancerait
-  // un rendu de l'arbre entier pour déplacer deux éléments.
+  // ── L'ÉCHELLE ────────────────────────────────────────────────────────────
+  // La fenêtre est dessinée à la taille de l'application (DESIGN, ou
+  // DESIGN_PETIT sur téléphone, où le menu de gauche disparaît) et c'est
+  // son `zoom` qui la ramène à la largeur de la colonne. Le rapport ne
+  // s'écrit pas en CSS (une longueur divisée par une longueur), d'où ce
+  // calcul ; la feuille de style a un repli pour le premier affichage.
   //
-  // ⚠️ La fenêtre n'arrive plus COUCHÉE (19/10/2026, demande directe). Elle
-  // était inclinée à 18° et se redressait au défilement ; elle est droite
-  // dès l'arrivée.
+  // ⚠️ Il n'y a plus de titre qui passe sous la fenêtre (05/11/2026) : le
+  // hero est blanc et la fenêtre y est entière. Ce script ne pose plus que
+  // --k, sur la racine du composant.
+  //
+  // ⚠️ Il suit la LARGEUR DU BLOC (ResizeObserver), pas celle de l'écran.
+  // Avec le seul `resize` de la fenêtre, un bloc élargi par la feuille de
+  // style gardait l'ancien rapport : la fenêtre restait à son ancienne
+  // largeur, collée à gauche dans un bloc plus large, et semait le doute
+  // (« ce n'est pas élargi, c'est juste pas centré »).
   useEffect(() => {
-    const el = cadre.current;
-    const hero = el?.closest(".hero--full");
-    if (!hero) return;
+    const racine = scene.current;
+    const fenetre = racine?.querySelector(".peek");
+    if (!fenetre) return;
 
-    const texte = hero.querySelector(".hero__in");
-    const fenetre = hero.querySelector(".peek");
-    if (!texte || !fenetre) return;
-
-    // La fenêtre est dessinée à la taille de l'application (DESIGN, ou
-    // DESIGN_PETIT sur téléphone, où le menu de gauche disparaît) et c'est
-    // son `zoom` qui la ramène à la largeur de la colonne. Le rapport ne
-    // s'écrit pas en CSS (une longueur divisée par une longueur), d'où ce
-    // calcul ; la feuille de style a un repli pour le premier affichage.
-    const scene = hero.querySelector(".stage") || fenetre;
     const petit = window.matchMedia("(max-width: 760px)");
-
     const ajuster = () => {
       const base = petit.matches ? DESIGN_PETIT : DESIGN;
       const k = fenetre.clientWidth / base;
-      if (k > 0) hero.style.setProperty("--k", k.toFixed(4));
+      if (k > 0) racine.style.setProperty("--k", k.toFixed(4));
     };
     ajuster();
-    window.addEventListener("resize", ajuster);
-
-    let pret = true;
-    const suivre = () => {
-      if (!pret) return;
-      pret = false;
-      requestAnimationFrame(() => {
-        pret = true;
-
-        // LE FONDU. Le texte s'efface pendant qu'il se fait recouvrir, et il
-        // est parti avant de pouvoir ressortir sous le bord bas de la fenêtre.
-        if (!fenetre.getClientRects().length) {
-          hero.style.setProperty("--fade", "1");
-          texte.style.visibility = "";
-          return;
-        }
-        const t = texte.getBoundingClientRect();
-
-        // Sur téléphone, le bas de la fenêtre est hors écran (c'est le bas du
-        // hero qui la coupe) : le fondu suit l'avancée de la scène sur le
-        // texte, plein tant qu'elle n'y touche pas, parti quand elle atteint
-        // son haut.
-        if (petit.matches) {
-          const haut = scene.getBoundingClientRect().top - 8; // le contour de verre déborde de 8px
-          const r = Math.min(Math.max((haut - t.top) / t.height, 0), 1);
-          const f = r * r;
-          hero.style.setProperty("--fade", f.toFixed(3));
-          texte.style.visibility = f === 0 ? "hidden" : "";
-          return;
-        }
-
-        const w = fenetre.getBoundingClientRect();
-        const marge = (w.bottom - 40) - t.bottom;
-        const f = Math.min(Math.max(marge / 120, 0), 1);
-        hero.style.setProperty("--fade", f.toFixed(3));
-        texte.style.visibility = f === 0 ? "hidden" : "";
-      });
-    };
-
-    suivre();
-    window.addEventListener("scroll", suivre, { passive: true });
+    const suivi = new ResizeObserver(ajuster);
+    suivi.observe(fenetre);
+    petit.addEventListener("change", ajuster);
     return () => {
-      window.removeEventListener("scroll", suivre);
-      window.removeEventListener("resize", ajuster);
+      suivi.disconnect();
+      petit.removeEventListener("change", ajuster);
     };
   }, []);
 
@@ -488,7 +551,7 @@ export default function AppPeek({ a, shortlist, score }) {
   };
 
   return (
-    <div className="stage__peek">
+    <div className="vitrine__scene" ref={scene}>
       {/* Pour un lecteur d'écran, la fenêtre est UNE image, décrite en une
           phrase. Elle imite des boutons et des champs qui ne font rien, et
           change toute seule : lue élément par élément, elle serait
@@ -500,7 +563,7 @@ export default function AppPeek({ a, shortlist, score }) {
         onMouseEnter={() => { survol.current = true; }}
         onMouseLeave={() => { survol.current = false; }}
       >
-        <div className="peek__win" ref={cadre} aria-hidden="true">
+        <div className="peek__win" aria-hidden="true">
           <Menu a={a} actif={id === "home" ? "home" : 0} />
           <div className="ap-main" key={id}>{ecrans[id]}</div>
         </div>

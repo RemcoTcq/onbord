@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { ArrowRight, Check } from "./Icons";
+import { Check } from "./Icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // « Get a free simulation » (20/10/2026) : le visiteur envoie UNE offre
@@ -163,7 +163,6 @@ export default function SimulationForm({ t, locale, fallbackHref, fallbackEmail,
 
         <button type="submit" className="btn btn--primary btn--block" disabled={etape === "envoi"}>
           {etape === "envoi" ? t.sending : t.submit}
-          <ArrowRight size={15} />
         </button>
         <p className="demo__privacy">{t.privacy}</p>
       </form>

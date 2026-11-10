@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight } from "./Icons";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La page « Book a demo », en deux temps.
@@ -153,7 +152,6 @@ export default function DemoForm({ t, locale }) {
 
         <button type="submit" className="btn btn--primary btn--block" disabled={etape === "envoi"}>
           {etape === "envoi" ? t.sending : t.submit}
-          <ArrowRight size={15} />
         </button>
         <p className="demo__privacy">{t.privacy}</p>
       </form>

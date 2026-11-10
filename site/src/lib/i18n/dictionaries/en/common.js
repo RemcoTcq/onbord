@@ -35,6 +35,16 @@ const common = {
     },
     // Le menu « Roles » (Header.js) : une page, et une entrée « bientôt » non cliquable.
     roles: "Use cases",
+    // Le menu « Solutions » (10/11/2026, Header.js) : deux groupes, les cas
+    // d'usage et les secteurs. Il remplace « Use cases » dans la barre ;
+    // `roles` et `rolesItems` restent lus par le pied de page.
+    solutions: "Solutions",
+    solutionsGroups: { useCases: "Use cases", industries: "Industries" },
+    solutionsItems: {
+      hiring: { title: "Hiring", desc: "See who can handle your customers before you hire." },
+      onboarding: { title: "New hire onboarding", desc: "Get new hires ready before they meet a customer." },
+      saas: { title: "B2B SaaS", desc: "For sales, customer success and support teams in SaaS." },
+    },
     soon: "Soon",
     rolesItems: {
       business: { title: "Business roles", desc: "Sales, customer success, finance, HR, operations. Available today." },
@@ -44,7 +54,7 @@ const common = {
     // documentation « bientôt », non cliquable.
     resources: "Resources",
     resourcesItems: {
-      all: { title: "All resources", desc: "Articles, comparisons and documentation." },
+      all: { title: "All resources", desc: "Everything we publish, in one place." },
       blog: { title: "Blog", desc: "How job simulations fit the way you hire." },
       comparisons: { title: "Comparisons", desc: "Onbord next to the tools teams compare it with." },
       docs: { title: "Documentation", desc: "Guides to set up and run Onbord. Coming later." },
@@ -52,7 +62,9 @@ const common = {
   },
 
   footer: {
-    tagline: "Hire on what people can actually do.",
+    tagline: "Customer simulations to hire and onboard sales and support teams.",
+    faq: "FAQ",
+    solutions: "Solutions",
     product: "Product",
     company: "Company",
     resources: "Resources",
@@ -64,7 +76,7 @@ const common = {
     contact: "Contact",
     rights: "All rights reserved.",
     // Où l'on est : à droite de la ligne du bas, après le drapeau européen.
-    place: "Gent, Belgium",
+    place: "Ghent, Belgium",
   },
 
     // La composition de l'accueil : la consigne, l'e-mail, l'appel. Les deux

@@ -553,11 +553,11 @@ const pages = {
   resources: {
     meta: {
       title: "Resources | Onbord",
-      description: "Artikels, eerlijke vergelijkingen en documentatie over aanwerven op wat mensen echt kunnen.",
+      description: "Artikels over aanwerven op wat mensen echt kunnen.",
     },
     eyebrow: "Resources",
     title: "Resources",
-    lede: "Artikels, eerlijke vergelijkingen en, binnenkort, documentatie. Alles over aanwerven op wat mensen echt kunnen.",
+    lede: "Nu artikels, binnenkort vergelijkingen en documentatie. Alles over aanwerven op wat mensen echt kunnen.",
     tabsLabel: "Categorieën",
     all: "Alles",
     soon: "Binnenkort",

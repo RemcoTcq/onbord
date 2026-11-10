@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { ArrowRight, Info } from "./Icons";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { demoHref, simulationHref } from "@/lib/contact";
+import { demoHref, postingHref } from "@/lib/contact";
+import { CONTACT_EMAIL } from "@/lib/i18n/config";
+import TryModal from "./TryModal";
 
 // Petites briques partagées par toutes les pages. Elles existent pour une
 // raison précise : le titre à mot accentué, l'intitulé de section et le bloc
 // d'appel final reviennent sur chaque page. Réécrits à la main à chaque fois,
 // ils divergeraient à la troisième.
-
-/** Filet horizontal lumineux, qui s'éteint sur les bords. */
-export function Hr() {
-  return <div className="hr" aria-hidden="true" />;
-}
 
 /** Intitulé de section : un point lumineux, puis le mot. */
 export function Eyebrow({ children }) {
@@ -40,11 +37,10 @@ export function Title({ a, em, b, className = "h2" }) {
  * titre. `size` omis = taille du hero, sans avoir à le préciser partout.
  */
 // `coupe` force le retour a la ligne AVANT la fin du titre, au lieu de
-// laisser `text-wrap: balance` decider. Le hero s en sert : sa premiere
-// ligne doit etre la promesse entiere (« Hire on real skills. ») et la
-// seconde la chute (« Not CVs. »). Equilibre automatiquement, le titre
-// coupait au milieu de la promesse, et la chute perdait son effet de
-// contre-pied. Ailleurs, on laisse le navigateur equilibrer.
+// laisser `text-wrap: balance` decider. Le hero s en sert : chaque ligne
+// est une phrase entiere (« You hire better. » / « They ramp faster. »).
+// Equilibre automatiquement, le titre coupait au milieu d'une phrase.
+// Ailleurs, on laisse le navigateur equilibrer.
 export function TitleH1({ a, em, b, size, coupe }) {
   // Quand le titre est coupe a un endroit choisi, sa ligne la plus longue
   // est connue d'avance : on passe son nombre de caracteres a la feuille de
@@ -101,28 +97,26 @@ export function More({ href: to, children }) {
  * c'est le dernier point lumineux de la page, et donc le dernier endroit où
  * l'œil s'arrête.
  */
-/** La bande finale de chaque page. Ses DEUX boutons sont les mêmes partout
- *  (20/10/2026) : « Get a free simulation » en premier, « Book a demo » en
- *  second. Elle lit elle-même leurs libellés dans `common` : composant
- *  serveur ASYNCHRONE, à n'appeler que depuis une page serveur. */
+/** L'appel final de chaque page (09/11/2026, demande directe) : un grand
+ *  panneau clair, centré, sur le blanc de la page. Ses DEUX boutons sont ceux
+ *  du hero de l'accueil, partout : « Book a demo » en bleu, puis « Test it on
+ *  your own role », qui ouvre le pop-up de la fiche de poste (TryModal.js).
+ *  Avant : « Get a free simulation » puis « Book a demo », sur une bande de
+ *  ciel qui descendait jusqu'au bas du pied de page ; le ciel est parti avec
+ *  celui du hero. Elle lit elle-même ses libellés : composant serveur
+ *  ASYNCHRONE, à n'appeler que depuis une page serveur. */
 export async function Cta({ title, em, titleB, body, locale }) {
-  const { nav } = await getDictionary(locale, "common");
-  // `section--tail` ouvre la BANDE FINALE : la trame du hero, en pleine
-  // largeur, qui descend sans interruption jusqu au bas du pied de page.
+  const [{ nav }, h] = await Promise.all([getDictionary(locale, "common"), getDictionary(locale, "home")]);
   return (
-    <section className="section section--tail">
-      <span className="colonnes colonnes--tail" aria-hidden="true" />
+    <section className="section section--cta">
       <div className="wrap">
         <div className="cta">
           <div className="cta__in">
             {em ? <Title a={title} em={em} b={titleB} /> : <h2 className="h2">{title}</h2>}
-            <p className="body">{body}</p>
+            {body ? <p className="body">{body}</p> : null}
             <div className="cta__actions">
-              <a className="btn btn--primary" href={simulationHref(locale)}>
-                {nav.simulation}
-                <ArrowRight size={15} />
-              </a>
-              <a className="btn btn--ghost" href={demoHref(locale)}>{nav.demo}</a>
+              <a className="btn btn--primary" href={demoHref(locale)}>{nav.demo}</a>
+              <TryModal t={h.hero.try} locale={locale} fallbackHref={postingHref(locale)} fallbackEmail={CONTACT_EMAIL} />
             </div>
           </div>
         </div>

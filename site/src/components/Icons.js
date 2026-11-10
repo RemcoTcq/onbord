@@ -50,6 +50,7 @@ export function Logo({ height = 19 }) {
 /* ── Interface ───────────────────────────────────────────────────────────── */
 
 export const ChevronDown = (p) => (<Svg {...p}><path d="M6 9l6 6 6-6" /></Svg>);
+export const ChevronRight = (p) => (<Svg {...p}><path d="M9 6l6 6-6 6" /></Svg>);
 export const ArrowRight = (p) => (<Svg {...p}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>);
 export const ArrowLeft = (p) => (<Svg {...p}><path d="M19 12H5M11 18l-6-6 6-6" /></Svg>);
 export const ArrowUp = (p) => (<Svg {...p}><path d="M12 19V5M6 11l6-6 6 6" /></Svg>);
@@ -83,6 +84,15 @@ export const Search = (p) => (<Svg {...p}><circle cx="11" cy="11" r="7" /><path 
 export const FileText = (p) => (<Svg {...p}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></Svg>);
 export const Link = (p) => (<Svg {...p}><path d="M10 13a4 4 0 0 0 5.7.4l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.4 1.4" /><path d="M14 11a4 4 0 0 0-5.7-.4l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.4-1.4" /></Svg>);
 export const Bell = (p) => (<Svg {...p}><path d="M18 16H6l1.2-2V11a4.8 4.8 0 0 1 9.6 0v3z" /><path d="M10.5 19h3" /></Svg>);
+/* Les deux onglets du hero (Vitrine.js) : une personne qu'on cherche pour le
+   recrutement, une coiffe de diplômé pour l'onboarding (on apprend le poste). */
+export const UserSearch = (p) => (<Svg {...p}><circle cx="10" cy="8" r="4" /><path d="M3 20a7 7 0 0 1 10.5-6" /><circle cx="17.5" cy="17.5" r="2.5" /><path d="M21 21l-1.7-1.7" /></Svg>);
+/* Le menu « Resources » (10/11/2026) : toutes les ressources, les
+   comparaisons (une balance) et la documentation (un livre ouvert). */
+export const Grid = (p) => (<Svg {...p}><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></Svg>);
+export const Scale = (p) => (<Svg {...p}><path d="M12 4v16M8 20h8M5 8h14" /><path d="M5 8l-2.5 6a2.5 2.5 0 0 0 5 0z" /><path d="M19 8l-2.5 6a2.5 2.5 0 0 0 5 0z" /></Svg>);
+export const BookOpen = (p) => (<Svg {...p}><path d="M12 7c-1.8-1.4-4.3-2-8-2v13c3.7 0 6.2.6 8 2 1.8-1.4 4.3-2 8-2V5c-3.7 0-6.2.6-8 2z" /><path d="M12 7v13" /></Svg>);
+export const GradCap = (p) => (<Svg {...p}><path d="M2 9l10-5 10 5-10 5z" /><path d="M6 11v5c3.5 2.7 8.5 2.7 12 0v-5" /><path d="M22 9v5" /></Svg>);
 
 /** Le drapeau européen, au pied de page à côté de « Gent ». En SVG et non en
  *  emoji : sous Windows, l'emoji 🇪🇺 s'affiche en deux lettres « EU ». Ses

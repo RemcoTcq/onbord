@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LOCALES, LOCALE_LABELS, LOCALE_SHORT } from "@/lib/i18n/config";
 import { href, localiserChemin, canoniserChemin } from "@/lib/i18n/routes";
-import { Logo, Globe, Menu, Close, Check, ArrowRight, ChevronDown } from "./Icons";
+import { Logo, Globe, Menu, Close, Check, ChevronDown, UserSearch, GradCap, Building, Grid, FileText, Scale, BookOpen } from "./Icons";
 
 // Seul composant client du chrome : il lui faut la position de défilement,
 // l'état d'un menu, et le chemin courant. Les textes arrivent en props depuis
@@ -30,13 +30,34 @@ const METIERS = [
   { key: "tech", etat: "soon" },
 ];
 
-// Le menu « Resources » (15/10/2026), sur le modèle de spott.io : le blog,
-// les comparaisons, et la documentation « bientôt », sans page donc sans lien.
+// ⚠️ DEPUIS LE 10/11/2026, LE MENU « USE CASES » S'APPELLE « SOLUTIONS »
+// (demande directe) et range ses pages en DEUX GROUPES : les cas d'usage
+// (recrutement, onboarding) et les secteurs (SaaS B2B). `groupe` est la clé
+// de l'intitulé, dans `nav.solutionsGroups`. « Business roles » et « Tech
+// roles » ont quitté le menu ; la page /business-roles existe toujours, le
+// pied de page et la bulle du hero y mènent. METIERS n'est plus lu par la
+// barre, il reste la liste des deux rôles d'avant.
+// ⚠️ Et il s'ouvre en GRAND PANNEAU (même jour, retour direct : « pas un
+// carré qui s'ouvre », « plus en largeur ») : toute la largeur de la barre,
+// les deux groupes côte à côte, Use cases à gauche, Industries à droite. Voir
+// `large` dans DEROULANTS et `.roles__menu--large` dans globals.css.
+const SOLUTIONS = [
+  { path: "/hiring", key: "hiring", groupe: "useCases", icone: UserSearch },
+  { path: "/new-hire-onboarding", key: "onboarding", groupe: "useCases", icone: GradCap },
+  { path: "/b2b-saas", key: "saas", groupe: "industries", icone: Building },
+];
+
+
+// Le menu « Resources » (15/10/2026), sur le modèle de spott.io : toutes les
+// ressources, le blog, et ce qui arrive, sans page donc sans lien. ⚠️ Depuis
+// le 10/11/2026 (demande directe), les COMPARAISONS sont « Soon » elles
+// aussi (leurs deux articles sont retirés), et le menu s'ouvre en grand
+// panneau comme « Solutions », ses quatre entrées sur une ligne.
 const RESSOURCES = [
-  { path: "/resources", key: "all" },
-  { path: "/resources/blog", key: "blog" },
-  { path: "/resources/comparisons", key: "comparisons" },
-  { key: "docs", etat: "soon" },
+  { path: "/resources", key: "all", icone: Grid },
+  { path: "/resources/blog", key: "blog", icone: FileText },
+  { key: "comparisons", etat: "soon", icone: Scale },
+  { key: "docs", etat: "soon", icone: BookOpen },
 ];
 
 // Le menu « Product » (15/10/2026, demande directe : « décharger la barre »).
@@ -53,8 +74,10 @@ const PRODUIT = [
 // leurs entrées viennent du dictionnaire (`nav[cle]`, `nav[items]`).
 const DEROULANTS = {
   product: { items: "productItems", entrees: PRODUIT, actif: () => false },
-  roles: { items: "rolesItems", entrees: METIERS, actif: (c) => METIERS.some((m) => m.path === c) },
-  resources: { items: "resourcesItems", entrees: RESSOURCES, actif: (c) => c === "/resources" || c.startsWith("/resources/") },
+  // `large` : le grand panneau, ses groupes côte à côte ; `titres` est la
+  // clé de leurs intitulés dans `nav`. Un seul groupe sans nom : une ligne.
+  solutions: { items: "solutionsItems", entrees: SOLUTIONS, actif: (c) => SOLUTIONS.some((m) => m.path === c), large: { groupes: ["useCases", "industries"], titres: "solutionsGroups" } },
+  resources: { items: "resourcesItems", entrees: RESSOURCES, actif: (c) => c === "/resources" || c.startsWith("/resources/"), large: { groupes: [null] } },
 };
 
 const PAGES = [
@@ -64,20 +87,20 @@ const PAGES = [
   { path: "/pricing", key: "pricing" },
 ];
 
-// L'ordre de la barre : trois menus, puis les tarifs, seul lien direct, en
-// dernier comme sur la plupart des sites.
+// L'ordre de la barre (10/11/2026, demande directe) : Solutions, Pricing,
+// Resources. Le menu « Product » a quitté la barre ; PRODUIT et son entrée
+// de DEROULANTS restent, inutilisés, et le menu mobile garde ses trois ancres.
 const BARRE = [
-  { menu: "product" },
-  { menu: "roles" },
-  { menu: "resources" },
+  { menu: "solutions" },
   { page: PAGES.find((p) => p.key === "pricing") },
+  { menu: "resources" },
 ];
 
 export default function Header({ locale, nav, demoHref, simulationHref, appHref }) {
   const [stuck, setStuck] = useState(false);
   const [menu, setMenu] = useState(false);
   const [langs, setLangs] = useState(false);
-  // Le menu déroulant ouvert : "roles", "resources" ou rien. Un seul à la
+  // Le menu déroulant ouvert : "product", "solutions", "resources" ou rien. Un seul à la
   // fois : en ouvrir un ferme l'autre.
   const [deroulant, setDeroulant] = useState(null);
   const langRef = useRef(null);
@@ -218,11 +241,14 @@ export default function Header({ locale, nav, demoHref, simulationHref, appHref 
             </div>
             )}
 
-            {/* L'appel principal du site (20/10/2026). La démo reste dans le
-                hero, la bande finale et le menu mobile. */}
-            <a className="btn btn--primary" href={simulationHref}>
-              {nav.simulation}
-              <ArrowRight size={14} />
+            {/* UN SEUL bouton, « Book a demo » (05/11/2026, demande directe).
+                Il portait la simulation gratuite depuis le 20/10/2026 ; elle
+                reste l'appel principal du hero, de la bande finale et du menu
+                mobile. Pas de lien « Log in » dans la barre : il est dans le
+                menu mobile. Plus de flèche : les boutons de la maquette Claude
+                Design n'en ont pas. */}
+            <a className="btn btn--primary" href={demoHref}>
+              {nav.demo}
             </a>
 
             <button
@@ -240,7 +266,7 @@ export default function Header({ locale, nav, demoHref, simulationHref, appHref 
 
       {menu && (
         <div className="mobile">
-          {[["roles", METIERS], ["resources", RESSOURCES.filter((r) => r.key !== "all")]].flatMap(([cle, entrees]) =>
+          {[["solutions", SOLUTIONS], ["resources", RESSOURCES.filter((r) => r.key !== "all")]].flatMap(([cle, entrees]) =>
             entrees.map((m) => m.path ? (
               <Link key={cle + m.key} href={href(m.path, locale)} className="mobile__link" onClick={fermer}>
                 {nav[DEROULANTS[cle].items][m.key].title}
@@ -268,7 +294,6 @@ export default function Header({ locale, nav, demoHref, simulationHref, appHref 
           <div className="mobile__actions">
             <a className="btn btn--primary btn--block" href={simulationHref} onClick={fermer}>
               {nav.simulation}
-              <ArrowRight size={14} />
             </a>
             <a className="btn btn--ghost btn--block" href={demoHref} onClick={fermer}>
               {nav.demo}
@@ -314,7 +339,53 @@ function Deroulant({ cle, nav, locale, chemin, ouvert, basculer, fermer }) {
         {nav[cle]}
         <ChevronDown size={13} />
       </button>
-      {ouvert && (
+      {ouvert && d.large && (
+        <div className={`roles__menu roles__menu--large roles__menu--${cle}`} role="menu">
+          {d.large.groupes.map((g) => (
+            <div className="roles__col" key={g || "tout"}>
+              {g ? <p className="roles__group" role="presentation">{nav[d.large.titres][g]}</p> : null}
+              <div className="roles__items">
+                {d.entrees.filter((m) => (m.groupe || null) === g).map((m) => {
+                  const Icone = m.icone;
+                  const contenu = (
+                    <>
+                      <span className="roles__icon" aria-hidden="true"><Icone size={18} /></span>
+                      <span className="roles__text">
+                        <span className="roles__label">
+                          {nav[d.items][m.key].title}
+                          {m.etat === "soon" && <span className="soon">{nav.soon}</span>}
+                        </span>
+                        <span className="roles__desc">{nav[d.items][m.key].desc}</span>
+                      </span>
+                    </>
+                  );
+                  // Sans page : une entrée inerte, « Soon », sans survol.
+                  if (!m.path) {
+                    return (
+                      <div key={m.key} className="roles__item roles__item--large roles__item--off" role="menuitem" aria-disabled="true">
+                        {contenu}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={m.key}
+                      href={href(m.path, locale)}
+                      className="roles__item roles__item--large"
+                      role="menuitem"
+                      aria-current={chemin === m.path ? "page" : undefined}
+                      onClick={fermer}
+                    >
+                      {contenu}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {ouvert && !d.large && (
         <div className="roles__menu" role="menu">
           {d.entrees.map((m) => {
             const contenu = (

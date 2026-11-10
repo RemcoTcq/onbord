@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Logo, FlagEU } from "./Icons";
 import { CONTACT_EMAIL } from "@/lib/i18n/config";
 import { href } from "@/lib/i18n/routes";
-import { articles, cheminArticle } from "@/content/resources";
+import { demoHref } from "@/lib/contact";
 
 // Composant serveur : aucun état, aucun gestionnaire d'événement, donc aucune
 // raison de partir dans le bundle du navigateur.
@@ -18,7 +18,6 @@ export default function Footer({ locale, common }) {
 
   return (
     <footer className="footer">
-      <span className="colonnes colonnes--tail" aria-hidden="true" />
       <div className="wrap">
         <div className="footer__grid">
           <div>
@@ -29,15 +28,26 @@ export default function Footer({ locale, common }) {
             <p className="footer__tag">{f.tagline}</p>
           </div>
 
+          {/* ⚠️ Aligné sur le site actuel le 10/11/2026 (demande directe) :
+              les colonnes suivent la barre, Solutions, puis le produit
+              (l'accueil et les tarifs), puis les ressources. Simulations
+              (#work), Scoring (#proof) et Business roles, qui renvoyaient à
+              l'ancien site, sont retirés ; /business-roles n'est plus
+              ouverte que par la bulle du hero. */}
+          <div>
+            <p className="footer__h">{f.solutions}</p>
+            <ul className="footer__links">
+              <li><Link href={href("/hiring", locale)}>{n.solutionsItems.hiring.title}</Link></li>
+              <li><Link href={href("/new-hire-onboarding", locale)}>{n.solutionsItems.onboarding.title}</Link></li>
+              <li><Link href={href("/b2b-saas", locale)}>{n.solutionsItems.saas.title}</Link></li>
+            </ul>
+          </div>
+
           <div>
             <p className="footer__h">{f.product}</p>
             <ul className="footer__links">
-              {/* Les trois premières sont des ancres vers l'accueil : leurs
-                  pages ont été retirées (voir routes.js). */}
-              <li><Link href={href("/business-roles", locale)}>{n.rolesItems.business.title}</Link></li>
               <li><Link href={`/${locale}#how`}>{n.how}</Link></li>
-              <li><Link href={`/${locale}#work`}>{n.simulations}</Link></li>
-              <li><Link href={`/${locale}#proof`}>{n.scoring}</Link></li>
+              <li><Link href={`/${locale}#faq`}>{f.faq}</Link></li>
               <li><Link href={href("/pricing", locale)}>{n.pricing}</Link></li>
             </ul>
           </div>
@@ -49,19 +59,6 @@ export default function Footer({ locale, common }) {
             <ul className="footer__links">
               <li><Link href={href("/resources", locale)}>{n.resourcesItems.all.title}</Link></li>
               <li><Link href={href("/resources/blog", locale)}>{n.resourcesItems.blog.title}</Link></li>
-            </ul>
-          </div>
-
-          {/* CHAQUE comparaison a son lien (demande directe, comme le pied de
-              page de spott.io) : ce sont les pages que l'on cherche par leur
-              nom. La liste vient du contenu, une comparaison ajoutée y
-              apparaît d'elle-même. */}
-          <div>
-            <p className="footer__h">{f.comparisons}</p>
-            <ul className="footer__links">
-              {articles("comparisons").map((a) => (
-                <li key={a.slug}><Link href={href(cheminArticle(a), locale)}>{a.title}</Link></li>
-              ))}
             </ul>
           </div>
 
@@ -77,6 +74,7 @@ export default function Footer({ locale, common }) {
           <div>
             <p className="footer__h">{f.contact}</p>
             <ul className="footer__links">
+              <li><a href={demoHref(locale)}>{n.demo}</a></li>
               <li><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
             </ul>
           </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PLANS, formatPrice } from "@/lib/pricing";
-import { Check, ArrowRight } from "./Icons";
+import { Check } from "./Icons";
 
 // La grille des plans. Composant client pour une seule raison : la bascule
 // annuel / mensuel.
@@ -134,7 +134,6 @@ export default function PlanTable({ dict, locale, simulationHref, talkHref }) {
                 href={plan.id === "custom" ? talkHref : `${simulationHref}?plan=${plan.id}`}
               >
                 {t.cta}
-                <ArrowRight size={14} />
               </a>
 
               <div>
