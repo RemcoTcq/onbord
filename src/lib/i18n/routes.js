@@ -42,6 +42,9 @@ const SEGMENTS = {
   // Phase 2 : Onboarding → Modules, Programs, People.
   programmes:     { en: "programs" },
   personnes:      { en: "people" },
+  // Phase 3 : l'espace du learner → Training › Attempts, Results.
+  essais:         { en: "attempts" },
+  resultats:      { en: "results" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

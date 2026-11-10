@@ -2,10 +2,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { transcribeAudio } from "@/lib/transcription";
 import { urlSignee } from "@/lib/storage";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { passageDuJeton } from "@/lib/passage";
 
 // Transcrit la réponse vidéo d'un step. Le client n'envoie que { token, responseId } :
 // l'URL vidéo est relue depuis la DB (jamais fournie par le client), et la
-// propriété est vérifiée via le token candidat. Cohérent avec le durcissement É3/É4.
+// propriété est vérifiée via le jeton (candidat, ou essai de learner connecté).
+// Cohérent avec le durcissement É3/É4.
 export async function POST(request) {
   try {
     const { token, responseId } = await request.json();
@@ -29,17 +31,15 @@ export async function POST(request) {
 
     const admin = createAdminClient();
 
-    // Candidat propriétaire du run auquel appartient cette réponse ?
-    const { data: candidate } = await admin
-      .from("candidates").select("id").eq("interview_token", token).single();
-    if (!candidate) return Response.json({ error: "Lien invalide" }, { status: 403 });
-
+    // Le jeton (candidat ou essai de learner, lib/passage.js) ouvre-t-il le
+    // run auquel appartient cette réponse ?
     const { data: resp } = await admin
       .from("run_step_responses")
-      .select("id, video_url, run_id, candidate_runs!inner(candidate_id)")
+      .select("id, video_url, run_id, candidate_runs!inner(experience_id)")
       .eq("id", responseId)
-      .single();
-    if (!resp || resp.candidate_runs?.candidate_id !== candidate.id) {
+      .maybeSingle();
+    const passage = resp ? await passageDuJeton(admin, token, resp.candidate_runs?.experience_id) : null;
+    if (!resp || passage?.id !== resp.run_id) {
       return Response.json({ error: "Accès refusé" }, { status: 403 });
     }
     if (!resp.video_url) {

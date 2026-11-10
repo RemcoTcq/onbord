@@ -14,6 +14,7 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion, exigerAdminOrg } from "@/lib/org";
+import { envoyerNouveauxModules, envoyerModuleValide } from "@/lib/assignations";
 
 const nomDe = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ") || p?.email || "";
 
@@ -155,6 +156,9 @@ export async function assigner({ learnerId, moduleIds = [], programId = null, du
       .upsert(lignes, { onConflict: "module_id,learner_id", ignoreDuplicates: true })
       .select("id, module_id");
     if (error) throw error;
+    // Seules les NOUVELLES assignations reviennent (ignoreDuplicates) : un
+    // module déjà assigné ne déclenche pas un second e-mail.
+    await envoyerNouveauxModules(admin, { learnerId, orgId: ctx.orgId, moduleIds: (data || []).map((d) => d.module_id) });
     return { success: true, nouvelles: (data || []).length, assignmentIds: (data || []).map((d) => d.id) };
   } catch (error) {
     console.error("assigner error:", error);
@@ -191,6 +195,7 @@ export async function validerAssignation(assignmentId, valider = true) {
       : { status: a.passed_at ? "passed" : "in_progress", validated_at: null, validated_by: null };
     const { error } = await admin.from("assignments").update({ ...maj, updated_at: new Date().toISOString() }).eq("id", a.id);
     if (error) throw error;
+    if (valider && a.status !== "validated") await envoyerModuleValide(admin, a.id);
     return { success: true };
   } catch (error) {
     console.error("validerAssignation error:", error);

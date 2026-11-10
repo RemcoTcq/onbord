@@ -52,6 +52,8 @@ const candidate = {
     fallbackTeam: "Het recruitmentteam",
     welcome:
       "Welkom! {company} nodigt je uit voor een korte praktijkopdracht{duration}. Neem je tijd, er zitten geen strikvragen bij: laat gewoon zien hoe je werkt.",
+    welcomeLearner:
+      "Een oefensessie{duration}. Niets telt hier tegen je: probeer, lees je feedback, probeer opnieuw. Alleen je beste score telt.",
     start: "Beginnen",
   },
 
@@ -75,6 +77,9 @@ const candidate = {
   done: {
     title: "Klaar, bedankt!",
     body: "Je antwoorden zijn verstuurd naar {company}. Je kunt dit tabblad nu sluiten.",
+    learnerTitle: "Oefening klaar",
+    learnerBody: "Je oefening wordt nu beoordeeld. Je feedback is over ongeveer een minuut klaar.",
+    learnerButton: "Bekijk mijn feedback",
   },
 
   onboarding: {

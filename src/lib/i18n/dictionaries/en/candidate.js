@@ -47,6 +47,8 @@ const candidate = {
     fallbackTeam: "The hiring team",
     welcome:
       "Welcome! {company} invites you to complete a short practical exercise{duration}. Take your time — there are no trick questions: just show how you work.",
+    welcomeLearner:
+      "A practice session{duration}. Nothing here counts against you: try, read your feedback, try again. Only your best score is kept.",
     start: "Start",
   },
 
@@ -70,6 +72,9 @@ const candidate = {
   done: {
     title: "All done — thank you!",
     body: "Your answers have been submitted to {company}. You can now close this tab.",
+    learnerTitle: "Attempt complete",
+    learnerBody: "Your attempt is being scored. Your feedback will be ready in about a minute.",
+    learnerButton: "See my feedback",
   },
 
   onboarding: {

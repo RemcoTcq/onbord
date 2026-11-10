@@ -24,6 +24,41 @@ ${note ? `<p style="margin:0;font-size:13px;line-height:1.5;color:#5A6685">${ech
   return { html, text };
 }
 
+/** De nouveaux modules assignés à un learner. */
+export function emailNouveauxModules({ t, prenom, organisation, titres, lien }) {
+  const vars = { organisation, prenom, count: titres.length };
+  return {
+    subject: t("dashboard.emails.newModules.subject", vars),
+    ...enveloppe({
+      titre: t("dashboard.emails.newModules.title", vars),
+      paragraphes: [
+        t(prenom ? "dashboard.emails.newModules.hello" : "dashboard.emails.newModules.helloAnonymous", vars),
+        t("dashboard.emails.newModules.body", vars),
+        ...titres.map((x) => `• ${x}`),
+      ],
+      bouton: t("dashboard.emails.newModules.button"),
+      lien,
+    }),
+  };
+}
+
+/** Un module validé, par le manager ou automatiquement. */
+export function emailModuleValide({ t, prenom, organisation, module, score, lien }) {
+  const vars = { organisation, prenom, module, score: score ?? "—" };
+  return {
+    subject: t("dashboard.emails.moduleValidated.subject", vars),
+    ...enveloppe({
+      titre: t("dashboard.emails.moduleValidated.title", vars),
+      paragraphes: [
+        t(prenom ? "dashboard.emails.newModules.hello" : "dashboard.emails.newModules.helloAnonymous", vars),
+        t("dashboard.emails.moduleValidated.body", vars),
+      ],
+      bouton: t("dashboard.emails.moduleValidated.button"),
+      lien,
+    }),
+  };
+}
+
 /** L'invitation à rejoindre une organisation. */
 export function emailInvitation({ t, organisation, invitePar, role, lien }) {
   const vars = { organisation: organisation || "Onbord", invitePar: invitePar || organisation || "Onbord" };

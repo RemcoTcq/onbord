@@ -60,6 +60,8 @@ const candidate = {
     // {duration} est déjà mis en forme par l'appelant (« (~12 min) » ou vide).
     welcome:
       "Bienvenue ! {company} vous invite à réaliser une courte mise en situation{duration}. Prenez votre temps, il n'y a pas de piège : montrez comment vous travaillez.",
+    welcomeLearner:
+      "Un entraînement{duration}. Rien ne compte contre vous ici : essayez, lisez votre retour, recommencez. Seul votre meilleur score est retenu.",
     start: "Commencer",
   },
 
@@ -86,6 +88,9 @@ const candidate = {
     title: "Merci, c'est terminé !",
     body:
       "Vos réponses ont bien été soumises à {company}. Vous pouvez maintenant fermer cet onglet.",
+    learnerTitle: "Essai terminé",
+    learnerBody: "Votre essai est en cours de correction. Votre retour sera prêt dans une minute environ.",
+    learnerButton: "Voir mon retour",
   },
 
   // ── Formulaire d'entrée (identité + consentement) ─────────────────────────

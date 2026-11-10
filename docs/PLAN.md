@@ -45,8 +45,9 @@ donc l'appliquer en production avant que le code qui s'en sert soit en ligne.
 | 039 | Company Knowledge : `knowledge_documents`, `organizations.knowledge_notes`, bucket privé `knowledge` | — | **appliquée** |
 | 040 | `personas` | une fiche par personnage distinct, `config.persona_id` posé dans l'étape | **appliquée** |
 | 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | **appliquée** |
-| 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | phase 2 |
-| 043 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
+| 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | **appliquée** |
+| 043 | Dépôt des enregistrements d'un essai de learner dans `video-responses` (dossier = son essai en cours) | — | phase 3, **à appliquer** |
+| 044 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
 
 Avant chaque migration de policies : relire `pg_policies` (les policies
 s'additionnent, une seule trop large annule les autres) et vérifier les
@@ -106,7 +107,7 @@ poussé** : `main` est déployé en production par Vercel.
   learner avec chaque attempt, ses checkpoints et ses citations.
 
 ### Phase 3 — Onboarding, côté learner
-- Espace learner (`/[lang]/learn`) : modules assignés, prochain module,
+- Espace learner (`/[lang]/formation`, en anglais `/en/training`) : modules assignés, prochain module,
   progression ; passage sur tous les canaux par le moteur existant ; retour
   juste après chaque essai (checkpoints, citations, quoi améliorer) ;
   recommencer ; historique et progression par compétence.
@@ -281,7 +282,7 @@ lien. Sur l'organisation de test :
 
 Non vérifié : un appel téléphonique rejoint et noté de bout en bout
 (il demande une voix réelle).
-| 10/11/2026 | Phase 2 — onboarding côté manager | *(ce commit)* | voir ci-dessous ; migration 042 à appliquer |
+| 10/11/2026 | Phase 2 — onboarding côté manager | ce575df2 | voir ci-dessous ; 042 appliquée, vérifiée en production |
 
 ### Phase 2 — ce qui est fait
 
@@ -315,9 +316,74 @@ Non vérifié : un appel téléphonique rejoint et noté de bout en bout
 - Lint identique à `main`, 16 tests, `check:i18n` et `check:langue` verts,
   build OK.
 
-### Phase 2 — reste pour la phase 3
+### Phase 2 — vérifiée en production
 
-L'essai lui-même (le learner joue un module depuis son compte), la mise à
-jour de l'assignation après la notation (meilleur score, « seuil atteint »,
-validation automatique), les e-mails (invitation, nouvel assignment, module
-validé).
+042 appliquée (en deux fois : un premier passage partiel, rejoué en entier).
+Sur l'organisation de test : 5 suggestions de modules en 9 s, un module créé
+et sa simulation générée en 76 s (2 étapes), publiée, une étape ouverte dans
+l'éditeur, le module assigné au learner de test (`assigned`), tableau de bord
+affiché.
+
+À reprendre en phase 5 : le fil de génération d'un module dit « Offre
+analysée », et le copilote d'étape parle d'« offre » et de « candidat ».
+
+| 10/11/2026 | Phase 3 — onboarding côté learner | *(ce commit)* | voir ci-dessous ; migration 043 à appliquer |
+
+### Phase 3 — ce qui est fait
+
+- **L'essai passe par l'écran du parcours** (`/run/<id de l'essai>`), le même
+  que celui des candidats, sur tous les canaux (écrit, vidéo, appel,
+  téléphone, chat). Le jeton d'un essai est l'id du `candidate_runs` ; il ne
+  vaut qu'avec la session du learner qui le fait (`lib/passage.js`). Le
+  candidat est cherché d'abord : son chemin ne change pas. Les six points
+  d'entrée (actions du parcours, assistant, personnage, Realtime, voix,
+  transcription) passent par cette résolution ; la langue vient de l'offre
+  OU du module (plus de `jobs!inner`). Pour un learner : ni questions
+  qualificatives, ni CV, ni péremption, ni facture ; accueil et écran de fin
+  à lui (« un entraînement, seul le meilleur score compte », « Voir mon
+  retour », dans la langue de son interface).
+- **Espace learner** (`/formation`) : progression, « à faire maintenant »,
+  tous les modules (statut, meilleur score, seuil, échéance, dernier retour),
+  Commencer / Reprendre / Refaire un essai (`lib/actions/formation.js`). Un
+  essai en cours se reprend au lieu d'en ouvrir un second ; le premier essai
+  verrouille la version jouée, comme le premier candidat.
+- **Retour après chaque essai** (`/formation/essais/<id>`) : score face au
+  seuil, synthèse rédigée POUR le learner (deuxième personne, deux points à
+  travailler, dans sa langue), chaque compétence avec ses points attendus
+  0/1/2, leur justification et la citation qui le prouve. La page attend la
+  notation toute seule (≈ 25 s).
+- **Résultats** (`/formation/resultats`) : chaque compétence, son dernier
+  score, sa courbe et son évolution depuis le premier essai ; tous les essais.
+- **Assignation après la notation** (`lib/assignations.js`, règles pures dans
+  `lib/essais.js`) : meilleur score retenu, « seuil atteint » (`passed`), ou
+  `validated` directement si l'organisation valide automatiquement. Une
+  assignation validée le reste.
+- **E-mails** (FR/EN, langue du destinataire) : « nouveaux modules » à
+  l'assignation (seulement les nouvelles), « module validé » (par le manager
+  ou automatiquement). Jamais envoyés à un domaine réservé (`example.com`…) :
+  les comptes de test y vivent.
+- **043** : un learner connecté dépose ses enregistrements sous le dossier de
+  SON essai en cours, rien d'autre. Sans elle, l'essai se joue et se note
+  (sur la transcription), seul l'enregistrement manque.
+- 25 tests (9 nouveaux : `tests/onboarding.test.mjs`), lint identique à
+  `main`, `check:i18n` et `check:langue` verts, build OK.
+
+### Phase 3 — vérifiée en local contre la production (avant 043)
+
+Learner de test, module de test (l'étape d'appel passée en chat le temps du
+test, puis remise en appel) : accueil → Commencer → essai créé (`learner_id`,
+`assignment_id`, essai n° 1, aucun `candidate_id`) ; le même lien SANS
+session est refusé (« Lien d'évaluation invalide ») ; réponse écrite,
+conversation de 3 répliques avec le personnage, soumission ; notation en 24 s ;
+retour affiché en anglais à `/en/training/attempts/…` ; assignation
+`in_progress`, meilleur score 40. Second essai (seuil abaissé à 30,
+validation automatique) : essai n° 2, assignation `validated`, e-mail
+« Module validated » composé en anglais et retenu (adresse de test). Seuil et
+réglage remis. Non-régression : le lien d'un candidat de test ouvre toujours
+son parcours.
+
+Non vérifié : le dépôt d'un enregistrement par un learner (attend 043), un
+e-mail réellement reçu.
+
+À reprendre : sous la synthèse, les justifications de chaque point restent
+écrites pour un recruteur (« the candidate… »).

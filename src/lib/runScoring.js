@@ -5,10 +5,11 @@ import { inboxBriefing } from "@/lib/boiteReception";
 import { personaBriefing } from "@/lib/persona";
 import { consigneLangueRapport } from "@/lib/i18n/prompt";
 import { sceneEnTexte } from "@/lib/sceneEtape";
-import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
+import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { factureNotationCandidat } from "@/lib/utils/limits";
 import { compteFacturationDeOrg } from "@/lib/org";
 import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
+import { noterEssai } from "@/lib/assignations";
 import {
   listerCompetences, resoudreIds, tierDesIds, estCritereCheckpoints,
   pourcentageCheckpoints, moyennePonderee, poidsEtape,
@@ -683,10 +684,15 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
       return `  Étape ${i + 1} — ${s.title || s.kind}\n${msgs.map((m) => `      ${m.role === "user" ? "Candidat" : "Assistant"}: ${m.content}`).join("\n")}`;
     }).filter(Boolean).join("\n\n");
 
+    // Un essai d'onboarding est lu par la personne qui s'entraîne, juste après
+    // l'essai : la synthèse lui parle, et lui dit quoi travailler ensuite.
+    const consigneSummary = run.learner_id
+      ? `- "summary" : 3 à 4 phrases en ${LOCALE_NAMES_FR[coerceExperienceLocale(reportLocale)]}, adressées DIRECTEMENT à la personne qui s'entraîne (deuxième personne, forme polie) — d'abord ce qu'elle a bien fait, puis les deux points les plus utiles à travailler au prochain essai, concrets et tirés des notes, sans contredire aucune d'elles. C'est un entraînement après l'embauche, pas un recrutement.`
+      : `- "summary" : 2 à 3 phrases factuelles pour le recruteur — les forces et les manques qui ressortent des notes, sans contredire aucune d'elles.`;
     const systemSynthese = `${consigneLangueRapport(reportLocale, contentLocale)}
 
-Tu rédiges la synthèse d'une évaluation de recrutement dont les notes sont DÉJÀ établies, sous-dimension par sous-dimension. Tu ne renotes rien : tu résumes.
-- "summary" : 2 à 3 phrases factuelles pour le recruteur — les forces et les manques qui ressortent des notes, sans contredire aucune d'elles.
+Tu rédiges la synthèse d'une évaluation ${run.learner_id ? "d'entraînement" : "de recrutement"} dont les notes sont DÉJÀ établies, sous-dimension par sous-dimension. Tu ne renotes rien : tu résumes.
+${consigneSummary}
 - "ai_usage" : seulement si le candidat a échangé avec l'assistant IA. Évalue COMMENT il l'a utilisé (cadrage du problème, itération, regard critique sur la sortie), pas s'il l'a utilisé, sur 0 à 100. Sa justification est lue par un recruteur qui doit comprendre la note sans relire les échanges : passe explicitement en revue les trois axes, dis pour chacun ce que le candidat a fait ou n'a pas fait, en t'appuyant sur ce qu'il a réellement écrit à l'assistant. Deux à quatre phrases.
 - Aucun emoji. Réponds UNIQUEMENT avec un JSON valide.`;
     const userSynthese = `NOTES ÉTABLIES :
@@ -751,7 +757,7 @@ export async function scoreRun(runId) {
   const admin = createAdminClient();
 
   const { data: run } = await admin
-    .from("candidate_runs").select("id, candidate_id, learner_id, experience_id, status").eq("id", runId).single();
+    .from("candidate_runs").select("id, candidate_id, learner_id, assignment_id, experience_id, status").eq("id", runId).single();
   if (!run) return { success: false, error: "Run introuvable" };
   if (run.status === "scored") return { success: true, alreadyScored: true };
 
@@ -793,6 +799,14 @@ export async function scoreRun(runId) {
       // déjà produit.
       console.error(`scoreRun ${runId} : débit de la notation refusé (non bloquant) — ${facture.error}`);
     }
+  }
+
+  // Essai d'un learner : son assignation retient le meilleur score et avance
+  // si le minimum du module est atteint (lib/assignations.js). Rien d'autre à
+  // faire — il n'y a pas de candidat.
+  if (!run.candidate_id) {
+    await noterEssai(admin, run, overall);
+    return { success: true, overall };
   }
 
   // Dénormalise le score pour la liste candidats — inconditionnel, il n'écrase

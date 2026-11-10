@@ -10,12 +10,21 @@ import { inboxAnswerToText, PRIORITES, ACTIONS } from "@/lib/boiteReception";
 import { normaliserPersona, personaPourCandidat, personaTranscript } from "@/lib/persona";
 import { resolveJobEntry } from "@/lib/candidateEntry";
 import { estimerMinutes } from "@/lib/experienceDuree";
+import { essaiDuLearner } from "@/lib/passage";
+import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
+import { coerceUiLocale } from "@/lib/i18n/config";
+import { localiserChemin } from "@/lib/i18n/routes";
 
 // Toutes ces actions sont médiatisées serveur : le candidat n'a pas de session,
 // et les tables du run sont en RLS deny-all. On valide le candidat par son
 // interview_token, puis on opère avec le client service_role (bypass RLS).
 // Jamais on ne fait confiance au client pour l'identité ou pour des données
 // sensibles (critères BARS, corrigés QCM) — voir le durcissement É3/É4.
+//
+// Depuis la phase 3 de l'onboarding, le même parcours sert aussi l'ESSAI d'un
+// learner connecté : son jeton est l'id de l'essai, vérifié contre sa session
+// (lib/passage.js). Pas de porte pour lui (questions, CV, péremption), pas de
+// facturation : l'essai existe déjà quand il ouvre l'écran.
 
 // Retire du step tout ce que le candidat ne doit pas voir (critères, corrigés).
 function sanitizeStepForCandidate(step) {
@@ -100,12 +109,36 @@ function linkHasExpired(candidate) {
   return Date.now() > created.getTime() + LINK_LIFETIME_MS;
 }
 
+// L'essai d'un learner, dans la forme que rend resolveCandidateAndRun : la
+// simulation vient d'un module (ou d'une offre), l'habillage de l'organisation.
+async function contexteEssai(admin, run) {
+  const { data: exp } = await admin
+    .from("experiences").select(`*, ${SOURCE_EMBARQUEE}`).eq("id", run.experience_id).maybeSingle();
+  const job = sourceDe(exp);
+  if (!exp || !job) return { error: "Simulation introuvable." };
+  const recruiter = await brandingPublic(admin, { organizationId: job.organization_id, userId: job.user_id });
+  const { data: profil } = await admin.from("users").select("first_name, ui_locale").eq("id", run.learner_id).maybeSingle();
+  const langue = coerceUiLocale(profil?.ui_locale);
+  const learner = {
+    id: run.learner_id,
+    first_name: profil?.first_name || "",
+    // La page du retour, dans la langue de SON interface : l'écran du parcours
+    // a basculé dans celle du module, et le proxy suivrait ce choix.
+    retour: `/${langue}${localiserChemin(`/formation/essais/${run.id}`, langue)}`,
+  };
+  return { candidate: null, learner, job, recruiter, exp, run };
+}
+
 async function resolveCandidateAndRun(admin, token) {
   const { data: candidate } = await admin
     .from("candidates")
     .select("id, job_id, first_name, assessment_status, created_at, interview_expires_at, cv_url")
-    .eq("interview_token", token).single();
-  if (!candidate) return { error: "Lien d'évaluation invalide." };
+    .eq("interview_token", token).maybeSingle();
+  if (!candidate) {
+    // Pas de candidat : peut-être l'essai d'un learner connecté.
+    const essai = await essaiDuLearner(admin, token);
+    return essai ? contexteEssai(admin, essai) : { error: "Lien d'évaluation invalide." };
+  }
 
   const { data: job, error: jobError } = await admin
     .from("jobs").select("id, user_id, organization_id, title, saved_flow_nodes, assessment_config, experience_locale").eq("id", candidate.job_id).single();
@@ -206,7 +239,7 @@ export async function startRun(token) {
     const admin = createAdminClient();
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error) return { success: false, error: ctx.error };
-    const { candidate, exp, job, recruiter } = ctx;
+    const { candidate, learner, exp, job, recruiter } = ctx;
     let run = ctx.run;
 
     const branding = {
@@ -216,7 +249,7 @@ export async function startRun(token) {
 
     // ── Porte qualificative ────────────────────────────────────────────────
     // Un candidat déjà recalé ne revoit jamais l'expérience, même avec son lien.
-    if (candidate.assessment_status === "disqualified") {
+    if (candidate?.assessment_status === "disqualified") {
       return { success: true, disqualified: true, ...branding };
     }
 
@@ -303,7 +336,10 @@ export async function startRun(token) {
     return {
       success: true,
       run: { id: run.id, status: run.status },
-      candidate: { id: candidate.id, first_name: candidate.first_name },
+      candidate: candidate ? { id: candidate.id, first_name: candidate.first_name } : { id: null, first_name: learner.first_name },
+      // Essai d'un learner : l'écran de fin l'envoie vers son retour, prêt
+      // quelques secondes après la soumission (notation en arrière-plan).
+      learner: learner ? { retour: learner.retour } : null,
       job: { id: job.id, company: job.company, title: job.title, experience_locale: job.experience_locale },
       recruiter: recruiter || {},
       experience: {
@@ -334,6 +370,7 @@ export async function submitQualifyingAnswers(token, answers) {
     const ctx = await resolveCandidateAndRun(admin, token);
     if (ctx.error) return { success: false, error: ctx.error };
     const { candidate, job } = ctx;
+    if (!candidate) return { success: true, passed: true };
 
     if (candidate.assessment_status === "disqualified") {
       return { success: true, passed: false };
@@ -597,13 +634,15 @@ export async function submitRun(token) {
     // `assessment_status` est inconditionnel (c'est l'état du parcours), mais
     // `status` ne bouge QUE depuis un état non terminal : un candidat déjà
     // shortlisted / rejected par le recruteur garde sa décision.
-    await admin.from("candidates")
-      .update({ assessment_status: "submitted", assessment_submitted_at: now })
-      .eq("id", ctx.candidate.id);
-    await admin.from("candidates")
-      .update({ status: "soumis" })
-      .eq("id", ctx.candidate.id)
-      .in("status", ["invited", "in_progress"]);
+    if (ctx.candidate) {
+      await admin.from("candidates")
+        .update({ assessment_status: "submitted", assessment_submitted_at: now })
+        .eq("id", ctx.candidate.id);
+      await admin.from("candidates")
+        .update({ status: "soumis" })
+        .eq("id", ctx.candidate.id)
+        .in("status", ["invited", "in_progress"]);
+    }
 
     // Rien n'est facturé ici. Le parcours candidat coûte 3 crédits, débités en
     // deux temps : 1 à la création du run (startRun), 2 à la notation

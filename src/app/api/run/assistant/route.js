@@ -2,10 +2,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import anthropic from "@/lib/anthropic";
 import { computeAiCost } from "@/lib/constants/aiPricing";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
-import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { EXPERIENCE_LOCALES, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { langueDeConversation } from "@/lib/i18n/detection";
 import { DEFAUT_ECHANGES_IA } from "@/lib/constants/experience";
 import { sceneEnTexte } from "@/lib/sceneEtape";
+import { passageDuJeton, langueDeSimulation } from "@/lib/passage";
 
 // Assistant IA intégré au candidat, pour un step qui l'autorise.
 // - identité par token candidat (jamais candidateId/prompt du client) ;
@@ -31,10 +32,6 @@ const MODEL = "claude-sonnet-5-5";
 async function resolveContext(admin, token, stepId) {
   if (!token || !stepId) return { error: "token et stepId requis", status: 400 };
 
-  const { data: candidate } = await admin
-    .from("candidates").select("id").eq("interview_token", token).single();
-  if (!candidate) return { error: "Lien invalide", status: 403 };
-
   const { data: step } = await admin
     .from("experience_steps")
     .select("id, prompt, ai_assistant_allowed, config, experience_id")
@@ -43,10 +40,9 @@ async function resolveContext(admin, token, stepId) {
     return { error: "Assistant non disponible pour cette étape", status: 403 };
   }
 
-  const { data: run } = await admin
-    .from("candidate_runs").select("id, status")
-    .eq("candidate_id", candidate.id).eq("experience_id", step.experience_id).maybeSingle();
-  if (!run) return { error: "Run introuvable", status: 403 };
+  // Candidat ou essai de learner (lib/passage.js).
+  const run = await passageDuJeton(admin, token, step.experience_id);
+  if (!run) return { error: "Lien invalide", status: 403 };
 
   const perStep = Number(step.config?.ai_max_messages);
   const maxMessages = perStep > 0 ? perStep : DEFAUT_ECHANGES_IA;
@@ -54,12 +50,9 @@ async function resolveContext(admin, token, stepId) {
   // Langue du parcours : elle donne à l'assistant sa langue par défaut, celle
   // dans laquelle il ouvre la conversation et celle vers laquelle il retombe si
   // le message du candidat ne permet pas de trancher (« ok », « merci »).
-  const { data: exp } = await admin
-    .from("experiences").select("jobs!inner(experience_locale)")
-    .eq("id", step.experience_id).single();
-  const locale = coerceExperienceLocale(exp?.jobs?.experience_locale);
+  const locale = await langueDeSimulation(admin, step.experience_id);
 
-  return { candidate, step, run, maxMessages, locale };
+  return { step, run, maxMessages, locale };
 }
 
 // ─── Historique de la conversation ───────────────────────────────────────────

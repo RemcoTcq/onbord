@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { consommer, ipDe } from "@/lib/rateLimit";
 import { normaliserPersona } from "@/lib/persona";
+import { passageDuJeton } from "@/lib/passage";
 import { MODELE_VOIX, voixDisponible, voixDuPersonnage, voixDeBase } from "@/lib/constants/voix";
 
 // Voix d'un personnage en appel : une phrase de texte → l'audio ElevenLabs,
@@ -41,15 +42,12 @@ export async function POST(request) {
     }
 
     const admin = createAdminClient();
-    const { data: candidate } = await admin.from("candidates").select("id").eq("interview_token", token).single();
-    if (!candidate) return repli(403);
     const { data: step } = await admin
       .from("experience_steps").select("id, experience_id, sandbox_kind, config").eq("id", stepId).single();
     const persona = step?.sandbox_kind === "persona" ? normaliserPersona(step.config?.persona) : null;
     if (!persona || persona.mode === "chat") return repli(403);
-    const { data: run } = await admin
-      .from("candidate_runs").select("id, status")
-      .eq("candidate_id", candidate.id).eq("experience_id", step.experience_id).maybeSingle();
+    // Candidat ou essai de learner (lib/passage.js).
+    const run = await passageDuJeton(admin, token, step.experience_id);
     if (!run || run.status !== "in_progress") return repli(403);
 
     const langue = String(persona.language || "").slice(0, 2).toLowerCase();

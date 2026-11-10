@@ -37,6 +37,7 @@ export default function RunPage() {
   const [expired, setExpired] = useState(false); // lien de plus de 5 jours, parcours jamais commencé
   const [assistantCollapsed, setAssistantCollapsed] = useState(false); // le chat est ouvert par défaut
   const [filRougeOuvert, setFilRougeOuvert] = useState(false); // rappel de la situation, replié pendant les étapes
+  const [learner, setLearner] = useState(null); // essai d'onboarding : { retour } — la page de son retour
 
   useEffect(() => { load(); }, [token]);
 
@@ -71,6 +72,7 @@ export default function RunPage() {
     setCvGate(null);
 
     setRun(res.run);
+    setLearner(res.learner || null);
     setExperience(res.experience);
     setSteps(res.steps);
     setSubmitted(res.run.status === "submitted" || res.run.status === "scored");
@@ -308,7 +310,17 @@ export default function RunPage() {
             </div>
           )}
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", color: "#166534", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><Check size={28} /></div>
-          <h1 style={{ ...heading, marginBottom: "0.5rem" }}>{t("candidate.done.title")}</h1>
+          <h1 style={{ ...heading, marginBottom: "0.5rem" }}>{learner ? t("candidate.done.learnerTitle") : t("candidate.done.title")}</h1>
+          {/* Essai d'onboarding : pas de « merci », un retour à lire. Il se
+              prépare pendant ~1 min ; sa page attend la note toute seule. */}
+          {learner ? (
+            <>
+              <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", marginBottom: "1.5rem" }}>{t("candidate.done.learnerBody")}</p>
+              <a href={learner.retour} style={{ ...primaryBtn(primary), textDecoration: "none", display: "inline-flex" }}>
+                {t("candidate.done.learnerButton")} <ArrowRight size={16} />
+              </a>
+            </>
+          ) : (
           <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>
             {/* Le message de fin n'est plus paramétrable : la carte d'édition a
                 été retirée du parcours recruteur. Le texte traduit s'applique à
@@ -318,6 +330,7 @@ export default function RunPage() {
               company: recruiter?.company_name || job?.company || t("candidate.notice.fallbackTeam"),
             })}
           </p>
+          )}
         </div>
       </Center>
     );
@@ -339,7 +352,7 @@ export default function RunPage() {
           <p style={{ fontSize: "1rem", lineHeight: 1.6, color: "var(--muted-foreground)", whiteSpace: "pre-wrap", overflowWrap: "break-word", marginBottom: "1.75rem" }}>
             {/* Même règle que le message de fin : plus de version personnalisée,
                 le texte traduit pour tout le monde. */}
-            {t("candidate.intro.welcome", {
+            {t(learner ? "candidate.intro.welcomeLearner" : "candidate.intro.welcome", {
                 company: recruiter?.company_name || job?.company || t("candidate.intro.fallbackTeam"),
                 // Le parenthésage fait partie du fragment : en néerlandais comme
                 // en anglais il se place au même endroit, mais l'espace insécable
