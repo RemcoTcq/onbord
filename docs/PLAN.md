@@ -36,16 +36,17 @@ Numérotées à la suite (`035` …). Chacune est **idempotente** (`if not
 exists`), ne supprime rien, et laisse le code de `main` fonctionner : on peut
 donc l'appliquer en production avant que le code qui s'en sert soit en ligne.
 
-| N° | Contenu | Données migrées |
-|---|---|---|
-| 035 | `organizations`, `organization_members`, `org_invitations` ; fonctions `onbord_org_id()` et `onbord_org_role()` (SECURITY DEFINER, lisent l'appartenance de `auth.uid()`) ; `jobs.organization_id`, `experiences.organization_id` | une organisation par utilisateur existant, copie des colonnes `company_*`, l'utilisateur en `admin` ; `organization_id` rempli sur les offres et les simulations |
-| 036 | Policies par organisation (admin et manager) sur `jobs`, `experiences`, `experience_steps`, `experience_chats`, `candidates`, `job_skills`, lecture des runs et des notes ; le learner n'en reçoit aucune | — |
-| 037 | Stockage : `logos` limité aux membres admin de l'organisation propriétaire du chemin ; bucket privé `knowledge` | — |
-| 038 | `knowledge_documents`, `organizations.knowledge_notes` | — |
-| 039 | `personas` | une ligne par personnage d'étape existant, `config.persona_id` posé dans l'étape |
-| 040 | `experiences.job_id` nullable ; `candidate_runs.candidate_id` nullable + `learner_id`, `assignment_id`, `attempt_number` + contrainte « candidat XOR learner » | — |
-| 041 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` (`onboarding`, `ready`, extensible) ; `organizations.auto_validate` (faux par défaut) ; policies learner (ses assignments, ses attempts, ses notes) | — |
-| 042 | Passage recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — |
+| N° | Contenu | Données migrées | État |
+|---|---|---|---|
+| 035 | `organizations`, `organization_members`, `org_invitations` ; fonctions `onbord_org_id()`, `onbord_org_role()`, `onbord_gere_org()` ; `jobs.organization_id`, `experiences.organization_id` | une organisation par utilisateur existant, l'utilisateur en `admin` | **appliquée** |
+| 036 | Policies « organisation » (admin et manager) sur les six tables du recrutement ; déclencheurs qui posent l'organisation ; `logos` par organisation | — | **appliquée** |
+| 037 | Dépôt anonyme dans le stockage par JETON seulement (S3) | — | **après mise en ligne** |
+| 038 | Policies RESTRICTIVES : un learner ne touche à rien du recrutement (trou trouvé en test) | — | **appliquée** |
+| 039 | Company Knowledge : `knowledge_documents`, `organizations.knowledge_notes`, bucket privé `knowledge` | — | à appliquer |
+| 040 | `personas` | une fiche par personnage distinct, `config.persona_id` posé dans l'étape | à appliquer |
+| 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | à appliquer |
+| 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | phase 2 |
+| 043 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
 
 Avant chaque migration de policies : relire `pg_policies` (les policies
 s'additionnent, une seule trop large annule les autres) et vérifier les
@@ -163,7 +164,7 @@ poussé** : `main` est déployé en production par Vercel.
 | 10/11/2026 | Audit et plan | c9e46ffd | `docs/AUDIT.md`, `docs/PLAN.md` |
 | 10/11/2026 | Phase 0 — migration 035 | 1f480af8 | organisations, membres, invitations ; **appliquée en prod par Remco le 10/11** |
 | 10/11/2026 | Phase 0 — code | c941dac3 | voir ci-dessous ; migration 036 appliquée en prod par Remco le 10/11 |
-| 10/11/2026 | Phase 0 — correctif | *(ce commit)* | migration 038 : un learner ne touche à rien du recrutement (trou trouvé en test) |
+| 10/11/2026 | Phase 0 — correctif | 630baf55 | migration 038 : un learner ne touche à rien du recrutement (trou trouvé en test) |
 
 ### Phase 0 — ce qui est fait
 
@@ -230,3 +231,35 @@ gardés pour les phases suivantes, supprimés à la fin du chantier) :
 Non vérifié : l'envoi réel d'un e-mail d'invitation (il serait parti chez
 Resend), la soumission et la notation d'un passage (appels au modèle), la
 génération d'une simulation.
+| 10/11/2026 | Phase 1 — briques communes | *(ce commit)* | voir ci-dessous ; migrations 039 à 041 à appliquer |
+
+### Phase 1 — ce qui est fait
+
+- **Company Knowledge** : page Connaissances (`/entreprise/connaissances`) :
+  le résumé du site, des notes libres, des documents PDF, Word ou texte
+  (20 Mo, déposés par le navigateur dans le dossier de l'organisation, texte
+  extrait par le serveur). `lib/knowledge.js` : un seul bloc « contexte
+  d'entreprise » pour les sept prompts qui le recopiaient (génération,
+  scènes, critique, couverture, réécriture, chat de conception), base
+  bornée à 12 000 caractères. `contexteEntreprise()` (lib/org.js) y ajoute
+  notes et documents. Sans base, le texte des prompts est inchangé.
+- **Bibliothèque de personnages** (`/bibliotheque/personnages`) : liste,
+  fiche modifiable avec les mêmes éditeurs que l'étape, archivage,
+  génération d'une fiche à partir d'une phrase (Sonnet 5.5, avec le Company
+  Knowledge, sans crédit). Les personnages générés avec une simulation y
+  entrent automatiquement. Dans l'éditeur d'étape : prendre une fiche de la
+  bibliothèque, ou y ranger celle de l'étape. L'étape garde sa copie
+  (version figée) et le lien `config.persona_id`, qui ne part jamais chez le
+  candidat. Nouveau champ `mood` (humeur) : généré, modifiable, joué.
+- **Canal téléphone** : `MODES_PERSONA = ["call", "phone", "chat"]`. Même
+  moteur que l'appel vidéo, sans caméra, audio enregistré. Choix dans
+  l'éditeur, proposé par la génération, textes candidat en fr, en et nl.
+  Le chat existait déjà (aucune étape en production ne l'utilisait).
+- **Simulations détachées des offres** : migration 041 (colonnes). Le code
+  qui s'en sert arrive avec les modules (phase 2) et les essais des
+  learners (phase 3) ; à reprendre alors : `runScoring` lit l'offre par
+  `jobs!inner`, ce qui ne marchera pas pour un module.
+- `parse-file` réservé à un compte connecté (il lisait les fichiers d'un
+  anonyme).
+- Tests : 16 (`tests/briques.test.mjs` en plus). Lint identique à `main`,
+  `check:i18n` et `check:langue` verts, build OK.

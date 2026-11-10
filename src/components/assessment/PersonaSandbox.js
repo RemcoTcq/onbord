@@ -367,6 +367,9 @@ function choisirVoix(lang) {
 
 // ─── Mode APPEL ──────────────────────────────────────────────────────────────
 function PersonaCall({ persona, conv, token, stepId, primary }) {
+  // Téléphone : voix seule. Ni caméra demandée, ni vidéo affichée ; c'est
+  // l'audio de l'appel qui est enregistré.
+  const telephone = persona?.mode === "phone";
   const { t, locale } = useI18n();
   const { messages, remaining, ended, endedBy, sending, loaded, envoyer, terminer, signaler, turns, ajouterLocal, importerRealtime, recharger } = conv;
   // Langue de la reconnaissance vocale : celle du personnage, à l'accent près
@@ -446,13 +449,13 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
     let annule = false;
     (async () => {
       try {
-        const flux = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 360 }, audio: true });
+        const flux = await navigator.mediaDevices.getUserMedia({ video: telephone ? false : { width: 640, height: 360 }, audio: true });
         if (annule) { flux.getTracks().forEach((p) => p.stop()); return; }
         fluxRef.current = flux;
         if (videoRef.current) videoRef.current.srcObject = flux;
         setCameraPrete(true);
       } catch {
-        if (!annule) setErreurCamera(t("candidate.call.cameraError"));
+        if (!annule) setErreurCamera(t(telephone ? "candidate.call.micError" : "candidate.call.cameraError"));
       }
     })();
     return () => {
@@ -733,8 +736,11 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
   function demarrerEnregistrement() {
     if (!fluxRef.current || enregistreurRef.current?.state === "recording") return;
     try {
-      const type = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find((m) => window.MediaRecorder?.isTypeSupported?.(m));
-      const enregistreur = new MediaRecorder(fluxRef.current, type ? { mimeType: type, videoBitsPerSecond: 600_000 } : undefined);
+      const types = telephone
+        ? ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
+        : ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+      const type = types.find((m) => window.MediaRecorder?.isTypeSupported?.(m));
+      const enregistreur = new MediaRecorder(fluxRef.current, type ? { mimeType: type, ...(telephone ? {} : { videoBitsPerSecond: 600_000 }) } : undefined);
       morceauxRef.current = [];
       enregistreur.ondataavailable = (e) => { if (e.data?.size) morceauxRef.current.push(e.data); };
       enregistreur.start(1000);
@@ -949,7 +955,13 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
 
   const tuileCandidat = (
     <div style={{ position: "relative", background: "#202124", borderRadius: 14, overflow: "hidden", aspectRatio: "16 / 9", minWidth: 0 }}>
-      <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
+      {telephone ? (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#e8eaed" }}>
+          <Phone size={34} />
+        </div>
+      ) : (
+        <video ref={videoRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
+      )}
       {erreurCamera && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, textAlign: "center", color: "#e8eaed", fontSize: 13 }}>{erreurCamera}</span>}
       <span style={{ position: "absolute", left: 12, bottom: 10, color: "#ffffff", fontSize: 13, fontWeight: 600, textShadow: "0 1px 2px rgba(0,0,0,.6)", display: "flex", alignItems: "center", gap: 6 }}>
         {micCoupe && <MicOff size={14} />} {t("candidate.call.you")}
@@ -976,7 +988,9 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
           </div>
         </div>
         <p style={{ fontSize: 12, color: "var(--muted-foreground)", margin: 0, lineHeight: 1.5 }}>
-          {sessionRT ? t("candidate.call.howItWorksRealtime") : vocal ? t("candidate.call.howItWorks") : t("candidate.call.noSpeechSupport")}
+          {sessionRT ? t(telephone ? "candidate.call.howItWorksRealtimePhone" : "candidate.call.howItWorksRealtime")
+            : vocal ? t(telephone ? "candidate.call.howItWorksPhone" : "candidate.call.howItWorks")
+              : t("candidate.call.noSpeechSupport")}
         </p>
       </div>
     );

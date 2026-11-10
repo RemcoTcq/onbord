@@ -21,14 +21,21 @@
 // run_ai_messages : ces messages-là mesurent l'usage de l'assistant Claude, et
 // parler à un client simulé n'est pas utiliser une IA.
 
-// Deux modes, un seul personnage :
-//   • "call" — un appel : le candidat parle, le personnage répond à voix haute,
-//     caméra du candidat allumée. Le geste des métiers où tout se joue à
-//     l'oral : appel à froid, découverte, objection, négociation, escalade,
+// Trois modes, un seul personnage :
+//   • "call" — un appel VIDÉO : le candidat parle, le personnage répond à voix
+//     haute, caméra du candidat allumée. Le geste des métiers où tout se joue
+//     à l'oral : appel à froid, découverte, objection, négociation, escalade,
 //     feedback. C'est le mode par défaut.
+//   • "phone" — le même appel, au TÉLÉPHONE : voix seule, aucune caméra
+//     demandée, l'audio enregistré à la place de la vidéo (phase 1 de
+//     l'onboarding, 10/11/2026). Même moteur, même notation : la
+//     transcription arrive au même endroit.
 //   • "chat" — une messagerie : chat client, message interne, LinkedIn. Pour
 //     les situations qui se vivent réellement par écrit.
-export const MODES_PERSONA = ["call", "chat"];
+export const MODES_PERSONA = ["call", "phone", "chat"];
+
+/** Le personnage se joue-t-il à la voix (appel vidéo ou téléphone) ? */
+export const estVocal = (persona) => (persona?.mode || "call") !== "chat";
 
 export const DEFAUT_TOURS = 12;          // messages du candidat, au plus
 export const MAX_TOURS = 20;
@@ -59,6 +66,9 @@ export function normaliserPersona(p) {
     context: net(p?.context),
     opening_message: net(p?.opening_message),
     personality: net(p?.personality),
+    // Son humeur au début de l'échange (bibliothèque de personnages, phase 1
+    // de l'onboarding). Absente des fiches d'avant : rien ne change pour elles.
+    mood: net(p?.mood).slice(0, 300),
     goals: net(p?.goals),
     hidden_info: liste(p?.hidden_info).slice(0, 8),
     objections: liste(p?.objections).slice(0, 8),
@@ -185,7 +195,7 @@ ${secretRealtime(persona)}`
   return `Tu joues un PERSONNAGE dans une mise en situation de recrutement. Tu n'es pas un assistant : tu es cette personne, avec ses intérêts, son humeur et ses limites. ${canal}
 
 QUI TU ES : ${identite(persona)}.
-${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, ${realtime ? "et chacune est levée dès qu'elle reçoit une réponse raisonnable : tu ne la répètes pas et tu n'en inventes pas d'autres pour prolonger l'appel" : "et tu ne les abandonnes que face à une vraie réponse"} :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
+${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.mood ? `TON HUMEUR AU DÉBUT DE LA CONVERSATION : ${persona.mood}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, ${realtime ? "et chacune est levée dès qu'elle reçoit une réponse raisonnable : tu ne la répètes pas et tu n'en inventes pas d'autres pour prolonger l'appel" : "et tu ne les abandonnes que face à une vraie réponse"} :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
 COMMENT TU JOUES :
 - Tu restes dans le personnage du début à la fin. Tu ne dis jamais que tu es une IA, tu ne commentes pas l'exercice, tu ne donnes aucun conseil au candidat.
 ${forme}

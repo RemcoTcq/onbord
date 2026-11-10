@@ -151,7 +151,8 @@ export function PersonaReglages({ persona, onChange }) {
   const k = (cle) => t(`dashboard.experienceEditor.persona.${cle}`);
   const v = (cle, vars) => t(`dashboard.experienceEditor.voices.${cle}`, vars);
   const tours = p.max_turns ?? DEFAUT_TOURS;
-  const appel = (p.mode || "call") === "call";
+  // La voix se règle pour les deux modes vocaux : appel vidéo et téléphone.
+  const appel = (p.mode || "call") !== "chat";
 
   // Les voix configurées sur le serveur (langue, accent, genre — jamais l'identifiant).
   const [variantes, setVariantes] = useState(null);

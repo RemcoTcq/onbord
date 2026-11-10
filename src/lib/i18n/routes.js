@@ -34,6 +34,11 @@ const SEGMENTS = {
   // Phase 0 de l'onboarding : l'équipe, et l'espace d'entraînement du learner.
   equipe:    { en: "team" },
   formation: { en: "training" },
+  // Phase 1 : Company → Knowledge, Library → Personas.
+  entreprise:     { en: "company" },
+  connaissances:  { en: "knowledge" },
+  bibliotheque:   { en: "library" },
+  personnages:    { en: "personas" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

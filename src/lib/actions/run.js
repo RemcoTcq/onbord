@@ -40,6 +40,8 @@ function sanitizeStepForCandidate(step) {
   // Ses informations cachées, objections et limites sont la matière du jeu —
   // les envoyer au navigateur, c'est donner les réponses.
   if (config.persona) config.persona = personaPourCandidat(normaliserPersona(config.persona));
+  // Le lien vers la fiche de la bibliothèque (migration 040) : interne.
+  delete config.persona_id;
   return {
     id: step.id,
     order_index: step.order_index,

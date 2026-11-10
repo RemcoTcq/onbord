@@ -459,7 +459,7 @@ function ParcoursTab({ job, jobId, questions, experience, onEditQuestions }) {
             <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 9, padding: 12, fontSize: 13 }}>
               {steps.map((s, i) => {
                 const { cle, Icone } = natureEtape(s);
-                const nature = cle === "call" || cle === "chat"
+                const nature = cle === "call" || cle === "phone" || cle === "chat"
                   ? t(`dashboard.experienceEditor.overview.${cle}`)
                   : t(`dashboard.experienceEditor.coverage.format.${cle}`);
                 const m = minutesEtape(s);

@@ -637,7 +637,7 @@ export default function CandidateDetailPage() {
 function CarteEtape({ step, index, nomCandidat, estOuvert, basculer }) {
   const { t } = useI18n();
   const { cle, Icone } = natureEtape(step);
-  const nature = cle === "call" || cle === "chat"
+  const nature = cle === "call" || cle === "phone" || cle === "chat"
     ? t(`dashboard.experienceEditor.overview.${cle}`)
     : t(`dashboard.experienceEditor.coverage.format.${cle}`);
   const points = pointsDe(step.criteria);

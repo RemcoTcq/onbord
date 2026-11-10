@@ -7,6 +7,7 @@
 // Une route handler ne s'importe pas depuis un script de test ; un module pur,
 // si. La seconde est de lisibilité : la route ne fait plus qu'orchestrer.
 import { consigneLangueConversation, rappelLangueConversation } from '@/lib/i18n/prompt';
+import { blocEntreprise } from "@/lib/knowledge";
 
 
 // Chat-first de conception d'expérience : le chat prend l'offre + le contexte
@@ -63,12 +64,7 @@ export const REGENERATE_STEP_TOOL = {
 
 export function buildSystemPrompt({ title, skillsStr, companyContext, blocEtat, blocFiche, experienceExiste, langue }) {
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-    ctx.domain && `Modèle : ${ctx.domain}`,
-  ].filter(Boolean).join(" | ") || "Aucun contexte entreprise renseigné.";
+  const companyBlock = blocEntreprise(ctx, { sep: " | ", vide: "Aucun contexte entreprise renseigné." });
 
   // Deux déroulés exclusifs. On n'envoie QUE celui qui s'applique : donner les
   // deux, c'est laisser le modèle choisir de « concevoir » un parcours qui

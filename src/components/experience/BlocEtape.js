@@ -22,8 +22,9 @@ function natureEtape(step) {
   if (step.kind === "classic_qcm") return { cle: "qcm", Icone: ListChecks };
   const sandbox = step.sandbox_kind && step.sandbox_kind !== "none" ? step.sandbox_kind : null;
   if (sandbox === "persona") {
-    const appel = (step.config?.persona?.mode || "call") === "call";
-    return { cle: appel ? "call" : "chat", Icone: appel ? Phone : MessageSquare };
+    const mode = step.config?.persona?.mode || "call";
+    if (mode === "chat") return { cle: "chat", Icone: MessageSquare };
+    return mode === "phone" ? { cle: "phone", Icone: Phone } : { cle: "call", Icone: Video };
   }
   const cle = sandbox || step.response_format || "text";
   return { cle, Icone: ICONES[cle] || Type };
@@ -34,7 +35,7 @@ export { natureEtape };
 export default function BlocEtape({ step, index, total, recap, recapEnCours, part, nbCompetences, onOpen, onMove }) {
   const { t } = useI18n();
   const { cle, Icone } = natureEtape(step);
-  const libelle = cle === "call" || cle === "chat"
+  const libelle = cle === "call" || cle === "phone" || cle === "chat"
     ? t(`dashboard.experienceEditor.overview.${cle}`)
     : t(`dashboard.experienceEditor.coverage.format.${cle}`);
   const minutes = minutesEtape(step);

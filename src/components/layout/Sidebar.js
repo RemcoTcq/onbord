@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
-import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
 import { jobDot } from "@/components/ui/ds";
@@ -60,6 +60,21 @@ export default function Sidebar() {
       icon: <Briefcase size={open ? 16 : 17} strokeWidth={1.8} />,
       actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
       count: ouverts.length || null,
+    },
+    // Phase 1 de l'onboarding : la base de connaissances et la bibliothèque
+    // de personnages, partagées par le recrutement et l'onboarding. La phase 5
+    // range le menu en groupes (Hiring, Onboarding, Library, Company).
+    {
+      href: "/entreprise/connaissances",
+      label: t("dashboard.nav.knowledge"),
+      icon: <BookOpen size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname.startsWith("/entreprise"),
+    },
+    {
+      href: "/bibliotheque/personnages",
+      label: t("dashboard.nav.personas"),
+      icon: <Contact size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname.startsWith("/bibliotheque"),
     },
   ];
   const parametresActif = pathname.startsWith("/compte");

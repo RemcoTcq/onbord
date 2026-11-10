@@ -10,7 +10,7 @@
 //     modifier les données ».
 
 import { useState } from "react";
-import { Phone, MessageSquare, Pencil, Check, EyeOff } from "lucide-react";
+import { Phone, Video, MessageSquare, Pencil, Check, EyeOff } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { SectionRecit } from "./Recit";
 import { CHAMPS_SCENE } from "./EditeursScene";
@@ -25,10 +25,10 @@ export function RecitPersona({ persona, onChange }) {
   const p = persona || {};
   const set = (patch) => onChange({ ...p, ...patch });
   const [identite, setIdentite] = useState(false);
-  const appel = (p.mode || "call") === "call";
-  const Icone = appel ? Phone : MessageSquare;
+  const mode = p.mode || "call";
+  const Icone = mode === "chat" ? MessageSquare : mode === "phone" ? Phone : Video;
   const k = (cle) => `dashboard.experienceEditor.recit.persona.${cle}`;
-  const sousTitre = [t(k(appel ? "call" : "chat")), [p.role, p.company].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  const sousTitre = [t(k(mode)), [p.role, p.company].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const libelleIdentite = identite ? t("dashboard.experienceEditor.recit.done") : t("dashboard.experienceEditor.recit.edit");
 
   return (
@@ -75,6 +75,7 @@ export function RecitPersona({ persona, onChange }) {
         sousTitre={t(k("hiddenSub"))}
       >
         <SectionRecit fort titre={t(k("personality"))} valeur={p.personality} lignes={2} onChange={(v) => set({ personality: v })} />
+        <SectionRecit fort titre={t(k("mood"))} aide={t(k("moodHint"))} valeur={p.mood} lignes={1} onChange={(v) => set({ mood: v })} />
         <SectionRecit fort titre={t(k("goals"))} valeur={p.goals} lignes={2} onChange={(v) => set({ goals: v })} />
         <SectionRecit fort titre={t(k("hidden"))} aide={t(k("hiddenHint"))} valeur={p.hidden_info} liste onChange={(v) => set({ hidden_info: v })} />
         <SectionRecit fort titre={t(k("objections"))} valeur={p.objections} liste onChange={(v) => set({ objections: v })} />

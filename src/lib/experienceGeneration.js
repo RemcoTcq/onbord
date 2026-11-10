@@ -7,6 +7,7 @@
 // Les prompts sont la source de vérité unique : ils ne vivent QUE ici.
 
 import { createClient } from "@/lib/supabase/server";
+import { blocEntreprise } from "@/lib/knowledge";
 import anthropic from "@/lib/anthropic";
 import { chargerDecouverte } from "@/lib/experienceChat";
 import { construireBriefDecouverte } from "@/lib/experienceDecouverte";
@@ -26,6 +27,7 @@ import { niveauLangueLisible } from "@/lib/i18n/languages";
 import { sceneEnTexte } from "@/lib/sceneEtape";
 import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureRegenerationEtape } from "@/lib/utils/limits";
 import { compteFacturationDuMembre, contexteEntreprise } from "@/lib/org";
+import { rangerPersonasDeLaSimulation } from "@/lib/personas";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 // Opus pour concevoir le parcours : c'est la tâche la plus difficile du
@@ -149,7 +151,7 @@ ${REGLES_CHECKPOINTS}
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
    - Pour "document" : config.document_context
    - Pour "inbox" : config.inbox_brief — UNE SEULE PHRASE : la boîte de qui, quel moment, quelle contrainte de temps. Les messages seront produits dans un second temps ; ne les génère PAS ici.
-   - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel, le cas général) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
+   - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel vidéo, le cas général), "phone" (un appel téléphonique, voix seule : appel à froid, support au téléphone, relance) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
    QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — customer success, support client, account management, sales manager ou support manager (escalades, demandes de l'équipe).
    QUAND CHOISIR "persona" : le poste se joue en conversation — SDR, BDR, account executive, account management, customer success, support client, management d'une équipe commerciale ou support. Préfère-le à une vidéo dès que la compétence se prouve en réagissant à l'autre (objection, information à obtenir, désaccord) plutôt qu'en parlant seul.
    NE PAS choisir une de ces sandboxes pour un poste où le geste ne se retrouve pas dans le quotidien. Leur "response_format" est toujours "text".`;
@@ -298,12 +300,7 @@ const SCHEMA_STEP_CHAMPS = SCHEMA_STEP.split("\n").slice(1, -1).join("\n");
 function buildExperienceGenerationPrompt({ title, description, criteria, companyContext, additionalContext, locale, uiLocale }) {
   const competences = listerCompetences(criteria);
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-    ctx.domain && `Modèle : ${ctx.domain}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+  const companyBlock = blocEntreprise(ctx);
 
   // La consigne de langue est en TÊTE, avant tout le reste : placée en fin de
   // prompt, elle se fait recouvrir par les dizaines de lignes de règles et
@@ -358,11 +355,7 @@ Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct
 // messages qui se répondent.
 function buildInboxScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+  const companyBlock = blocEntreprise(ctx, { avecModele: false });
 
   return `${consigneLangueContenu(locale)}
 
@@ -440,18 +433,16 @@ async function generateInboxScenario({ title, description, criteria, companyCont
 // une vraie réponse, et des informations qui ne sortent que si on les cherche.
 function buildPersonaScenarioPrompt({ title, description, criteria, companyContext, step, locale, uiLocale, filRouge }) {
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
-  const mode = step.config?.persona_mode === "chat" ? "chat" : "call";
+  const companyBlock = blocEntreprise(ctx, { avecModele: false });
+  // "call" (vidéo) et "phone" (voix seule) se jouent pareil : à la voix.
+  const mode = ["chat", "phone"].includes(step.config?.persona_mode) ? step.config.persona_mode : "call";
+  const vocal = mode !== "chat";
 
   return `${consigneLangueContenu(locale)}
 
 LANGUE DE LA FICHE CACHÉE — elle prime sur la consigne ci-dessus pour les champs qui suivent. Ce que le candidat voit ou entend ("step_prompt", "context", "opening_message", "name", "role", "company") suit la consigne ci-dessus. Ce qu'il ne voit JAMAIS — "personality", "goals", "hidden_info", "objections", "red_lines", "end_condition", "success_signals" — est rédigé ${enLangueRecruteur(uiLocale)} : c'est lui qui relit et retouche cette fiche. L'IA qui jouera le personnage la restitue d'elle-même dans la langue du personnage ; n'écris donc pas ces champs dans la langue de la scène.
 
-Tu conçois un PERSONNAGE pour une évaluation de recrutement. Le candidat va ${mode === "call" ? "l'APPELER (ou être appelé) : il parle, le personnage lui répond à voix haute" : "échanger avec lui PAR ÉCRIT, dans une messagerie"}. Le personnage est joué par une IA qui suivra ta fiche à la lettre.
+Tu conçois un PERSONNAGE pour une évaluation de recrutement. Le candidat va ${vocal ? `l'APPELER (ou être appelé)${mode === "phone" ? " au téléphone" : " en visio"} : il parle, le personnage lui répond à voix haute` : "échanger avec lui PAR ÉCRIT, dans une messagerie"}. Le personnage est joué par une IA qui suivra ta fiche à la lettre.
 
 ${blocOffre({ title, description, criteria })}
 CONTEXTE ENTREPRISE :
@@ -463,15 +454,15 @@ SITUATION À METTRE EN SCÈNE : ${step.config?.persona_brief || "À toi de la ch
 
 RÈGLES DE CONCEPTION :
 1. UN VRAI INTERLOCUTEUR DE CE MÉTIER : nom, fonction, entreprise, et une raison concrète d'être dans cette conversation. Il veut quelque chose ("goals") qui n'est pas forcément ce que veut le candidat.
-2. PERSONNALITÉ ("personality") en une ou deux phrases jouables : pressé, méfiant, aimable mais évasif, irrité… Pas de caricature.
+2. PERSONNALITÉ ("personality") en une ou deux phrases jouables : pressé, méfiant, aimable mais évasif, irrité… Pas de caricature. HUMEUR ("mood") : en quelques mots, son état au début de l'échange (de bonne humeur, agacé par un incident récent, sous pression…), cohérent avec la situation.
 3. INFORMATIONS CACHÉES ("hidden_info") : 2 à 4 faits décisifs que le personnage ne livre QUE si le candidat pose la question qui y mène (le vrai blocage, le budget réel, qui décide vraiment, ce qui s'est passé avec le concurrent). Chacune dit ce qu'elle est ET quel genre de question la fait sortir.
 4. OBJECTIONS ("objections") : 2 à 4, crédibles dans ce métier, qui tombent face à une vraie réponse — pas devant une formule.
 5. LIMITES ("red_lines") : 1 à 3 choses que le personnage n'accepte pas (une remise au-delà d'un seuil, un engagement sans validation…).
 6. SIGNAUX DE RÉUSSITE ("success_signals") — ${enLangueRecruteur(uiLocale)}, lus par le correcteur : 3 à 5 comportements qui distinguent une bonne conversation (a fait sortir telle information, a reformulé l'objection, a obtenu un engagement précis). Atteignables avec la seule information de la scène.
 7. "context" : ce que le CANDIDAT sait en entrant — 2 à 4 phrases, vouvoiement : qui il est, qui est l'interlocuteur, pourquoi cette conversation, ce qu'il doit obtenir. Sans les informations cachées.
-8. "opening_message" : la première réplique du personnage s'il décroche ou ouvre l'échange (1 à 2 phrases, ${mode === "call" ? "parlées, sans mise en forme" : "écrites"}). Chaîne vide si c'est au candidat de parler en premier (appel à froid, message de prospection).
+8. "opening_message" : la première réplique du personnage s'il décroche ou ouvre l'échange (1 à 2 phrases, ${vocal ? "parlées, sans mise en forme" : "écrites"}). Chaîne vide si c'est au candidat de parler en premier (appel à froid, message de prospection).
 9. "language" : le code de la langue que parle le personnage (fr, en, nl…) — celle de la scène, voir l'exception en tête. "accent" : son pays d'origine, en deux lettres (BE, FR, NL, GB, US…) — il choisit la voix de l'appel : un client gantois est "nl" + "BE", un Bruxellois francophone "fr" + "BE". "gender" : "f" ou "m", cohérent avec le prénom.
-${mode === "call" ? consigneVoix() : ""}
+${vocal ? consigneVoix() : ""}
 10. "step_prompt" : 2 à 3 phrases lues avant la conversation : la mission et ce qui est attendu. Il ne livre aucune information cachée.
 11. "max_turns" : 8 à 14 — ce qu'une vraie conversation de ce type demande, pas plus.
 12. FIN DE L'ÉCHANGE ("end_condition") — ${enLangueRecruteur(uiLocale)}, 1 à 2 phrases : à partir de quand le personnage accepte la suite et met fin à l'échange, et la durée réaliste d'un vrai échange de ce type. Elle découle DIRECTEMENT de ce que "context" demande au candidat d'obtenir : l'échange se termine dès que cet objectif est atteint (ou clairement manqué) — jamais un objectif différent ou plus exigeant. Concret et propre à CETTE situation. Exemple pour un appel à froid : « Dès que le candidat a présenté le problème en une phrase et proposé un rendez-vous de découverte à une date précise, il accepte et raccroche — pas de démo ni de découverte pendant l'appel, 2 à 3 minutes en tout. » Pour une démo ou une négociation, ce qui doit être obtenu (un accord, un prochain rendez-vous avec le décideur) et jusqu'à 10 minutes.
@@ -490,6 +481,7 @@ Réponds UNIQUEMENT avec un JSON valide :
   "context": "…",
   "opening_message": "…",
   "personality": "…",
+  "mood": "…",
   "goals": "…",
   "hidden_info": ["…"],
   "objections": ["…"],
@@ -524,6 +516,27 @@ async function generateSceneJson({ prompt, maxTokens, model, normaliser }) {
     }
   }
   return { success: false, error: lastErr, usage: mergeUsage(usages) };
+}
+
+/**
+ * Un personnage pour la BIBLIOTHÈQUE (phase 1 de l'onboarding), à partir
+ * d'une phrase : le même concepteur que pour une étape de simulation, sans
+ * offre. Le rôle dit à qui la conversation s'adresse (le poste de celui qui
+ * s'entraîne), la phrase dit la situation.
+ * @returns {Promise<{success: boolean, persona?: object, usage?: object, error?: string}>}
+ */
+export async function genererPersonaLibre({ brief, mode, role, locale, uiLocale, companyContext }) {
+  const res = await generatePersonaScenario({
+    title: role || "",
+    description: "",
+    criteria: {},
+    companyContext,
+    step: { prompt: "", config: { persona_brief: brief, persona_mode: mode } },
+    locale,
+    uiLocale,
+    model: COUVERTURE_MODEL,
+  });
+  return res.success ? { success: true, persona: res.persona, usage: res.usage } : { success: false, error: res.error, usage: res.usage };
 }
 
 // Génère le personnage d'un step "persona" (2e passe).
@@ -737,7 +750,7 @@ function rendreEtapesPourCritique(steps) {
       // pas voir dans quelle langue la scène était jouée.
       sceneEnTexte(s.config, "  ") || null,
       s.config?.inbox_brief ? `  Boîte de réception prévue : ${s.config.inbox_brief}` : null,
-      s.config?.persona_brief ? `  Interlocuteur prévu (${s.config.persona_mode === "chat" ? "échange écrit" : "appel"}) : ${s.config.persona_brief}` : null,
+      s.config?.persona_brief ? `  Interlocuteur prévu (${s.config.persona_mode === "chat" ? "échange écrit" : s.config.persona_mode === "phone" ? "appel téléphonique" : "appel vidéo"}) : ${s.config.persona_brief}` : null,
       sousDims ? `  Sous-dimensions et leurs checkpoints :\n${sousDims}` : null,
     ].filter(Boolean).join("\n");
   }).join("\n\n");
@@ -747,11 +760,7 @@ function buildCritiquePrompt({ title, description, criteria, companyContext, add
   const hard = (criteria.hard_skills || []).map((s) => `- ${s.name}`).join("\n");
   const soft = (criteria.soft_skills || []).map((s) => `- ${s.name}`).join("\n");
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+  const companyBlock = blocEntreprise(ctx, { avecModele: false });
 
   // Pas de consigne de langue de sortie : ce prompt ne produit RIEN qui soit lu
   // par le candidat ou le recruteur. Ses `consigne` repartent vers le prompt de
@@ -1022,10 +1031,7 @@ function formeBase(s) {
 // sa réponse ne pouvait pas montrer.
 function buildCouverturePrompt({ title, description, criteria, companyContext, steps, manquantes, locale, uiLocale }) {
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+  const companyBlock = blocEntreprise(ctx, { avecModele: false });
 
   return `${consigneLangueEtapes(locale, uiLocale)}
 
@@ -1476,6 +1482,10 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     const facture = await factureGenerationSimulation(await compteFacturationDuMembre(user.id), job.id);
     if (!facture.success) console.error("factureGenerationSimulation:", job.id, facture.error);
 
+    // Les personnages générés entrent dans la bibliothèque de l'organisation
+    // (migration 040) : réutilisables tout de suite. Non bloquant.
+    await rangerPersonasDeLaSimulation(experience.id, user.id);
+
     const nbSubDims = rows.reduce((n, r) => n + (r.criteria || []).length, 0);
     onEvent?.({ kind: "saved", nbEtapes: rows.length, nbSubDims });
     onEvent?.({ kind: "done" });
@@ -1504,12 +1514,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
 function buildStepRegenerationPrompt({ title, description, criteria, companyContext, step, position, total, autresEtapes, instruction, locale, uiLocale, filRouge }) {
   const competences = listerCompetences(criteria);
   const ctx = companyContext || {};
-  const companyBlock = [
-    ctx.description && `Description : ${ctx.description}`,
-    ctx.industry && `Secteur : ${ctx.industry}`,
-    ctx.target_market && `Marché cible : ${ctx.target_market}`,
-    ctx.domain && `Modèle : ${ctx.domain}`,
-  ].filter(Boolean).join("\n") || "Aucun contexte entreprise fourni.";
+  const companyBlock = blocEntreprise(ctx);
 
   // L'étape est donnée telle qu'elle est EN BASE. Les scènes complètes sont
   // remplacées par un marqueur : des milliers de tokens qu'on paierait à chaque
@@ -1862,6 +1867,14 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
     // complète — un échec de débit ne défait pas ce que le recruteur a obtenu.
     const facture = await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
     if (!facture.success) console.error("factureRegenerationEtape:", step.id, facture.error);
+
+    // Un personnage réécrit est une nouvelle fiche : elle entre dans la
+    // bibliothèque (son lien d'avant pointait vers l'ancienne).
+    if (stepMaj?.config?.persona && stepMaj.config.persona_id) {
+      const { persona_id: _ancien, ...sansLien } = stepMaj.config;
+      await supabase.from("experience_steps").update({ config: sansLien }).eq("id", stepMaj.id);
+    }
+    await rangerPersonasDeLaSimulation(stepMaj?.experience_id || step.experience_id, user.id);
 
     // Coût comptabilisé À PART de generation_usage, qui reste l'instantané de la
     // génération complète (migration 025).

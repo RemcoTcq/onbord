@@ -17,6 +17,7 @@
 // le repli et l'auto-réparation vivent.
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { assemblerConnaissances } from "@/lib/knowledge";
 
 export const ROLES = ["admin", "manager", "learner"];
 export const ROLES_GESTION = ["admin", "manager"];
@@ -197,13 +198,28 @@ export async function contexteEntreprise(userId) {
   const admin = createAdminClient();
   const { data: membre } = await admin
     .from("organization_members")
-    .select("organizations(ai_context)")
+    .select("organization_id, organizations(ai_context, knowledge_notes)")
     .eq("user_id", userId)
     .maybeSingle();
-  const duOrg = membre?.organizations?.ai_context;
-  if (duOrg && Object.keys(duOrg).length) return duOrg;
-  const { data: profil } = await admin.from("users").select("company_ai_context").eq("id", userId).maybeSingle();
-  return profil?.company_ai_context || {};
+
+  let resume = membre?.organizations?.ai_context;
+  if (!resume || !Object.keys(resume).length) {
+    const { data: profil } = await admin.from("users").select("company_ai_context").eq("id", userId).maybeSingle();
+    resume = profil?.company_ai_context || {};
+  }
+  if (!membre?.organization_id) return resume;
+
+  // Phase 1 : la base de connaissances (notes + documents, migration 039),
+  // bornée (lib/knowledge.js). Une lecture qui échoue — migration pas encore
+  // passée — rend le résumé seul, comme avant.
+  const { data: documents, error } = await admin
+    .from("knowledge_documents")
+    .select("title, kind, extracted_text")
+    .eq("organization_id", membre.organization_id)
+    .order("created_at", { ascending: false });
+  if (error) return resume;
+  const connaissances = assemblerConnaissances({ notes: membre.organizations?.knowledge_notes, documents });
+  return connaissances ? { ...resume, connaissances } : resume;
 }
 
 /**

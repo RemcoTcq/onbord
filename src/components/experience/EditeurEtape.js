@@ -24,6 +24,7 @@ import {
 } from "./EditeursScene";
 import { SectionRecit, Repli } from "./Recit";
 import { RecitPersona, RecitScene, ResumeDonnees } from "./RecitsScenes";
+import PersonaBibliotheque from "./PersonaBibliotheque";
 import Corrige, { aUnCorrige } from "./Corrige";
 import { SkillPicker, nouvelIdCheckpoint, competencesDeLaGrille } from "./Competences";
 import { inputStyle, labelStyle, Panneau, LigneReglage, Interrupteur } from "./ui";
@@ -125,7 +126,11 @@ export function OngletScenario({ edition, toast }) {
       </Panneau>
 
       {kind === "persona" && (
-        <RecitPersona persona={local.config?.persona} onChange={(persona) => setConfig({ persona })} />
+        <>
+          {/* La bibliothèque de personnages (phase 1 de l'onboarding). */}
+          <PersonaBibliotheque config={local.config} setConfig={setConfig} toast={toast} />
+          <RecitPersona persona={local.config?.persona} onChange={(persona) => setConfig({ persona })} />
+        </>
       )}
 
       {aContenu && (
