@@ -8,6 +8,7 @@ import { sceneEnTexte } from "@/lib/sceneEtape";
 import { coerceExperienceLocale, coerceUiLocale, DEFAULT_UI_LOCALE } from "@/lib/i18n/config";
 import { factureNotationCandidat } from "@/lib/utils/limits";
 import { compteFacturationDeOrg } from "@/lib/org";
+import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
 import {
   listerCompetences, resoudreIds, tierDesIds, estCritereCheckpoints,
   pourcentageCheckpoints, moyennePonderee, poidsEtape,
@@ -322,21 +323,28 @@ export async function evaluerRun(admin, run) {
   // français pour tout le monde, sans erreur visible.
   const { data: exp } = await admin
     .from("experiences")
-    .select("jobs!inner(experience_locale, user_id, organization_id, extracted_criteria)")
+    .select(SOURCE_EMBARQUEE)
     .eq("id", run.experience_id)
     .single();
 
-  const contentLocale = coerceExperienceLocale(exp?.jobs?.experience_locale);
+  // L'offre, ou le module de l'onboarding présenté comme une offre
+  // (lib/simulationSource.js) : même langue, mêmes critères.
+  const source = sourceDe(exp);
+  const contentLocale = coerceExperienceLocale(source?.experience_locale);
 
   // La liste validée de l'offre, avec le tier de chaque compétence : c'est ce
   // qui fait peser un critère must-have double dans le score final.
-  const competences = listerCompetences(exp?.jobs?.extracted_criteria || {});
+  const competences = listerCompetences(source?.extracted_criteria || {});
 
+  // Le rapport se lit dans la langue de son LECTEUR : le recruteur pour un
+  // candidat, le learner lui-même pour un essai d'onboarding (il lit son
+  // retour juste après l'essai).
   let reportLocale = DEFAULT_UI_LOCALE;
-  if (exp?.jobs?.user_id) {
-    const { data: recruteur } = await admin
-      .from("users").select("ui_locale").eq("id", exp.jobs.user_id).single();
-    reportLocale = coerceUiLocale(recruteur?.ui_locale);
+  const lecteur = run.learner_id || source?.user_id;
+  if (lecteur) {
+    const { data: profil } = await admin
+      .from("users").select("ui_locale").eq("id", lecteur).single();
+    reportLocale = coerceUiLocale(profil?.ui_locale);
   }
 
   // Justifications produites SANS le modèle (QCM) :
@@ -743,7 +751,7 @@ export async function scoreRun(runId) {
   const admin = createAdminClient();
 
   const { data: run } = await admin
-    .from("candidate_runs").select("id, candidate_id, experience_id, status").eq("id", runId).single();
+    .from("candidate_runs").select("id, candidate_id, learner_id, experience_id, status").eq("id", runId).single();
   if (!run) return { success: false, error: "Run introuvable" };
   if (run.status === "scored") return { success: true, alreadyScored: true };
 
@@ -774,7 +782,9 @@ export async function scoreRun(runId) {
   // ne doivent donc rien facturer. Une fois la ligne à « scored », l'entrée de
   // scoreRun() renvoie alors alreadyScored — un second passage ne re-débite
   // pas. C'est là toute l'idempotence, aucun drapeau à poser.
-  if (exp?.jobs?.user_id) {
+  // Un essai d'onboarding (learner) ne débite rien : décision de Remco du
+  // 10/11/2026 (docs/PLAN.md). Seul le recrutement est facturé.
+  if (exp?.jobs?.user_id && !run.learner_id) {
     // Le solde de l'organisation de l'offre (lib/org.js).
     const facture = await factureNotationCandidat(await compteFacturationDeOrg(exp.jobs.organization_id, exp.jobs.user_id));
     if (!facture.success) {

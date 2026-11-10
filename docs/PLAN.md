@@ -281,3 +281,43 @@ lien. Sur l'organisation de test :
 
 Non vérifié : un appel téléphonique rejoint et noté de bout en bout
 (il demande une voix réelle).
+| 10/11/2026 | Phase 2 — onboarding côté manager | *(ce commit)* | voir ci-dessous ; migration 042 à appliquer |
+
+### Phase 2 — ce qui est fait
+
+- **Une simulation a une offre OU un module** (`experiences.module_id`,
+  migration 042). `lib/simulationSource.js` présente un module sous la forme
+  « offre » que lit tout le moteur : la génération, la réécriture d'étape, la
+  couverture, le chat d'étape, la notation (plus de `jobs!inner`), les
+  versions figées (numérotées par module), la publication. Les contrôles
+  d'accès s'appuient sur la RLS (policies « organisation »).
+- **Modules** (`/onboarding/modules`) : création en quelques champs (titre,
+  rôle, situation, objectif, difficulté, score minimum, langue fr/en/nl),
+  génération de la simulation en flux (`lib/moduleGeneration.js`, route
+  `/api/modules/generate`, même moteur que le recrutement, compétences
+  déduites de la situation si absentes), relecture et retouche avec
+  l'éditeur d'étape habituel (`EspaceEtape`, sorti de la page d'étape d'une
+  offre), publication. **Suggestions** de modules pour un rôle, tirées du
+  Company Knowledge, à garder ou non. Aucun crédit, y compris pour les
+  réécritures d'étape d'un module.
+- **Programmes** (`/onboarding/programmes`) : listes ordonnées de modules.
+- **Personnes** (`/onboarding/personnes`) : invitation d'un learner, fiche
+  par personne : assigner des modules et/ou un programme (avec échéance),
+  en ajouter à tout moment, valider un module, « Marquer comme prête »
+  (`organization_members.lifecycle`), et chaque essai avec ses checkpoints et
+  leurs citations.
+- **Tableau de bord** (`/onboarding`) : moyennes, progression par personne,
+  scores par semaine, par compétence, essais par module, temps passé, validés
+  sur assignés ; réglage « validation automatique » (admin, désactivé par
+  défaut).
+- La notation d'un essai de learner ne débite rien et rédige son rapport
+  dans la langue du learner.
+- Lint identique à `main`, 16 tests, `check:i18n` et `check:langue` verts,
+  build OK.
+
+### Phase 2 — reste pour la phase 3
+
+L'essai lui-même (le learner joue un module depuis son compte), la mise à
+jour de l'assignation après la notation (meilleur score, « seuil atteint »,
+validation automatique), les e-mails (invitation, nouvel assignment, module
+validé).

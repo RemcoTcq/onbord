@@ -1,4 +1,5 @@
 import { Anthropic } from "@anthropic-ai/sdk";
+import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
 import { createClient } from "@/lib/supabase/server";
 import { listerCompetences } from "@/lib/competences";
 import { computeAiCost } from "@/lib/constants/aiPricing";
@@ -105,10 +106,11 @@ export async function POST(req) {
     // Propriété vérifiée par la jointure : l'étape appartient à l'offre du recruteur.
     const { data: step } = await supabase
       .from("experience_steps")
-      .select("*, experiences!inner(id, generated_from, jobs!inner(user_id, title, extracted_criteria))")
+      .select(`*, experiences!inner(id, generated_from, ${SOURCE_EMBARQUEE})`)
       .eq("id", stepId)
       .single();
-    const job = step?.experiences?.jobs;
+    // L'offre, ou le module (lib/simulationSource.js).
+    const job = sourceDe(step?.experiences);
     if (!step || !job) return Response.json({ error: "Accès refusé" }, { status: 403 });
 
     const [{ data: fratrie }, { data: profil }] = await Promise.all([

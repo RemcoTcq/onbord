@@ -28,6 +28,7 @@ import { sceneEnTexte } from "@/lib/sceneEtape";
 import { checkCredits, simulationPrepayee, factureGenerationSimulation, factureRegenerationEtape } from "@/lib/utils/limits";
 import { compteFacturationDuMembre, contexteEntreprise } from "@/lib/org";
 import { rangerPersonasDeLaSimulation } from "@/lib/personas";
+import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
 import { CREDIT_COSTS } from "@/lib/constants/plans";
 
 // Opus pour concevoir le parcours : c'est la tâche la plus difficile du
@@ -1301,6 +1302,39 @@ export async function generateExperienceContent({ title, description, criteria, 
 }
 
 // ─── Génère et persiste une expérience (draft → pending_review) ───────────────
+/**
+ * Les lignes `experience_steps` d'une génération : format, scène, grille,
+ * compétences testées. Partagée par la génération d'une offre et celle d'un
+ * module d'onboarding (lib/moduleGeneration.js).
+ */
+export function lignesEtapes(steps, experienceId, crit) {
+  const nomsCompetences = new Map(listerCompetences(crit).map((c) => [c.id, c.name]));
+  return steps.map((s, i) => ({
+    experience_id: experienceId,
+    order_index: i,
+    kind: s.kind,
+    response_format: s.response_format || "text",
+    title: s.title || null,
+    prompt: s.prompt || null,
+    sandbox_kind: s.sandbox_kind || "none",
+    ai_assistant_allowed: !!s.ai_assistant_allowed,
+    skill_assessed: s.skill_assessed || null,
+    // Nom de colonne historique : contient désormais les sous-dimensions de
+    // skill_assessed. `|| s.criteria` : tolérance si le modèle retombe sur
+    // l'ancienne clé malgré le schéma demandé.
+    criteria: s.sub_dimensions || s.criteria || [],
+    // `skills_tested` : identifiants de la liste validée, la clé de la
+    // couverture et du tier. `targets_skills` : les mêmes, en noms — lu en
+    // repli par le scoring des étapes qui n'ont pas de skill_assessed (QCM).
+    // Aucun des deux ne part chez le candidat (sanitizeStepForCandidate).
+    config: {
+      ...(s.config || {}),
+      skills_tested: s.skills_tested || [],
+      targets_skills: (s.skills_tested || []).map((id) => nomsCompetences.get(id)).filter(Boolean),
+    },
+  }));
+}
+
 // `additionalContext` : précisions libres issues du chat-first (ton souhaité,
 // type de client, spécificités du poste non couvertes par l'offre).
 export async function runExperienceGeneration(jobId, additionalContext = "", onEvent = null) {
@@ -1446,31 +1480,7 @@ export async function runExperienceGeneration(jobId, additionalContext = "", onE
     if (expErr) throw expErr;
 
     // Insère les steps (le format de réponse est bien une colonne par step)
-    const nomsCompetences = new Map(listerCompetences(crit).map((c) => [c.id, c.name]));
-    const rows = steps.map((s, i) => ({
-      experience_id: experience.id,
-      order_index: i,
-      kind: s.kind,
-      response_format: s.response_format || "text",
-      title: s.title || null,
-      prompt: s.prompt || null,
-      sandbox_kind: s.sandbox_kind || "none",
-      ai_assistant_allowed: !!s.ai_assistant_allowed,
-      skill_assessed: s.skill_assessed || null,
-      // Nom de colonne historique : contient désormais les sous-dimensions de
-      // skill_assessed. `|| s.criteria` : tolérance si le modèle retombe sur
-      // l'ancienne clé malgré le schéma demandé.
-      criteria: s.sub_dimensions || s.criteria || [],
-      // `skills_tested` : identifiants de la liste validée, la clé de la
-      // couverture et du tier. `targets_skills` : les mêmes, en noms — lu en
-      // repli par le scoring des étapes qui n'ont pas de skill_assessed (QCM).
-      // Aucun des deux ne part chez le candidat (sanitizeStepForCandidate).
-      config: {
-        ...(s.config || {}),
-        skills_tested: s.skills_tested || [],
-        targets_skills: (s.skills_tested || []).map((id) => nomsCompetences.get(id)).filter(Boolean),
-      },
-    }));
+    const rows = lignesEtapes(steps, experience.id, crit);
     if (rows.length > 0) {
       const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
       if (stepsErr) throw stepsErr;
@@ -1699,17 +1709,19 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
     // n'appartient à personne directement, elle appartient à l'offre qui la porte.
     const { data: step } = await supabase
       .from("experience_steps")
-      .select("*, experiences!inner(id, job_id, generated_from, jobs!inner(id, user_id, title, description, extracted_criteria, experience_locale))")
+      .select(`*, experiences!inner(id, job_id, module_id, generated_from, ${SOURCE_EMBARQUEE})`)
       .eq("id", stepId)
       .single();
-    const job = step?.experiences?.jobs;
+    // L'offre, ou le module présenté comme une offre (lib/simulationSource.js).
+    const job = sourceDe(step?.experiences);
     // Une étape réécrite reste dans l'histoire du parcours.
     const filRouge = step?.experiences?.generated_from?.fil_rouge || null;
     if (!step || !job) return { success: false, error: "Accès refusé" };
 
     // 2 crédits par réécriture (CREDIT_COSTS.step_regeneration) : contrôlé ici,
     // avant le modèle, débité une fois l'étape écrite.
-    const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
+    // Un module d'onboarding ne débite rien (décision du 10/11/2026).
+    const solde = job.module_id ? { allowed: true } : await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
 
     // Version déjà commencée par un candidat : la réécriture porte sur une
@@ -1865,7 +1877,7 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
 
     // L'étape est réécrite : le crédit est dû. Même règle que la génération
     // complète — un échec de débit ne défait pas ce que le recruteur a obtenu.
-    const facture = await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
+    const facture = job.module_id ? { success: true } : await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
     if (!facture.success) console.error("factureRegenerationEtape:", step.id, facture.error);
 
     // Un personnage réécrit est une nouvelle fiche : elle entre dans la
@@ -1918,17 +1930,18 @@ export async function runCouvertureCompetence(experienceId, skillId) {
 
     const { data: exp } = await supabase
       .from("experiences")
-      .select("id, regeneration_usage, jobs!inner(id, user_id, title, description, extracted_criteria, experience_locale)")
+      .select(`id, regeneration_usage, ${SOURCE_EMBARQUEE}`)
       .eq("id", experienceId)
       .single();
-    const job = exp?.jobs;
+    const job = sourceDe(exp);
     if (!exp || !job) return { success: false, error: "Accès refusé" };
 
     const competences = listerCompetences(job.extracted_criteria || {});
     const cible = competences.find((c) => c.id === skillId);
     if (!cible) return { success: false, error: "Compétence introuvable dans la liste validée de l'offre." };
 
-    const solde = await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
+    // Un module d'onboarding ne débite rien (décision du 10/11/2026).
+    const solde = job.module_id ? { allowed: true } : await checkCredits(await compteFacturationDuMembre(user.id), CREDIT_COSTS.step_regeneration);
     if (!solde.allowed) return { success: false, error: solde.error || "Crédits insuffisants." };
 
     // Version déjà commencée : la couverture s'ajoute à une copie. La copie
@@ -1982,7 +1995,7 @@ export async function runCouvertureCompetence(experienceId, skillId) {
           .eq("id", etape.id);
         if (error) throw error;
 
-        const facture = await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
+        const facture = job.module_id ? { success: true } : await factureRegenerationEtape(await compteFacturationDuMembre(user.id));
         if (!facture.success) console.error("factureRegenerationEtape (couverture):", etape.id, facture.error);
         await supabase
           .from("experiences")

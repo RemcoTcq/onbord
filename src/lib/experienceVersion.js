@@ -41,7 +41,8 @@ export async function versionModifiable(supabase, experienceId) {
   if (!exp.locked_at) return { experienceId, correspondance: null, forked: false };
 
   const { data: derniere } = await supabase
-    .from("experiences").select("version").eq("job_id", exp.job_id)
+    // Par l'offre, ou par le module (phase 2 de l'onboarding).
+    .from("experiences").select("version").eq(exp.job_id ? "job_id" : "module_id", exp.job_id || exp.module_id)
     .order("version", { ascending: false }).limit(1).maybeSingle();
   const version = (derniere?.version ?? exp.version ?? 0) + 1;
   const maintenant = new Date().toISOString();

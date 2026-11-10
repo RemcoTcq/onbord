@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
-import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact } from "lucide-react";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
 import { jobDot } from "@/components/ui/ds";
@@ -60,6 +60,31 @@ export default function Sidebar() {
       icon: <Briefcase size={open ? 16 : 17} strokeWidth={1.8} />,
       actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
       count: ouverts.length || null,
+    },
+    // Phase 2 : l'onboarding — tableau de bord, modules, programmes, personnes.
+    {
+      href: "/onboarding",
+      label: t("dashboard.nav.onboarding"),
+      icon: <GraduationCap size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname === "/onboarding",
+    },
+    {
+      href: "/onboarding/modules",
+      label: t("dashboard.nav.modules"),
+      icon: <Layers size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname.startsWith("/onboarding/modules"),
+    },
+    {
+      href: "/onboarding/programmes",
+      label: t("dashboard.nav.programs"),
+      icon: <ListOrdered size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname.startsWith("/onboarding/programmes"),
+    },
+    {
+      href: "/onboarding/personnes",
+      label: t("dashboard.nav.people"),
+      icon: <Users size={open ? 16 : 17} strokeWidth={1.8} />,
+      actif: pathname.startsWith("/onboarding/personnes"),
     },
     // Phase 1 de l'onboarding : la base de connaissances et la bibliothèque
     // de personnages, partagées par le recrutement et l'onboarding. La phase 5

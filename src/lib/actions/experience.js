@@ -126,10 +126,10 @@ export async function updateFilRouge(experienceId, { contexte_candidat, univers 
 
     const { data: exp } = await supabase
       .from("experiences")
-      .select("id, jobs!inner(user_id)")
+      .select("id")
       .eq("id", experienceId)
       .single();
-    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
+    if (!exp) return { success: false, error: "Accès refusé" };
 
     const v = await versionModifiable(supabase, experienceId);
     const { data: cible } = await supabase
@@ -167,10 +167,10 @@ export async function resumerEtapes(experienceId) {
 
     const { data: exp } = await supabase
       .from("experiences")
-      .select("id, generated_from, jobs!inner(user_id)")
+      .select("id, generated_from")
       .eq("id", experienceId)
       .single();
-    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
+    if (!exp) return { success: false, error: "Accès refusé" };
 
     const [{ data: steps }, { data: profil }] = await Promise.all([
       supabase.from("experience_steps")
@@ -243,10 +243,10 @@ export async function decrireCriteres(stepId) {
 
     const { data: step } = await supabase
       .from("experience_steps")
-      .select("id, title, prompt, criteria, experience_id, experiences!inner(id, generated_from, jobs!inner(user_id))")
+      .select("id, title, prompt, criteria, experience_id, experiences!inner(id, generated_from)")
       .eq("id", stepId)
       .single();
-    if (!step?.experiences?.jobs) return { success: false, error: "Accès refusé" };
+    if (!step?.experiences) return { success: false, error: "Accès refusé" };
 
     const criteres = (step.criteria || []).filter((c) => Array.isArray(c?.checkpoints) && c.checkpoints.some((cp) => (cp?.description || "").trim()));
     if (!criteres.length) return { success: true, descriptions: [] };
@@ -355,12 +355,12 @@ export async function harmoniserNotesRecruteur(jobId) {
 async function assertStepOwnership(supabase, userId, stepId) {
   const { data } = await supabase
     .from("experience_steps")
-    .select("id, experience_id, experiences!inner(id, job_id, jobs!inner(user_id))")
+    .select("id, experience_id, experiences!inner(id, job_id)")
     .eq("id", stepId)
     .single();
   // Lue sous RLS : la ligne ne revient que si le compte y a droit
   // (propriétaire, ou admin/manager de l'organisation, migration 036).
-  return data?.experiences?.jobs ? data : null;
+  return data?.experiences ? data : null;
 }
 
 // ─── Édition d'un step à la relecture ─────────────────────────────────────────
@@ -402,10 +402,10 @@ export async function publishExperience(experienceId) {
 
     const { data: exp } = await supabase
       .from("experiences")
-      .select("id, job_id, jobs!inner(user_id)")
+      .select("id, job_id, module_id")
       .eq("id", experienceId)
       .single();
-    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
+    if (!exp) return { success: false, error: "Accès refusé" };
 
     // Publier ne facture rien : la création de l'offre a déjà payé le forfait
     // de 6 crédits, qui couvre tout jusqu'ici — extraction, compétences,
@@ -419,10 +419,12 @@ export async function publishExperience(experienceId) {
     // Une seule version publiée à la fois pour une offre : on archive les autres
     // versions publiées. Leurs runs candidat existants restent intacts (FK
     // on delete restrict) — on ne fait que changer le statut, jamais supprimer.
+    // Une simulation de MODULE (phase 2 de l'onboarding) : mêmes règles,
+    // rattachée par `module_id` au lieu de `job_id`.
     await supabase
       .from("experiences")
       .update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("job_id", exp.job_id)
+      .eq(exp.job_id ? "job_id" : "module_id", exp.job_id || exp.module_id)
       .eq("status", "published")
       .neq("id", experienceId);
 
@@ -441,8 +443,8 @@ export async function addStep(experienceId) {
     if (!user) return { success: false, error: "Non authentifié" };
 
     const { data: exp } = await supabase
-      .from("experiences").select("id, jobs!inner(user_id)").eq("id", experienceId).single();
-    if (!exp?.jobs) return { success: false, error: "Accès refusé" };
+      .from("experiences").select("id").eq("id", experienceId).single();
+    if (!exp) return { success: false, error: "Accès refusé" };
 
     const v = await versionModifiable(supabase, experienceId);
 

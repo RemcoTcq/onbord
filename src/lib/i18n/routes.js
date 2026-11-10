@@ -39,6 +39,9 @@ const SEGMENTS = {
   connaissances:  { en: "knowledge" },
   bibliotheque:   { en: "library" },
   personnages:    { en: "personas" },
+  // Phase 2 : Onboarding → Modules, Programs, People.
+  programmes:     { en: "programs" },
+  personnes:      { en: "people" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

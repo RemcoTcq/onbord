@@ -23,11 +23,20 @@ export function translateFeedError(t, error) {
 }
 
 export async function streamExperienceGeneration(jobId, additionalContext, onEvent) {
+  return streamGeneration("/api/experience/generate", { jobId, additionalContext: additionalContext || "" }, onEvent);
+}
+
+/** La génération d'un module d'onboarding (phase 2), même flux. */
+export async function streamModuleGeneration(moduleId, onEvent) {
+  return streamGeneration("/api/modules/generate", { moduleId }, onEvent);
+}
+
+async function streamGeneration(url, corps, onEvent) {
   try {
-    const resp = await fetch("/api/experience/generate", {
+    const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId, additionalContext: additionalContext || "" }),
+      body: JSON.stringify(corps),
     });
     if (!resp.ok || !resp.body) {
       const err = await resp.json().catch(() => ({}));
