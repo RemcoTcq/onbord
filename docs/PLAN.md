@@ -141,16 +141,18 @@ poussé** : `main` est déployé en production par Vercel.
 
 ---
 
-## 5. Questions ouvertes
+## 5. Questions tranchées (10/11/2026, Remco)
 
-- **Q1 — Base de développement.** Il n'existe qu'une base, la production.
-  Sans base de développement, je ne peux tester aucune migration ni aucun
-  parcours sans écrire dans les vraies données, et je ne peux pas appliquer
-  les migrations moi-même (pas d'accès SQL depuis le dépôt).
-- **Q2 — Crédits de l'onboarding.** Un essai de learner passerait par le même
-  moteur qu'un candidat, qui débite 1 crédit au démarrage et 2 à la notation.
-  Avec des essais illimités, faut-il les débiter pareil, ou ne rien débiter
-  pour l'onboarding tant que la facturation reste manuelle ?
+- **Q1 — Base de développement : pas de base séparée.** Chaque migration est
+  écrite additive (sans effet sur le code de `main`), Remco la colle dans le
+  SQL Editor de production, puis le code est testé contre la production avec
+  une organisation et des comptes de test, nommés comme tels et supprimés à la
+  fin.
+- **Q2 — Crédits : l'onboarding ne débite rien.** Ni la génération d'un
+  module, ni les essais des learners, tant que la facturation reste manuelle.
+  La facturation se fera au nombre de comptes learner actifs (compteur de la
+  phase 5). Concrètement : les chemins d'onboarding n'appellent pas les
+  fonctions de débit ; le code de crédits lui-même n'est pas modifié.
 
 ---
 
