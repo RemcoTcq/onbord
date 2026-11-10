@@ -42,9 +42,9 @@ donc l'appliquer en production avant que le code qui s'en sert soit en ligne.
 | 036 | Policies « organisation » (admin et manager) sur les six tables du recrutement ; déclencheurs qui posent l'organisation ; `logos` par organisation | — | **appliquée** |
 | 037 | Dépôt anonyme dans le stockage par JETON seulement (S3) | — | **après mise en ligne** |
 | 038 | Policies RESTRICTIVES : un learner ne touche à rien du recrutement (trou trouvé en test) | — | **appliquée** |
-| 039 | Company Knowledge : `knowledge_documents`, `organizations.knowledge_notes`, bucket privé `knowledge` | — | à appliquer |
-| 040 | `personas` | une fiche par personnage distinct, `config.persona_id` posé dans l'étape | à appliquer |
-| 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | à appliquer |
+| 039 | Company Knowledge : `knowledge_documents`, `organizations.knowledge_notes`, bucket privé `knowledge` | — | **appliquée** |
+| 040 | `personas` | une fiche par personnage distinct, `config.persona_id` posé dans l'étape | **appliquée** |
+| 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | **appliquée** |
 | 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | phase 2 |
 | 043 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
 
@@ -231,7 +231,7 @@ gardés pour les phases suivantes, supprimés à la fin du chantier) :
 Non vérifié : l'envoi réel d'un e-mail d'invitation (il serait parti chez
 Resend), la soumission et la notation d'un passage (appels au modèle), la
 génération d'une simulation.
-| 10/11/2026 | Phase 1 — briques communes | *(ce commit)* | voir ci-dessous ; migrations 039 à 041 à appliquer |
+| 10/11/2026 | Phase 1 — briques communes | 2a13f0ce | voir ci-dessous ; migrations 039 à 041 appliquées le 10/11 |
 
 ### Phase 1 — ce qui est fait
 
@@ -263,3 +263,21 @@ génération d'une simulation.
   anonyme).
 - Tests : 16 (`tests/briques.test.mjs` en plus). Lint identique à `main`,
   `check:i18n` et `check:langue` verts, build OK.
+
+### Phase 1 — vérifié en production le 10/11/2026
+
+Migrations 039, 040 et 041 appliquées par Remco. 040 : 10 étapes à
+personnage → 9 fiches (deux copies de version identiques), aucune étape sans
+lien. Sur l'organisation de test :
+
+- Connaissances : notes enregistrées, document texte déposé et lu (226
+  caractères) ;
+- Personnages : fiche générée en 17 s à partir d'une phrase, canal
+  téléphone ; elle **reprend le Company Knowledge** (le forfait à 360 € du
+  document de test, la PME des notes), avec son humeur ;
+- Téléphone : une étape à ce personnage, ouverte par un candidat de test.
+  Le navigateur ne demande que le micro (`{"video":false,"audio":true}`),
+  aucune vidéo affichée, consigne « seul le son est enregistré ».
+
+Non vérifié : un appel téléphonique rejoint et noté de bout en bout
+(il demande une voix réelle).
