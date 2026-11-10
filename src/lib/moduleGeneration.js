@@ -180,8 +180,16 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
  * puis crée ceux qu'il garde.
  * @returns {Promise<Array<{title, situation, objective, difficulty}>>}
  */
-export async function suggererModules({ role, nombre = 5, uiLocale, companyContext }) {
+export async function suggererModules({ role, nombre = 5, uiLocale, companyContext, lacunes = [] }) {
   const nom = LOCALE_NAMES_FR[coerceUiLocale(uiLocale)];
+  // Les lacunes constatées au recrutement (phase 4) : les premiers modules
+  // proposés les travaillent, chacun en nomme une ou plusieurs.
+  const blocLacunes = lacunes.length
+    ? `\n\nLACUNES CONSTATÉES CHEZ CETTE RECRUE À SA SIMULATION DE RECRUTEMENT (point attendu, noté 0 = absent ou 1 = partiel sur 2) :
+${lacunes.slice(0, 20).map((l) => `- [${l.competence || "—"}] ${l.point} (${l.score}/2)${l.justification ? ` — ${l.justification}` : ""}`).join("\n")}
+
+Les modules proposés travaillent EN PRIORITÉ ces lacunes, les points à 0 d'abord : chaque situation est construite pour que la recrue doive précisément faire ce qui lui a manqué. Regroupe les lacunes proches dans un même module.`
+    : "";
   const response = await anthropic.messages.create({
     model: MODELE_PETIT,
     max_tokens: 4000,
@@ -192,9 +200,9 @@ export async function suggererModules({ role, nombre = 5, uiLocale, companyConte
       content: `RÔLE DE LA NOUVELLE RECRUE : ${role || "non précisé"}
 
 CONTEXTE ENTREPRISE :
-${blocEntreprise(companyContext)}
+${blocEntreprise(companyContext)}${blocLacunes}
 
-Propose ${nombre} modules d'entraînement : les conversations qu'une nouvelle recrue de ce rôle doit savoir mener AVANT de rencontrer de vrais clients, du plus courant au plus délicat. Chacun est une SITUATION concrète avec un client (ou un prospect), tirée de ce que fait cette entreprise — ses produits, ses tarifs, ses objections, ses politiques — jamais une situation générique.
+Propose ${nombre} modules d'entraînement : les conversations qu'une nouvelle recrue de ce rôle doit savoir mener AVANT de rencontrer de vrais clients, ${lacunes.length ? "en commençant par celles qui travaillent ses lacunes" : "du plus courant au plus délicat"}. Chacun est une SITUATION concrète avec un client (ou un prospect), tirée de ce que fait cette entreprise — ses produits, ses tarifs, ses objections, ses politiques — jamais une situation générique.
 Tout est RÉDIGÉ EN ${nom.toUpperCase()}.
 
 {"modules": [{"title": "titre court", "situation": "la situation en une ou deux phrases", "objective": "ce que la recrue doit obtenir, en une phrase", "difficulty": "easy | medium | hard"}]}`,

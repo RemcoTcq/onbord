@@ -25,6 +25,13 @@
 //
 // Un compte appartient à UNE organisation (contrainte de 035) : une adresse
 // qui a déjà un compte Onbord ne peut pas être invitée ailleurs.
+//
+// ── Du recrutement à l'onboarding (phase 4, migration 044) ──────────────────
+// « Passer en onboarding » sur la fiche d'un candidat envoie une invitation de
+// learner qui garde le candidat d'origine. Le manager atteste l'avoir prévenu
+// que ses résultats seront réutilisés ; la recrue, elle, ACCEPTE (ou non) à
+// l'activation de son compte. Seulement alors ses lacunes sont copiées sur sa
+// fiche de membre (`hiring_gaps`).
 
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
@@ -34,6 +41,7 @@ import { sendEmail } from "@/lib/resend";
 import { traducteurServeur } from "@/lib/i18n/traduireServeur";
 import { emailInvitation } from "@/lib/emailsApplication";
 import { coerceUiLocale } from "@/lib/i18n/config";
+import { lacunesDuRecrutement, adresseDeTest } from "@/lib/essais";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
 
 const DUREE_INVITATION_JOURS = 7;
@@ -129,42 +137,138 @@ export async function inviterMembre({ email, role, locale }) {
 
     const admin = createAdminClient();
     if (await compteExiste(admin, adresse)) return { success: false, code: "compteExistant" };
-
-    // Une seule invitation vivante par adresse : la précédente est révoquée,
-    // son lien cesse de fonctionner.
-    await admin
-      .from("org_invitations")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("organization_id", ctx.orgId)
-      .ilike("email", adresse)
-      .is("accepted_at", null)
-      .is("revoked_at", null);
-
-    const langue = coerceUiLocale(locale);
-    const jeton = randomBytes(32).toString("base64url");
-    const { error } = await admin.from("org_invitations").insert({
-      organization_id: ctx.orgId,
-      email: adresse,
-      role,
-      locale: langue,
-      token_hash: hacher(jeton),
-      invited_by: ctx.user.id,
-      expires_at: new Date(Date.now() + DUREE_INVITATION_JOURS * 86_400_000).toISOString(),
-    });
-    if (error) throw error;
-
-    const t = await traducteurServeur(langue);
-    const meta = ctx.user.user_metadata || {};
-    const invitePar = [meta.first_name, meta.last_name].filter(Boolean).join(" ");
-    const mail = emailInvitation({ t, organisation: ctx.org.name, invitePar, role, lien: lienInvitation(langue, jeton) });
-    const envoi = await sendEmail({ to: adresse, subject: mail.subject, html: mail.html, text: mail.text, replyTo: ctx.user.email });
-    if (!envoi?.success) return { success: false, code: "envoiImpossible" };
-
-    return { success: true };
+    return await envoyerInvitation(ctx, admin, { adresse, role, locale });
   } catch (error) {
     console.error("inviterMembre error:", error);
     return { success: false, error: "Erreur technique" };
   }
+}
+
+/**
+ * Crée l'invitation et envoie son e-mail. L'appelant a vérifié le rôle,
+ * l'adresse et l'absence de compte. `sourceCandidateId` : l'invitation vient
+ * de la fiche d'un candidat (phase 4).
+ */
+async function envoyerInvitation(ctx, admin, { adresse, role, locale, sourceCandidateId = null }) {
+  // Une seule invitation vivante par adresse : la précédente est révoquée,
+  // son lien cesse de fonctionner.
+  await admin
+    .from("org_invitations")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("organization_id", ctx.orgId)
+    .ilike("email", adresse)
+    .is("accepted_at", null)
+    .is("revoked_at", null);
+
+  const langue = coerceUiLocale(locale);
+  const jeton = randomBytes(32).toString("base64url");
+  const { error } = await admin.from("org_invitations").insert({
+    organization_id: ctx.orgId,
+    email: adresse,
+    role,
+    locale: langue,
+    token_hash: hacher(jeton),
+    invited_by: ctx.user.id,
+    expires_at: new Date(Date.now() + DUREE_INVITATION_JOURS * 86_400_000).toISOString(),
+    // Le manager a attesté avoir prévenu le candidat (versOnboarding).
+    ...(sourceCandidateId ? { source_candidate_id: sourceCandidateId, results_reuse_informed_at: new Date().toISOString() } : {}),
+  });
+  if (error) throw error;
+
+  const t = await traducteurServeur(langue);
+  const meta = ctx.user.user_metadata || {};
+  const invitePar = [meta.first_name, meta.last_name].filter(Boolean).join(" ");
+  const mail = emailInvitation({ t, organisation: ctx.org.name, invitePar, role, lien: lienInvitation(langue, jeton), depuisRecrutement: Boolean(sourceCandidateId) });
+  // Domaine réservé aux tests (example.com…) : l'invitation existe, rien ne part.
+  if (adresseDeTest(adresse)) {
+    console.log(`invitation « ${mail.subject} » non envoyée : ${adresse} est une adresse de test.`);
+    return { success: true };
+  }
+  const envoi = await sendEmail({ to: adresse, subject: mail.subject, html: mail.html, text: mail.text, replyTo: ctx.user.email });
+  if (!envoi?.success) return { success: false, code: "envoiImpossible" };
+
+  return { success: true };
+}
+
+/** Le candidat, s'il appartient à l'organisation du manager. */
+async function candidatDeLOrg(admin, orgId, candidateId) {
+  const { data } = await admin.from("candidates")
+    .select("id, email, first_name, last_name, jobs(organization_id)")
+    .eq("id", candidateId).maybeSingle();
+  return data?.jobs?.organization_id === orgId ? data : null;
+}
+
+/**
+ * « Passer en onboarding » : invite le candidat comme learner. `informe` : le
+ * manager atteste l'avoir prévenu que ses résultats de la simulation seront
+ * réutilisés pour son entraînement — sans cette case, rien ne part.
+ */
+export async function versOnboarding(candidateId, { email, locale, informe }) {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    if (informe !== true) return { success: false, code: "informationRequise" };
+    const verdict = consommer(`invitation-equipe:${ctx.orgId}`, SEUILS.invitationsEquipeParOrg.max, SEUILS.invitationsEquipeParOrg.fenetre);
+    if (!verdict.autorise) return { success: false, code: "tropDInvitations" };
+
+    const admin = createAdminClient();
+    const candidat = await candidatDeLOrg(admin, ctx.orgId, candidateId);
+    if (!candidat) return { success: false, error: "Candidat introuvable" };
+    const adresse = String(email || candidat.email || "").trim().toLowerCase();
+    if (!adresseValide(adresse)) return { success: false, code: "adresseInvalide" };
+    if (await compteExiste(admin, adresse)) return { success: false, code: "compteExistant" };
+
+    return await envoyerInvitation(ctx, admin, { adresse, role: "learner", locale, sourceCandidateId: candidat.id });
+  } catch (error) {
+    console.error("versOnboarding error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Où en est le passage en onboarding d'un candidat : aucune invitation, une
+ * invitation en attente, ou un compte de learner (son id, pour la fiche).
+ */
+export async function etatVersOnboarding(candidateId) {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const admin = createAdminClient();
+    if (!(await candidatDeLOrg(admin, ctx.orgId, candidateId))) return { success: false, error: "Candidat introuvable" };
+    const { data: membre } = await admin.from("organization_members").select("user_id")
+      .eq("organization_id", ctx.orgId).eq("source_candidate_id", candidateId).maybeSingle();
+    if (membre) return { success: true, etat: "membre", userId: membre.user_id };
+    const { data: inv } = await admin.from("org_invitations").select("email, created_at, accepted_at, expires_at")
+      .eq("organization_id", ctx.orgId).eq("source_candidate_id", candidateId).is("revoked_at", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (inv && !inv.accepted_at && new Date(inv.expires_at).getTime() > Date.now()) {
+      return { success: true, etat: "invite", email: inv.email, le: inv.created_at };
+    }
+    return { success: true, etat: inv?.accepted_at ? "accepte" : "aucun" };
+  } catch (error) {
+    console.error("etatVersOnboarding error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Ce que la recrue accepte de partager : les lacunes de sa dernière simulation
+ * notée, figées avec le poste et la note. Null s'il n'y a rien de noté.
+ */
+async function lacunesDuCandidat(admin, candidateId) {
+  const { data: run } = await admin.from("candidate_runs")
+    .select("scored_at, run_scores(overall, criterion_scores), candidates(jobs(title, experience_locale))")
+    .eq("candidate_id", candidateId).eq("status", "scored")
+    .order("scored_at", { ascending: false }).limit(1).maybeSingle();
+  const score = Array.isArray(run?.run_scores) ? run.run_scores[0] : run?.run_scores;
+  if (!score) return null;
+  return {
+    poste: run.candidates?.jobs?.title || "",
+    langue: run.candidates?.jobs?.experience_locale || null,
+    score: score.overall ?? null,
+    date: run.scored_at,
+    lacunes: lacunesDuRecrutement(score.criterion_scores),
+  };
 }
 
 /** Annule une invitation en attente : son lien cesse de fonctionner. */
@@ -271,7 +375,7 @@ async function invitationValide(admin, jeton) {
   if (typeof jeton !== "string" || jeton.length < 20 || jeton.length > 100) return { code: "invalide" };
   const { data: inv } = await admin
     .from("org_invitations")
-    .select("id, organization_id, email, role, locale, expires_at, accepted_at, revoked_at, organizations(name)")
+    .select("id, organization_id, email, role, locale, expires_at, accepted_at, revoked_at, source_candidate_id, organizations(name)")
     .eq("token_hash", hacher(jeton))
     .maybeSingle();
   if (!inv || inv.revoked_at) return { code: "invalide" };
@@ -288,7 +392,12 @@ export async function lireInvitation(jeton) {
     if (!inv) return { success: false, code };
     return {
       success: true,
-      invitation: { email: inv.email, role: inv.role, locale: inv.locale, organisation: inv.organizations?.name || "" },
+      invitation: {
+        email: inv.email, role: inv.role, locale: inv.locale, organisation: inv.organizations?.name || "",
+        // Venue de la fiche d'un candidat : l'écran demande l'accord pour
+        // réutiliser ses résultats de recrutement.
+        depuisRecrutement: Boolean(inv.source_candidate_id),
+      },
     };
   } catch (error) {
     console.error("lireInvitation error:", error);
@@ -301,7 +410,7 @@ export async function lireInvitation(jeton) {
  * son rôle, marque l'invitation utilisée. L'écran connecte ensuite l'invité
  * avec le mot de passe qu'il vient de choisir.
  */
-export async function accepterInvitation({ jeton, prenom, nom, motDePasse }) {
+export async function accepterInvitation({ jeton, prenom, nom, motDePasse, reutiliser = false }) {
   try {
     const verdict = consommer(`acceptation-invitation:ip:${ipDe(await headers())}`, SEUILS.invitationParIp.max, SEUILS.invitationParIp.fenetre);
     if (!verdict.autorise) return { success: false, code: "tropDEssais" };
@@ -340,9 +449,16 @@ export async function accepterInvitation({ jeton, prenom, nom, motDePasse }) {
     }
 
     const userId = cree.user.id;
+    // Venue du recrutement : le lien au candidat est toujours gardé ; ses
+    // résultats ne le sont QUE si la recrue vient d'accepter (case de l'écran).
+    const origine = inv.source_candidate_id ? { source_candidate_id: inv.source_candidate_id } : {};
+    if (inv.source_candidate_id && reutiliser === true) {
+      origine.results_reuse_accepted_at = new Date().toISOString();
+      origine.hiring_gaps = await lacunesDuCandidat(admin, inv.source_candidate_id);
+    }
     const { error: membreErr } = await admin
       .from("organization_members")
-      .insert({ organization_id: inv.organization_id, user_id: userId, role: inv.role });
+      .insert({ organization_id: inv.organization_id, user_id: userId, role: inv.role, ...origine });
     if (membreErr) throw membreErr;
 
     // La langue de l'interface : celle choisie à l'invitation. Le trigger de

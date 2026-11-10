@@ -60,14 +60,19 @@ export function emailModuleValide({ t, prenom, organisation, module, score, lien
 }
 
 /** L'invitation à rejoindre une organisation. */
-export function emailInvitation({ t, organisation, invitePar, role, lien }) {
+export function emailInvitation({ t, organisation, invitePar, role, lien, depuisRecrutement = false }) {
   const vars = { organisation: organisation || "Onbord", invitePar: invitePar || organisation || "Onbord" };
   const titre = t(`dashboard.emails.invitation.title_${role}`, vars);
   return {
     subject: t(`dashboard.emails.invitation.subject_${role}`, vars),
     ...enveloppe({
       titre,
-      paragraphes: [t(`dashboard.emails.invitation.body_${role}`, vars)],
+      paragraphes: [
+        t(`dashboard.emails.invitation.body_${role}`, vars),
+        // Venue du recrutement : la recrue sait, dès l'e-mail, ce qui lui sera
+        // demandé à l'activation.
+        ...(depuisRecrutement ? [t("dashboard.emails.invitation.body_hiring", vars)] : []),
+      ],
       bouton: t("dashboard.emails.invitation.button"),
       lien,
       note: t("dashboard.emails.invitation.note"),

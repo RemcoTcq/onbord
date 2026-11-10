@@ -150,12 +150,26 @@ export async function archiverModule(id, archiver = true) {
 }
 
 /** Des modules proposés pour un rôle, tirés du Company Knowledge (rien n'est créé). */
-export async function proposerModules({ role, nombre = 5 }) {
+export async function proposerModules({ role, nombre = 5, learnerId = null }) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    const { data: profil } = await createAdminClient().from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle();
+    const admin = createAdminClient();
+    const { data: profil } = await admin.from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle();
+    // Pour une recrue venue du recrutement (phase 4) : ses lacunes, si elle a
+    // accepté qu'on les reprenne, orientent les propositions.
+    let lacunes = [];
+    if (learnerId) {
+      const { data: membre } = await admin.from("organization_members")
+        .select("results_reuse_accepted_at, hiring_gaps")
+        .eq("organization_id", ctx.orgId).eq("user_id", learnerId).eq("role", "learner").maybeSingle();
+      if (membre?.results_reuse_accepted_at) {
+        lacunes = membre.hiring_gaps?.lacunes || [];
+        role = role || membre.hiring_gaps?.poste;
+      }
+    }
     const propositions = await suggererModules({
+      lacunes,
       role: String(role || "").trim().slice(0, 160),
       nombre: Math.max(1, Math.min(10, Number(nombre) || 5)),
       uiLocale: coerceUiLocale(profil?.ui_locale),

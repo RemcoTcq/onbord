@@ -25,6 +25,9 @@ export default function InvitationPage({ params }) {
   const [confirmation, setConfirmation] = useState("");
   const [erreur, setErreur] = useState(null);
   const [envoi, setEnvoi] = useState(false);
+  // Venue du recrutement (phase 4) : la personne choisit elle-même si ses
+  // résultats orientent son entraînement. Décoché par défaut.
+  const [reutiliser, setReutiliser] = useState(false);
 
   useEffect(() => {
     let annule = false;
@@ -41,7 +44,7 @@ export default function InvitationPage({ params }) {
     setErreur(null);
     if (motDePasse !== confirmation) return setErreur(t("dashboard.invitation.mismatch"));
     setEnvoi(true);
-    const res = await accepterInvitation({ jeton: token, prenom, nom, motDePasse });
+    const res = await accepterInvitation({ jeton: token, prenom, nom, motDePasse, reutiliser });
     if (!res.success) {
       setEnvoi(false);
       return setErreur(t(`dashboard.invitation.errors.${res.code || "creationImpossible"}`, { min: MOT_DE_PASSE_MIN }));
@@ -123,6 +126,15 @@ export default function InvitationPage({ params }) {
           <input className="ds-input" type="password" autoComplete="new-password" required minLength={MOT_DE_PASSE_MIN}
             value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
         </label>
+        {invitation.depuisRecrutement && (
+          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, cursor: "pointer", textAlign: "left" }}>
+            <input type="checkbox" checked={reutiliser} onChange={(e) => setReutiliser(e.target.checked)} style={{ marginTop: 3 }} />
+            <span>
+              {t("dashboard.invitation.reuse")}
+              <span className="ds-help" style={{ display: "block", marginTop: 4 }}>{t("dashboard.invitation.reuseHint")}</span>
+            </span>
+          </label>
+        )}
         <button type="submit" className="ds-btn ds-btn-primary" style={{ width: "100%", height: 40, marginTop: 6 }} disabled={envoi}>
           {envoi && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
           {envoi ? t("dashboard.invitation.pending") : t("dashboard.invitation.submit")}

@@ -13,6 +13,7 @@ import { formatDateShort } from "@/lib/i18n/format";
 import { getPersonne, assigner, retirerAssignation, validerAssignation, marquerPret } from "@/lib/actions/personnes";
 import { listerModules } from "@/lib/actions/modules";
 import { listerProgrammes } from "@/lib/actions/programmes";
+import LacunesRecrutement from "@/components/onboarding/LacunesRecrutement";
 
 export default function PersonnePage({ params }) {
   const { userId } = use(params);
@@ -56,7 +57,7 @@ export default function PersonnePage({ params }) {
   if (!donnees) return (<><PageHeader crumbs={crumbs} title="…" /><div style={{ display: "flex", justifyContent: "center", padding: 48 }}><Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} /></div></>);
   if (donnees.erreur) return (<><PageHeader crumbs={crumbs} title={k("notFound")} /><div className="ds-body" /></>);
 
-  const { personne, assignations, essais } = donnees;
+  const { personne, assignations, essais, recrutement } = donnees;
   const pret = personne.lifecycle === "ready";
   const dejaAssignes = new Set(assignations.map((a) => a.module_id));
 
@@ -72,6 +73,9 @@ export default function PersonnePage({ params }) {
           {personne.email} · {k(`lifecycle.${personne.lifecycle}`)}
           {pret && personne.readyAt ? ` · ${k("readySince", { date: formatDateShort(personne.readyAt, locale) })}` : ""}
         </p>
+
+        {/* ── Depuis le recrutement (phase 4) ───────────────────────────── */}
+        {recrutement && <LacunesRecrutement userId={userId} recrutement={recrutement} onAssigne={charger} />}
 
         {/* ── Assigner ──────────────────────────────────────────────────── */}
         <form onSubmit={assignerChoix} className="ds-panel">

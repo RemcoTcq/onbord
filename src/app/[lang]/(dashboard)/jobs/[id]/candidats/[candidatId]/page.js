@@ -21,6 +21,7 @@ import {
 } from "@/lib/actions/candidate";
 import { getFeedbackSentAt } from "@/lib/actions/candidateFeedback";
 import FeedbackModal from "@/components/candidates/FeedbackModal";
+import VersOnboarding from "@/components/candidates/VersOnboarding";
 import PageHeader from "@/components/layout/PageHeader";
 import { natureEtape } from "@/components/experience/BlocEtape";
 import { repliques } from "@/lib/persona";
@@ -421,6 +422,8 @@ export default function CandidateDetailPage() {
         title={nom}
         actions={
           <>
+            {/* Phase 4 de l'onboarding : la personne embauchée devient learner. */}
+            <VersOnboarding candidateId={candidatId} nom={nom} email={candidate.email} />
             <button type="button" className="ds-btn" onClick={toutBasculer}>
               {toutOuvert ? <ChevronsDownUp size={15} /> : <ChevronsUpDown size={15} />}
               {toutOuvert ? t("dashboard.candidateDetail.collapseAll") : t("dashboard.candidateDetail.expandAll")}

@@ -286,6 +286,29 @@ const dashboard = {
   },
 
   candidateDetail: {
+    // Onboarding phase 4: "Move to onboarding".
+    toOnboarding: {
+      button: "Move to onboarding",
+      invited: "Invited to onboarding",
+      member: "See in onboarding",
+      title: "Move {name} to onboarding",
+      intro: "{name} gets an invitation to create a training account. Their results from the hiring simulation can shape their first modules, if they agree.",
+      email: "Email address",
+      language: "Interface language",
+      informed: "I have told {name} that their results from the hiring simulation will be reused for their training.",
+      informedHint: "They will also have to agree themselves when they activate their account. Without their agreement, nothing is reused.",
+      submit: "Send the invitation",
+      cancel: "Cancel",
+      sent: "Invitation sent.",
+      errors: {
+        informationRequise: "Tick the box: the person must be told before the invitation.",
+        adresseInvalide: "This email address isn't valid.",
+        compteExistant: "This address already has an Onbord account.",
+        tropDInvitations: "Too many invitations in a short time. Try again in an hour.",
+        envoiImpossible: "The invitation was created but the email couldn't be sent. Try again.",
+        generic: "Something went wrong. Try again.",
+      },
+    },
     collapseAll: "Collapse all",
     expandAll: "Expand all",
     candidateCard: "Candidate",
@@ -1511,6 +1534,8 @@ const dashboard = {
     submit: "Activate my account",
     pending: "Activating…",
     mismatch: "The two passwords don't match.",
+    reuse: "Use my results from the hiring simulation to tailor my training",
+    reuseHint: "Your manager will see the points you missed in the simulation, to choose your first modules. Nothing else is shared, and you can untick this.",
     errors: {
       invalide: "This invitation link isn't valid. Ask for a new invitation.",
       expiree: "This invitation has expired. Ask your organisation for a new one.",
@@ -1603,6 +1628,7 @@ const dashboard = {
       body_admin: "{invitePar} invites you to join {organisation} on Onbord as an admin: you'll manage hiring, onboarding and the team.",
       body_manager: "{invitePar} invites you to join {organisation} on Onbord as a manager: you'll manage hiring and onboarding.",
       body_learner: "{organisation} invites you to Onbord to practise the conversations of your role with simulated customers, before you meet real ones.",
+      body_hiring: "Your results from the hiring simulation can shape your first modules: you'll choose whether to share them when you activate your account.",
       button: "Activate my account",
       note: "This link is personal and expires in 7 days. If you weren't expecting this invitation, you can ignore this email.",
     },
@@ -1885,6 +1911,23 @@ const dashboard = {
       errors: {
         generic: "Something went wrong. Try again.",
         rienAAssigner: "Nothing to assign: these modules are already assigned or archived.",
+      },
+      hiring: {
+        title: "From hiring",
+        subtitle: "{poste} · simulation scored {score}%, on {date}",
+        declined: "This person came from hiring and chose not to share their results.",
+        empty: "No gaps: every expected point was met.",
+        gapsHint: "Expected points scored 0 or 1 out of 2 in their hiring simulation.",
+        suggest: "Suggest modules for these gaps",
+        suggesting: "Finding modules…",
+        keep_one: "Create and assign {count} module",
+        keep_other: "Create and assign {count} modules",
+        done_one: "{count} module created and assigned. Generate its simulation from its page.",
+        done_other: "{count} modules created and assigned. Generate their simulations from their pages.",
+        toGenerate: "To generate",
+        errors: {
+          suggestion: "Suggestions couldn't be produced. Try again.",
+        },
       },
     },
     dashboard: {

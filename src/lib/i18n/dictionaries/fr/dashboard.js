@@ -317,6 +317,29 @@ const dashboard = {
   // lire le rapport d'un candidat néerlandophone. Les réponses du candidat et
   // les verbatims cités, eux, restent dans leur langue d'origine.
   candidateDetail: {
+    // Phase 4 de l'onboarding : « Passer en onboarding ».
+    toOnboarding: {
+      button: "Passer en onboarding",
+      invited: "Invité en onboarding",
+      member: "Voir en onboarding",
+      title: "Passer {name} en onboarding",
+      intro: "{name} reçoit une invitation à créer son compte d'entraînement. Ses résultats à la simulation de recrutement pourront orienter ses premiers modules, s'il ou elle l'accepte.",
+      email: "Adresse e-mail",
+      language: "Langue de son interface",
+      informed: "J'ai prévenu {name} que ses résultats à la simulation de recrutement seront réutilisés pour son entraînement.",
+      informedHint: "La personne devra aussi l'accepter elle-même en activant son compte. Sans son accord, rien n'est repris.",
+      submit: "Envoyer l'invitation",
+      cancel: "Annuler",
+      sent: "Invitation envoyée.",
+      errors: {
+        informationRequise: "Cochez la case : la personne doit être prévenue avant l'invitation.",
+        adresseInvalide: "Cette adresse e-mail n'est pas valide.",
+        compteExistant: "Cette adresse a déjà un compte Onbord.",
+        tropDInvitations: "Trop d'invitations en peu de temps. Réessayez dans une heure.",
+        envoiImpossible: "L'invitation est créée mais l'e-mail n'a pas pu partir. Réessayez.",
+        generic: "Une erreur est survenue. Réessayez.",
+      },
+    },
     collapseAll: "Tout replier",
     expandAll: "Tout déplier",
     candidateCard: "Candidat",
@@ -1613,6 +1636,8 @@ const dashboard = {
     submit: "Activer mon compte",
     pending: "Activation…",
     mismatch: "Les deux mots de passe ne correspondent pas.",
+    reuse: "Utiliser mes résultats de la simulation de recrutement pour orienter mon entraînement",
+    reuseHint: "Votre manager verra les points qui vous ont manqué pendant la simulation, pour choisir vos premiers modules. Rien d'autre n'est partagé, et vous pouvez décocher.",
     errors: {
       invalide: "Ce lien d'invitation n'est pas valide. Demandez une nouvelle invitation.",
       expiree: "Cette invitation a expiré. Demandez-en une nouvelle à votre organisation.",
@@ -1705,6 +1730,7 @@ const dashboard = {
       body_admin: "{invitePar} vous invite à rejoindre {organisation} sur Onbord en tant qu'admin : vous gérerez le recrutement, l'onboarding et l'équipe.",
       body_manager: "{invitePar} vous invite à rejoindre {organisation} sur Onbord en tant que manager : vous gérerez le recrutement et l'onboarding.",
       body_learner: "{organisation} vous invite sur Onbord pour vous entraîner aux conversations de votre poste avec des clients simulés, avant vos premiers vrais clients.",
+      body_hiring: "Vos résultats à la simulation de recrutement peuvent orienter vos premiers modules : vous choisirez de les partager ou non en activant votre compte.",
       button: "Activer mon compte",
       note: "Ce lien est personnel et expire dans 7 jours. Si vous ne vous attendiez pas à cette invitation, ignorez cet e-mail.",
     },
@@ -1987,6 +2013,23 @@ const dashboard = {
       errors: {
         generic: "Une erreur est survenue. Réessayez.",
         rienAAssigner: "Rien à assigner : ces modules sont déjà assignés ou archivés.",
+      },
+      hiring: {
+        title: "Depuis le recrutement",
+        subtitle: "{poste} · simulation notée {score} %, le {date}",
+        declined: "Cette personne vient du recrutement et a choisi de ne pas partager ses résultats.",
+        empty: "Aucune lacune : tous les points attendus ont été atteints.",
+        gapsHint: "Les points attendus notés 0 ou 1 sur 2 à sa simulation de recrutement.",
+        suggest: "Suggérer des modules pour ces lacunes",
+        suggesting: "Recherche de modules…",
+        keep_one: "Créer et assigner {count} module",
+        keep_other: "Créer et assigner {count} modules",
+        done_one: "{count} module créé et assigné. Générez sa simulation depuis sa page.",
+        done_other: "{count} modules créés et assignés. Générez leur simulation depuis leur page.",
+        toGenerate: "À générer",
+        errors: {
+          suggestion: "Les suggestions n'ont pas pu être produites. Réessayez.",
+        },
       },
     },
     dashboard: {

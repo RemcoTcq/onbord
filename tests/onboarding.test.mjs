@@ -1,11 +1,11 @@
-// Phase 3 de l'onboarding : ce que devient une assignation après un essai, le
+// Phases 3 et 4 de l'onboarding : ce que devient une assignation après un essai, le
 // retour par compétence, la progression d'un essai à l'autre, et les e-mails
 // aux learners. Lancé par `npm test`.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { issueEssai, parCompetence, progressionCompetences, adresseDeTest } from "../src/lib/essais.js";
-import { emailNouveauxModules, emailModuleValide } from "../src/lib/emailsApplication.js";
+import { issueEssai, parCompetence, progressionCompetences, adresseDeTest, lacunesDuRecrutement } from "../src/lib/essais.js";
+import { emailNouveauxModules, emailModuleValide, emailInvitation } from "../src/lib/emailsApplication.js";
 
 const T = "2026-11-10T12:00:00.000Z";
 
@@ -92,4 +92,27 @@ test("e-mail « module validé » : le module et le meilleur score", () => {
   assert.match(m.subject, /moduleValidated\.subject.*Objection prix/);
   assert.match(m.text, /helloAnonymous/);
   assert.match(m.text, /"score":84/);
+});
+
+test("lacunes du recrutement : points à 0 puis à 1, rien de maîtrisé ni de non noté", () => {
+  const l = lacunesDuRecrutement([
+    { skill_name: "Découverte", sub_dimension_name: "Questions", checkpoints: [
+      { description: "Demande le budget", score: 1, justification: "Partiel" },
+      { description: "Reformule", score: 2 },
+      { description: "Hors sujet", score: 0, not_scored: true },
+    ] },
+    { skill_name: "Closing", sub_dimension_name: "Suite", checkpoints: [{ description: "Fixe une date", score: 0, justification: "Absent" }] },
+    { skill_name: "Ton", sub_dimension_name: "Niveaux", score: 40 },
+  ]);
+  assert.deepEqual(l.map((x) => [x.competence, x.point, x.score]), [["Closing", "Fixe une date", 0], ["Découverte", "Demande le budget", 1]]);
+  assert.equal(lacunesDuRecrutement(null).length, 0);
+  const beaucoup = Array.from({ length: 30 }, (_, i) => ({ skill_name: "S", checkpoints: [{ description: `p${i}`, score: 0 }] }));
+  assert.equal(lacunesDuRecrutement(beaucoup).length, 20);
+});
+
+test("invitation venue du recrutement : un paragraphe annonce le choix de partager", () => {
+  const avec = emailInvitation({ t, organisation: "Acme", invitePar: "Sam", role: "learner", lien: "https://x", depuisRecrutement: true });
+  const sans = emailInvitation({ t, organisation: "Acme", invitePar: "Sam", role: "learner", lien: "https://x" });
+  assert.match(avec.text, /invitation.body_hiring/);
+  assert.doesNotMatch(sans.text, /body_hiring/);
 });

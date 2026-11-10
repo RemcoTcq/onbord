@@ -21,7 +21,7 @@ const nomDe = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ") || 
 /** Le learner appartient-il à l'organisation du manager ? */
 async function learnerDeLOrg(admin, orgId, userId) {
   const { data } = await admin.from("organization_members")
-    .select("user_id, lifecycle, ready_at, created_at")
+    .select("user_id, lifecycle, ready_at, created_at, source_candidate_id, results_reuse_accepted_at, hiring_gaps")
     .eq("organization_id", orgId).eq("user_id", userId).eq("role", "learner").maybeSingle();
   return data || null;
 }
@@ -93,6 +93,13 @@ export async function getPersonne(userId) {
     return {
       success: true,
       personne: { userId, nom: nomDe(profil), email: profil?.email || "", lifecycle: membre.lifecycle || "onboarding", readyAt: membre.ready_at, depuis: membre.created_at },
+      // Venue du recrutement (phase 4) : ses lacunes, si ELLE a accepté qu'on
+      // les reprenne ; sinon seulement le fait qu'elle a refusé.
+      recrutement: membre.source_candidate_id
+        ? (membre.results_reuse_accepted_at && membre.hiring_gaps
+          ? { accepte: true, ...membre.hiring_gaps }
+          : { accepte: false })
+        : null,
       assignations: (assignations || []).map((a) => ({
         ...a,
         titre: a.modules?.title || "",

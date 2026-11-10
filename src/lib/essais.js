@@ -83,3 +83,26 @@ const DOMAINES_RESERVES = /@(?:[^@]+\.)?(?:example\.(?:com|org|net)|test|invalid
 export function adresseDeTest(email) {
   return DOMAINES_RESERVES.test(String(email || "").trim());
 }
+
+/**
+ * Les LACUNES d'une simulation de recrutement (phase 4) : les points de
+ * contrôle notés 0 ou 1, les plus faibles d'abord, au plus `max`. C'est ce que
+ * la nouvelle recrue accepte de partager, et ce sur quoi ses premiers modules
+ * sont proposés.
+ */
+export function lacunesDuRecrutement(criteres, max = 20) {
+  const lacunes = [];
+  for (const c of criteres || []) {
+    for (const cp of c.checkpoints || []) {
+      if (cp.not_scored || (cp.score !== 0 && cp.score !== 1)) continue;
+      lacunes.push({
+        competence: c.skill_name || "",
+        dimension: c.sub_dimension_name || "",
+        point: cp.description || "",
+        score: cp.score,
+        justification: cp.justification || "",
+      });
+    }
+  }
+  return lacunes.filter((l) => l.point).sort((x, y) => x.score - y.score).slice(0, max);
+}

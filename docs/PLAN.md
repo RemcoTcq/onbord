@@ -47,7 +47,7 @@ donc l'appliquer en production avant que le code qui s'en sert soit en ligne.
 | 041 | `experiences.job_id` et `candidate_runs.candidate_id` facultatifs, `learner_id`, `assignment_id`, `attempt_number`, contrainte « candidat XOR learner » ; audio accepté dans `video-responses` (téléphone) | — | **appliquée** |
 | 042 | `modules`, `programs`, `program_modules`, `assignments` ; `organization_members.lifecycle` ; `organizations.auto_validate` ; policies learner | — | **appliquée** |
 | 043 | Dépôt des enregistrements d'un essai de learner dans `video-responses` (dossier = son essai en cours) | — | **appliquée** |
-| 044 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id` | — | phase 4 |
+| 044 | Recrutement → onboarding : `org_invitations.source_candidate_id`, `results_reuse_informed_at` ; `organization_members.source_candidate_id`, `results_reuse_accepted_at`, `hiring_gaps` | — | **appliquée** — à passer AVANT toute mise en ligne de la branche (la lecture des invitations la nomme) |
 
 Avant chaque migration de policies : relire `pg_policies` (les policies
 s'additionnent, une seule trop large annule les autres) et vérifier les
@@ -327,7 +327,7 @@ affiché.
 À reprendre en phase 5 : le fil de génération d'un module dit « Offre
 analysée », et le copilote d'étape parle d'« offre » et de « candidat ».
 
-| 10/11/2026 | Phase 3 — onboarding côté learner | *(ce commit)* | voir ci-dessous ; migration 043 à appliquer |
+| 10/11/2026 | Phase 3 — onboarding côté learner | 712f497e (+ bf910530) | voir ci-dessous ; 043 appliquée |
 
 ### Phase 3 — ce qui est fait
 
@@ -395,3 +395,46 @@ Non vérifié : un e-mail réellement reçu.
 
 À reprendre : sous la synthèse, les justifications de chaque point restent
 écrites pour un recruteur (« the candidate… »).
+
+| 10/11/2026 | Phase 4 — du recrutement à l'onboarding | *(ce commit)* | voir ci-dessous ; 044 appliquée |
+
+### Phase 4 — ce qui est fait
+
+- **« Passer en onboarding »** sur la fiche d'un candidat (`components/candidates/VersOnboarding.js`,
+  `versOnboarding` dans `lib/actions/equipe.js`) : invitation de learner liée au
+  candidat (`source_candidate_id`), adresse et langue choisies, et une case
+  OBLIGATOIRE par laquelle le manager atteste avoir prévenu la personne que ses
+  résultats seront réutilisés (`results_reuse_informed_at`). Le bouton suit
+  l'état : invité, puis « Voir en onboarding » vers sa fiche.
+- **Le consentement de la recrue** : l'écran d'activation lui demande, case
+  DÉCOCHÉE par défaut, si ses résultats orientent son entraînement. Oui :
+  `results_reuse_accepted_at` et une COPIE figée de ses lacunes
+  (`hiring_gaps` : poste, note, date, points notés 0 ou 1, au plus 20,
+  `lacunesDuRecrutement` dans `lib/essais.js`). Non : seul le lien au candidat
+  est gardé, la fiche dit qu'elle a refusé. La copie ne dépend plus des tables
+  du recrutement (candidature supprimée, purge).
+- **Sur la fiche de la recrue** (`components/onboarding/LacunesRecrutement.js`) :
+  ses lacunes, et « Suggérer des modules pour ces lacunes » — le générateur de
+  suggestions reçoit les lacunes et les travaille en priorité, les points à 0
+  d'abord. Le manager garde ce qu'il veut : modules créés (dans la langue de
+  l'offre, pour le poste de l'offre) et assignés d'un coup, chacun avec son lien
+  « À générer » (la génération part à l'ouverture).
+- L'e-mail d'invitation d'une recrue venue du recrutement annonce le choix qui
+  l'attend. Aucune invitation n'est envoyée à un domaine réservé (tests).
+- 27 tests, lint identique à `main`, `check:i18n` vert, build OK.
+
+### Phase 4 — vérifiée en local contre la production
+
+Organisation de test : le candidat de test reçoit une simulation notée (notes
+copiées d'un essai de test, 40 %) ; passé en onboarding depuis sa fiche — le
+bouton reste inactif tant que la case n'est pas cochée ; invitation en base
+avec le candidat et la date d'information ; la recrue active son compte en
+anglais en acceptant le partage : membre `learner`, consentement daté, 16
+lacunes copiées avec le poste et la note ; sur sa fiche, 4 modules proposés en
+8 s, chacun visant des lacunes réelles (« Reconnaître la double facturation de
+360 € », « Tenir face à la menace de résiliation », « Défendre le Pro par le ROI
+en trois mois », « Conclure l'appel : accord, récap et suivi »), créés et
+assignés ; la fiche candidat affiche « Voir en onboarding ».
+
+Non vérifié : le refus du partage à l'activation (branche simple : aucune
+lacune copiée), un e-mail réellement reçu.
