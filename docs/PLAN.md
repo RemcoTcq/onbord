@@ -162,7 +162,8 @@ poussé** : `main` est déployé en production par Vercel.
 |---|---|---|---|
 | 10/11/2026 | Audit et plan | c9e46ffd | `docs/AUDIT.md`, `docs/PLAN.md` |
 | 10/11/2026 | Phase 0 — migration 035 | 1f480af8 | organisations, membres, invitations ; **appliquée en prod par Remco le 10/11** |
-| 10/11/2026 | Phase 0 — code | *(ce commit)* | voir ci-dessous |
+| 10/11/2026 | Phase 0 — code | c941dac3 | voir ci-dessous ; migration 036 appliquée en prod par Remco le 10/11 |
+| 10/11/2026 | Phase 0 — correctif | *(ce commit)* | migration 038 : un learner ne touche à rien du recrutement (trou trouvé en test) |
 
 ### Phase 0 — ce qui est fait
 
@@ -204,10 +205,28 @@ poussé** : `main` est déployé en production par Vercel.
   ligne de ce code, jamais avant (elle bloquerait le dépôt de CV du code de
   `main`).
 
-### Phase 0 — pas encore vérifié en conditions réelles
+### Phase 0 — vérifié en production le 10/11/2026
 
-Le parcours complet (création d'offre → … → rapport), l'envoi d'une
-invitation et son acceptation, et un compte manager sur une offre qu'il n'a
-pas créée demandent la migration 036 en production et des comptes de test.
-À faire dès qu'elle est appliquée (organisation « TEST Onbord », supprimée
-ensuite).
+Sur une organisation « TEST Onbord » (comptes `onbord-test-p0-*@example.com`,
+gardés pour les phases suivantes, supprimés à la fin du chantier) :
+
+- offre créée depuis le navigateur : l'organisation est posée par le
+  déclencheur, et un client ne peut pas la changer ;
+- invitations manager (fr) et learner (en) acceptées par la vraie page :
+  comptes créés, rattachés, connectés ; le learner arrive sur « My training »
+  et un lien vers une offre le renvoie à son espace ;
+- page Équipe : 3 membres, rôles modifiables par l'admin ; un manager ne peut
+  inviter que des learners ;
+- RLS : admin et manager voient et modifient l'offre de l'organisation, le
+  learner ne la voit ni ne la modifie ; aucun navigateur ne lit les
+  invitations ;
+- **trou trouvé : le learner pouvait CRÉER une offre** (policy d'insertion de
+  021). Corrigé par la migration 038 (policies restrictives), à appliquer ;
+- parcours candidat sur une copie de simulation publiée : candidature par
+  `/apply`, consentement, passage démarré sur `/run`, image de marque de
+  l'organisation, crédit de démarrage débité sur le compte de facturation de
+  l'organisation (500 → 499).
+
+Non vérifié : l'envoi réel d'un e-mail d'invitation (il serait parti chez
+Resend), la soumission et la notation d'un passage (appels au modèle), la
+génération d'une simulation.
