@@ -566,8 +566,9 @@ Retour de Remco après avoir tout joué. Tranché avec lui, puis fait
 
 ## 7. Avant la mise en ligne
 
-1. Migrations **035 à 044 appliquées** (toutes passées le 10/11/2026). **045 à appliquer**
-   (création unique, connaissances structurées) avant de tester la branche.
+1. Migrations **035 à 045 appliquées** (035-044 le 10/11/2026, 045 le 17/11). Parcours
+   complet testé le 17/11 sur l'organisation de test : agent, génération, grille,
+   test, publication, assignation, suppression, connaissances.
 2. Reporter et pousser `bf910530` (dépôt sans upsert) peut se faire seul, avant
    le reste : il corrige l'enregistrement des vidéos des candidats en production.
 3. Fusionner `feat/onboarding` dans `main`, pousser, vérifier le statut Vercel.
