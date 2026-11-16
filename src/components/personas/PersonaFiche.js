@@ -41,7 +41,7 @@ export function optionsVoix(variantes, langues) {
 }
 
 export default function PersonaFiche({ value, onChange, langues = EXPERIENCE_LOCALES }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const k = (cle, vars) => t(`dashboard.personas.form.${cle}`, vars);
   const v = (cle, vars) => t(`dashboard.experienceEditor.voices.${cle}`, vars);
@@ -87,7 +87,7 @@ export default function PersonaFiche({ value, onChange, langues = EXPERIENCE_LOC
   async function proposer() {
     setProposition(true);
     const o = options.find((x) => x.valeur === valeur) || { langue: langues[0], accent: "", genre: "f" };
-    const res = await proposerPersona({ description, language: o.langue, accent: o.accent, gender: o.genre });
+    const res = await proposerPersona({ description, language: o.langue, accent: o.accent, gender: o.genre, locale });
     setProposition(false);
     if (!res.success) return toast(t(`dashboard.personas.errors.${res.code || "generation"}`), "error");
     onChange({ ...p, ...res.data });

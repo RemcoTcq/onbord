@@ -2182,6 +2182,7 @@ const dashboard = {
         situationManquante: "Décrivez la situation à travailler.",
         suggestion: "Les suggestions n'ont pas pu être générées. Réessayez.",
         rienARetenir: "Choisissez au moins un module.",
+        basePasAJour: "La simulation n'a pas pu être créée : la base de données n'est pas à jour (migration 045 à appliquer).",
       },
     },
     programs: {

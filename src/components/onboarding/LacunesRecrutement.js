@@ -45,7 +45,7 @@ export default function LacunesRecrutement({ userId, recrutement, onAssigne }) {
   async function suggerer() {
     setOccupe(true);
     setPropositions(null);
-    const res = await proposerModules({ learnerId: userId, nombre: 4 });
+    const res = await proposerModules({ learnerId: userId, nombre: 4, locale });
     setOccupe(false);
     if (!res.success) return toast(k("errors.suggestion"), "error");
     setPropositions(res.propositions);

@@ -2080,6 +2080,7 @@ const dashboard = {
         situationManquante: "Describe the situation to work on.",
         suggestion: "Suggestions couldn't be generated. Try again.",
         rienARetenir: "Select at least one module.",
+        basePasAJour: "The simulation couldn't be created: the database isn't up to date (migration 045 to apply).",
       },
     },
     programs: {

@@ -25,6 +25,7 @@ import { descriptionModule } from "@/lib/simulationSource";
 import { listerCompetences } from "@/lib/competences";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { normaliserPersona } from "@/lib/persona";
+import { langueEcran } from "@/lib/langueEcran";
 import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 const MODELE_PETIT = "claude-sonnet-5-5";
@@ -82,7 +83,7 @@ Donne les 3 à 6 compétences que cette situation met réellement à l'épreuve 
  * on n'y met que des personnages choisis.
  * @returns {Promise<{success: boolean, experienceId?: string, error?: string}>}
  */
-export async function runModuleGeneration(moduleId, onEvent = null, { personaId = null } = {}) {
+export async function runModuleGeneration(moduleId, onEvent = null, { personaId = null, locale = null } = {}) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -94,8 +95,8 @@ export async function runModuleGeneration(moduleId, onEvent = null, { personaId 
     if (!module) return { success: false, error: "Module introuvable ou accès refusé" };
 
     const admin = createAdminClient();
-    const { data: profil } = await admin.from("users").select("ui_locale").eq("id", user.id).maybeSingle();
-    const uiLocale = coerceUiLocale(profil?.ui_locale);
+    // La langue de l'écran du manager : il relit la grille et la fiche cachée.
+    const uiLocale = await langueEcran(admin, user.id, locale);
     const ctx = await contexteEntreprise(user.id);
 
     // Le personnage : une fiche de la même organisation.

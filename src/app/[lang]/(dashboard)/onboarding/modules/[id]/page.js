@@ -50,7 +50,7 @@ const puces = (items) => (
 
 export default function ModulePage({ params }) {
   const { id } = use(params);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
   const recherche = useSearchParams();
@@ -81,11 +81,11 @@ export default function ModulePage({ params }) {
   const lancerGeneration = useCallback(async (personaId = null) => {
     setGeneration(true);
     setEvenements([]);
-    const res = await streamModuleGeneration(id, (ev) => setEvenements((e) => [...e, ev]), { personaId });
+    const res = await streamModuleGeneration(id, (ev) => setEvenements((e) => [...e, ev]), { personaId, locale });
     setGeneration(false);
     if (!res.success) toast(translateFeedError(t, res.error) || k("errors.generic"), "error");
     await charger();
-  }, [id, charger, toast, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, charger, toast, t, locale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

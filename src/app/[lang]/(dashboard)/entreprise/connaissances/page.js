@@ -81,7 +81,7 @@ export default function KnowledgePage() {
     const remplacer = vides.length < RUBRIQUES_DU_SITE.length;
     if (remplacer && !window.confirm(k("prefill.confirm"))) return;
     setPreremplissage(true);
-    const res = await brouillonsDuSite();
+    const res = await brouillonsDuSite(null, locale);
     setPreremplissage(false);
     if (!res.success) return toast(k(`prefill.errors.${res.code || "generation"}`), "error");
     const remplies = Object.entries(res.brouillons).filter(([, v]) => v);

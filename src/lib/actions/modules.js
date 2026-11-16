@@ -11,10 +11,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion, contexteEntreprise } from "@/lib/org";
 import { suggererModules } from "@/lib/moduleGeneration";
 import { jobDepuisModule } from "@/lib/simulationSource";
-import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
+import { coerceExperienceLocale } from "@/lib/i18n/config";
 import { coerceCanal, normaliserBrief, criteresDepuisCompetences } from "@/lib/simulationCanal";
 import { supprimerFichiersDesCandidats } from "@/lib/storage";
 import { identitePersona } from "@/lib/persona";
+import { langueEcran } from "@/lib/langueEcran";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -139,6 +140,12 @@ export async function creerModule(champs) {
     const { data, error } = await admin.from("modules")
       .insert({ ...c, organization_id: ctx.orgId, created_by: ctx.user.id })
       .select("id").single();
+    // Une colonne inconnue : la base n'a pas reçu la dernière migration (045).
+    // Le dire, plutôt qu'une erreur générique qui laisse croire à un bouton mort.
+    if (error && ["PGRST204", "42703"].includes(error.code)) {
+      console.error("creerModule : base pas à jour —", error.message);
+      return { success: false, code: "basePasAJour" };
+    }
     if (error) throw error;
     return { success: true, id: data.id };
   } catch (error) {
@@ -264,12 +271,11 @@ export async function archiverModule(id, archiver = true) {
 }
 
 /** Des modules proposés pour un rôle, tirés du Company Knowledge (rien n'est créé). */
-export async function proposerModules({ role, nombre = 5, learnerId = null }) {
+export async function proposerModules({ role, nombre = 5, learnerId = null, locale = null }) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     const admin = createAdminClient();
-    const { data: profil } = await admin.from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle();
     // Pour une recrue venue du recrutement (phase 4) : ses lacunes, si elle a
     // accepté qu'on les reprenne, orientent les propositions.
     let lacunes = [];
@@ -292,7 +298,7 @@ export async function proposerModules({ role, nombre = 5, learnerId = null }) {
       existants: existants || [],
       role: String(role || "").trim().slice(0, 160),
       nombre: Math.max(1, Math.min(10, Number(nombre) || 5)),
-      uiLocale: coerceUiLocale(profil?.ui_locale),
+      uiLocale: await langueEcran(admin, ctx.user.id, locale),
       companyContext: await contexteEntreprise(ctx.user.id),
     });
     return { success: true, propositions };

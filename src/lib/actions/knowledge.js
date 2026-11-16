@@ -20,7 +20,8 @@ import { extraireTexte } from "@/lib/extraireTexte";
 import { TYPES_DOCUMENT, RUBRIQUES_DU_SITE, normaliserRubriques } from "@/lib/knowledge";
 import { fetchSur } from "@/lib/requeteSure";
 import { extractTextFromHtml } from "@/lib/texteHtml";
-import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { langueEcran } from "@/lib/langueEcran";
 
 const NOTES_MAX = 20_000;
 const TEXTE_MAX = 200_000; // le texte stocké ; les générateurs n'en lisent qu'une part
@@ -79,15 +80,12 @@ export async function saveKnowledgeSections(rubriques) {
  * l'entreprise, ou celle donnée.
  * @returns {Promise<{success: boolean, brouillons?: object, code?: string}>}
  */
-export async function brouillonsDuSite(url) {
+export async function brouillonsDuSite(url, locale) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     const admin = createAdminClient();
-    const [{ data: org }, { data: profil }] = await Promise.all([
-      admin.from("organizations").select("website_url, ai_context").eq("id", ctx.orgId).single(),
-      admin.from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle(),
-    ]);
+    const { data: org } = await admin.from("organizations").select("website_url, ai_context").eq("id", ctx.orgId).single();
     const adresse = String(url || org?.website_url || "").trim();
     let cible;
     try {
@@ -115,7 +113,7 @@ export async function brouillonsDuSite(url) {
     const texte = extractTextFromHtml(html).slice(0, 9000);
     if (texte.length < 50) return { success: false, code: "site" };
 
-    const nom = LOCALE_NAMES_FR[coerceUiLocale(profil?.ui_locale)];
+    const nom = LOCALE_NAMES_FR[await langueEcran(admin, ctx.user.id, locale)];
     const response = await anthropic.messages.create({
       model: "claude-sonnet-5-5",
       max_tokens: 3000,

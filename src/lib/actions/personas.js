@@ -18,7 +18,8 @@ import { exigerGestion, contexteEntreprise } from "@/lib/org";
 import { identitePersona } from "@/lib/persona";
 import { empreintePersona, rangerFiche } from "@/lib/personas";
 import { blocEntreprise } from "@/lib/knowledge";
-import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { langueEcran } from "@/lib/langueEcran";
 
 const COLONNES = "id, name, role, company, data, archived_at, created_at, updated_at";
 
@@ -110,14 +111,13 @@ export async function supprimerPersona(id) {
  * du formulaire (ils fixent la voix) ; rien n'est enregistré ici.
  * @returns {Promise<{success: boolean, data?: object, code?: string}>}
  */
-export async function proposerPersona({ description, language, accent, gender }) {
+export async function proposerPersona({ description, language, accent, gender, locale }) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     if (!String(description || "").trim()) return { success: false, code: "descriptionManquante" };
     const admin = createAdminClient();
-    const { data: profil } = await admin.from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle();
-    const nomUi = LOCALE_NAMES_FR[coerceUiLocale(profil?.ui_locale)];
+    const nomUi = LOCALE_NAMES_FR[await langueEcran(admin, ctx.user.id, locale)];
     const langue = String(language || "fr").slice(0, 2).toLowerCase();
     const genre = gender === "m" ? "un homme" : "une femme";
 
@@ -128,7 +128,9 @@ export async function proposerPersona({ description, language, accent, gender })
       system: "Tu crées des fiches de personnages réalistes pour des simulations de conversations commerciales et de support B2B. Réponds UNIQUEMENT avec un JSON valide.",
       messages: [{
         role: "user",
-        content: `CONTEXTE DE L'ENTREPRISE QUI S'ENTRAÎNE (ses clients, son marché) :
+        content: `LANGUE DE RÉDACTION — CONSIGNE PRIORITAIRE : "background" et "personality" sont rédigés en ${nomUi}, quelle que soit la langue de la description ou celle que parle le personnage. Le manager lit cette fiche en ${nomUi}.
+
+CONTEXTE DE L'ENTREPRISE QUI S'ENTRAÎNE (ses clients, son marché) :
 ${blocEntreprise(await contexteEntreprise(ctx.user.id), { avecModele: true })}
 
 DESCRIPTION DONNÉE PAR LE MANAGER :

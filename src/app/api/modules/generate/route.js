@@ -21,7 +21,7 @@ export async function POST(request) {
     return Response.json({ error: "Corps de requête invalide" }, { status: 400 });
   }
 
-  const { moduleId, personaId } = body || {};
+  const { moduleId, personaId, locale } = body || {};
   if (!moduleId) return Response.json({ error: "moduleId requis" }, { status: 400 });
 
   const encoder = new TextEncoder();
@@ -38,7 +38,7 @@ export async function POST(request) {
       };
 
       try {
-        const res = await runModuleGeneration(moduleId, (event) => send({ type: "event", ...event, at: Date.now() }), { personaId: personaId || null });
+        const res = await runModuleGeneration(moduleId, (event) => send({ type: "event", ...event, at: Date.now() }), { personaId: personaId || null, locale: locale || null });
         send(res.success
           ? { type: "result", success: true, experienceId: res.experienceId }
           : { type: "result", success: false, error: res.error || "Échec de la génération" });
