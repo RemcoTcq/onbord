@@ -238,3 +238,44 @@ test("connaissances : les rubriques passent avant les notes et les documents", a
   assert.equal(r.offre, "x");
   assert.equal(r.vente, "");
 });
+
+// ── 16/11/2026 : la grille de notation, éditée à la main ────────────────────
+
+test("grille : un renommage garde les liens, les doublons se fondent, la couverture suit", async () => {
+  const { grillePourEdition, appliquerGrille, couvertureGrille } = await import("../src/lib/grilleModule.js");
+  const criteria = { hard_skills: [{ name: "Découverte", priority: "must_have" }, { name: "Closing", priority: "nice_to_have" }], soft_skills: [] };
+  const etape = [{ name: "Questions", skill_ids: ["h:decouverte"], checkpoints: [{ id: "cp1", description: "Demande le volume" }, { id: "cp2", description: "Reformule" }] }];
+  const g = grillePourEdition(criteria, etape);
+  assert.deepEqual(g.competences.map((c) => [c.cle, c.name, c.priority]), [["h:decouverte", "Découverte", "must_have"], ["h:closing", "Closing", "nice_to_have"]]);
+  assert.deepEqual(g.criteres[0].skills, ["h:decouverte"]);
+
+  // Renommer « Découverte », ajouter un point, ajouter un critère sur une compétence neuve.
+  g.competences[0].name = "Découverte du besoin";
+  g.competences.push({ cle: "nouvelle", name: "Objection prix", priority: "must_have" }, { cle: "doublon", name: "objection PRIX", priority: "must_have" });
+  g.criteres[0].checkpoints.push({ cle: "x", description: "  Demande le budget " }, { cle: "vide", description: "  " });
+  g.criteres.push({ cle: "c2", name: "Prix", skills: ["doublon"], checkpoints: [{ cle: "y", description: "Reformule l'objection" }] });
+  const couverture = couvertureGrille(g);
+  assert.equal(couverture.get("h:decouverte"), 3);
+  assert.equal(couverture.get("h:closing"), 0);
+
+  const r = appliquerGrille(g);
+  assert.equal(r.erreur, undefined);
+  assert.deepEqual(r.criteria.hard_skills.map((c) => c.name), ["Découverte du besoin", "Closing", "Objection prix"]);
+  assert.deepEqual(r.stepCriteria[0].skill_ids, ["h:decouverte-du-besoin"]);
+  assert.deepEqual(r.stepCriteria[0].checkpoints.map((cp) => [cp.id, cp.description]), [["cp1", "Demande le volume"], ["cp2", "Reformule"], ["cp3", "Demande le budget"]]);
+  assert.deepEqual(r.stepCriteria[1].skill_ids, ["h:objection-prix"]);
+  assert.deepEqual(r.skills_tested, ["h:decouverte-du-besoin", "h:objection-prix"]);
+  assert.equal(r.skill_assessed, "Découverte du besoin");
+});
+
+test("grille : ce qui ne peut pas s'enregistrer est refusé avec une raison", async () => {
+  const { appliquerGrille } = await import("../src/lib/grilleModule.js");
+  const base = { competences: [{ cle: "a", name: "Écoute", priority: "must_have" }] };
+  assert.equal(appliquerGrille({ competences: [], criteres: [] }).erreur, "competenceManquante");
+  assert.equal(appliquerGrille({ ...base, criteres: [] }).erreur, "critereManquant");
+  assert.equal(appliquerGrille({ ...base, criteres: [{ name: "", skills: ["a"], checkpoints: [{ description: "x" }] }] }).erreur, "critereSansNom");
+  assert.equal(appliquerGrille({ ...base, criteres: [{ name: "C", skills: [], checkpoints: [{ description: "x" }] }] }).erreur, "critereSansCompetence");
+  // Un critère sans point n'empêche rien : il est simplement écarté.
+  const r = appliquerGrille({ ...base, criteres: [{ name: "Vide", skills: ["a"], checkpoints: [] }, { name: "C", skills: ["a"], checkpoints: [{ description: "x" }] }] });
+  assert.equal(r.stepCriteria.length, 1);
+});

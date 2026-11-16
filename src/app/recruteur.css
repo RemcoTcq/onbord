@@ -224,7 +224,8 @@ html.ds, html.ds body { background: var(--ds-page); }
   color: var(--ds-ink-3);
   cursor: pointer;
 }
-.ds-seg-item[aria-selected="true"] {
+.ds-seg-item[aria-selected="true"],
+.ds-seg-item[aria-checked="true"] {
   background: #FFFFFF;
   box-shadow: 0 1px 2px rgba(20, 32, 74, 0.1);
   font-weight: 500;
@@ -509,6 +510,56 @@ html.ds, html.ds body { background: var(--ds-page); }
 .ds-menu-item.ds-dd-option[aria-disabled] { opacity: 0.45; cursor: default; }
 .ds-menu-item.ds-dd-option[aria-disabled]:hover { background: transparent; }
 .ds-dd-libelle { flex: 1; min-width: 0; }
+/* ==================== GRILLE DE NOTATION (components/simulations/GrilleNotation.js) ==================== */
+/* Des champs qui se lisent comme du texte et se révèlent au survol : la grille
+   reste lisible d'un coup d'œil, et chaque mot se modifie sur place. */
+.grille-champ {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ds-ink);
+  outline: none;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+.grille-champ:hover { background: #FFFFFF; border-color: var(--ds-line); }
+.grille-champ:focus { background: #FFFFFF; border-color: var(--ds-blue); box-shadow: 0 0 0 3px var(--ds-blue-10); }
+.grille-champ::placeholder { color: var(--ds-ink-5); }
+.grille-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 4px 4px 0; border-radius: 10px; }
+.grille-critere {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--ds-line);
+  border-radius: 12px;
+  background: #FFFFFF;
+  box-shadow: var(--ds-shadow-xs);
+}
+.grille-numero {
+  width: 24px; height: 24px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px; background: var(--ds-blue); color: #FFFFFF;
+  font-family: var(--ds-mono, ui-monospace, monospace); font-size: 12px;
+}
+.grille-pastille {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 9px;
+  border: 1px solid var(--ds-line); border-radius: 99px;
+  background: #FFFFFF; color: var(--ds-ink-3);
+  font: inherit; font-size: 12px; cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.grille-pastille:hover { border-color: var(--ds-blue); color: var(--ds-ink); }
+.grille-pastille.is-on { background: var(--ds-blue-06); border-color: var(--ds-blue); color: var(--ds-blue); font-weight: 500; }
+.grille-point { display: flex; align-items: flex-start; gap: 6px; }
+.grille-point .grille-retirer { opacity: 0; transition: opacity 120ms ease; }
+.grille-point:hover .grille-retirer, .grille-point:focus-within .grille-retirer { opacity: 1; }
+@media (hover: none) { .grille-point .grille-retirer { opacity: 1; } }
+
 .ds-dd-groupe { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-ink-4); }
 
 /* ==================== TABLEAU ==================== */

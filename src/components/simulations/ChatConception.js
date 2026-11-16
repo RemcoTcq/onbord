@@ -4,13 +4,16 @@
 // (16/11/2026, /api/chat/module). L'agent ouvre l'échange en demandant le
 // scénario ; quand il a ce qu'il faut, il remet un RÉCAPITULATIF (scénario,
 // objectif, objections, ce qu'il faut savoir, grille) affiché ici avec le
-// bouton « Générer ». Le manager peut continuer à parler pour le corriger.
+// bouton « Générer ». Le manager peut continuer à parler pour le corriger, et
+// modifie la grille directement : renommer, supprimer, ajouter une compétence,
+// la passer d'indispensable à atout. Un nouveau récapitulatif de l'agent
+// repart de sa proposition.
 //
 // Le fil vit ici le temps de la création : rien n'est écrit en base avant
 // la génération.
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { Loader2, Send, Sparkles, Plus, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 // Le premier message, envoyé pour que l'agent ouvre l'échange : jamais affiché.
@@ -39,6 +42,8 @@ export default function ChatConception({ cadre, onGenerer, generation = false })
   const [attente, setAttente] = useState(false);
   const [erreur, setErreur] = useState("");
   const [recap, setRecap] = useState(null);
+  // La grille du récapitulatif, telle que le manager l'a retouchée.
+  const [competences, setCompetences] = useState([]);
   const bas = useRef(null);
   const ouvert = useRef(false);
 
@@ -54,7 +59,10 @@ export default function ChatConception({ cadre, onGenerer, generation = false })
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || k("error"));
       setMessages(data.messages);
-      if (data.recap) setRecap(data.recap);
+      if (data.recap) {
+        setRecap(data.recap);
+        setCompetences((data.recap.criteres?.hard_skills || []).map((c) => ({ name: c.name, priority: c.priority })));
+      }
     } catch (e) {
       setErreur(e.message || k("error"));
       setMessages(fil);
@@ -84,7 +92,8 @@ export default function ChatConception({ cadre, onGenerer, generation = false })
 
   const lignes = affichables(messages);
   const b = recap?.brief || {};
-  const competences = recap?.criteres?.hard_skills || [];
+  const setCompetence = (i, patch) => setCompetences((l) => l.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const gardees = competences.filter((c) => String(c.name).trim());
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -115,15 +124,31 @@ export default function ChatConception({ cadre, onGenerer, generation = false })
                 <ul style={{ margin: "4px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>{l.map((x, i) => <li key={i}>{x}</li>)}</ul>
               </div>
             ))}
-            {competences.length > 0 && (
-              <div style={{ fontSize: 13, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                <b style={{ fontWeight: 600 }}>{k("scorecard")} :</b>
-                {competences.map((c) => <span key={c.name} className={`ds-chip ${c.priority === "must_have" ? "ds-chip-blue" : ""}`}>{c.name}</span>)}
-              </div>
-            )}
+            <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
+              <b style={{ fontWeight: 600 }}>{k("scorecard")} :</b>
+              <span className="ds-help">{k("scorecardHint")}</span>
+              {competences.map((c, i) => (
+                <div key={i} className="grille-ligne" style={{ gap: 8 }}>
+                  <input className="grille-champ" value={c.name} onChange={(e) => setCompetence(i, { name: e.target.value })}
+                    placeholder={t("dashboard.sims.grid.skillPlaceholder")} aria-label={t("dashboard.sims.grid.skillName")} style={{ flex: "1 1 220px", fontWeight: 500 }} />
+                  <div role="radiogroup" aria-label={t("dashboard.sims.grid.priority")} className="ds-seg" style={{ height: 30 }}>
+                    {[["must_have", t("dashboard.sims.grid.must")], ["nice_to_have", t("dashboard.sims.grid.nice")]].map(([v, l]) => (
+                      <button key={v} type="button" role="radio" aria-checked={c.priority === v}
+                        className="ds-seg-item" style={{ height: 24, fontSize: 12 }} onClick={() => setCompetence(i, { priority: v })}>{l}</button>
+                    ))}
+                  </div>
+                  <button type="button" className="ds-icon-btn" onClick={() => setCompetences((l) => l.filter((_, j) => j !== i))}
+                    aria-label={t("dashboard.sims.grid.removeSkill", { name: c.name || "—" })}><X size={14} /></button>
+                </div>
+              ))}
+              <button type="button" className="ds-btn ds-btn-ghost ds-btn-sm" style={{ alignSelf: "flex-start" }}
+                onClick={() => setCompetences((l) => [...l, { name: "", priority: "must_have" }])} disabled={competences.length >= 6}>
+                <Plus size={13} /> {t("dashboard.sims.grid.addSkill")}
+              </button>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span className="ds-help" style={{ flex: 1 }}>{k("recapHint")}</span>
-              <button type="button" className="ds-btn ds-btn-primary" onClick={() => onGenerer(recap)} disabled={generation || attente}>
+              <button type="button" className="ds-btn ds-btn-primary" onClick={() => onGenerer({ ...recap, criteres: { hard_skills: gardees, soft_skills: [] } })} disabled={generation || attente || !gardees.length}>
                 {generation ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={14} />} {k("generate")}
               </button>
             </div>

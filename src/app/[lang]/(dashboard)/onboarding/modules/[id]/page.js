@@ -25,6 +25,7 @@ import GenerationFeed, { streamModuleGeneration, translateFeedError } from "@/co
 import { StatusBadge } from "@/components/experience/ui";
 import TesterSimulation from "@/components/experience/TesterSimulation";
 import { initials } from "@/components/ui/ds";
+import GrilleNotation from "@/components/simulations/GrilleNotation";
 import Select from "@/components/ui/Select";
 
 const DIFFICULTES = ["easy", "medium", "hard"];
@@ -40,6 +41,16 @@ function Bloc({ titre, children, action }) {
       {children}
     </div>
   );
+}
+
+/** Les points de contrôle des autres étapes, par compétence notée. */
+function pointsAilleurs(steps, stepId) {
+  const out = {};
+  for (const s of steps) {
+    if (s.id === stepId) continue;
+    for (const c of s.criteria || []) for (const id of c.skill_ids || []) out[id] = (out[id] || 0) + (c.checkpoints || []).length;
+  }
+  return out;
 }
 
 const puces = (items) => (
@@ -229,17 +240,6 @@ export default function ModulePage({ params }) {
                   {perso?.end_condition && <Bloc titre={p("end")}><p style={{ fontSize: 13, lineHeight: 1.55 }}>{perso.end_condition}</p></Bloc>}
                 </div>
               </div>
-              {(s.criteria || []).length > 0 && (
-                <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <span className="ds-label">{p("scorecard")}</span>
-                  {(s.criteria || []).map((cr, i) => (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <b style={{ fontSize: 13, fontWeight: 600 }}>{cr.name}</b>
-                      {puces((cr.checkpoints || []).map((cp) => cp.description))}
-                    </div>
-                  ))}
-                </div>
-              )}
               {c.a_retenir?.length > 0 && (
                 <div className="ds-inset">
                   <Bloc titre={p("takeaways")}>
@@ -251,6 +251,19 @@ export default function ModulePage({ params }) {
             </section>
           );
         })}
+
+        {/* ── La grille de notation, modifiable ─────────────────────────────── */}
+        {experience && steps.filter((s) => Array.isArray(s.criteria)).map((s) => (
+          <GrilleNotation
+            key={`${s.id}-${s.updated_at}`}
+            moduleId={id}
+            step={s}
+            criteria={module.criteria}
+            ailleurs={pointsAilleurs(steps, s.id)}
+            verrouillee={Boolean(experience.locked_at)}
+            onSaved={charger}
+          />
+        ))}
 
         {/* ── Assigner ─────────────────────────────────────────────────────── */}
         {experience && (

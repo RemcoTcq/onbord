@@ -243,7 +243,7 @@ export default function CreerSimulationPage() {
         {/* ── 4. Le personnage ───────────────────────────────────────────── */}
         {etape4 && (
           <section className="ds-panel">
-            {tete(4, k("personaTitle"), k("personaHint", { langue: LOCALE_LABELS[langue] }), personaOk, () => setPersonaOk(false))}
+            {tete(4, k("personaTitle"), k("personaHint", { langue: t(`dashboard.experienceEditor.voices.lang.${langue}`) }), personaOk, () => setPersonaOk(false))}
             {personaOk ? (
               <div className="ds-inset" style={{ fontSize: 13 }}>
                 {persona ? <b style={{ fontWeight: 600 }}>{persona.name}</b> : k("personaAuto")}
@@ -270,7 +270,7 @@ export default function CreerSimulationPage() {
                     </button>
                   )}
                 </div>
-                {personas !== null && !personasLangue.length && !nouvelle && <p className="ds-help" style={{ padding: "0 14px" }}>{k("personaEmpty", { langue: LOCALE_LABELS[langue] })}</p>}
+                {personas !== null && !personasLangue.length && !nouvelle && <p className="ds-help" style={{ padding: "0 14px" }}>{k("personaEmpty", { langue: t(`dashboard.experienceEditor.voices.lang.${langue}`) })}</p>}
                 {nouvelle && (
                   <form onSubmit={creerPersonnage} className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     <b style={{ fontSize: 14, fontWeight: 600 }}>{k("personaCreate")}</b>

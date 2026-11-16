@@ -16,6 +16,8 @@ import { coerceCanal, normaliserBrief, criteresDepuisCompetences } from "@/lib/s
 import { supprimerFichiersDesCandidats } from "@/lib/storage";
 import { identitePersona } from "@/lib/persona";
 import { langueEcran } from "@/lib/langueEcran";
+import { appliquerGrille } from "@/lib/grilleModule";
+import { updateStep } from "@/lib/actions/experience";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -168,6 +170,46 @@ export async function majModule(id, champs) {
     return { success: true };
   } catch (error) {
     console.error("majModule error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Enregistre la GRILLE DE NOTATION d'une simulation (16/11/2026) : ses
+ * compétences (`modules.criteria`) et les critères de son étape, avec leurs
+ * points de contrôle. Une version déjà jouée par quelqu'un n'est pas modifiée :
+ * la retouche porte sur une copie (updateStep, lib/experienceVersion.js), et
+ * les essais déjà faits restent notés sur la grille qu'ils ont eue.
+ * @param {string} id le module
+ * @param {string} stepId l'étape de la version courante
+ * @param {{ competences: Array, criteres: Array }} grille
+ */
+export async function enregistrerGrille(id, stepId, grille) {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const admin = createAdminClient();
+    const { data: module } = await admin.from("modules").select("id").eq("id", id).eq("organization_id", ctx.orgId).maybeSingle();
+    if (!module) return { success: false, error: "Module introuvable" };
+    const { data: step } = await admin.from("experience_steps").select("id, config, experiences!inner(module_id)").eq("id", stepId).maybeSingle();
+    if (!step || step.experiences?.module_id !== id) return { success: false, error: "Étape introuvable" };
+
+    const res = appliquerGrille(grille);
+    if (res.erreur) return { success: false, code: res.erreur };
+
+    const { experiences: _exp, ...etape } = step;
+    const maj = await updateStep(etape.id, {
+      criteria: res.stepCriteria,
+      skill_assessed: res.skill_assessed,
+      config: { ...(etape.config || {}), skills_tested: res.skills_tested, targets_skills: res.targets_skills },
+    });
+    if (!maj.success) return { success: false, error: maj.error };
+
+    const { error } = await admin.from("modules").update({ criteria: res.criteria, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw error;
+    return { success: true, nouvelleVersion: Boolean(maj.forked) };
+  } catch (error) {
+    console.error("enregistrerGrille error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }
