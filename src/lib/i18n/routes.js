@@ -45,6 +45,8 @@ const SEGMENTS = {
   // Phase 3 : l'espace du learner → Training › Attempts, Results.
   essais:         { en: "attempts" },
   resultats:      { en: "results" },
+  // 16/11/2026 : l'entrée unique « Créer une simulation ».
+  creer:          { en: "create" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

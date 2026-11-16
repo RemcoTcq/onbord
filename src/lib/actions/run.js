@@ -11,6 +11,7 @@ import { normaliserPersona, personaPourCandidat, personaTranscript } from "@/lib
 import { resolveJobEntry } from "@/lib/candidateEntry";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { essaiDuLearner } from "@/lib/passage";
+import { estUnTest } from "@/lib/essais";
 import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
 import { coerceUiLocale } from "@/lib/i18n/config";
 import { localiserChemin } from "@/lib/i18n/routes";
@@ -124,7 +125,9 @@ async function contexteEssai(admin, run) {
     first_name: profil?.first_name || "",
     // La page du retour, dans la langue de SON interface : l'écran du parcours
     // a basculé dans celle du module, et le proxy suivrait ce choix.
-    retour: `/${langue}${localiserChemin(`/formation/essais/${run.id}`, langue)}`,
+    // Le test d'un manager (lib/actions/tests.js) revient dans le tableau de
+    // bord ; l'essai d'un learner, dans son espace.
+    retour: `/${langue}${localiserChemin(estUnTest(run) ? `/simulations/tests/${run.id}` : `/formation/essais/${run.id}`, langue)}`,
   };
   return { candidate: null, learner, job, recruiter, exp, run };
 }

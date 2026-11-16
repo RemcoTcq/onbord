@@ -471,6 +471,52 @@ aucune suggestion sur lacunes. Non vérifié : un e-mail réellement reçu.
   être affiché (réservé aux adresses de l'équipe Onbord) : ses requêtes ont été
   rejouées à part.
 
+### 16/11/2026 — Une seule entrée : « Créer une simulation »
+
+Retour de Remco après ses tests : le recrutement et l'onboarding étaient trop
+séparés. Ce qui a été tranché avec lui, puis fait (aucune migration) :
+
+- **Simulations** (`/simulations`) : toutes les simulations de l'organisation
+  au même endroit, recrutement (une par offre) et onboarding (une par module),
+  filtre par usage, recherche. Dans le menu, juste sous l'accueil. « Modules »
+  quitte le menu : `/onboarding/modules` y renvoie (filtre onboarding) ; les
+  pages d'un module ne bougent pas. Personnages rejoint le groupe Entreprise.
+- **Créer une simulation** (`/simulations/creer`, `/en/simulations/create`) :
+  on choisit d'abord l'usage. Recrutement : l'offre, comme avant
+  (`/jobs/nouveau`). Onboarding, sur une page : le rôle → les conversations
+  proposées à partir du Company Knowledge (ou la sienne) → le personnage
+  (bibliothèque, ou créé par Onbord) → difficulté et seuil → génération.
+- **Personnage choisi avant la génération** : `runModuleGeneration(…, {
+  personaId })`. La génération écrit la situation POUR lui ; son identité
+  (`CHAMPS_IDENTITE`, `imposerPersonnage`, `lib/persona.js`) remplace celle
+  du personnage généré, l'étape garde le lien. Régénérer garde l'interlocuteur.
+- **Tester** (`lib/actions/tests.js`, bouton sur la page d'un module et sur la
+  simulation d'une offre) : un admin ou un manager joue la simulation en
+  entier, brouillon ou publiée, et lit le retour que recevra la personne
+  (`/simulations/tests/<id>`). Un test est un passage à son nom, sans
+  assignation ni numéro d'essai (`estUnTest`) : rien de facturé, aucun
+  candidat, aucune assignation touchée, version non verrouillée. **Un test
+  complet par simulation**, toutes versions confondues
+  (`TESTS_PAR_SIMULATION`, `lib/essais.js`).
+- **Lacunes du recrutement** : les modules créés pour une recrue entrent dans
+  la bibliothèque et se réutilisent (vérifié par Remco : légal). La consigne
+  interdit de nommer la personne ou de citer ses réponses ; les suggestions
+  connaissent la bibliothèque et DÉSIGNENT un module déjà là (`existing_id`)
+  plutôt que d'en écrire un second — il est assigné, pas recréé.
+- **Abandonné** : une grille de compétences par rôle (les compétences restent
+  tirées de l'offre, ou déduites de la situation pour un module) ; tout
+  outillage de l'appel d'onboarding client (il se fait sur Google Meet, le
+  compte est créé en admin).
+- **Pas fait, à décider** : les tests d'UNE étape en mode texte (peu coûteux).
+  Ils demandent de distinguer deux sortes de tests, donc une colonne — une
+  migration additive.
+- 31 tests, lint identique à `main`, `check:i18n` vert. Vérifié dans le
+  navigateur sur l'organisation de test : liste et filtres, ancienne adresse,
+  création guidée (5 conversations en 10 s, dont 4 reconnues en bibliothèque),
+  génération en 94 s avec le personnage choisi lié à l'étape, test complet
+  noté (38 %), retour lisible par l'admin et le manager et refusé au learner,
+  second test refusé, assignations intactes.
+
 ## 7. Avant la mise en ligne
 
 1. Migrations **035 à 044 appliquées** (toutes passées le 10/11/2026).

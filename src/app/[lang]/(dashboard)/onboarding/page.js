@@ -64,7 +64,7 @@ export default function OnboardingPage() {
           <div className="ds-panel" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
             <p className="ds-sub">{k("empty")}</p>
             <div style={{ display: "flex", gap: 8 }}>
-              <Link href="/onboarding/modules" className="ds-btn">{k("toModules")}</Link>
+              <Link href="/simulations/creer?usage=onboarding" className="ds-btn">{k("toModules")}</Link>
               <Link href="/onboarding/personnes" className="ds-btn ds-btn-primary">{k("toPeople")}</Link>
             </div>
           </div>

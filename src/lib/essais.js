@@ -132,3 +132,31 @@ export function compterLearnersActifs(learners, essais, maintenant = Date.now(),
   }
   return parOrg;
 }
+
+// Le TEST d'une simulation par celui qui la construit (manager ou admin) : il
+// la joue en entier, comme la jouera la personne, et lit son retour avant de
+// publier. Un test complet coûte un appel à la voix et une notation : un seul
+// par simulation (décision de Remco du 16/11/2026).
+export const TESTS_PAR_SIMULATION = 1;
+
+/**
+ * Un passage est-il un test ? Il a un compte (`learner_id`), mais ni
+ * assignation ni numéro d'essai — un essai de learner a toujours les deux à sa
+ * création, et garde son numéro si l'assignation est retirée ensuite.
+ */
+export function estUnTest(run) {
+  return Boolean(run?.learner_id) && !run.assignment_id && run.attempt_number == null;
+}
+
+/**
+ * Ce que peut faire celui qui veut tester : reprendre SON test en cours, en
+ * lancer un, ou rien si le test de la simulation est déjà fait.
+ * @param {Array<{id, learner_id, status}>} tests ceux de la simulation, toutes versions confondues
+ * @returns {{ reprendre: string|null, autorise: boolean, restants: number }}
+ */
+export function droitDeTester(tests, userId, max = TESTS_PAR_SIMULATION) {
+  const liste = tests || [];
+  const enCours = liste.find((r) => r.status === "in_progress" && r.learner_id === userId);
+  const restants = Math.max(0, max - liste.length);
+  return { reprendre: enCours?.id || null, autorise: Boolean(enCours) || restants > 0, restants };
+}

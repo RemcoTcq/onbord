@@ -5,6 +5,11 @@
 // accepté de les partager —, et des modules proposés pour les travailler. Le
 // manager garde ceux qu'il veut : ils sont créés et assignés d'un coup ; leur
 // simulation se génère ensuite depuis la page de chaque module, comme toujours.
+//
+// Les modules créés entrent dans la bibliothèque (décision du 16/11/2026) :
+// écrits pour une personne, ils servent ensuite à toutes celles qui ont la
+// même lacune. Une proposition peut donc DÉSIGNER un module déjà là
+// (`existing_id`) : il est assigné tel quel, pas recréé.
 
 import { useState } from "react";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
@@ -50,13 +55,17 @@ export default function LacunesRecrutement({ userId, recrutement, onAssigne }) {
   async function garder() {
     setOccupe(true);
     const choisies = propositions.filter((_, i) => retenues.has(i));
-    const cree = await creerModulesRetenus({ propositions: choisies, role: recrutement.poste, locale: recrutement.langue || locale, min_score: 70 });
+    const nouvelles = choisies.filter((p) => !p.existing_id);
+    const dejaLa = choisies.filter((p) => p.existing_id).map((p) => p.existing_id);
+    const cree = nouvelles.length
+      ? await creerModulesRetenus({ propositions: nouvelles, role: recrutement.poste, locale: recrutement.langue || locale, min_score: 70 })
+      : { success: true, ids: [] };
     if (!cree.success) { setOccupe(false); return toast(t("dashboard.onb.people.errors.generic"), "error"); }
-    const res = await assigner({ learnerId: userId, moduleIds: cree.ids });
+    const res = await assigner({ learnerId: userId, moduleIds: [...dejaLa, ...cree.ids] });
     setOccupe(false);
     if (!res.success) return toast(t("dashboard.onb.people.errors.generic"), "error");
-    toast(k("done", { count: cree.ids.length }), "success");
-    setCrees(cree.ids.map((id, i) => ({ id, titre: choisies[i]?.title || "" })));
+    toast(k("done", { count: dejaLa.length + cree.ids.length }), "success");
+    setCrees(cree.ids.map((id, i) => ({ id, titre: nouvelles[i]?.title || "" })));
     setPropositions(null);
     onAssigne?.();
   }
@@ -90,7 +99,7 @@ export default function LacunesRecrutement({ userId, recrutement, onAssigne }) {
               <input type="checkbox" checked={retenues.has(i)} style={{ marginTop: 3 }}
                 onChange={() => setRetenues((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
               <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <b style={{ fontWeight: 600, fontSize: 14 }}>{p.title}</b>
+                <b style={{ fontWeight: 600, fontSize: 14 }}>{p.title}{p.existing_id && <span className="ds-chip ds-chip-green" style={{ marginLeft: 8 }}>{k("inLibrary")}</span>}</b>
                 <span>{p.situation}</span>
                 {p.objective && <span style={{ color: "var(--ds-ink-3)" }}>{p.objective}</span>}
               </span>

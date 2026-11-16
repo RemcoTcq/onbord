@@ -168,8 +168,14 @@ export async function proposerModules({ role, nombre = 5, learnerId = null }) {
         role = role || membre.hiring_gaps?.poste;
       }
     }
+    // Les modules déjà là, pour les réutiliser plutôt que les réécrire.
+    const { data: existants } = await admin.from("modules")
+      .select("id, title, situation, objective, difficulty")
+      .eq("organization_id", ctx.orgId).is("archived_at", null)
+      .order("updated_at", { ascending: false }).limit(40);
     const propositions = await suggererModules({
       lacunes,
+      existants: existants || [],
       role: String(role || "").trim().slice(0, 160),
       nombre: Math.max(1, Math.min(10, Number(nombre) || 5)),
       uiLocale: coerceUiLocale(profil?.ui_locale),
@@ -187,7 +193,8 @@ export async function creerModulesRetenus({ propositions, role, locale, min_scor
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    const lignes = (Array.isArray(propositions) ? propositions : []).slice(0, 10)
+    // Une proposition qui désigne un module déjà là ne se recrée pas.
+    const lignes = (Array.isArray(propositions) ? propositions : []).filter((p) => !p?.existing_id).slice(0, 10)
       .map((p) => champsModule({ ...p, target_role: role, locale, min_score: min_score ?? 70 }))
       .filter((c) => c.title && c.situation)
       .map((c) => ({ ...c, organization_id: ctx.orgId, created_by: ctx.user.id }));

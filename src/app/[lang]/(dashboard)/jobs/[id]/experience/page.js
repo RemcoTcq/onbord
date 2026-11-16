@@ -34,6 +34,7 @@ import { StatusBadge, BandeauEphemere } from "@/components/experience/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import PageHeader from "@/components/layout/PageHeader";
+import TesterSimulation from "@/components/experience/TesterSimulation";
 import { estimerMinutes } from "@/lib/experienceDuree";
 
 export default function ExperienceReviewPage() {
@@ -249,6 +250,7 @@ export default function ExperienceReviewPage() {
         actions={experience && (
           <>
             <StatusBadge status={experience.status} />
+            <TesterSimulation jobId={jobId} signal={experience.id} disabled={generating} />
             {experience.status !== "published" ? (
               <button type="button" className="ds-btn ds-btn-primary" onClick={handlePublish} disabled={publishing}>
                 {publishing ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={15} />}

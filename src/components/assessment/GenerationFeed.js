@@ -27,8 +27,8 @@ export async function streamExperienceGeneration(jobId, additionalContext, onEve
 }
 
 /** La génération d'un module d'onboarding (phase 2), même flux. */
-export async function streamModuleGeneration(moduleId, onEvent) {
-  return streamGeneration("/api/modules/generate", { moduleId }, onEvent);
+export async function streamModuleGeneration(moduleId, onEvent, { personaId = null } = {}) {
+  return streamGeneration("/api/modules/generate", { moduleId, personaId }, onEvent);
 }
 
 async function streamGeneration(url, corps, onEvent) {

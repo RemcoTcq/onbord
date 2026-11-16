@@ -19,6 +19,7 @@ import GenerationFeed, { streamModuleGeneration, translateFeedError } from "@/co
 import { natureEtape } from "@/components/experience/BlocEtape";
 import { StatusBadge } from "@/components/experience/ui";
 import { listerCompetences } from "@/lib/competences";
+import TesterSimulation from "@/components/experience/TesterSimulation";
 
 const DIFFICULTES = ["easy", "medium", "hard"];
 
@@ -26,7 +27,10 @@ export default function ModulePage({ params }) {
   const { id } = use(params);
   const { t } = useI18n();
   const { toast } = useToast();
-  const generer = useSearchParams().get("generer") === "1";
+  const recherche = useSearchParams();
+  const generer = recherche.get("generer") === "1";
+  // Le personnage choisi à la création (/simulations/creer), s'il y en a un.
+  const personaDemande = recherche.get("persona");
   const k = (cle, vars) => t(`dashboard.onb.modules.${cle}`, vars);
   const [donnees, setDonnees] = useState(null);
   const [form, setForm] = useState(null);
@@ -45,10 +49,10 @@ export default function ModulePage({ params }) {
     });
   }, [id]);
 
-  const lancerGeneration = useCallback(async () => {
+  const lancerGeneration = useCallback(async (personaId = null) => {
     setGeneration(true);
     setEvenements([]);
-    const res = await streamModuleGeneration(id, (ev) => setEvenements((e) => [...e, ev]));
+    const res = await streamModuleGeneration(id, (ev) => setEvenements((e) => [...e, ev]), { personaId });
     setGeneration(false);
     if (!res.success) toast(translateFeedError(t, res.error) || k("errors.generic"), "error");
     await charger();
@@ -64,8 +68,8 @@ export default function ModulePage({ params }) {
   useEffect(() => {
     if (!generer || lance.current || !donnees || donnees.erreur || donnees.experience) return;
     lance.current = true;
-    lancerGeneration();
-  }, [generer, donnees, lancerGeneration]);
+    lancerGeneration(personaDemande);
+  }, [generer, donnees, lancerGeneration, personaDemande]);
 
   async function enregistrer(e) {
     e.preventDefault();
@@ -91,12 +95,15 @@ export default function ModulePage({ params }) {
     charger();
   }
 
-  const crumbs = [{ label: k("title"), href: "/onboarding/modules" }];
+  const crumbs = [{ label: t("dashboard.sims.title"), href: "/simulations?usage=onboarding" }];
   if (!donnees) return (<><PageHeader crumbs={crumbs} title="…" /><div style={{ display: "flex", justifyContent: "center", padding: 48 }}><Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} /></div></>);
   if (donnees.erreur) return (<><PageHeader crumbs={crumbs} title={k("notFound")} /><div className="ds-body"><p className="ds-sub">{k("notFound")}</p></div></>);
 
   const { module, experience, steps, job } = donnees;
   const competences = listerCompetences(job?.extracted_criteria || {});
+  // Régénérer garde l'interlocuteur : le personnage de bibliothèque de la
+  // version courante est imposé à la suivante.
+  const personaCourant = steps.find((s) => s.config?.persona_id)?.config.persona_id || null;
   const set = (cle) => (e) => setForm((f) => ({ ...f, [cle]: e.target.value }));
 
   return (
@@ -111,10 +118,11 @@ export default function ModulePage({ params }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px 0", flexWrap: "wrap" }}>
             <h2 className="ds-h2" style={{ flex: 1 }}>{k("simulation")}</h2>
             {experience && <StatusBadge status={experience.status} />}
+            {experience && <TesterSimulation moduleId={id} signal={experience.id} disabled={generation} />}
             {experience && experience.status !== "published" && (
               <button type="button" className="ds-btn ds-btn-primary" onClick={publier} disabled={generation}><Check size={14} /> {k("publish")}</button>
             )}
-            <button type="button" className="ds-btn" onClick={lancerGeneration} disabled={generation}>
+            <button type="button" className="ds-btn" onClick={() => lancerGeneration(personaCourant)} disabled={generation}>
               {generation ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={14} />}
               {experience ? k("regenerate") : k("generate")}
             </button>

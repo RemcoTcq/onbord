@@ -26,6 +26,7 @@ import { descriptionModule } from "@/lib/simulationSource";
 import { listerCompetences } from "@/lib/competences";
 import { estimerMinutes } from "@/lib/experienceDuree";
 import { rangerPersonasDeLaSimulation } from "@/lib/personas";
+import { imposerPersonnage, normaliserPersona } from "@/lib/persona";
 import { coerceExperienceLocale, coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 const MODELE_PETIT = "claude-sonnet-5-5";
@@ -75,9 +76,13 @@ Donne les 3 à 6 compétences que cette situation met réellement à l'épreuve 
  * Génère (ou régénère) la simulation d'un module. Chaque génération crée une
  * NOUVELLE version, comme pour une offre ; les brouillons précédents sans
  * essai sont archivés.
+ *
+ * `personaId` : un personnage de la bibliothèque choisi à la création (ou
+ * gardé d'une version à l'autre). La génération écrit la situation POUR lui,
+ * et l'étape le reprend tel quel.
  * @returns {Promise<{success: boolean, experienceId?: string, error?: string}>}
  */
-export async function runModuleGeneration(moduleId, onEvent = null) {
+export async function runModuleGeneration(moduleId, onEvent = null, { personaId = null } = {}) {
   const debut = Date.now();
   try {
     const supabase = await createClient();
@@ -94,6 +99,15 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
     const uiLocale = coerceUiLocale(profil?.ui_locale);
     const locale = coerceExperienceLocale(module.locale);
     const ctx = await contexteEntreprise(user.id);
+
+    // Le personnage imposé : une fiche active de la même organisation.
+    let fiche = null;
+    if (personaId) {
+      const { data } = await admin.from("personas").select("id, data")
+        .eq("id", personaId).eq("organization_id", module.organization_id).is("archived_at", null).maybeSingle();
+      if (data && normaliserPersona(data.data)) fiche = data;
+    }
+    const identite = fiche ? normaliserPersona(fiche.data) : null;
 
     // Les compétences : celles du manager, sinon déduites et gardées.
     let crit = module.criteria || {};
@@ -114,7 +128,9 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
         "C'EST UN MODULE D'ONBOARDING, PAS UN RECRUTEMENT : la personne est déjà dans l'équipe et s'entraîne. Il pourra recommencer autant de fois qu'il le faut.",
         "Concentre le module sur LA situation décrite : 1 à 3 étapes, la conversation avec le client au centre. Pas de questions de présélection, pas de QCM de culture générale.",
         "Les faits de l'entreprise (produit, tarifs, politiques, objections) viennent du contexte entreprise : un bon entraînement oblige à les utiliser, sans en inventer.",
-      ].join("\n"),
+        identite && `PERSONNAGE IMPOSÉ — l'interlocuteur de la conversation est ce personnage de la bibliothèque de l'entreprise. Reprends-le TEL QUEL (nom, fonction, entreprise, personnalité, humeur) et écris pour lui ce qui dépend de la situation : le contexte remis, son premier message, ses informations cachées, ses objections, la condition de fin.
+${JSON.stringify({ name: identite.name, role: identite.role, company: identite.company, personality: identite.personality, mood: identite.mood, goals: identite.goals })}`,
+      ].filter(Boolean).join("\n"),
       locale,
       uiLocale,
       onEvent,
@@ -159,6 +175,7 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
     if (expErr) throw expErr;
 
     const rows = lignesEtapes(steps, experience.id, crit);
+    if (fiche) imposerPersonnage(rows, fiche);
     if (rows.length) {
       const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
       if (stepsErr) throw stepsErr;
@@ -180,7 +197,7 @@ export async function runModuleGeneration(moduleId, onEvent = null) {
  * puis crée ceux qu'il garde.
  * @returns {Promise<Array<{title, situation, objective, difficulty}>>}
  */
-export async function suggererModules({ role, nombre = 5, uiLocale, companyContext, lacunes = [] }) {
+export async function suggererModules({ role, nombre = 5, uiLocale, companyContext, lacunes = [], existants = [] }) {
   const nom = LOCALE_NAMES_FR[coerceUiLocale(uiLocale)];
   // Les lacunes constatées au recrutement (phase 4) : les premiers modules
   // proposés les travaillent, chacun en nomme une ou plusieurs.
@@ -188,7 +205,18 @@ export async function suggererModules({ role, nombre = 5, uiLocale, companyConte
     ? `\n\nLACUNES CONSTATÉES CHEZ CETTE RECRUE À SA SIMULATION DE RECRUTEMENT (point attendu, noté 0 = absent ou 1 = partiel sur 2) :
 ${lacunes.slice(0, 20).map((l) => `- [${l.competence || "—"}] ${l.point} (${l.score}/2)${l.justification ? ` — ${l.justification}` : ""}`).join("\n")}
 
-Les modules proposés travaillent EN PRIORITÉ ces lacunes, les points à 0 d'abord : chaque situation est construite pour que la recrue doive précisément faire ce qui lui a manqué. Regroupe les lacunes proches dans un même module.`
+Les modules proposés travaillent EN PRIORITÉ ces lacunes, les points à 0 d'abord : chaque situation est construite pour que la recrue doive précisément faire ce qui lui a manqué. Regroupe les lacunes proches dans un même module.
+
+CES MODULES ENTRENT DANS LA BIBLIOTHÈQUE DE L'ENTREPRISE et serviront à d'autres personnes qui ont la même lacune. Décris une SITUATION, jamais une personne : ne nomme pas la recrue, ne cite pas ses réponses, ne fais allusion ni à elle ni à son recrutement.`
+    : "";
+  // Ce que la bibliothèque contient déjà : un module qui travaille une lacune
+  // se réutilise, on n'en écrit pas un second à côté.
+  const connus = (existants || []).filter((m) => m?.id && m?.title).slice(0, 40);
+  const blocExistants = connus.length
+    ? `\n\nMODULES DÉJÀ DANS LA BIBLIOTHÈQUE :
+${connus.map((m) => `- [${m.id}] ${m.title} — ${String(m.situation || "").slice(0, 200)}`).join("\n")}
+
+Si l'un d'eux travaille déjà ce que tu allais proposer, propose-LE (son identifiant dans "existing_id", son titre et sa situation repris tels quels) plutôt qu'un nouveau module presque identique. N'en propose un que s'il convient vraiment.`
     : "";
   const response = await anthropic.messages.create({
     model: MODELE_PETIT,
@@ -200,22 +228,32 @@ Les modules proposés travaillent EN PRIORITÉ ces lacunes, les points à 0 d'ab
       content: `RÔLE DE LA NOUVELLE RECRUE : ${role || "non précisé"}
 
 CONTEXTE ENTREPRISE :
-${blocEntreprise(companyContext)}${blocLacunes}
+${blocEntreprise(companyContext)}${blocLacunes}${blocExistants}
 
 Propose ${nombre} modules d'entraînement : les conversations qu'une nouvelle recrue de ce rôle doit savoir mener AVANT de rencontrer de vrais clients, ${lacunes.length ? "en commençant par celles qui travaillent ses lacunes" : "du plus courant au plus délicat"}. Chacun est une SITUATION concrète avec un client (ou un prospect), tirée de ce que fait cette entreprise — ses produits, ses tarifs, ses objections, ses politiques — jamais une situation générique.
 Tout est RÉDIGÉ EN ${nom.toUpperCase()}.
 
-{"modules": [{"title": "titre court", "situation": "la situation en une ou deux phrases", "objective": "ce que la recrue doit obtenir, en une phrase", "difficulty": "easy | medium | hard"}]}`,
+{"modules": [{"title": "titre court", "situation": "la situation en une ou deux phrases", "objective": "ce que la recrue doit obtenir, en une phrase", "difficulty": "easy | medium | hard"${connus.length ? ', "existing_id": "identifiant d\'un module de la bibliothèque, ou null"' : ""}}]}`,
     }],
   });
   const brut = jsonDe(response);
+  const parId = new Map(connus.map((m) => [m.id, m]));
+  const dejaProposes = new Set();
   return (Array.isArray(brut.modules) ? brut.modules : [])
     .filter((m) => String(m?.title || "").trim() && String(m?.situation || "").trim())
     .slice(0, 10)
-    .map((m) => ({
-      title: String(m.title).trim().slice(0, 160),
-      situation: String(m.situation).trim().slice(0, 1000),
-      objective: String(m.objective || "").trim().slice(0, 500),
-      difficulty: ["easy", "medium", "hard"].includes(m.difficulty) ? m.difficulty : "medium",
-    }));
+    .map((m) => {
+      // Un identifiant inventé, ou cité deux fois, redevient une proposition neuve.
+      const existant = parId.get(m.existing_id);
+      if (existant && !dejaProposes.has(existant.id)) {
+        dejaProposes.add(existant.id);
+        return { existing_id: existant.id, title: existant.title, situation: existant.situation || "", objective: existant.objective || "", difficulty: existant.difficulty || "medium" };
+      }
+      return {
+        title: String(m.title).trim().slice(0, 160),
+        situation: String(m.situation).trim().slice(0, 1000),
+        objective: String(m.objective || "").trim().slice(0, 500),
+        difficulty: ["easy", "medium", "hard"].includes(m.difficulty) ? m.difficulty : "medium",
+      };
+    });
 }

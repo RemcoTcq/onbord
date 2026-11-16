@@ -49,7 +49,7 @@ export default function ModuleStepPage() {
   const index = steps.findIndex((s) => s.id === stepId);
   const step = steps[index];
   const crumbs = [
-    { label: t("dashboard.onb.modules.title"), href: "/onboarding/modules" },
+    { label: t("dashboard.sims.title"), href: "/simulations?usage=onboarding" },
     { label: donnees.module?.title || "—", href: `/onboarding/modules/${id}` },
   ];
   if (donnees.erreur || !step) {

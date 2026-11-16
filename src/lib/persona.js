@@ -83,6 +83,36 @@ export function normaliserPersona(p) {
   };
 }
 
+// L'IDENTITÉ d'un personnage : ce qui le suit d'une simulation à l'autre. Le
+// reste (contexte remis, premier message, informations cachées, objections,
+// condition de fin) appartient à la situation jouée.
+export const CHAMPS_IDENTITE = ["name", "role", "company", "gender", "accent", "voice_id", "personality", "mood"];
+
+/**
+ * Impose un personnage de la bibliothèque aux étapes d'une simulation tout
+ * juste générée : son identité remplace celle du personnage écrit par la
+ * génération, la situation reste celle de l'étape, et l'étape garde le lien
+ * (`config.persona_id`). Touche les étapes dont le personnage porte déjà son
+ * nom — sinon la première conversation. Rend le nombre d'étapes touchées.
+ * @param {Array<{config?: object}>} etapes modifiées en place
+ * @param {{id: string, data: object}} fiche
+ */
+export function imposerPersonnage(etapes, fiche) {
+  const identite = normaliserPersona(fiche?.data);
+  const avecPersonnage = (etapes || []).filter((e) => e?.config?.persona);
+  if (!identite || !avecPersonnage.length) return 0;
+  const meme = (e) => net(e.config.persona.name).toLowerCase() === identite.name.toLowerCase();
+  const cibles = avecPersonnage.some(meme) ? avecPersonnage.filter(meme) : avecPersonnage.slice(0, 1);
+  for (const e of cibles) {
+    const persona = { ...e.config.persona };
+    for (const champ of CHAMPS_IDENTITE) {
+      if (identite[champ] != null && identite[champ] !== "") persona[champ] = identite[champ];
+    }
+    e.config = { ...e.config, persona, persona_id: fiche.id };
+  }
+  return cibles.length;
+}
+
 /** Ce que le candidat a le droit de savoir du personnage. */
 export function personaPourCandidat(p) {
   if (!p) return null;

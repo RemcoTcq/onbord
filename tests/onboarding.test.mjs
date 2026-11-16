@@ -132,3 +132,45 @@ test("learners actifs : un essai commencé dans les 30 jours, par organisation",
   assert.deepEqual(parOrg.get("o1"), { total: 2, actifs: 1 });
   assert.deepEqual(parOrg.get("o2"), { total: 1, actifs: 0 });
 });
+
+// ── 16/11/2026 : le test d'une simulation, le personnage choisi à la création ─
+
+test("test d'une simulation : ni assignation ni numéro d'essai", async () => {
+  const { estUnTest } = await import("../src/lib/essais.js");
+  assert.equal(estUnTest({ learner_id: "m", assignment_id: null, attempt_number: null }), true);
+  // L'essai d'un learner dont l'assignation a été retirée garde son numéro.
+  assert.equal(estUnTest({ learner_id: "l", assignment_id: null, attempt_number: 2 }), false);
+  assert.equal(estUnTest({ learner_id: "l", assignment_id: "a", attempt_number: 1 }), false);
+  assert.equal(estUnTest({ candidate_id: "c", learner_id: null }), false);
+});
+
+test("un seul test par simulation ; celui qui l'a commencé le reprend", async () => {
+  const { droitDeTester } = await import("../src/lib/essais.js");
+  assert.deepEqual(droitDeTester([], "m"), { reprendre: null, autorise: true, restants: 1 });
+  assert.deepEqual(droitDeTester([{ id: "t1", learner_id: "m", status: "in_progress" }], "m"), { reprendre: "t1", autorise: true, restants: 0 });
+  // Le test en cours d'un collègue ne se reprend pas, et il n'en reste plus.
+  assert.deepEqual(droitDeTester([{ id: "t1", learner_id: "x", status: "in_progress" }], "m"), { reprendre: null, autorise: false, restants: 0 });
+  assert.deepEqual(droitDeTester([{ id: "t1", learner_id: "m", status: "scored" }], "m"), { reprendre: null, autorise: false, restants: 0 });
+});
+
+test("personnage imposé : son identité, la situation de l'étape, le lien", async () => {
+  const { imposerPersonnage } = await import("../src/lib/persona.js");
+  const fiche = { id: "p1", data: { name: "Marc Dubois", role: "DAF", company: "Acme", personality: "Sec, pressé", gender: "m", context: "contexte de la fiche", hidden_info: ["de la fiche"] } };
+  const etapes = [
+    { config: {} },
+    { config: { persona: { name: "Julie Martin", role: "Directrice", context: "Vous appelez après une erreur de facture.", hidden_info: ["Elle a un devis concurrent"], opening_message: "Oui ?" } } },
+    { config: { persona: { name: "Autre", context: "seconde conversation" } } },
+  ];
+  assert.equal(imposerPersonnage(etapes, fiche), 1);
+  const p = etapes[1].config.persona;
+  assert.deepEqual([p.name, p.role, p.company, p.personality, p.gender], ["Marc Dubois", "DAF", "Acme", "Sec, pressé", "m"]);
+  // Ce qui dépend de la situation reste celui de l'étape.
+  assert.equal(p.context, "Vous appelez après une erreur de facture.");
+  assert.deepEqual(p.hidden_info, ["Elle a un devis concurrent"]);
+  assert.equal(etapes[1].config.persona_id, "p1");
+  assert.equal(etapes[2].config.persona_id, undefined);
+  // La génération a repris le nom : toutes ses étapes sont liées.
+  const memes = [{ config: { persona: { name: "marc dubois" } } }, { config: { persona: { name: "Marc Dubois" } } }];
+  assert.equal(imposerPersonnage(memes, fiche), 2);
+  assert.equal(imposerPersonnage([{ config: {} }], fiche), 0);
+});

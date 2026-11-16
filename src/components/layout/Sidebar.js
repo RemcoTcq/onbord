@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
 import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users, UserSearch, ChevronDown } from "lucide-react";
+// Layers : « Simulations », l'entrée commune au recrutement et à l'onboarding.
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
 import { jobDot } from "@/components/ui/ds";
@@ -66,11 +67,14 @@ export default function Sidebar() {
 
   const taille = open ? 16 : 17;
   const icone = (Icone) => <Icone size={taille} strokeWidth={1.8} />;
-  // Le menu de la phase 5 : l'accueil, puis un groupe par domaine. Le
-  // recrutement et l'onboarding partagent la bibliothèque et l'entreprise.
+  // Le menu : l'accueil et les SIMULATIONS (toutes, quel que soit leur usage,
+  // 16/11/2026), puis ce que chaque usage en fait — les offres et les candidats
+  // du recrutement, les personnes et les programmes de l'onboarding — et ce que
+  // les deux partagent : l'entreprise (connaissances, personnages).
   const groupes = [
     { cle: "accueil", items: [
       { href: "/accueil", label: t("dashboard.nav.home"), icon: <HomeIcon size={taille} />, actif: pathname === "/accueil" },
+      { href: "/simulations", label: t("dashboard.nav.simulations"), icon: icone(Layers), actif: pathname.startsWith("/simulations") || pathname.startsWith("/onboarding/modules") },
     ] },
     { cle: "hiring", label: t("dashboard.nav.hiring"), items: [
       {
@@ -85,14 +89,11 @@ export default function Sidebar() {
     { cle: "onboarding", label: t("dashboard.nav.onboarding"), items: [
       { href: "/onboarding", label: t("dashboard.nav.overview"), icon: icone(GraduationCap), actif: pathname === "/onboarding" },
       { href: "/onboarding/personnes", label: t("dashboard.nav.people"), icon: icone(Users), actif: pathname.startsWith("/onboarding/personnes") },
-      { href: "/onboarding/modules", label: t("dashboard.nav.modules"), icon: icone(Layers), actif: pathname.startsWith("/onboarding/modules") },
       { href: "/onboarding/programmes", label: t("dashboard.nav.programs"), icon: icone(ListOrdered), actif: pathname.startsWith("/onboarding/programmes") },
-    ] },
-    { cle: "library", label: t("dashboard.nav.library"), items: [
-      { href: "/bibliotheque/personnages", label: t("dashboard.nav.personas"), icon: icone(Contact), actif: pathname.startsWith("/bibliotheque") },
     ] },
     { cle: "company", label: t("dashboard.nav.company"), items: [
       { href: "/entreprise/connaissances", label: t("dashboard.nav.knowledge"), icon: icone(BookOpen), actif: pathname.startsWith("/entreprise") },
+      { href: "/bibliotheque/personnages", label: t("dashboard.nav.personas"), icon: icone(Contact), actif: pathname.startsWith("/bibliotheque") },
     ] },
   ];
   const lien = (it) => (
