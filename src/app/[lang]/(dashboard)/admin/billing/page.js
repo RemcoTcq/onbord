@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { isCurrentUserAdmin } from "@/lib/actions/usage";
 import AdminEnTete, { AccesRefuse } from "../AdminEnTete";
 import { PLANS, PLANS_ATTRIBUABLES, CREDIT_PACKS } from "@/lib/constants/plans";
+import Select from "@/components/ui/Select";
 
 // Écran d'administration : c'est le seul de la plateforme où « Bêta » paraît en
 // clair. Partout ailleurs, un bêta-testeur est un Core (cf. planVisible).
@@ -179,7 +180,7 @@ export default function AdminBillingPage() {
 
                   {/* Plan */}
                   <td style={{ padding: "14px 16px" }}>
-                    <select
+                    <Select
                       value={u.plan}
                       onChange={e => handleChangePlan(u.user_id, e.target.value)}
                       disabled={isPlanLoading}
@@ -192,13 +193,13 @@ export default function AdminBillingPage() {
                       {PLANS_ATTRIBUABLES.map((key) => (
                         <option key={key} value={key}>{PLANS[key].labelInterne}</option>
                       ))}
-                    </select>
+                    </Select>
                     {isPlanLoading && <Loader2 size={12} style={{ marginLeft: "6px", animation: "spin 1s linear infinite", display: "inline" }} />}
 
                     {/* Cycle de facturation — sans objet pour un compte illimité. */}
                     {!PLANS[u.plan]?.illimite && (
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
-                        <select
+                        <Select
                           value={u.billing_cycle === "annual" ? "annual" : "monthly"}
                           onChange={e => handleChangeCycle(u.user_id, e.target.value)}
                           disabled={actionLoading[`cycle_${u.user_id}`]}
@@ -206,7 +207,7 @@ export default function AdminBillingPage() {
                         >
                           <option value="monthly">{t("dashboard.admin.cycles.monthly")}</option>
                           <option value="annual">{t("dashboard.admin.cycles.annual")}</option>
-                        </select>
+                        </Select>
                         {u.billing_cycle === "annual" && (
                           <input
                             type="month"

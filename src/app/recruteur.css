@@ -470,6 +470,47 @@ html.ds, html.ds body { background: var(--ds-page); }
 }
 .ds-sort select { border: 0; background: transparent; font: inherit; font-weight: 500; color: var(--ds-ink); outline: 0; }
 
+/* ==================== LISTE DÉROULANTE (components/ui/Select.js) ==================== */
+/* Remplace le <select> natif : le bouton prend la classe qu'on lui donne
+   (.ds-select pour un champ), le menu est un .ds-menu. :where() garde la remise
+   à zéro sans poids, pour que toute classe ou style passé l'emporte. */
+:where(.ds-dd) {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.ds-dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+.ds-dd.ds-select { display: flex; }
+.ds-dd:disabled { cursor: not-allowed; opacity: 0.55; }
+.ds-dd:focus-visible { outline: none; }
+.ds-dd:not(.ds-select):focus-visible { box-shadow: 0 0 0 3px var(--ds-blue-10); border-radius: 6px; }
+.ds-dd.ds-select[data-open] { border-color: var(--ds-blue); box-shadow: 0 0 0 3px var(--ds-blue-10); }
+.ds-dd-valeur { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-dd-chevron { flex: none; color: var(--ds-ink-4); transition: transform 150ms ease, color 150ms ease; }
+.ds-dd[data-open] .ds-dd-chevron { transform: rotate(180deg); color: var(--ds-blue); }
+.ds-sort .ds-dd { font-weight: 500; color: var(--ds-ink); }
+/* Au-dessus des cartes flottantes (100) et des tiroirs latéraux (1001). */
+.ds-menu.ds-dd-menu { z-index: 1100; overflow-y: auto; }
+.ds-menu-item.ds-dd-option { height: auto; min-height: 34px; padding: 7px 10px; justify-content: space-between; cursor: pointer; line-height: 1.35; }
+.ds-menu-item.ds-dd-option.is-active { background: var(--ds-hover); color: var(--ds-ink); }
+.ds-menu-item.ds-dd-option.is-selected { color: var(--ds-blue); font-weight: 500; }
+.ds-menu-item.ds-dd-option.is-selected.is-active { background: var(--ds-blue-06); }
+.ds-menu-item.ds-dd-option[aria-disabled] { opacity: 0.45; cursor: default; }
+.ds-menu-item.ds-dd-option[aria-disabled]:hover { background: transparent; }
+.ds-dd-libelle { flex: 1; min-width: 0; }
+.ds-dd-groupe { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-ink-4); }
+
 /* ==================== TABLEAU ==================== */
 
 .ds-table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--ds-line); box-shadow: var(--ds-shadow-xs); }

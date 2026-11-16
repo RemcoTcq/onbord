@@ -16,6 +16,7 @@ import { formatDateShort } from "@/lib/i18n/format";
 import { UI_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { listerPersonnes } from "@/lib/actions/personnes";
 import { inviterMembre } from "@/lib/actions/equipe";
+import Select from "@/components/ui/Select";
 
 export default function PersonnesPage() {
   const { t, locale } = useI18n();
@@ -60,9 +61,9 @@ export default function PersonnesPage() {
             </div>
             <input className="ds-input" type="email" required style={{ flex: "0 1 260px" }} value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder={t("dashboard.team.invite.emailPlaceholder")} aria-label={t("dashboard.team.invite.email")} />
-            <select className="ds-select" style={{ width: 130 }} value={langue} onChange={(e) => setLangue(e.target.value)} aria-label={t("dashboard.team.invite.language")}>
+            <Select className="ds-select" style={{ width: 130 }} value={langue} onChange={(e) => setLangue(e.target.value)} aria-label={t("dashboard.team.invite.language")}>
               {UI_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}
-            </select>
+            </Select>
             <button type="submit" className="ds-btn ds-btn-primary" disabled={envoi || !email.trim()}>
               {envoi ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <UserPlus size={14} />} {k("inviteSubmit")}
             </button>

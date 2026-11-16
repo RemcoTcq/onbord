@@ -14,6 +14,7 @@ import { listerVoixDisponibles } from "@/lib/actions/voix";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import AutoTextarea from "@/components/ui/AutoTextarea";
 import { inputStyle, selectStyle, labelStyle, LigneReglage, ChoixSegmente, Compteur } from "./ui";
+import Select from "@/components/ui/Select";
 
 // La scène d'une mise en situation écrite : le message de l'interlocuteur, la
 // fiche du destinataire d'un e-mail, le contexte d'un document. Générée, montrée
@@ -95,9 +96,9 @@ export function InboxEditor({ inbox, onChange }) {
             <div key={m.id || i} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem" }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted-foreground)", alignSelf: "center", fontFamily: "monospace" }}>{m.id}</span>
-                <select value={m.channel || "email"} onChange={(e) => setItem(i, { channel: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px" }}>
+                <Select value={m.channel || "email"} onChange={(e) => setItem(i, { channel: e.target.value })} style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px" }}>
                   {CANAUX.map((c) => <option key={c} value={c}>{t(`dashboard.experienceEditor.inbox.channels.${c}`)}</option>)}
-                </select>
+                </Select>
                 <input value={m.from || ""} onChange={(e) => setItem(i, { from: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.from")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 140px" }} />
                 <input value={m.from_role || ""} onChange={(e) => setItem(i, { from_role: e.target.value })} placeholder={t("dashboard.experienceEditor.inbox.fromRole")} style={{ ...inputStyle, marginBottom: 0, flex: "1 1 160px" }} />
                 <button className="btn btn-ghost btn-sm" onClick={() => retirer(i)} style={{ padding: "4px", color: "var(--ds-red)" }}><Trash2 size={14} /></button>
@@ -212,7 +213,7 @@ export function PersonaReglages({ persona, onChange }) {
       {appel && (
         <LigneReglage titre={p.name ? v("titleNamed", { name: p.name }) : v("title")} aide={v("help")}>
           <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            <select
+            <Select
               value={valeur}
               onChange={(e) => choisir(e.target.value)}
               disabled={!variantes}
@@ -223,7 +224,7 @@ export function PersonaReglages({ persona, onChange }) {
               {!variantes && <option value="">{v("loading")}</option>}
               {valeur === "custom" && <option value="custom">{v("custom")}</option>}
               {options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
-            </select>
+            </Select>
             {genreImpose && (
               <span className="ds-help" style={{ color: "var(--ds-amber-ink)", maxWidth: 280, textAlign: "right" }}>
                 {v("forcedGender", { genre: nomGenre(effective.genre).toLowerCase() })}

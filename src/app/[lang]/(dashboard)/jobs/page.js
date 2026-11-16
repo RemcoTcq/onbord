@@ -12,6 +12,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import { useShell } from "@/components/layout/ShellContext";
 import CopyJobLink from "@/components/jobs/CopyJobLink";
 import { jobDot } from "@/components/ui/ds";
+import Select from "@/components/ui/Select";
 
 // Onglets de la maquette. La corbeille n'a plus d'écran : un job supprimé reste
 // effacé automatiquement au bout du délai (cron de purge, migration 024).
@@ -187,11 +188,11 @@ export default function JobsPage() {
             </label>
             <label className="ds-sort">
               {t("dashboard.jobs.sort")}
-              <select value={tri} onChange={e => setTri(e.target.value)}>
+              <Select value={tri} onChange={e => setTri(e.target.value)}>
                 <option value="recent">{t("dashboard.jobs.sortRecent")}</option>
                 <option value="oldest">{t("dashboard.jobs.sortOldest")}</option>
                 <option value="candidates">{t("dashboard.jobs.sortCandidates")}</option>
-              </select>
+              </Select>
             </label>
           </div>
         </div>

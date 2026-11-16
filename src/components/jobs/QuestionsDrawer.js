@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Trash2, Plus, Loader2 } from "lucide-react";
 import { useT } from "@/lib/i18n/I18nProvider";
+import Select from "@/components/ui/Select";
 
 /**
  * Questions de présélection — panneau latéral (maquette « D · Job – Questions »).
@@ -86,10 +87,10 @@ export default function QuestionsDrawer({ jobTitle, questions: initiales, onSave
                   </label>
                   <label>
                     <span className="sr-only">{t("dashboard.jobDetail.questions.expectedN", { n })}</span>
-                    <select className="ds-select" value={q.expectedAnswer || "yes"} onChange={(e) => maj(i, "expectedAnswer", e.target.value)}>
+                    <Select className="ds-select" value={q.expectedAnswer || "yes"} onChange={(e) => maj(i, "expectedAnswer", e.target.value)}>
                       <option value="yes">{t("dashboard.qualifyingConfig.yes")}</option>
                       <option value="no">{t("dashboard.qualifyingConfig.no")}</option>
-                    </select>
+                    </Select>
                   </label>
                   <button type="button" className="ds-icon-btn is-danger" onClick={() => retirer(i)} aria-label={t("dashboard.jobDetail.questions.deleteN", { n })} title={t("dashboard.jobs.delete")}>
                     <Trash2 size={15} strokeWidth={1.8} />

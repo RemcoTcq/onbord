@@ -30,6 +30,7 @@ import { creerModule, listerRoles } from "@/lib/actions/modules";
 import { listerPersonas, enregistrerPersona } from "@/lib/actions/personas";
 import PersonaFiche from "@/components/personas/PersonaFiche";
 import ChatConception from "@/components/simulations/ChatConception";
+import Select from "@/components/ui/Select";
 
 const DIFFICULTES = ["easy", "medium", "hard"];
 const CANAUX = [
@@ -177,11 +178,11 @@ export default function CreerSimulationPage() {
             {roles?.length > 0 && (
               <label className="ds-field" style={{ flex: "1 1 240px" }}>
                 <span className="ds-label">{km("fields.role")}</span>
-                <select className="ds-select" value={choixRole} onChange={(e) => setChoixRole(e.target.value)}>
+                <Select className="ds-select" value={choixRole} onChange={(e) => setChoixRole(e.target.value)}>
                   <option value="">{k("roleChoose")}</option>
                   {roles.map((r) => <option key={r} value={r}>{r}</option>)}
                   <option value={NOUVEAU}>{k("roleNew")}</option>
-                </select>
+                </Select>
               </label>
             )}
             {roles !== null && (!roles.length || choixRole === NOUVEAU) && (
@@ -216,15 +217,15 @@ export default function CreerSimulationPage() {
             <div className="ds-inset" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
               <label className="ds-field">
                 <span className="ds-label">{km("fields.language")}</span>
-                <select className="ds-select" value={langue} disabled={reglagesOk} onChange={(e) => { setLangue(e.target.value); setPersonaId(""); }}>
+                <Select className="ds-select" value={langue} disabled={reglagesOk} onChange={(e) => { setLangue(e.target.value); setPersonaId(""); }}>
                   {EXPERIENCE_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}
-                </select>
+                </Select>
               </label>
               <label className="ds-field">
                 <span className="ds-label">{km("fields.difficulty")}</span>
-                <select className="ds-select" value={difficulte} disabled={reglagesOk} onChange={(e) => setDifficulte(e.target.value)}>
+                <Select className="ds-select" value={difficulte} disabled={reglagesOk} onChange={(e) => setDifficulte(e.target.value)}>
                   {DIFFICULTES.map((d) => <option key={d} value={d}>{km(`difficulty.${d}`)}</option>)}
-                </select>
+                </Select>
               </label>
               <label className="ds-field">
                 <span className="ds-label">{km("fields.minScore")}</span>

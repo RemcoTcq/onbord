@@ -19,6 +19,7 @@ import { Library, BookmarkPlus } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { listerPersonas, rangerPersonaEtape } from "@/lib/actions/personas";
 import { appliquerIdentite } from "@/lib/persona";
+import Select from "@/components/ui/Select";
 
 export default function PersonaBibliotheque({ config, setConfig, toast }) {
   const { t } = useI18n();
@@ -61,13 +62,13 @@ export default function PersonaBibliotheque({ config, setConfig, toast }) {
         {liee ? k("linked", { name: liee.name }) : k("notLinked")}
       </span>
       <span style={{ flex: 1 }} />
-      <select className="ds-select" style={{ height: 32, fontSize: 13, minWidth: 200 }} value={choix}
+      <Select className="ds-select" style={{ height: 32, fontSize: 13, minWidth: 200 }} value={choix}
         onChange={(e) => setChoix(e.target.value)} disabled={!fiches?.length} aria-label={k("choose")}>
         <option value="">{fiches === null ? k("loading") : fiches.length ? k("choose") : k("empty")}</option>
         {(fiches || []).map((f) => (
           <option key={f.id} value={f.id}>{[f.name, f.role].filter(Boolean).join(" · ")}</option>
         ))}
-      </select>
+      </Select>
       <button type="button" className="ds-btn" style={{ height: 32 }} onClick={utiliser} disabled={!choix}>{k("use")}</button>
       {!liee && config?.persona?.name && (
         <button type="button" className="ds-btn" style={{ height: 32 }} onClick={ranger} disabled={rangement}>

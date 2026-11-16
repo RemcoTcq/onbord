@@ -25,6 +25,7 @@ import GenerationFeed, { streamModuleGeneration, translateFeedError } from "@/co
 import { StatusBadge } from "@/components/experience/ui";
 import TesterSimulation from "@/components/experience/TesterSimulation";
 import { initials } from "@/components/ui/ds";
+import Select from "@/components/ui/Select";
 
 const DIFFICULTES = ["easy", "medium", "hard"];
 const ICONES_CANAL = { chat: MessageSquare, email: Mail, call: Video, phone: Phone };
@@ -295,11 +296,11 @@ export default function ModulePage({ params }) {
             <label className="ds-field"><span className="ds-label">{k("fields.title")}</span><input className="ds-input" required value={form.title} onChange={set("title")} /></label>
             <label className="ds-field"><span className="ds-label">{k("fields.role")}</span><input className="ds-input" value={form.target_role} onChange={set("target_role")} /></label>
             <label className="ds-field"><span className="ds-label">{k("fields.difficulty")}</span>
-              <select className="ds-select" value={form.difficulty} onChange={set("difficulty")}>{DIFFICULTES.map((d) => <option key={d} value={d}>{k(`difficulty.${d}`)}</option>)}</select>
+              <Select className="ds-select" value={form.difficulty} onChange={set("difficulty")}>{DIFFICULTES.map((d) => <option key={d} value={d}>{k(`difficulty.${d}`)}</option>)}</Select>
             </label>
             <label className="ds-field"><span className="ds-label">{k("fields.minScore")}</span><input className="ds-input" type="number" min={0} max={100} value={form.min_score} onChange={set("min_score")} /></label>
             <label className="ds-field"><span className="ds-label">{k("fields.language")}</span>
-              <select className="ds-select" value={form.locale} onChange={set("locale")}>{EXPERIENCE_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}</select>
+              <Select className="ds-select" value={form.locale} onChange={set("locale")}>{EXPERIENCE_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}</Select>
             </label>
           </div>
           <div className="ds-panel-foot">

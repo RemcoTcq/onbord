@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/Toast";
 import { EXPERIENCE_LOCALES } from "@/lib/i18n/config";
 import { listerVoixDisponibles } from "@/lib/actions/voix";
 import { proposerPersona } from "@/lib/actions/personas";
+import Select from "@/components/ui/Select";
 
 /** Les voix proposées : celles configurées par langue et accent, sinon la voix standard de la langue. */
 export function optionsVoix(variantes, langues) {
@@ -121,10 +122,10 @@ export default function PersonaFiche({ value, onChange, langues = EXPERIENCE_LOC
         {champ("name", { requis: true })}
         <label className="ds-field">
           <span className="ds-label">{k("voice")}</span>
-          <select className="ds-select" value={valeur} onChange={(e) => choisirVoix(e.target.value)} disabled={!variantes}>
+          <Select className="ds-select" value={valeur} onChange={(e) => choisirVoix(e.target.value)} disabled={!variantes}>
             {!variantes && <option value="">{v("loading")}</option>}
             {options.map((o) => <option key={o.valeur} value={o.valeur}>{libelle(o)}</option>)}
-          </select>
+          </Select>
           <span className="ds-help">{k("voiceHelp")}</span>
         </label>
         {champ("role")}

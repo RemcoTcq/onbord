@@ -25,6 +25,7 @@ import {
   getKnowledge, saveKnowledgeNotes, saveKnowledgeSections, brouillonsDuSite,
   addKnowledgeDocument, deleteKnowledgeDocument, setKnowledgeDocumentActive,
 } from "@/lib/actions/knowledge";
+import Select from "@/components/ui/Select";
 
 const TAILLE_MAX = 20 * 1024 * 1024;
 const ACCEPTE = ".pdf,.docx,.txt,.md";
@@ -240,9 +241,9 @@ export default function KnowledgePage() {
                 </label>
                 <label className="ds-field">
                   <span className="ds-label">{k("documents.kind")}</span>
-                  <select className="ds-select" value={type} onChange={(e) => setType(e.target.value)}>
+                  <Select className="ds-select" value={type} onChange={(e) => setType(e.target.value)}>
                     {TYPES_DOCUMENT.map((x) => <option key={x} value={x}>{k(`kinds.${x}`)}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <label className="ds-field" style={{ gridColumn: "1 / -1" }}>
                   <span className="ds-label">{k("documents.titleLabel")}</span>

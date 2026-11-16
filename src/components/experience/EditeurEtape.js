@@ -28,6 +28,7 @@ import PersonaBibliotheque from "./PersonaBibliotheque";
 import Corrige, { aUnCorrige } from "./Corrige";
 import { SkillPicker, nouvelIdCheckpoint, competencesDeLaGrille } from "./Competences";
 import { inputStyle, labelStyle, Panneau, LigneReglage, Interrupteur } from "./ui";
+import Select from "@/components/ui/Select";
 
 // Les `value` sont les valeurs STOCKÉES en base : elles restent en constantes.
 // Les libellés se résolvent au rendu.
@@ -151,14 +152,14 @@ export function OngletScenario({ edition, toast }) {
       {/* La mécanique de l'étape : rarement touchée après la génération. */}
       <Panneau id="ds-reglages" titre={r("advanced")} sousTitre={r("advancedHelp")} defautOuvert={false}>
         <LigneReglage titre={t("dashboard.experienceEditor.responseFormat")} aide={r("formatHelp")}>
-          <select value={local.response_format} onChange={(e) => set("response_format", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
+          <Select value={local.response_format} onChange={(e) => set("response_format", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
             {RESPONSE_FORMAT_VALUES.map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.format.${v}`)}</option>)}
-          </select>
+          </Select>
         </LigneReglage>
         <LigneReglage titre={t("dashboard.experienceEditor.sandbox")} aide={r("sandboxHelp")}>
-          <select value={kind} onChange={(e) => set("sandbox_kind", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
+          <Select value={kind} onChange={(e) => set("sandbox_kind", e.target.value)} className="ds-select" style={{ height: 36, minWidth: 220, fontSize: 13 }}>
             {SANDBOX_KIND_VALUES.map((v) => <option key={v} value={v}>{t(`dashboard.experienceEditor.sandboxKind.${v}`)}</option>)}
-          </select>
+          </Select>
         </LigneReglage>
         <LigneReglage titre={t("dashboard.experienceEditor.stepPage.assistant")} aide={r("assistantHelp")}>
           <Interrupteur
@@ -315,9 +316,9 @@ export function OngletScoring({ edition, competences, part, toast, descriptions,
           {part > 0 && !seule && (
             <label className="ds-sort" title={k("importanceHelp")}>
               {k("importance")}
-              <select value={poidsEtape(local)} onChange={(e) => setConfig({ poids_etape: Number(e.target.value) })}>
+              <Select value={poidsEtape(local)} onChange={(e) => setConfig({ poids_etape: Number(e.target.value) })}>
                 {POIDS_ETAPE.map((v) => <option key={v} value={v}>{k(`importanceLevels.${CLES_IMPORTANCE[v]}`)}</option>)}
-              </select>
+              </Select>
             </label>
           )}
         </span>
@@ -350,14 +351,14 @@ export function OngletScoring({ edition, competences, part, toast, descriptions,
       {/* ── QCM : la compétence vérifiée ── */}
       {isQcm && competences.length > 0 && (
         <Panneau id="ds-qcm-competence" titre={t("dashboard.experienceEditor.qcmSkill")} repliable={false} lignes={false}>
-          <select
+          <Select
             value={(local.config?.skills_tested || [])[0] || ""}
             onChange={(e) => maj((p) => ({ ...p, config: { ...(p.config || {}), skills_tested: e.target.value ? [e.target.value] : [] } }))}
             className="ds-select"
           >
             <option value="">{t("dashboard.experienceEditor.noSkill")}</option>
             {competences.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          </Select>
         </Panneau>
       )}
 
@@ -441,10 +442,10 @@ function AjoutCompetence({ disponibles, onAjouter }) {
   const [choix, setChoix] = useState(false);
   if (!disponibles.length) return null;
   return choix ? (
-    <select
-      autoFocus
+    <Select
+      defaultOpen
       defaultValue=""
-      onBlur={() => setChoix(false)}
+      onClose={() => setChoix(false)}
       onChange={(e) => {
         const comp = disponibles.find((c) => c.id === e.target.value);
         if (comp) onAjouter(comp);
@@ -455,7 +456,7 @@ function AjoutCompetence({ disponibles, onAjouter }) {
     >
       <option value="">{t("dashboard.experienceEditor.scoring.pickSkill")}</option>
       {disponibles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-    </select>
+    </Select>
   ) : (
     <button type="button" className="ds-add" onClick={() => setChoix(true)} style={{ height: 32, padding: "0 11px", fontSize: 13 }}>
       <Plus size={14} strokeWidth={2.2} /> {t("dashboard.experienceEditor.scoring.addSkill")}

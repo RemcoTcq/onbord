@@ -13,6 +13,7 @@ import { initials } from "@/components/ui/ds";
 import { formatDateShort } from "@/lib/i18n/format";
 import { UI_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { listerEquipe, inviterMembre, revoquerInvitation, changerRole, retirerMembre } from "@/lib/actions/equipe";
+import Select from "@/components/ui/Select";
 
 const ROLES = ["learner", "manager", "admin"];
 
@@ -88,15 +89,15 @@ export default function TeamPage() {
           </label>
           <label className="ds-field" htmlFor="invite-role">
             <span className="ds-label">{t("dashboard.team.invite.role")}</span>
-            <select id="invite-role" className="ds-select" value={role} onChange={(e) => setRole(e.target.value)}>
+            <Select id="invite-role" className="ds-select" value={role} onChange={(e) => setRole(e.target.value)}>
               {rolesInvitables.map((r) => <option key={r} value={r}>{t(`dashboard.team.roles.${r}`)}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="ds-field" htmlFor="invite-langue">
             <span className="ds-label">{t("dashboard.team.invite.language")}</span>
-            <select id="invite-langue" className="ds-select" value={langue} onChange={(e) => setLangue(e.target.value)}>
+            <Select id="invite-langue" className="ds-select" value={langue} onChange={(e) => setLangue(e.target.value)}>
               {UI_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}
-            </select>
+            </Select>
           </label>
           <span className="ds-help" style={{ gridColumn: "1 / -1" }}>{t(`dashboard.team.roleHints.${role}`)}</span>
         </div>
@@ -124,10 +125,10 @@ export default function TeamPage() {
                 </span>
                 {estAdmin && !moi ? (
                   <>
-                    <select className="ds-select" style={{ width: 130, height: 34 }} aria-label={t("dashboard.team.changeRole", { name: nom })}
+                    <Select className="ds-select" style={{ width: 130, height: 34 }} aria-label={t("dashboard.team.changeRole", { name: nom })}
                       value={m.role} onChange={(e) => agir(() => changerRole(m.userId, e.target.value))}>
                       {ROLES.map((r) => <option key={r} value={r}>{t(`dashboard.team.roles.${r}`)}</option>)}
-                    </select>
+                    </Select>
                     <button type="button" className="ds-btn" onClick={() => {
                       if (window.confirm(t("dashboard.team.removeConfirm", { name: nom }))) agir(() => retirerMembre(m.userId));
                     }}>{t("dashboard.team.remove")}</button>

@@ -17,6 +17,7 @@ import {
   adminListerComptes,
   adminReinitialiserMotDePasse,
 } from "@/lib/actions/usage";
+import Select from "@/components/ui/Select";
 
 // generateToken() vivait ici : 24 caractères tirés avec Math.random(), dont la
 // suite est prédictible. Sur une invitation qui peut porter le plan `admin`,
@@ -280,7 +281,7 @@ export default function AdminPage() {
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <select
+            <Select
               value={form.plan}
               onChange={(e) => setForm({ ...form, plan: e.target.value })}
               style={{ ...CHAMP, width: "auto", fontWeight: 600, cursor: "pointer" }}
@@ -288,7 +289,7 @@ export default function AdminPage() {
               {PLANS_ATTRIBUABLES.map((id) => (
                 <option key={id} value={id}>{PLANS[id].labelInterne}</option>
               ))}
-            </select>
+            </Select>
             <button
               type="submit" className="btn btn-primary" disabled={creating}
               style={{ display: "flex", alignItems: "center", gap: "8px" }}
@@ -409,7 +410,7 @@ export default function AdminPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: "250px" }}>
           <label style={{ fontSize: "14px", fontWeight: "600", whiteSpace: "nowrap" }}>Plan :</label>
-          <select
+          <Select
             value={plan}
             onChange={e => setPlan(e.target.value)}
             style={{
@@ -421,7 +422,7 @@ export default function AdminPage() {
             {PLANS_ATTRIBUABLES.map((id) => (
               <option key={id} value={id}>{PLANS[id].labelInterne}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <button
           onClick={handleGenerate}

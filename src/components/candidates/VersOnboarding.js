@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { UI_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { versOnboarding, etatVersOnboarding } from "@/lib/actions/equipe";
+import Select from "@/components/ui/Select";
 
 export default function VersOnboarding({ candidateId, nom, email }) {
   const { t, locale } = useI18n();
@@ -75,9 +76,9 @@ export default function VersOnboarding({ candidateId, nom, email }) {
               </label>
               <label className="ds-field">
                 <span className="ds-label">{k("language")}</span>
-                <select className="ds-select" value={langue} onChange={(e) => setLangue(e.target.value)}>
+                <Select className="ds-select" value={langue} onChange={(e) => setLangue(e.target.value)}>
                   {UI_LOCALES.map((l) => <option key={l} value={l}>{LOCALE_LABELS[l]}</option>)}
-                </select>
+                </Select>
               </label>
               <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, cursor: "pointer" }}>
                 <input type="checkbox" checked={informe} onChange={(e) => setInforme(e.target.checked)} style={{ marginTop: 3 }} />

@@ -16,6 +16,7 @@ import { PRIORITES } from "@/lib/boiteReception";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { SectionRecit } from "./Recit";
 import { inputStyle, selectStyle } from "./ui";
+import Select from "@/components/ui/Select";
 
 /** L'étape a-t-elle un corrigé à montrer ? */
 export function aUnCorrige(step) {
@@ -100,14 +101,14 @@ function TriAttendu({ elements, notes, cle, choix, onChange }) {
             <div key={el.id} style={{ background: "#FFFFFF", border: "1px solid var(--ds-line)", borderLeft: `3px solid ${note.trap ? "var(--ds-amber)" : "var(--ds-line)"}`, borderRadius: 8, padding: "0.55rem 0.7rem" }}>
               <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 5 }}>{el.titre}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <select
+                <Select
                   value={note[choix.champ] || ""}
                   onChange={(e) => setNote(el.id, { [choix.champ]: e.target.value || null })}
                   style={{ ...selectStyle, marginBottom: 0, flex: "0 0 170px", fontSize: "12.5px", padding: "5px 28px 5px 8px" }}
                 >
                   <option value="">—</option>
                   {choix.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+                </Select>
                 <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "12px", color: "var(--ds-amber-ink)" }}>
                   <input type="checkbox" checked={!!note.trap} onChange={(e) => setNote(el.id, { trap: e.target.checked })} />
                   {t("dashboard.experienceEditor.inbox.trap")}

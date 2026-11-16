@@ -12,6 +12,7 @@ import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { formatDateShort } from "@/lib/i18n/format";
 import { scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
 import { listerCandidatsOrganisation } from "@/lib/actions/candidate";
+import Select from "@/components/ui/Select";
 
 // Mêmes tons que la liste des candidats d'une offre (jobs/[id]/page.js).
 const TON_STATUT = {
@@ -59,10 +60,10 @@ export default function CandidatsPage() {
             <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder={k("search")} aria-label={k("search")} />
           </label>
           {offres.length > 1 && (
-            <select className="ds-select" value={offre} onChange={(e) => setOffre(e.target.value)} style={{ width: "auto", height: 34 }}>
+            <Select className="ds-select" value={offre} onChange={(e) => setOffre(e.target.value)} style={{ width: "auto", height: 34 }}>
               <option value="">{k("allJobs")}</option>
               {offres.map(([id, titre]) => <option key={id} value={id}>{titre || "—"}</option>)}
-            </select>
+            </Select>
           )}
         </div>
 

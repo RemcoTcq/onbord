@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
 import { listerProgrammes, getProgramme, enregistrerProgramme, archiverProgramme } from "@/lib/actions/programmes";
 import { listerModules } from "@/lib/actions/modules";
+import Select from "@/components/ui/Select";
 
 const VIDE = { id: null, title: "", target_role: "", description: "", moduleIds: [] };
 
@@ -96,10 +97,10 @@ export default function ProgrammesPage() {
                   <button type="button" className="ds-icon-btn" onClick={() => setEdition({ ...edition, moduleIds: edition.moduleIds.filter((x) => x !== id) })} aria-label={k("remove")}><X size={14} /></button>
                 </div>
               ))}
-              <select className="ds-select" value="" onChange={(e) => e.target.value && setEdition({ ...edition, moduleIds: [...edition.moduleIds, e.target.value] })} aria-label={k("add")}>
+              <Select className="ds-select" value="" onChange={(e) => e.target.value && setEdition({ ...edition, moduleIds: [...edition.moduleIds, e.target.value] })} aria-label={k("add")}>
                 <option value="">{k("add")}</option>
                 {modules.filter((m) => !edition.moduleIds.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="ds-panel-foot" style={{ gap: 8 }}>
               {edition.id && <button type="button" className="ds-btn" onClick={archiver}>{k("archive")}</button>}

@@ -11,6 +11,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import { useShell } from "@/components/layout/ShellContext";
 import CopyJobLink from "@/components/jobs/CopyJobLink";
 import { jobDot, scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
+import Select from "@/components/ui/Select";
 
 const NB_JOBS = 4;
 const NB_CANDIDATS = 5;
@@ -326,10 +327,10 @@ export default function Accueil() {
               <label style={{ display: "flex", alignItems: "center", gap: 6, height: "100%", padding: "0 4px 0 10px", borderRight: "1px solid var(--ds-line)" }}>
                 <Calendar size={14} strokeWidth={1.8} />
                 <span className="sr-only">{t("dashboard.home.period")}</span>
-                <select value={periode} onChange={(e) => { setPeriode(e.target.value); setJourActif(null); }} style={{ border: 0, background: "transparent", font: "inherit", color: "var(--ds-ink)", paddingRight: 2, outline: 0 }}>
+                <Select value={periode} onChange={(e) => { setPeriode(e.target.value); setJourActif(null); }} style={{ border: 0, background: "transparent", font: "inherit", color: "var(--ds-ink)", paddingRight: 2, outline: 0 }}>
                   <option value="week">{t("dashboard.home.week")}</option>
                   <option value="month">{t("dashboard.home.month")}</option>
-                </select>
+                </Select>
               </label>
               <span style={{ padding: "0 10px" }}>{plage}</span>
             </span>

@@ -14,6 +14,7 @@ import { getPersonne, assigner, retirerAssignation, validerAssignation, marquerP
 import { listerModules } from "@/lib/actions/modules";
 import { listerProgrammes } from "@/lib/actions/programmes";
 import LacunesRecrutement from "@/components/onboarding/LacunesRecrutement";
+import Select from "@/components/ui/Select";
 
 export default function PersonnePage({ params }) {
   const { userId } = use(params);
@@ -85,10 +86,10 @@ export default function PersonnePage({ params }) {
           </div>
           <div className="ds-inset" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
             <label className="ds-field"><span className="ds-label">{k("program")}</span>
-              <select className="ds-select" value={choixProgramme} onChange={(e) => setChoixProgramme(e.target.value)}>
+              <Select className="ds-select" value={choixProgramme} onChange={(e) => setChoixProgramme(e.target.value)}>
                 <option value="">—</option>
                 {programmes.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
+              </Select>
             </label>
             <label className="ds-field"><span className="ds-label">{k("dueAt")}</span>
               <input className="ds-input" type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} />

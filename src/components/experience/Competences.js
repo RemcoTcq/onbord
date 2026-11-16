@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { estCritereCheckpoints, MUST } from "@/lib/competences";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import Select from "@/components/ui/Select";
 
 // Identifiant du prochain checkpoint d'un critère : jamais réutilisé, pour que
 // l'id d'un checkpoint supprimé ne désigne pas, plus tard, un autre comportement.
@@ -62,14 +63,14 @@ export function SkillPicker({ ids, competences, onChange }) {
         <SkillChip key={id} id={id} competence={parId.get(id)} onRemove={() => onChange(ids.filter((x) => x !== id))} />
       ))}
       {disponibles.length > 0 && (
-        <select
+        <Select
           value=""
           onChange={(e) => e.target.value && onChange([...ids, e.target.value])}
           style={{ height: 24, fontSize: 12, padding: "0 6px", borderRadius: 6, border: "1px dashed #C9D3EA", background: "transparent", color: "var(--ds-blue)", cursor: "pointer", font: "inherit" }}
         >
           <option value="">{t("dashboard.experienceEditor.addSkill")}</option>
           {disponibles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        </Select>
       )}
     </div>
   );

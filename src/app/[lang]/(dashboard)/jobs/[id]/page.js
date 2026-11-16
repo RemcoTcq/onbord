@@ -34,6 +34,7 @@ import QuestionsDrawer from "@/components/jobs/QuestionsDrawer";
 import { natureEtape } from "@/components/experience/BlocEtape";
 import { StatusBadge } from "@/components/experience/ui";
 import { scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
+import Select from "@/components/ui/Select";
 
 // ─── Helpers ───
 
@@ -534,11 +535,11 @@ function CandidatsTab({
           )}
           <label className="ds-sort">
             {t("dashboard.jobs.sort")}
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <Select value={sortBy} onChange={e => setSortBy(e.target.value)}>
               <option value="score_desc">{t("dashboard.jobDetail.sort.scoreDesc")}</option>
               <option value="score_asc">{t("dashboard.jobDetail.sort.scoreAsc")}</option>
               <option value="date_desc">{t("dashboard.jobs.sortRecent")}</option>
-            </select>
+            </Select>
           </label>
         </div>
       </div>
@@ -716,7 +717,7 @@ function ParametresTab({ job, settingsForm, setSettingsForm, handleSaveSettings,
           </label>
           <label className="ds-field">
             <span className="ds-label">{t("dashboard.jobDetail.contractType")}</span>
-            <select className="ds-select" {...champ("contract_type")}>
+            <Select className="ds-select" {...champ("contract_type")}>
               <option value="">—</option>
               <option value="CDI">CDI</option>
               <option value="CDD">CDD</option>
@@ -724,16 +725,16 @@ function ParametresTab({ job, settingsForm, setSettingsForm, handleSaveSettings,
               <option value="Stage">{t("dashboard.jobDetail.contract.internship")}</option>
               <option value="Alternance">{t("dashboard.jobDetail.contract.apprenticeship")}</option>
               <option value="Intérim">{t("dashboard.jobDetail.contract.temp")}</option>
-            </select>
+            </Select>
           </label>
           <label className="ds-field">
             <span className="ds-label">{t("dashboard.jobDetail.employmentType")}</span>
-            <select className="ds-select" {...champ("work_mode")}>
+            <Select className="ds-select" {...champ("work_mode")}>
               <option value="">—</option>
               <option value="hybrid">{t("dashboard.jobDetail.workMode.hybrid")}</option>
               <option value="onsite">{t("dashboard.jobDetail.workMode.fullTime")}</option>
               <option value="remote">{t("dashboard.jobDetail.workMode.remote")}</option>
-            </select>
+            </Select>
           </label>
         </div>
         <div className="ds-panel-foot">
