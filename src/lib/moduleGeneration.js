@@ -1,33 +1,31 @@
-// Génération des MODULES d'onboarding — module SERVEUR (phase 2, docs/PLAN.md).
+// Génération des MODULES d'onboarding — module SERVEUR (docs/PLAN.md).
 //
-// Un module est une simulation d'entraînement : un rôle, une situation à
-// travailler, un objectif, une difficulté, une langue. Il passe par le MÊME
-// moteur qu'une simulation de recrutement (generateExperienceContent : étapes,
-// scènes, personnages, critique, grille à checkpoints), avec trois
-// différences :
+// Un module est une simulation d'entraînement : UNE conversation (chat,
+// e-mail, appel vidéo ou téléphone) avec un personnage, sur un scénario que le
+// manager a raconté à l'agent de conception (16/11/2026). La conversation
+// elle-même s'écrit dans lib/simulationOnboarding.js ; ici :
 //
-//   • pas d'offre : la « description » est celle du module
-//     (descriptionModule, lib/simulationSource.js), qui dit au moteur qu'il
-//     s'agit d'un entraînement et non d'un recrutement ;
-//   • les compétences travaillées ne viennent pas d'une offre analysée : elles
-//     sont déduites de la situation (deduireCompetences) si le manager ne les
-//     a pas données, puis gardées dans `modules.criteria` ;
-//   • AUCUN crédit n'est contrôlé ni débité (décision de Remco du 10/11/2026).
+//   • runModuleGeneration : lit le module, son personnage, sa grille, et
+//     enregistre la nouvelle version ;
+//   • deduireCompetences : la grille d'un module créé sans agent (lacunes du
+//     recrutement), déduite de sa situation et gardée dans `modules.criteria` ;
+//   • suggererModules : des conversations proposées pour un rôle ou pour les
+//     lacunes d'une recrue, tirées du Company Knowledge.
 //
-// `suggererModules` propose une liste de modules pour un rôle, à partir du
-// Company Knowledge ; le manager choisit et modifie.
+// AUCUN crédit n'est contrôlé ni débité (décision de Remco du 10/11/2026).
 
 import anthropic from "@/lib/anthropic";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { generateExperienceContent, lignesEtapes, BUDGET_GENERATION_MS } from "@/lib/experienceGeneration";
+import { lignesEtapes } from "@/lib/experienceGeneration";
+import { genererSimulationOnboarding } from "@/lib/simulationOnboarding";
+import { coerceCanal, normaliserBrief } from "@/lib/simulationCanal";
 import { contexteEntreprise } from "@/lib/org";
 import { blocEntreprise } from "@/lib/knowledge";
 import { descriptionModule } from "@/lib/simulationSource";
 import { listerCompetences } from "@/lib/competences";
 import { estimerMinutes } from "@/lib/experienceDuree";
-import { rangerPersonasDeLaSimulation } from "@/lib/personas";
-import { imposerPersonnage, normaliserPersona } from "@/lib/persona";
-import { coerceExperienceLocale, coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
+import { normaliserPersona } from "@/lib/persona";
+import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 const MODELE_PETIT = "claude-sonnet-5-5";
 
@@ -73,17 +71,18 @@ Donne les 3 à 6 compétences que cette situation met réellement à l'épreuve 
 }
 
 /**
- * Génère (ou régénère) la simulation d'un module. Chaque génération crée une
- * NOUVELLE version, comme pour une offre ; les brouillons précédents sans
- * essai sont archivés.
+ * Génère (ou régénère) la simulation d'un module : UNE conversation sur le
+ * canal du module (lib/simulationOnboarding.js, 16/11/2026). Chaque
+ * génération crée une NOUVELLE version, comme pour une offre ; les brouillons
+ * précédents sans essai sont archivés.
  *
- * `personaId` : un personnage de la bibliothèque choisi à la création (ou
- * gardé d'une version à l'autre). La génération écrit la situation POUR lui,
- * et l'étape le reprend tel quel.
+ * `personaId` : le personnage de la bibliothèque à faire jouer ; à défaut,
+ * celui du module (`modules.persona_id`). Sans personnage, la génération en
+ * écrit un pour cette conversation — sans le ranger dans la bibliothèque :
+ * on n'y met que des personnages choisis.
  * @returns {Promise<{success: boolean, experienceId?: string, error?: string}>}
  */
 export async function runModuleGeneration(moduleId, onEvent = null, { personaId = null } = {}) {
-  const debut = Date.now();
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -97,54 +96,37 @@ export async function runModuleGeneration(moduleId, onEvent = null, { personaId 
     const admin = createAdminClient();
     const { data: profil } = await admin.from("users").select("ui_locale").eq("id", user.id).maybeSingle();
     const uiLocale = coerceUiLocale(profil?.ui_locale);
-    const locale = coerceExperienceLocale(module.locale);
     const ctx = await contexteEntreprise(user.id);
 
-    // Le personnage imposé : une fiche active de la même organisation.
+    // Le personnage : une fiche de la même organisation.
     let fiche = null;
-    if (personaId) {
+    const idFiche = personaId || module.persona_id;
+    if (idFiche) {
       const { data } = await admin.from("personas").select("id, data")
-        .eq("id", personaId).eq("organization_id", module.organization_id).is("archived_at", null).maybeSingle();
+        .eq("id", idFiche).eq("organization_id", module.organization_id).maybeSingle();
       if (data && normaliserPersona(data.data)) fiche = data;
     }
-    const identite = fiche ? normaliserPersona(fiche.data) : null;
+    if (fiche && fiche.id !== module.persona_id) {
+      await admin.from("modules").update({ persona_id: fiche.id }).eq("id", module.id);
+    }
 
-    // Les compétences : celles du manager, sinon déduites et gardées.
+    // La grille : les compétences retenues avec l'agent, sinon déduites de la
+    // situation et gardées.
+    const brief = normaliserBrief(module.brief);
     let crit = module.criteria || {};
     if (!listerCompetences(crit).length) {
       onEvent?.({ kind: "skills_start" });
-      crit = await deduireCompetences({ module, uiLocale, companyContext: ctx });
+      crit = await deduireCompetences({
+        module: { ...module, situation: module.situation || brief.scenario, objective: module.objective || brief.objectif },
+        uiLocale, companyContext: ctx,
+      });
       await admin.from("modules").update({ criteria: crit, updated_at: new Date().toISOString() }).eq("id", module.id);
     }
     onEvent?.({ kind: "module", title: module.title, nbSkills: listerCompetences(crit).length });
     onEvent?.({ kind: "design_start" });
 
-    const gen = await generateExperienceContent({
-      title: module.title,
-      description: descriptionModule(module),
-      criteria: crit,
-      companyContext: ctx,
-      additionalContext: [
-        "C'EST UN MODULE D'ONBOARDING, PAS UN RECRUTEMENT : la personne est déjà dans l'équipe et s'entraîne. Il pourra recommencer autant de fois qu'il le faut.",
-        "Concentre le module sur LA situation décrite : 1 à 3 étapes, la conversation avec le client au centre. Pas de questions de présélection, pas de QCM de culture générale.",
-        "Les faits de l'entreprise (produit, tarifs, politiques, objections) viennent du contexte entreprise : un bon entraînement oblige à les utiliser, sans en inventer.",
-        identite && `PERSONNAGE IMPOSÉ — l'interlocuteur de la conversation est ce personnage de la bibliothèque de l'entreprise. Reprends-le TEL QUEL (nom, fonction, entreprise, personnalité, humeur) et écris pour lui ce qui dépend de la situation : le contexte remis, son premier message, ses informations cachées, ses objections, la condition de fin.
-${JSON.stringify({ name: identite.name, role: identite.role, company: identite.company, personality: identite.personality, mood: identite.mood, goals: identite.goals })}`,
-      ].filter(Boolean).join("\n"),
-      locale,
-      uiLocale,
-      onEvent,
-      echeance: debut + BUDGET_GENERATION_MS,
-    });
+    const gen = await genererSimulationOnboarding({ module, fiche, criteres: crit, companyContext: ctx, uiLocale, onEvent });
     if (!gen.success) return gen;
-
-    const { steps = [] } = gen.experience;
-    const estimated_minutes = estimerMinutes(steps.map((s) => ({
-      kind: s.kind,
-      response_format: s.response_format || "text",
-      sandbox_kind: s.sandbox_kind || "none",
-      ai_assistant_allowed: !!s.ai_assistant_allowed,
-    })));
 
     const { data: derniere } = await supabase
       .from("experiences").select("version").eq("module_id", module.id)
@@ -160,27 +142,24 @@ ${JSON.stringify({ name: identite.name, role: identite.role, company: identite.c
       if (!count) await supabase.from("experiences").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", b.id);
     }
 
+    const etape = gen.etape;
     const { data: experience, error: expErr } = await supabase
       .from("experiences")
       .insert({
         module_id: module.id,
         status: "pending_review",
         version,
-        estimated_minutes,
-        generated_from: { criteria: crit, company_ai_context: ctx, fil_rouge: gen.experience.fil_rouge || null, module: true },
+        estimated_minutes: estimerMinutes([{ kind: etape.kind, response_format: "text", sandbox_kind: etape.sandbox_kind, ai_assistant_allowed: false }]),
+        generated_from: { criteria: crit, company_ai_context: ctx, module: true, canal: coerceCanal(module.channel), brief },
         generation_usage: gen.usage,
       })
       .select("id")
       .single();
     if (expErr) throw expErr;
 
-    const rows = lignesEtapes(steps, experience.id, crit);
-    if (fiche) imposerPersonnage(rows, fiche);
-    if (rows.length) {
-      const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
-      if (stepsErr) throw stepsErr;
-    }
-    await rangerPersonasDeLaSimulation(experience.id, user.id);
+    const rows = lignesEtapes([etape], experience.id, crit);
+    const { error: stepsErr } = await supabase.from("experience_steps").insert(rows);
+    if (stepsErr) throw stepsErr;
 
     onEvent?.({ kind: "saved", nbEtapes: rows.length, nbSubDims: rows.reduce((n, r) => n + (r.criteria || []).length, 0) });
     onEvent?.({ kind: "done" });

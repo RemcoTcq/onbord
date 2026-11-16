@@ -110,3 +110,14 @@ export async function noterEssai(admin, run, overall) {
     console.error(`noterEssai ${run.id} :`, e.message);
   }
 }
+
+/**
+ * « À retenir » d'une simulation d'onboarding (16/11/2026) : ce qu'il fallait
+ * savoir et faire, écrit à la génération. Il ne sort qu'APRÈS l'essai — avant,
+ * ce serait le corrigé (sanitizeStepForCandidate le retire du parcours).
+ */
+export async function aRetenirDe(admin, experienceId) {
+  if (!experienceId) return [];
+  const { data: steps } = await admin.from("experience_steps").select("config").eq("experience_id", experienceId).order("order_index");
+  return (steps || []).flatMap((s) => (Array.isArray(s.config?.a_retenir) ? s.config.a_retenir : [])).filter(Boolean).slice(0, 12);
+}

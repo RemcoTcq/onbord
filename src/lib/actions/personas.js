@@ -1,31 +1,34 @@
 "use server";
 
-// Library → Personas (phase 1 de l'onboarding, migration 040). Les fiches de
-// personnage de l'organisation : lister, ouvrir, modifier, générer à partir
-// d'une phrase, archiver ; et, depuis l'éditeur d'étape, prendre une fiche de
-// la bibliothèque ou y ranger celle de l'étape. Admin et manager seulement ;
+// Library → Personas (migration 040). Les fiches de personnage de
+// l'organisation : lister, ouvrir, créer, modifier, supprimer ; proposer une
+// fiche à partir d'une description ; et, depuis l'éditeur d'étape, ranger dans
+// la bibliothèque le personnage d'une étape. Admin et manager seulement ;
 // toutes les écritures en service_role après vérification du rôle.
 //
-// La génération d'une fiche ne débite aucun crédit : c'est une brique de
-// l'onboarding (décision de Remco du 10/11/2026, docs/PLAN.md).
+// Depuis le 16/11/2026, une fiche est une PERSONNE (lib/persona.js,
+// identitePersona) : nom, entreprise, fonction, qui il est, caractère, langue
+// et voix. Ce qui dépend de la situation s'écrit avec chaque simulation.
+//
+// Rien n'est débité : c'est une brique de l'onboarding (décision du 10/11/2026).
 
+import anthropic from "@/lib/anthropic";
 import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion, contexteEntreprise } from "@/lib/org";
-import { normaliserPersona, MODES_PERSONA } from "@/lib/persona";
+import { identitePersona } from "@/lib/persona";
 import { empreintePersona, rangerFiche } from "@/lib/personas";
-import { genererPersonaLibre } from "@/lib/experienceGeneration";
-import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
+import { blocEntreprise } from "@/lib/knowledge";
+import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 
 const COLONNES = "id, name, role, company, data, archived_at, created_at, updated_at";
 
-export async function listerPersonas({ archives = false } = {}) {
+/** Toutes les fiches de l'organisation, les plus récentes d'abord. */
+export async function listerPersonas() {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    let q = createAdminClient().from("personas").select(COLONNES)
+    const { data, error } = await createAdminClient().from("personas").select(COLONNES)
       .eq("organization_id", ctx.orgId).order("updated_at", { ascending: false });
-    q = archives ? q.not("archived_at", "is", null) : q.is("archived_at", null);
-    const { data, error } = await q;
     if (error) throw error;
     return { success: true, personas: data || [] };
   } catch (error) {
@@ -41,7 +44,7 @@ export async function getPersona(id) {
     const { data } = await createAdminClient().from("personas").select(COLONNES)
       .eq("id", id).eq("organization_id", ctx.orgId).maybeSingle();
     if (!data) return { success: false, error: "Personnage introuvable" };
-    return { success: true, persona: data };
+    return { success: true, persona: { ...data, data: identitePersona(data.data) || data.data } };
   } catch (error) {
     console.error("getPersona error:", error);
     return { success: false, error: "Erreur technique" };
@@ -56,16 +59,14 @@ export async function enregistrerPersona({ id, data }) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    const fiche = normaliserPersona(data);
+    const fiche = identitePersona(data);
     if (!fiche) return { success: false, code: "nomManquant" };
     const admin = createAdminClient();
-    const champs = {
-      name: fiche.name, role: fiche.role || null, company: fiche.company || null,
-      data: fiche, fingerprint: empreintePersona(fiche), updated_at: new Date().toISOString(),
-    };
     if (id) {
-      const { data: maj, error } = await admin.from("personas").update(champs)
-        .eq("id", id).eq("organization_id", ctx.orgId).select(COLONNES).maybeSingle();
+      const { data: maj, error } = await admin.from("personas").update({
+        name: fiche.name, role: fiche.role || null, company: fiche.company || null,
+        data: fiche, fingerprint: empreintePersona(fiche), updated_at: new Date().toISOString(), archived_at: null,
+      }).eq("id", id).eq("organization_id", ctx.orgId).select(COLONNES).maybeSingle();
       // Une fiche identique existe déjà (même empreinte) : on le dit.
       if (error?.code === "23505") return { success: false, code: "doublon" };
       if (error) throw error;
@@ -82,49 +83,77 @@ export async function enregistrerPersona({ id, data }) {
   }
 }
 
-export async function archiverPersona(id, archiver = true) {
+/**
+ * Supprime une fiche pour de bon. Les simulations qui l'utilisaient gardent
+ * leur copie du personnage et continuent de se jouer ; elles perdent seulement
+ * le lien vers la bibliothèque (modules.persona_id passe à null).
+ */
+export async function supprimerPersona(id) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    const { error } = await createAdminClient().from("personas")
-      .update({ archived_at: archiver ? new Date().toISOString() : null })
-      .eq("id", id).eq("organization_id", ctx.orgId);
+    const { data, error } = await createAdminClient().from("personas")
+      .delete().eq("id", id).eq("organization_id", ctx.orgId).select("id");
     if (error) throw error;
+    if (!data?.length) return { success: false, error: "Personnage introuvable" };
     return { success: true };
   } catch (error) {
-    console.error("archiverPersona error:", error);
+    console.error("supprimerPersona error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }
 
 /**
- * Génère une fiche à partir d'une phrase (la situation), pour un rôle et une
- * langue, avec le Company Knowledge de l'organisation. Elle est rangée dans la
- * bibliothèque et reste entièrement modifiable.
+ * Propose une fiche à partir d'une description libre (« DAF d'une PME
+ * industrielle gantoise, méfiant envers les SaaS »), en s'appuyant sur ce que
+ * l'entreprise sait de ses acheteurs. La langue, l'accent et le genre viennent
+ * du formulaire (ils fixent la voix) ; rien n'est enregistré ici.
+ * @returns {Promise<{success: boolean, data?: object, code?: string}>}
  */
-export async function genererPersona({ brief, role, mode, langue }) {
+export async function proposerPersona({ description, language, accent, gender }) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
-    if (!String(brief || "").trim()) return { success: false, code: "briefManquant" };
+    if (!String(description || "").trim()) return { success: false, code: "descriptionManquante" };
     const admin = createAdminClient();
     const { data: profil } = await admin.from("users").select("ui_locale").eq("id", ctx.user.id).maybeSingle();
+    const nomUi = LOCALE_NAMES_FR[coerceUiLocale(profil?.ui_locale)];
+    const langue = String(language || "fr").slice(0, 2).toLowerCase();
+    const genre = gender === "m" ? "un homme" : "une femme";
 
-    const res = await genererPersonaLibre({
-      brief: String(brief).trim().slice(0, 1500),
-      role: String(role || "").trim().slice(0, 160),
-      mode: MODES_PERSONA.includes(mode) ? mode : "call",
-      locale: coerceExperienceLocale(langue),
-      uiLocale: coerceUiLocale(profil?.ui_locale),
-      companyContext: await contexteEntreprise(ctx.user.id),
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-5-5",
+      max_tokens: 1500,
+      output_config: { effort: "low" },
+      system: "Tu crées des fiches de personnages réalistes pour des simulations de conversations commerciales et de support B2B. Réponds UNIQUEMENT avec un JSON valide.",
+      messages: [{
+        role: "user",
+        content: `CONTEXTE DE L'ENTREPRISE QUI S'ENTRAÎNE (ses clients, son marché) :
+${blocEntreprise(await contexteEntreprise(ctx.user.id), { avecModele: true })}
+
+DESCRIPTION DONNÉE PAR LE MANAGER :
+${String(description).trim().slice(0, 1500)}
+
+Crée UNE PERSONNE crédible : ${genre}, qui parle ${LOCALE_NAMES_FR[langue] || langue}${accent ? ` (pays : ${accent})` : ""}. Son nom et celui de son entreprise sont cohérents avec ce pays. Son entreprise est un client plausible de l'entreprise ci-dessus, jamais l'entreprise elle-même.
+
+C'est une fiche d'IDENTITÉ, réutilisée dans des situations très différentes : n'y mets AUCUNE situation, aucune objection, aucun besoin du jour. Seulement qui il est.
+- "role" : sa fonction exacte.
+- "company" : le nom de son entreprise.
+- "background" : 2 à 3 phrases — son entreprise (secteur, taille, marché), son parcours, ce qui compte pour lui dans son travail.
+- "personality" : 1 à 2 phrases jouables — sa manière de parler et de réagir (direct, pressé, méfiant, chaleureux mais exigeant…). Pas de caricature.
+"background" et "personality" sont rédigés en ${nomUi} (le manager les relit).
+
+{"name": "Prénom Nom", "role": "…", "company": "…", "background": "…", "personality": "…"}`,
+      }],
     });
-    if (!res.success) return { success: false, code: "generation" };
-
-    const id = await rangerFiche(admin, { organizationId: ctx.orgId, data: res.persona, userId: ctx.user.id });
-    const { data: cree } = await admin.from("personas").select(COLONNES).eq("id", id).single();
-    return { success: true, persona: cree };
+    const texte = (response.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    const json = texte.slice(texte.indexOf("{"), texte.lastIndexOf("}") + 1);
+    const brut = JSON.parse(json);
+    const data = identitePersona({ ...brut, language: langue, accent: accent || null, gender: gender === "m" ? "m" : "f" });
+    if (!data) return { success: false, code: "generation" };
+    return { success: true, data };
   } catch (error) {
-    console.error("genererPersona error:", error);
+    console.error("proposerPersona error:", error);
     return { success: false, code: "generation" };
   }
 }

@@ -209,16 +209,23 @@ export async function contexteEntreprise(userId) {
   }
   if (!membre?.organization_id) return resume;
 
-  // Phase 1 : la base de connaissances (notes + documents, migration 039),
-  // bornée (lib/knowledge.js). Une lecture qui échoue — migration pas encore
-  // passée — rend le résumé seul, comme avant.
-  const { data: documents, error } = await admin
-    .from("knowledge_documents")
-    .select("title, kind, extracted_text")
-    .eq("organization_id", membre.organization_id)
-    .order("created_at", { ascending: false });
-  if (error) return resume;
-  const connaissances = assemblerConnaissances({ notes: membre.organizations?.knowledge_notes, documents });
+  // La base de connaissances : les rubriques (migration 045), les notes et les
+  // documents ACTIFS (039, 045), bornée (lib/knowledge.js). Une lecture qui
+  // échoue — migration pas encore passée — retombe sur ce qui existait avant.
+  const [{ data: org }, docsActifs] = await Promise.all([
+    admin.from("organizations").select("knowledge_sections").eq("id", membre.organization_id).maybeSingle(),
+    admin.from("knowledge_documents").select("title, kind, extracted_text")
+      .eq("organization_id", membre.organization_id).eq("active", true)
+      .order("created_at", { ascending: false }),
+  ]);
+  let documents = docsActifs.data;
+  if (docsActifs.error) {
+    const { data, error } = await admin.from("knowledge_documents").select("title, kind, extracted_text")
+      .eq("organization_id", membre.organization_id).order("created_at", { ascending: false });
+    if (error) return resume;
+    documents = data;
+  }
+  const connaissances = assemblerConnaissances({ rubriques: org?.knowledge_sections, notes: membre.organizations?.knowledge_notes, documents });
   return connaissances ? { ...resume, connaissances } : resume;
 }
 

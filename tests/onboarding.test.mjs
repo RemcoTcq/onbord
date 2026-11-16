@@ -174,3 +174,67 @@ test("personnage imposé : son identité, la situation de l'étape, le lien", as
   assert.equal(imposerPersonnage(memes, fiche), 2);
   assert.equal(imposerPersonnage([{ config: {} }], fiche), 0);
 });
+
+// ── 16/11/2026 : création unique — une conversation, un personnage-personne ──
+
+test("canal : une simulation d'onboarding est une conversation sur un seul canal", async () => {
+  const { CANAUX, coerceCanal, formeDuCanal } = await import("../src/lib/simulationCanal.js");
+  assert.deepEqual(CANAUX, ["chat", "email", "call", "phone"]);
+  assert.equal(coerceCanal("document"), "call");
+  assert.deepEqual(formeDuCanal("email"), { sandbox_kind: "email", mode: null });
+  assert.deepEqual(formeDuCanal("chat"), { sandbox_kind: "persona", mode: "chat" });
+  assert.deepEqual(formeDuCanal("phone"), { sandbox_kind: "persona", mode: "phone" });
+  // L'appel vidéo : la personne est filmée, le personnage répond à la voix.
+  assert.deepEqual(formeDuCanal("call"), { sandbox_kind: "persona", mode: "call" });
+});
+
+test("brief de l'agent : nettoyé, listes bornées, grille au format des offres", async () => {
+  const { normaliserBrief, criteresDepuisCompetences } = await import("../src/lib/simulationCanal.js");
+  const b = normaliserBrief({ scenario: "  Un lead entrant après un webinaire. ", objections: ["Trop cher", "", "Pas le temps"], a_savoir: "Core 120 €\nPro 360 €" });
+  assert.equal(b.scenario, "Un lead entrant après un webinaire.");
+  assert.deepEqual(b.objections, ["Trop cher", "Pas le temps"]);
+  assert.deepEqual(b.a_savoir, ["Core 120 €", "Pro 360 €"]);
+  assert.deepEqual(b.reussite, []);
+  const c = criteresDepuisCompetences([{ name: "Découverte", priority: "must_have" }, { name: "Closing", priority: "nice_to_have" }, "Écoute", { name: " " }]);
+  assert.deepEqual(c.hard_skills.map((x) => [x.name, x.priority]), [["Découverte", "must_have"], ["Closing", "nice_to_have"], ["Écoute", "must_have"]]);
+  assert.deepEqual(c.soft_skills, []);
+});
+
+test("personnage de bibliothèque : une personne, sans la situation", async () => {
+  const { identitePersona, appliquerIdentite, CHAMPS_IDENTITE } = await import("../src/lib/persona.js");
+  const fiche = identitePersona({
+    name: "Louis Dupont", role: "DAF", company: "Verhaeghe", gender: "m", language: "nl", accent: "BE",
+    personality: "Direct", background: "PME de 80 salariés à Gand.",
+    context: "Il vous rappelle après une erreur", objections: ["Trop cher"], hidden_info: ["Budget gelé"], mood: "agacé",
+  });
+  assert.deepEqual(Object.keys(fiche).sort(), [...CHAMPS_IDENTITE].sort());
+  assert.equal(fiche.context, undefined);
+  assert.equal(fiche.objections, undefined);
+  assert.equal(fiche.mood, undefined);
+  assert.equal(identitePersona({ role: "sans nom" }), null);
+  // Dans une étape : l'identité change, la situation reste.
+  const etape = appliquerIdentite({ name: "Julie", role: "CEO", context: "Situation de l'étape", objections: ["Pas le temps"], mode: "chat", voice_id: "x" }, fiche);
+  assert.equal(etape.name, "Louis Dupont");
+  assert.equal(etape.language, "nl");
+  assert.equal(etape.context, "Situation de l'étape");
+  assert.deepEqual(etape.objections, ["Pas le temps"]);
+  assert.equal(etape.mode, "chat");
+  assert.equal(etape.voice_id, null);
+});
+
+test("connaissances : les rubriques passent avant les notes et les documents", async () => {
+  const { assemblerConnaissances, normaliserRubriques, RUBRIQUES } = await import("../src/lib/knowledge.js");
+  const texte = assemblerConnaissances({
+    rubriques: { offre: "Core 120 €", vente: "Découverte puis démo", inconnue: "ignorée" },
+    notes: "Divers",
+    documents: [{ title: "Appel", kind: "transcript", extracted_text: "Bonjour…" }],
+  });
+  assert.ok(texte.startsWith("Offre (produits, forfaits, prix) :\nCore 120 €"));
+  assert.ok(texte.indexOf("Comment on vend") < texte.indexOf("Autres notes"));
+  assert.ok(texte.indexOf("Autres notes") < texte.indexOf("Document « Appel » (transcript)"));
+  assert.doesNotMatch(texte, /ignorée/);
+  const r = normaliserRubriques({ offre: "  x  ", inconnue: "y" });
+  assert.deepEqual(Object.keys(r), RUBRIQUES);
+  assert.equal(r.offre, "x");
+  assert.equal(r.vente, "");
+});

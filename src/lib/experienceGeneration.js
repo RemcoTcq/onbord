@@ -114,7 +114,7 @@ const CRITIQUE_ACTIVE = process.env.ONBORD_CRITIQUE !== "0";
 // sous-dimension pour une compétence must-have restée sans checkpoint. Recopiées,
 // ces règles divergeraient à la première retouche — et c'est la règle de PORTÉE
 // (e) qui porte l'équité de la grille.
-const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CHECKPOINTS INDÉPENDANTS. Un checkpoint = UN SEUL comportement observable dans la réponse. Chacun est noté à part (absent / présent mais faible / présent et bien fait), puis les checkpoints s'additionnent : un candidat qui en réussit deux sur trois est crédité pour ces deux-là. N'écris donc JAMAIS un checkpoint qui combine plusieurs comportements — « valide l'objection, la reformule puis argumente », ce sont trois checkpoints. Et jamais moins de 3 : une sous-dimension qui n'en trouve que deux est trop étroite — fusionne-la avec sa voisine plutôt que de la laisser à deux.
+export const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CHECKPOINTS INDÉPENDANTS. Un checkpoint = UN SEUL comportement observable dans la réponse. Chacun est noté à part (absent / présent mais faible / présent et bien fait), puis les checkpoints s'additionnent : un candidat qui en réussit deux sur trois est crédité pour ces deux-là. N'écris donc JAMAIS un checkpoint qui combine plusieurs comportements — « valide l'objection, la reformule puis argumente », ce sont trois checkpoints. Et jamais moins de 3 : une sous-dimension qui n'en trouve que deux est trop étroite — fusionne-la avec sa voisine plutôt que de la laisser à deux.
    d) Range-les dans l'ordre logique de la réponse quand il en existe un (reconnaître avant de reformuler, reformuler avant d'argumenter).
    e) PORTÉE — la règle qui rend la grille juste : chaque checkpoint doit être atteignable par un bon professionnel qui découvre l'entreprise aujourd'hui, avec la SEULE information remise dans l'énoncé et la scène. N'exige jamais un chiffre, un délai, une référence client, une fonctionnalité du produit ou un fait interne qui n'y figure pas. Si un fait doit être utilisé, mets-le dans la scène. Sinon, écris le checkpoint sur la démarche (« propose de chiffrer le gain avec le prospect »), jamais sur le fait (« cite un gain de 30 % »).
    f) Un checkpoint décrit ce que la réponse FAIT, pas comment elle est tournée : pas de phrase modèle à reconnaître, pas de verbatim à reproduire. Deux bons candidats qui s'y prennent différemment doivent pouvoir valider le même checkpoint. Jamais de formulation vague (« bonne qualité », « réponse adéquate »).
@@ -123,8 +123,11 @@ const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CHECKPOIN
 // Les mises en situation que la génération peut proposer. Le code, le CRM, le
 // tableur et le tableau de cartes ont été retirés le 04/11/2026 (recentrage
 // sales et CS/support) : ne les réintroduisez pas dans ce prompt sans leur
-// lecteur, leur correcteur et leur éditeur.
-const SANDBOXES_PROPOSEES = ["email", "client_reply", "document", "inbox", "persona"];
+// lecteur, leur correcteur et leur éditeur. Le document (rédiger une note, un
+// plan) a été retiré le 16/11/2026 : Onbord simule des CONVERSATIONS — chat,
+// e-mail, appel vidéo, appel téléphonique. Une étape « document » déjà écrite
+// reste lisible et notée.
+const SANDBOXES_PROPOSEES = ["email", "client_reply", "inbox", "persona"];
 const listeGuillemets = (kinds) => kinds.map((k) => `"${k}"`).join(", ");
 
 const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
@@ -135,7 +138,6 @@ const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclar
    - un échange qui se vit réellement PAR ÉCRIT (chat de support, messagerie interne, message LinkedIn) → sandbox "persona" en mode "chat" ;
    - une prise de parole d'une traite — pitch, présentation, posture, aisance orale, message vidéo → "video", mise en situation jouée en direct (règle 4) ;
    - prioriser, s'organiser, arbitrer entre des demandes concurrentes, tenir sous la charge → sandbox "inbox" (boîte de réception) ;
-   - structurer une réflexion : note, plan d'action, cahier des charges, process → sandbox "document" ;
    - une connaissance qui se vérifie mieux par une question fermée → "classic_qcm", avec parcimonie.
    Un must-have central gagne à être observé dans DEUX gestes différents (l'écrit et l'oral, la priorisation et la réponse). AU PLUS UN step de chacune des sandboxes ${listeGuillemets(["inbox", "persona"])} par expérience.
    "response_format" par défaut : "text" pour l'écrit et pour toutes les sandboxes (${SANDBOXES_PROPOSEES.join(", ")} — même en appel : c'est la transcription qui est notée) ; "video" pour l'oral, TOUJOURS sous forme de mise en situation jouée en direct (règle 4) ; "qcm" pour un QCM. Le recruteur pourra changer ce défaut ; propose le plus pertinent.
@@ -150,7 +152,6 @@ ${REGLES_CHECKPOINTS}
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
    - Pour "email" : config.to (le destinataire : nom, fonction, entreprise), config.subject (l'objet s'il est imposé, par exemple une réponse « Re : … » ; chaîne vide si c'est au candidat de l'écrire — jamais un texte entre crochets), config.context (la fiche remise au candidat : qui est le destinataire, où, pourquoi lui écrire — c'est tout ce que le candidat saura de lui). Les trois sont rédigés dans la langue de la scène quand elle diffère de celle du parcours (voir l'exception de langue en tête)
    - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
-   - Pour "document" : config.document_context
    - Pour "inbox" : config.inbox_brief — UNE SEULE PHRASE : la boîte de qui, quel moment, quelle contrainte de temps. Les messages seront produits dans un second temps ; ne les génère PAS ici.
    - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel vidéo, le cas général), "phone" (un appel téléphonique, voix seule : appel à froid, support au téléphone, relance) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
    QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — customer success, support client, account management, sales manager ou support manager (escalades, demandes de l'équipe).
@@ -321,7 +322,7 @@ ${REGLE_ANCRAGE_OFFRE}
 ${additionalContext ? `\nMATÉRIAU DU RECRUTEUR — issu de l'échange de conception, ET IL PRIME SUR TOUT LE RESTE :\n${additionalContext}\n\nCOMMENT T'EN SERVIR — c'est ce qui sépare un parcours que le recruteur reconnaît d'un parcours générique :\n- Les passages entre guillemets sont SES MOTS. Reprends-les TELS QUELS dans les énoncés, les messages client et les sources des mises en situation : le nom exact de son produit, la formulation exacte d'une objection, le vocabulaire de son marché. Ne les paraphrase pas, ne les traduis pas en langue de bois professionnelle.\n- S'il a raconté une situation qu'il a vécue, BÂTIS LA TÂCHE DESSUS plutôt que d'en inventer une autre. C'est la situation dont tu sais qu'elle arrive vraiment dans cette entreprise.\n- Un scénario qu'on pourrait recopier tel quel sur l'offre d'un concurrent est un scénario raté, même s'il respecte toutes les règles ci-dessous.\n` : ""}
 CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
 - "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
-- "task" : tâche courte et réaliste inspirée du poste (rédiger un email client, répondre à une situation, produire un court document/analyse). C'est le cœur de la preuve.
+- "task" : tâche courte et réaliste inspirée du poste (écrire à un client, répondre à une situation, mener une conversation). C'est le cœur de la preuve.
 - "classic_qcm" : QCM quand une connaissance se teste mieux ainsi et qu'aucune tâche n'est pertinente.
 
 Ne génère jamais d'étape de filtre qualificatif (langue, expérience minimale, diplôme, localisation) — ce filtre existe déjà ailleurs dans le parcours, avant cette expérience. Toutes les étapes que tu génères ici évaluent une compétence, aucune n'élimine sur un critère administratif.
@@ -986,7 +987,7 @@ async function relireEtCorriger({ title, description, criteria, companyContext, 
 // grille note.
 
 /** Une étape générée, remise dans sa forme stockable. Forme « génération » : `sub_dimensions`. */
-function normaliserEtape(s, competences) {
+export function normaliserEtape(s, competences) {
   const declares = resoudreIds(s.skills_tested, competences);
   // Repli sur le nom : une étape réécrite par un prompt plus ancien, ou un
   // modèle qui a recopié le libellé au lieu de l'identifiant.

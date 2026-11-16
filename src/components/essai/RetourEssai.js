@@ -52,6 +52,20 @@ export default function RetourEssai({ essai, minScore = null, indice = "", actio
         </section>
       )}
 
+      {essai.aRetenir?.length > 0 && (
+        <section className="ds-panel">
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
+            <h2 className="ds-h2">{k("takeaways")}</h2>
+            <p className="ds-sub">{k("takeawaysHint")}</p>
+          </div>
+          <div className="ds-inset">
+            <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: 14, lineHeight: 1.55 }}>
+              {essai.aRetenir.map((x, i) => <li key={i}>{x}</li>)}
+            </ul>
+          </div>
+        </section>
+      )}
+
       {essai.competences.length > 0 && (
         <section className="ds-panel">
           <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>

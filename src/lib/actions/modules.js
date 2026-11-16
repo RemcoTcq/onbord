@@ -12,6 +12,11 @@ import { exigerGestion, contexteEntreprise } from "@/lib/org";
 import { suggererModules } from "@/lib/moduleGeneration";
 import { jobDepuisModule } from "@/lib/simulationSource";
 import { coerceExperienceLocale, coerceUiLocale } from "@/lib/i18n/config";
+import { coerceCanal, normaliserBrief, criteresDepuisCompetences } from "@/lib/simulationCanal";
+import { supprimerFichiersDesCandidats } from "@/lib/storage";
+import { identitePersona } from "@/lib/persona";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DIFFICULTES = ["easy", "medium", "hard"];
 
@@ -26,6 +31,11 @@ function champsModule(c = {}) {
     difficulty: c.difficulty === undefined ? undefined : DIFFICULTES.includes(c.difficulty) ? c.difficulty : "medium",
     min_score: c.min_score === undefined ? undefined : Math.max(0, Math.min(100, Math.round(Number(c.min_score) || 70))),
     locale: c.locale === undefined ? undefined : coerceExperienceLocale(c.locale),
+    // Création unique (16/11/2026, migration 045) : le canal de la
+    // conversation, le brief de l'agent de conception, le personnage.
+    channel: c.channel === undefined ? undefined : coerceCanal(c.channel),
+    brief: c.brief === undefined ? undefined : normaliserBrief(c.brief),
+    persona_id: c.persona_id === undefined ? undefined : (UUID.test(String(c.persona_id || "")) ? c.persona_id : null),
   };
   return Object.fromEntries(Object.entries(sortie).filter(([, v]) => v !== undefined));
 }
@@ -45,7 +55,7 @@ export async function listerModules({ archives = false } = {}) {
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     const admin = createAdminClient();
     let q = admin.from("modules")
-      .select("id, title, target_role, difficulty, min_score, locale, archived_at, updated_at")
+      .select("id, title, target_role, difficulty, min_score, locale, channel, archived_at, updated_at")
       .eq("organization_id", ctx.orgId).order("updated_at", { ascending: false });
     q = archives ? q.not("archived_at", "is", null) : q.is("archived_at", null);
     const { data: modules, error } = await q;
@@ -91,21 +101,42 @@ export async function getModule(id) {
     const { data: steps } = experience
       ? await admin.from("experience_steps").select("*").eq("experience_id", experience.id).order("order_index")
       : { data: [] };
-    return { success: true, module, job: jobDepuisModule(module), experience, steps: steps || [] };
+    // Le personnage de la bibliothèque, s'il existe encore.
+    let personnage = null;
+    if (module.persona_id) {
+      const { data: p } = await admin.from("personas").select("id, data").eq("id", module.persona_id).eq("organization_id", ctx.orgId).maybeSingle();
+      if (p) personnage = { id: p.id, ...identitePersona(p.data) };
+    }
+    const { data: assignations } = await admin.from("assignments").select("learner_id, status, best_score").eq("module_id", id);
+    return { success: true, module, job: jobDepuisModule(module), experience, steps: steps || [], personnage, assignations: assignations || [] };
   } catch (error) {
     console.error("getModule error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }
 
+/**
+ * Crée un module. Depuis la création unique (16/11/2026), il arrive avec son
+ * canal, son personnage, le brief de l'agent et la grille qu'il propose
+ * (`competences`) ; la situation est alors le scénario du brief.
+ */
 export async function creerModule(champs) {
   try {
     const ctx = await exigerGestion();
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     const c = champsModule(champs);
+    if (c.brief && !c.situation) c.situation = c.brief.scenario || null;
+    if (c.brief && !c.objective) c.objective = c.brief.objectif || null;
     if (!c.title) return { success: false, code: "titreManquant" };
     if (!c.situation) return { success: false, code: "situationManquante" };
-    const { data, error } = await createAdminClient().from("modules")
+    const admin = createAdminClient();
+    if (c.persona_id) {
+      const { data: p } = await admin.from("personas").select("id").eq("id", c.persona_id).eq("organization_id", ctx.orgId).maybeSingle();
+      if (!p) c.persona_id = null;
+    }
+    if (Array.isArray(champs?.competences) && champs.competences.length) c.criteria = criteresDepuisCompetences(champs.competences);
+    else if (champs?.criteres?.hard_skills?.length) c.criteria = criteresDepuisCompetences(champs.criteres.hard_skills);
+    const { data, error } = await admin.from("modules")
       .insert({ ...c, organization_id: ctx.orgId, created_by: ctx.user.id })
       .select("id").single();
     if (error) throw error;
@@ -130,6 +161,89 @@ export async function majModule(id, champs) {
     return { success: true };
   } catch (error) {
     console.error("majModule error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/** Les rôles déjà utilisés dans l'organisation, pour les reproposer à la création. */
+export async function listerRoles() {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const { data } = await createAdminClient().from("modules").select("target_role").eq("organization_id", ctx.orgId);
+    const roles = [...new Set((data || []).map((m) => String(m.target_role || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    return { success: true, roles };
+  } catch (error) {
+    console.error("listerRoles error:", error);
+    return { success: false, roles: [] };
+  }
+}
+
+/**
+ * Ce que supprimer un module emporte : ses essais (et de qui), ses
+ * assignations. Pour le message de confirmation.
+ */
+export async function impactSuppressionModule(id) {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const admin = createAdminClient();
+    const { data: module } = await admin.from("modules").select("id").eq("id", id).eq("organization_id", ctx.orgId).maybeSingle();
+    if (!module) return { success: false, error: "Module introuvable" };
+    const { data: exps } = await admin.from("experiences").select("id").eq("module_id", id);
+    const ids = (exps || []).map((e) => e.id);
+    const [{ count: essais }, { count: assignations }] = await Promise.all([
+      ids.length ? admin.from("candidate_runs").select("id", { count: "exact", head: true }).in("experience_id", ids) : { count: 0 },
+      admin.from("assignments").select("id", { count: "exact", head: true }).eq("module_id", id),
+    ]);
+    return { success: true, essais: essais || 0, assignations: assignations || 0 };
+  } catch (error) {
+    console.error("impactSuppressionModule error:", error);
+    return { success: false, error: "Erreur technique" };
+  }
+}
+
+/**
+ * Supprime un module POUR DE BON (16/11/2026) : ses versions de simulation,
+ * leurs étapes, tous les essais et tests joués dessus avec leurs notes et
+ * leurs enregistrements (stockage compris), ses assignations et sa place dans
+ * les programmes. Irréversible : l'écran demande confirmation, chiffres à
+ * l'appui (impactSuppressionModule).
+ *
+ * L'ordre suit les clés de la base : candidate_runs.experience_id est en ON
+ * DELETE RESTRICT (migration 010), donc les essais d'abord — leurs fichiers
+ * avant eux, puisque rien d'autre ne dit quels dossiers effacer —, puis les
+ * versions (qui emportent leurs étapes), puis le module (qui emporte
+ * assignations et places de programme).
+ */
+export async function supprimerModule(id) {
+  try {
+    const ctx = await exigerGestion();
+    if (ctx.erreur) return { success: false, error: ctx.erreur };
+    const admin = createAdminClient();
+    const { data: module } = await admin.from("modules").select("id").eq("id", id).eq("organization_id", ctx.orgId).maybeSingle();
+    if (!module) return { success: false, error: "Module introuvable" };
+
+    const { data: exps } = await admin.from("experiences").select("id").eq("module_id", id);
+    const idsExp = (exps || []).map((e) => e.id);
+    if (idsExp.length) {
+      const { data: runs } = await admin.from("candidate_runs").select("id").in("experience_id", idsExp);
+      // Les enregistrements d'un essai vivent sous <id de l'essai>/ (le jeton
+      // d'un essai est son identifiant, lib/passage.js).
+      if (runs?.length) {
+        const res = await supprimerFichiersDesCandidats(admin, runs.map((r) => ({ id: r.id })));
+        if (res.erreurs.length) console.error("supprimerModule fichiers :", res.erreurs);
+        const { error: errRuns } = await admin.from("candidate_runs").delete().in("id", runs.map((r) => r.id));
+        if (errRuns) throw errRuns;
+      }
+      const { error: errExp } = await admin.from("experiences").delete().in("id", idsExp);
+      if (errExp) throw errExp;
+    }
+    const { error } = await admin.from("modules").delete().eq("id", id).eq("organization_id", ctx.orgId);
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("supprimerModule error:", error);
     return { success: false, error: "Erreur technique" };
   }
 }

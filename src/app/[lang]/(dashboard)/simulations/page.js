@@ -6,25 +6,32 @@
 // commune, et « Créer une simulation » commence par demander l'usage.
 //
 // Chaque ligne ouvre la page qui la gère : l'offre pour le recrutement, le
-// module pour l'onboarding.
+// module pour l'onboarding. Chacune se supprime d'ici, après confirmation :
+// une simulation d'onboarding part pour de bon, avec ses essais et leurs
+// enregistrements ; une offre part en corbeille avec ses candidats et est
+// effacée automatiquement sept jours plus tard (lib/jobPurge.js).
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Plus, Search, Briefcase, GraduationCap } from "lucide-react";
+import { Loader2, Plus, Search, Briefcase, GraduationCap, Trash2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useToast } from "@/components/ui/Toast";
 import { formatDateShort } from "@/lib/i18n/format";
 import PageHeader from "@/components/layout/PageHeader";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { useShell } from "@/components/layout/ShellContext";
-import { listerModules } from "@/lib/actions/modules";
+import { listerModules, supprimerModule, impactSuppressionModule } from "@/lib/actions/modules";
+import { deleteJob } from "@/lib/actions/candidate";
 
 const USAGES = ["all", "hiring", "onboarding"];
 const sansAccent = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export default function SimulationsPage() {
   const { t, locale } = useI18n();
-  const { jobs } = useShell();
+  const { jobs, refreshJobs } = useShell();
+  const { toast } = useToast();
   const k = (cle, vars) => t(`dashboard.sims.${cle}`, vars);
+  const [suppression, setSuppression] = useState(null);
   const demande = useSearchParams().get("usage");
   const [usage, setUsage] = useState(USAGES.includes(demande) ? demande : "all");
   const [modules, setModules] = useState(null);
@@ -36,18 +43,41 @@ export default function SimulationsPage() {
     return () => { actif = false; };
   }, []);
 
+  async function supprimer(l) {
+    if (l.usage === "hiring") {
+      if (!window.confirm(k("deleteJobConfirm", { titre: l.titre }))) return;
+      setSuppression(l.cle);
+      const res = await deleteJob(l.id);
+      setSuppression(null);
+      if (!res.success) return toast(t("dashboard.jobs.deleteError"), "error");
+      refreshJobs();
+      return toast(k("deletedJob"), "success");
+    }
+    const impact = await impactSuppressionModule(l.id);
+    const message = impact.success && (impact.essais || impact.assignations)
+      ? k("page.deleteConfirmData", { titre: l.titre, essais: impact.essais, assignations: impact.assignations })
+      : k("page.deleteConfirm", { titre: l.titre });
+    if (!window.confirm(message)) return;
+    setSuppression(l.cle);
+    const res = await supprimerModule(l.id);
+    setSuppression(null);
+    if (!res.success) return toast(t("dashboard.onb.modules.errors.generic"), "error");
+    setModules((m) => (m || []).filter((x) => x.id !== l.id));
+    toast(k("page.deleted"), "success");
+  }
+
   const lignes = [
     ...jobs.map((j) => ({
-      cle: `job-${j.id}`, usage: "hiring", titre: j.title || t("dashboard.jobs.untitled"),
+      cle: `job-${j.id}`, id: j.id, usage: "hiring", titre: j.title || t("dashboard.jobs.untitled"),
       href: `/jobs/${j.id}`, date: j.created_at,
       statut: ["active", "draft", "closed"].includes(j.status) ? k(`jobStatus.${j.status}`) : "—",
       detail: j.location || "",
     })),
     ...(modules || []).map((m) => ({
-      cle: `module-${m.id}`, usage: "onboarding", titre: m.title,
+      cle: `module-${m.id}`, id: m.id, usage: "onboarding", titre: m.title,
       href: `/onboarding/modules/${m.id}`, date: m.updated_at,
       statut: m.simulation ? t(`dashboard.onb.status.${m.simulation.status}`) : t("dashboard.onb.modules.noSimulation"),
-      detail: [m.target_role, t("dashboard.onb.modules.assignedStats", { valides: m.valides, assignes: m.assignes })].filter(Boolean).join(" · "),
+      detail: [m.channel && t(`dashboard.sims.channels.${m.channel}.title`), m.target_role, t("dashboard.onb.modules.assignedStats", { valides: m.valides, assignes: m.assignes })].filter(Boolean).join(" · "),
     })),
   ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
@@ -94,13 +124,14 @@ export default function SimulationsPage() {
           </div>
         ) : (
           <div className="ds-table-wrap">
-            <table className="ds-table" style={{ minWidth: 660 }}>
+            <table className="ds-table" style={{ minWidth: 700 }}>
               <thead>
                 <tr>
                   <th scope="col">{k("colSimulation")}</th>
                   <th scope="col" style={{ width: 150 }}>{k("colUsage")}</th>
                   <th scope="col" style={{ width: 170 }}>{k("colStatus")}</th>
                   <th scope="col" style={{ width: 110 }}>{k("colDate")}</th>
+                  <th scope="col" style={{ width: 56 }}><span className="sr-only">{k("colActions")}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -121,6 +152,12 @@ export default function SimulationsPage() {
                       </td>
                       <td>{l.statut}</td>
                       <td>{formatDateShort(l.date, locale)}</td>
+                      <td>
+                        <button type="button" className="ds-icon-btn" onClick={() => supprimer(l)} disabled={suppression === l.cle}
+                          aria-label={k("deleteRow", { titre: l.titre })} title={k("deleteRow", { titre: l.titre })}>
+                          {suppression === l.cle ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Trash2 size={15} />}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

@@ -3,8 +3,10 @@
 // Le lien entre le personnage d'une étape et la BIBLIOTHÈQUE de
 // l'organisation (phase 1 de l'onboarding, migration 040).
 //
-//   • prendre une fiche de la bibliothèque : elle REMPLACE le personnage de
-//     l'étape (sa copie), et l'étape garde le lien ;
+//   • prendre une fiche de la bibliothèque : son IDENTITÉ (nom, fonction,
+//     entreprise, caractère, langue, voix) remplace celle du personnage de
+//     l'étape ; la situation de l'étape (contexte, objections, informations
+//     cachées) reste, et l'étape garde le lien ;
 //   • ranger le personnage de l'étape dans la bibliothèque, pour le
 //     réutiliser ailleurs.
 //
@@ -16,6 +18,7 @@ import { useEffect, useState } from "react";
 import { Library, BookmarkPlus } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { listerPersonas, rangerPersonaEtape } from "@/lib/actions/personas";
+import { appliquerIdentite } from "@/lib/persona";
 
 export default function PersonaBibliotheque({ config, setConfig, toast }) {
   const { t } = useI18n();
@@ -35,7 +38,7 @@ export default function PersonaBibliotheque({ config, setConfig, toast }) {
   function utiliser() {
     const fiche = fiches?.find((f) => f.id === choix);
     if (!fiche) return;
-    setConfig({ persona: fiche.data, persona_id: fiche.id });
+    setConfig({ persona: appliquerIdentite(config?.persona, fiche.data), persona_id: fiche.id });
     setChoix("");
     toast?.(k("applied", { name: fiche.name }), "success");
   }

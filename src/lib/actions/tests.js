@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion } from "@/lib/org";
 import { droitDeTester, estUnTest, parCompetence, TESTS_PAR_SIMULATION } from "@/lib/essais";
 import { SOURCE_EMBARQUEE, sourceDe } from "@/lib/simulationSource";
+import { aRetenirDe } from "@/lib/assignations";
 
 const scoreDe = (r) => (Array.isArray(r?.run_scores) ? r.run_scores[0] : r?.run_scores) || null;
 
@@ -122,6 +123,7 @@ export async function getTest(runId) {
         note: score?.overall ?? null,
         resume: score?.summary || "",
         competences: parCompetence(score?.criterion_scores),
+        aRetenir: run.status === "in_progress" ? [] : await aRetenirDe(admin, run.experience_id),
       },
       simulation: {
         titre: source.title || "",

@@ -8,6 +8,7 @@ import { consigneLangueRecruteur } from "@/lib/i18n/prompt";
 import { coerceUiLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { getOrgContext, exigerGestion } from "@/lib/org";
 import { fetchSur } from "@/lib/requeteSure";
+import { extractTextFromHtml } from "@/lib/texteHtml";
 
 /**
  * Reads the company profile (AI context) for the current user.
@@ -196,27 +197,4 @@ Si une information n'est pas clairement identifiable dans le contenu, laisse la 
     console.error("fetchAndAnalyzeWebsite AI error:", err);
     return { success: false, code: "aiFailed" };
   }
-}
-
-/**
- * Strips HTML tags and extracts readable text.
- */
-function extractTextFromHtml(html) {
-  let text = html;
-  text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ");
-  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ");
-  text = text.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, " ");
-  text = text.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, " ");
-  text = text.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, " ");
-  text = text.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, " ");
-  text = text.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, " ");
-  text = text.replace(/<\/(p|div|li|h[1-6]|section|article)>/gi, "\n");
-  text = text.replace(/<br\s*\/?>/gi, "\n");
-  text = text.replace(/<[^>]+>/g, " ");
-  text = text
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
-    .replace(/&#\d+;/g, " ");
-  text = text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n");
-  return text.trim();
 }

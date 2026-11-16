@@ -69,6 +69,10 @@ export function normaliserPersona(p) {
     // Son humeur au début de l'échange (bibliothèque de personnages, phase 1
     // de l'onboarding). Absente des fiches d'avant : rien ne change pour elles.
     mood: net(p?.mood).slice(0, 300),
+    // Qui il est, au-delà de sa fonction : son entreprise (secteur, taille),
+    // son parcours, ses priorités. Partie de l'IDENTITÉ (16/11/2026) : elle
+    // le suit d'une simulation à l'autre.
+    background: net(p?.background).slice(0, 1500),
     goals: net(p?.goals),
     hidden_info: liste(p?.hidden_info).slice(0, 8),
     objections: liste(p?.objections).slice(0, 8),
@@ -83,10 +87,42 @@ export function normaliserPersona(p) {
   };
 }
 
-// L'IDENTITÉ d'un personnage : ce qui le suit d'une simulation à l'autre. Le
-// reste (contexte remis, premier message, informations cachées, objections,
-// condition de fin) appartient à la situation jouée.
-export const CHAMPS_IDENTITE = ["name", "role", "company", "gender", "accent", "voice_id", "personality", "mood"];
+// L'IDENTITÉ d'un personnage : ce qui le suit d'une simulation à l'autre — une
+// PERSONNE (décision de Remco du 16/11/2026) : son nom, son entreprise, sa
+// fonction, qui il est, son caractère, sa langue et donc sa voix. Le reste
+// (contexte remis, premier message, humeur du jour, objections, informations
+// cachées, condition de fin) appartient à la situation jouée : il s'écrit avec
+// la simulation, jamais dans la fiche de la bibliothèque.
+export const CHAMPS_IDENTITE = ["name", "role", "company", "gender", "language", "accent", "voice_id", "personality", "background"];
+
+/**
+ * La fiche de BIBLIOTHÈQUE d'un personnage : son identité seule, ou null sans
+ * nom. C'est ce que la bibliothèque enregistre — une fiche d'avant le
+ * 16/11/2026 qui portait une situation la perd au premier enregistrement.
+ */
+export function identitePersona(p) {
+  const n = normaliserPersona(p);
+  if (!n) return null;
+  const out = {};
+  for (const champ of CHAMPS_IDENTITE) out[champ] = n[champ] ?? null;
+  return out;
+}
+
+/**
+ * Le personnage d'une étape, avec l'identité d'une fiche : la situation de
+ * l'étape reste, l'identité est remplacée. Sert à « Utiliser » un personnage
+ * de la bibliothèque dans une étape déjà écrite.
+ */
+export function appliquerIdentite(personaEtape, fiche) {
+  const identite = identitePersona(fiche);
+  if (!identite) return personaEtape;
+  const out = { ...(personaEtape || {}) };
+  for (const champ of CHAMPS_IDENTITE) {
+    if (identite[champ] != null && identite[champ] !== "") out[champ] = identite[champ];
+    else if (champ === "voice_id" || champ === "accent" || champ === "background") out[champ] = null;
+  }
+  return out;
+}
 
 /**
  * Impose un personnage de la bibliothèque aux étapes d'une simulation tout
@@ -104,11 +140,7 @@ export function imposerPersonnage(etapes, fiche) {
   const meme = (e) => net(e.config.persona.name).toLowerCase() === identite.name.toLowerCase();
   const cibles = avecPersonnage.some(meme) ? avecPersonnage.filter(meme) : avecPersonnage.slice(0, 1);
   for (const e of cibles) {
-    const persona = { ...e.config.persona };
-    for (const champ of CHAMPS_IDENTITE) {
-      if (identite[champ] != null && identite[champ] !== "") persona[champ] = identite[champ];
-    }
-    e.config = { ...e.config, persona, persona_id: fiche.id };
+    e.config = { ...e.config, persona: appliquerIdentite(e.config.persona, fiche.data), persona_id: fiche.id };
   }
   return cibles.length;
 }
@@ -182,6 +214,7 @@ export function personaBriefing(persona) {
     "  PREUVE : seules les lignes « Candidat » sont du candidat. Ne cite JAMAIS une réplique du personnage comme verbatim. Une information que le personnage a livrée compte pour le candidat seulement s'il l'a obtenue par ses questions ou s'en est servi ensuite.",
     persona.mode === "chat" ? null
       : "  APPEL VOCAL : les lignes du candidat sont une transcription automatique de sa voix. Ponctuation absente, mot mal reconnu, phrase hachée : ce sont des artefacts de la reconnaissance vocale, jamais une faute du candidat. Juge ce qu'il dit, pas la forme écrite.",
+    persona.background ? `    Qui il est : ${persona.background}` : null,
     persona.personality ? `    Personnalité jouée : ${persona.personality}` : null,
     persona.goals ? `    Ce que veut le personnage : ${persona.goals}` : null,
     bloc("Informations cachées, livrées seulement si le candidat sait les faire sortir", persona.hidden_info),
@@ -225,7 +258,7 @@ ${secretRealtime(persona)}`
   return `Tu joues un PERSONNAGE dans une mise en situation de recrutement. Tu n'es pas un assistant : tu es cette personne, avec ses intérêts, son humeur et ses limites. ${canal}
 
 QUI TU ES : ${identite(persona)}.
-${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.mood ? `TON HUMEUR AU DÉBUT DE LA CONVERSATION : ${persona.mood}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, ${realtime ? "et chacune est levée dès qu'elle reçoit une réponse raisonnable : tu ne la répètes pas et tu n'en inventes pas d'autres pour prolonger l'appel" : "et tu ne les abandonnes que face à une vraie réponse"} :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
+${persona.background ? `CE QUI TE DÉFINIT : ${persona.background}\n` : ""}${persona.personality ? `PERSONNALITÉ : ${persona.personality}\n` : ""}${persona.mood ? `TON HUMEUR AU DÉBUT DE LA CONVERSATION : ${persona.mood}\n` : ""}${persona.goals ? `CE QUE TU VEUX DANS CETTE CONVERSATION : ${persona.goals}\n` : ""}${persona.context ? `CE QUE LE CANDIDAT SAIT DE LA SITUATION : ${persona.context}\n` : ""}${persona.hidden_info.length ? `\nCE QUE TU SAIS ET NE DIS PAS SPONTANÉMENT — tu ne le livres que si le candidat pose une question qui y mène vraiment, ou s'il a su te mettre en confiance. Une question vague obtient une réponse vague :\n${puces(persona.hidden_info)}\n` : ""}${persona.objections.length ? `\nTES OBJECTIONS — tu les soulèves au moment où elles viennent naturellement, une à la fois, ${realtime ? "et chacune est levée dès qu'elle reçoit une réponse raisonnable : tu ne la répètes pas et tu n'en inventes pas d'autres pour prolonger l'appel" : "et tu ne les abandonnes que face à une vraie réponse"} :\n${puces(persona.objections)}\n` : ""}${persona.red_lines.length ? `\nCE QUE TU N'ACCEPTES PAS :\n${puces(persona.red_lines)}\n` : ""}
 COMMENT TU JOUES :
 - Tu restes dans le personnage du début à la fin. Tu ne dis jamais que tu es une IA, tu ne commentes pas l'exercice, tu ne donnes aucun conseil au candidat.
 ${forme}

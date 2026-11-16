@@ -20,23 +20,61 @@
 // documents (du plus récent au plus ancien, chacun coupé à sa part).
 
 export const MAX_CONNAISSANCES = 12_000;
-export const TYPES_DOCUMENT = ["pitch_deck", "product", "pricing", "objections", "policies", "faq", "other"];
+// Les types de documents proposés au dépôt (16/11/2026 : transcriptions
+// d'appels, échanges écrits, playbooks). « objections » reste lisible pour les
+// documents déjà déposés, mais n'est plus proposé : les objections se disent à
+// l'agent de conception, simulation par simulation.
+export const TYPES_DOCUMENT = ["pitch_deck", "product", "pricing", "transcript", "emails", "playbook", "policies", "faq", "other"];
+export const TYPES_DOCUMENT_CONNUS = [...TYPES_DOCUMENT, "objections"];
+
+// Les RUBRIQUES des connaissances (migration 045, `organizations.knowledge_sections`) :
+// ce qu'un agent a besoin de savoir d'une entreprise pour écrire des
+// conversations crédibles. L'offre, les acheteurs, les concurrents et les
+// marchés se pré-remplissent depuis le site ; le reste, l'entreprise l'écrit.
+export const RUBRIQUES = ["offre", "acheteurs", "concurrents", "marches", "vente", "support", "recrutement"];
+export const RUBRIQUES_DU_SITE = ["offre", "acheteurs", "concurrents", "marches"];
+const TITRES_RUBRIQUES = {
+  offre: "Offre (produits, forfaits, prix)",
+  acheteurs: "Acheteurs types (ICP)",
+  concurrents: "Concurrents et ce qui nous distingue",
+  marches: "Marchés et langues",
+  vente: "Comment on vend",
+  support: "Comment on fait du support",
+  recrutement: "Comment on recrute",
+};
+export const RUBRIQUE_MAX = 4000;
+
+/** Les rubriques, nettoyées et bornées. */
+export function normaliserRubriques(s = {}) {
+  const out = {};
+  for (const r of RUBRIQUES) out[r] = String(s?.[r] ?? "").trim().slice(0, RUBRIQUE_MAX);
+  return out;
+}
 
 const net = (s) => String(s ?? "").replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 
 /**
  * Le texte de la base de connaissances, borné.
- * @param {{ notes?: string, documents?: Array<{title: string, kind: string, extracted_text: string}> }} base
+ * @param {{ rubriques?: object, notes?: string, documents?: Array<{title: string, kind: string, extracted_text: string}> }} base
  * @param {number} max
  */
-export function assemblerConnaissances({ notes, documents } = {}, max = MAX_CONNAISSANCES) {
+export function assemblerConnaissances({ rubriques, notes, documents } = {}, max = MAX_CONNAISSANCES) {
   const morceaux = [];
   let reste = max;
+
+  // Les rubriques d'abord : c'est ce que l'entreprise a écrit pour ça, rangé.
+  for (const r of RUBRIQUES) {
+    const texte = net(rubriques?.[r]);
+    if (!texte || reste <= 200) continue;
+    const part = texte.slice(0, Math.min(reste, RUBRIQUE_MAX));
+    morceaux.push(`${TITRES_RUBRIQUES[r]} :\n${part}`);
+    reste -= part.length;
+  }
 
   const n = net(notes);
   if (n) {
     const part = n.slice(0, Math.min(reste, Math.round(max / 3)));
-    morceaux.push(`Notes de l'entreprise :\n${part}`);
+    morceaux.push(`Autres notes de l'entreprise :\n${part}`);
     reste -= part.length;
   }
 

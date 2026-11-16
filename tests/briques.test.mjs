@@ -31,7 +31,7 @@ test("base de connaissances : notes en tête, documents récents d'abord, taille
       { title: "Vide", kind: "other", extracted_text: "   " },
     ],
   });
-  assert.ok(texte.startsWith("Notes de l'entreprise :\nNos clients sont des PME."));
+  assert.ok(texte.startsWith("Autres notes de l'entreprise :\nNos clients sont des PME."));
   assert.ok(texte.length <= MAX_CONNAISSANCES + 400, `taille ${texte.length}`);
   assert.match(texte, /Document « Pitch » \(pitch_deck\)/);
   assert.match(texte, /Document « Tarifs » \(pricing\) :\nCore 120 €/);

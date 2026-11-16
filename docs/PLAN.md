@@ -517,9 +517,57 @@ séparés. Ce qui a été tranché avec lui, puis fait (aucune migration) :
   noté (38 %), retour lisible par l'admin et le manager et refusé au learner,
   second test refusé, assignations intactes.
 
+### 16/11/2026 (suite) — Création unique, une simulation d'onboarding = une conversation
+
+Retour de Remco après avoir tout joué. Tranché avec lui, puis fait
+(migration **045**, additive) :
+
+- **Recrutement inchangé** (plusieurs étapes, même agent). Seule l'écriture de
+  document disparaît des propositions de la génération : Onbord ne simule que
+  des conversations (chat, e-mail, appel vidéo, appel téléphonique).
+- **Onboarding : UNE conversation, UN canal** (`modules.channel`) :
+  `lib/simulationOnboarding.js` écrit une seule étape — appel vidéo (la
+  personne est filmée, le personnage répond à la voix), téléphone, chat ou
+  e-mail. Les règles pures (canaux, brief, grille) : `lib/simulationCanal.js`.
+- **Fait pour apprendre** : le générateur sait que c'est un entraînement ; un
+  checkpoint peut exiger un fait de l'entreprise ; la simulation rend « À
+  retenir » (`config.a_retenir`), lu par la personne APRÈS chaque essai avec
+  son retour (jamais avant : `sanitizeStepForCandidate` le retire).
+- **Création unique** (`/simulations/creer`) : usage → recrutement comme avant
+  ; onboarding = rôle (déjà utilisé ou nouveau ; à approfondir plus tard) →
+  canal → langue, difficulté, seuil → personnage (bibliothèque, filtrée sur la
+  langue, ou créé sur place) → **agent de conception** (`lib/agentOnboarding.js`,
+  `/api/chat/module`) : il demande TOUJOURS le scénario tel qu'il se vit dans
+  l'entreprise, puis les objections, ce qu'il faut savoir, la réussite, et
+  remet un récapitulatif avec la grille proposée → « Générer » crée le module
+  (`modules.brief`, `modules.persona_id`, `modules.criteria`).
+- **Page d'une simulation** : aperçu complet (personnage, mission, contexte,
+  objections, informations cachées, fin, grille, À retenir), tester, publier,
+  assigner à des personnes, régénérer (même personnage), supprimer.
+- **Personnage = une personne** (`identitePersona`, `CHAMPS_IDENTITE`) : nom,
+  fonction, entreprise, qui il est (`background`), caractère, langue et voix
+  (un seul choix : la voix vient avec la langue, homme ou femme). Objections,
+  humeur et situation s'écrivent avec chaque simulation. Nouvelle fiche
+  (`components/personas/PersonaFiche.js`) avec « Proposer une fiche » à partir
+  d'une phrase. « Utiliser » un personnage dans une étape de recrutement
+  reprend son identité et garde la situation de l'étape.
+- **Supprimer pour de bon**, avec confirmation : une simulation d'onboarding
+  (versions, essais, notes, enregistrements du stockage, assignations —
+  `supprimerModule`) depuis la liste ou sa page ; un personnage depuis
+  Personnages. Une offre, depuis la liste Simulations, part en corbeille et
+  est effacée 7 jours plus tard (mécanisme existant).
+- **Connaissances** : rubriques (`organizations.knowledge_sections`) — offre,
+  acheteurs types, concurrents, marchés et langues (pré-remplissables depuis
+  le site : `brouillonsDuSite`), comment on vend, fait du support, recrute,
+  autres notes. Documents : trois types de plus (transcription d'appel,
+  échanges écrits, playbook) et un interrupteur « utilisé / de côté »
+  (`knowledge_documents.active`) : seuls les actifs nourrissent les agents.
+  Les objections ne sont plus dans les connaissances : l'agent les demande.
+
 ## 7. Avant la mise en ligne
 
-1. Migrations **035 à 044 appliquées** (toutes passées le 10/11/2026).
+1. Migrations **035 à 044 appliquées** (toutes passées le 10/11/2026). **045 à appliquer**
+   (création unique, connaissances structurées) avant de tester la branche.
 2. Reporter et pousser `bf910530` (dépôt sans upsert) peut se faire seul, avant
    le reste : il corrige l'enregistrement des vidéos des candidats en production.
 3. Fusionner `feat/onboarding` dans `main`, pousser, vérifier le statut Vercel.

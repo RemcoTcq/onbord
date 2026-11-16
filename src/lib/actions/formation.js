@@ -15,6 +15,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/org";
 import { parCompetence, progressionCompetences } from "@/lib/essais";
+import { aRetenirDe } from "@/lib/assignations";
 
 const ORDRE_STATUT = { in_progress: 0, assigned: 1, passed: 2, validated: 3 };
 
@@ -151,9 +152,10 @@ export async function getEssai(runId) {
     if (ctx.erreur) return { success: false, error: ctx.erreur };
     const admin = createAdminClient();
     const { data: run } = await admin.from("candidate_runs")
-      .select("id, assignment_id, attempt_number, status, started_at, submitted_at, scored_at, run_scores(overall, summary, criterion_scores)")
+      .select("id, assignment_id, attempt_number, experience_id, status, started_at, submitted_at, scored_at, run_scores(overall, summary, criterion_scores)")
       .eq("id", runId).eq("learner_id", ctx.user.id).maybeSingle();
     if (!run) return { success: false, error: "Essai introuvable" };
+    const aRetenir = run.status === "in_progress" ? [] : await aRetenirDe(admin, run.experience_id);
     const { data: a } = run.assignment_id
       ? await admin.from("assignments").select("id, status, best_score, modules(title, min_score)").eq("id", run.assignment_id).maybeSingle()
       : { data: null };
@@ -170,6 +172,7 @@ export async function getEssai(runId) {
         note: score?.overall ?? null,
         resume: score?.summary || "",
         competences: parCompetence(score?.criterion_scores),
+        aRetenir,
       },
       module: a ? { titre: a.modules?.title || "", minScore: a.modules?.min_score ?? 70, statut: a.status, meilleur: a.best_score } : null,
     };

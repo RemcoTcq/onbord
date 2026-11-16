@@ -9,7 +9,7 @@
 
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
-import { normaliserPersona } from "@/lib/persona";
+import { identitePersona } from "@/lib/persona";
 
 /** Empreinte d'une fiche : la même fiche n'entre qu'une fois par organisation. */
 export function empreintePersona(data) {
@@ -21,7 +21,9 @@ export function empreintePersona(data) {
  * l'identique. Renvoie son identifiant.
  */
 export async function rangerFiche(admin, { organizationId, data, userId }) {
-  const fiche = normaliserPersona(data);
+  // La bibliothèque ne garde que l'IDENTITÉ (16/11/2026) : la situation de
+  // l'étape d'où vient le personnage reste dans l'étape.
+  const fiche = identitePersona(data);
   if (!fiche || !organizationId) return null;
   const fingerprint = empreintePersona(fiche);
   const { data: existante } = await admin
