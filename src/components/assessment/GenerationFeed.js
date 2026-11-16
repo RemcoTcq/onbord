@@ -180,7 +180,10 @@ function feedText(t, e) {
       return t(e.version > 1 ? 'dashboard.generationFeed.newVersion' : 'dashboard.generationFeed.firstVersion',
         { version: e.version });
     case 'saved':
-      return t('dashboard.generationFeed.saved', { steps: e.nbEtapes, subDims: e.nbSubDims });
+      return t('dashboard.generationFeed.saved', {
+        steps: t('dashboard.generationFeed.savedSteps', { count: e.nbEtapes }),
+        subDims: t('dashboard.generationFeed.savedSubDims', { count: e.nbSubDims }),
+      });
     case 'done': return t('dashboard.generationFeed.done');
 
     default: return e.label || '';

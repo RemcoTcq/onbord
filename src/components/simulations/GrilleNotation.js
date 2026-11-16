@@ -49,10 +49,17 @@ export default function GrilleNotation({ moduleId, step, criteria, verrouillee =
 
   const setCritere = (cle, patch) => setGrille((g) => ({ ...g, criteres: g.criteres.map((c) => (c.cle === cle ? { ...c, ...patch } : c)) }));
   const retirerCritere = (cle) => setGrille((g) => ({ ...g, criteres: g.criteres.filter((c) => c.cle !== cle) }));
-  const ajouterCritere = () => setGrille((g) => ({
-    ...g,
-    criteres: [...g.criteres, { cle: nouvelleCle("c"), name: "", skills: g.competences[0] ? [g.competences[0].cle] : [], checkpoints: [{ cle: nouvelleCle("p"), description: "" }] }],
-  }));
+  // Un nouveau critère part de la première compétence que rien ne note encore ;
+  // si toutes sont couvertes, aucune n'est cochée d'office — le manager choisit,
+  // sans lien ajouté à son insu.
+  const ajouterCritere = () => setGrille((g) => {
+    const notees = couvertureGrille(g);
+    const libre = g.competences.find((c) => !(notees.get(c.cle) || ailleurs[c.cle]));
+    return {
+      ...g,
+      criteres: [...g.criteres, { cle: nouvelleCle("c"), name: "", skills: libre ? [libre.cle] : [], checkpoints: [{ cle: nouvelleCle("p"), description: "" }] }],
+    };
+  });
   const basculerSkill = (critere, cle) => setCritere(critere.cle, {
     skills: critere.skills.includes(cle) ? critere.skills.filter((s) => s !== cle) : [...critere.skills, cle],
   });

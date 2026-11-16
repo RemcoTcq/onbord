@@ -336,6 +336,14 @@ export async function evaluerRun(admin, run) {
   // La liste validée de l'offre, avec le tier de chaque compétence : c'est ce
   // qui fait peser un critère must-have double dans le score final.
   const competences = listerCompetences(source?.extracted_criteria || {});
+  // Onboarding (17/11/2026) : une simulation tient en UNE étape qui note
+  // plusieurs compétences. Chaque critère y est rangé sous SA compétence — la
+  // première de ses skill_ids, fixées par la grille, jamais par le modèle —,
+  // sinon tous tomberaient sous la compétence principale de l'étape. Le
+  // recrutement garde l'étape comme rubrique : c'est son rapport validé.
+  const nomsCompetences = new Map(competences.map((c) => [c.id, c.name]));
+  const rubriqueDuCritere = (critere, step) =>
+    (run.learner_id && nomsCompetences.get(critere.skill_ids?.[0])) || skillOf(step);
 
   // Le rapport se lit dans la langue de son LECTEUR : le recruteur pour un
   // candidat, le learner lui-même pour un essai d'onboarding (il lit son
@@ -599,9 +607,10 @@ Une entrée par sous-dimension listée, sans exception, au format qu'elle annonc
         const skillIds = critere.skill_ids?.length ? critere.skill_ids : idsEtape(step);
         const commun = {
           step_id: step.id,
-          // La compétence vient du step, pas du modèle : elle sert de clé de
-          // regroupement à l'affichage et ne doit pas dériver d'une reformulation.
-          skill_name: skillOf(step),
+          // La compétence vient du step (ou, en onboarding, de la grille du
+          // critère), pas du modèle : elle sert de clé de regroupement à
+          // l'affichage et ne doit pas dériver d'une reformulation.
+          skill_name: rubriqueDuCritere(critere, step),
           skill_ids: skillIds,
           tier: tierDe(skillIds),
           sub_dimension_name: critere.name || "",
