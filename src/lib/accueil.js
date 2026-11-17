@@ -115,3 +115,52 @@ export function resumer({ jobs = [], candidats = [], learners = [], assignations
     },
   };
 }
+
+// ── La vue d'ensemble de l'onboarding ──────────────────────────────────────
+
+/**
+ * Où en est chaque personne sur le chemin des vrais clients :
+ *   « ready »     déclarée prête par un manager ;
+ *   « almost »    tout est validé sauf une ou deux simulations (ou tout est
+ *                 validé et il ne reste qu'à la déclarer prête) ;
+ *   « onboarding » le reste, y compris qui n'a rien d'assigné.
+ */
+export function etapeVersClients({ lifecycle, assignes, valides }) {
+  if (lifecycle === "ready") return "ready";
+  if (assignes > 0 && valides > 0 && assignes - valides <= 2) return "almost";
+  return "onboarding";
+}
+
+/**
+ * Ce qui bloque, personne par personne, avec la simulation en cause : une
+ * échéance dépassée, des échecs répétés, une semaine sans essai.
+ * @returns {Array<{ learnerId, nom, raison: "overdue"|"struggling"|"inactive", moduleId?, module?, date?, essais?, jours? }>}
+ */
+export function blocages({ learners = [], assignations = [], essais = [], titres = new Map(), maintenant = new Date() }) {
+  const t = maintenant.getTime();
+  const noms = new Map(learners.map((l) => [l.id, l.nom]));
+  const out = [];
+  const notes = new Map();
+  for (const e of essais) {
+    if (e.assignment_id && e.status === "scored") notes.set(e.assignment_id, (notes.get(e.assignment_id) || 0) + 1);
+  }
+  for (const a of assignations) {
+    if (!noms.has(a.learner_id) || !ouverte(a)) continue;
+    const base = { learnerId: a.learner_id, nom: noms.get(a.learner_id), moduleId: a.module_id, module: titres.get(a.module_id) || "" };
+    if (a.due_at && new Date(a.due_at).getTime() < t) out.push({ ...base, raison: "overdue", date: a.due_at });
+    if ((notes.get(a.id) || 0) >= ESSAIS_AVANT_ALERTE) out.push({ ...base, raison: "struggling", essais: notes.get(a.id) });
+  }
+  const dernier = new Map();
+  for (const e of essais) {
+    const d = new Date(e.started_at || 0).getTime();
+    if (d > (dernier.get(e.learner_id) || 0)) dernier.set(e.learner_id, d);
+  }
+  for (const l of learners) {
+    const ouvertes = assignations.filter((a) => a.learner_id === l.id && ouverte(a));
+    if (!ouvertes.length) continue;
+    const depuis = Math.max(dernier.get(l.id) || 0, ...ouvertes.map((a) => new Date(a.created_at || 0).getTime()));
+    if (depuis < t - JOURS_INACTIVITE * JOUR) out.push({ learnerId: l.id, nom: l.nom, raison: "inactive", jours: Math.floor((t - depuis) / JOUR) });
+  }
+  const ordre = { overdue: 0, struggling: 1, inactive: 2 };
+  return out.sort((x, y) => ordre[x.raison] - ordre[y.raison] || String(x.nom).localeCompare(String(y.nom)));
+}

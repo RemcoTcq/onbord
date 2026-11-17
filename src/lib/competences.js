@@ -48,7 +48,7 @@ export const EXERCICES_CIBLE_MAX = 5;
 export const CHECKPOINTS_MIN = 3;
 export const CHECKPOINTS_MAX = 5;
 
-function normaliserNom(s) {
+export function normaliserNom(s) {
   return String(s ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

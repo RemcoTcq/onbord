@@ -74,3 +74,34 @@ test("accueil : les résumés comptent ce qu'il faut", () => {
   assert.deepEqual(r.recrutement, { offres: 1, enCours: 1, terminesSemaine: 1, aDecider: 1 });
   assert.deepEqual(r.onboarding, { personnes: 2, pretes: 1, moyenne: 51, validees: 1, assignees: 2 });
 });
+
+test("onboarding : l'étape vers les vrais clients", async () => {
+  const { etapeVersClients } = await import("../src/lib/accueil.js");
+  assert.equal(etapeVersClients({ lifecycle: "ready", assignes: 5, valides: 1 }), "ready");
+  assert.equal(etapeVersClients({ lifecycle: "onboarding", assignes: 5, valides: 3 }), "almost");
+  assert.equal(etapeVersClients({ lifecycle: "onboarding", assignes: 2, valides: 2 }), "almost");
+  assert.equal(etapeVersClients({ lifecycle: "onboarding", assignes: 5, valides: 2 }), "onboarding");
+  assert.equal(etapeVersClients({ lifecycle: "onboarding", assignes: 1, valides: 0 }), "onboarding", "rien de validé : pas encore presque prête");
+  assert.equal(etapeVersClients({ lifecycle: "onboarding", assignes: 0, valides: 0 }), "onboarding");
+});
+
+test("onboarding : ce qui bloque nomme la simulation en cause, retards d'abord", async () => {
+  const { blocages } = await import("../src/lib/accueil.js");
+  const b = blocages({
+    learners: [{ id: "a", nom: "Ana" }, { id: "b", nom: "Bob" }],
+    assignations: [
+      { id: "x1", learner_id: "a", module_id: "m1", status: "in_progress", created_at: ilYa(20) },
+      { id: "x2", learner_id: "b", module_id: "m2", status: "assigned", due_at: ilYa(2), created_at: ilYa(3) },
+      { id: "x3", learner_id: "b", module_id: "m1", status: "validated", due_at: ilYa(5), created_at: ilYa(30) },
+    ],
+    essais: [1, 2, 3].map((i) => ({ learner_id: "a", assignment_id: "x1", status: "scored", started_at: ilYa(10 + i) })),
+    titres: new Map([["m1", "Objection prix"], ["m2", "Facture contestée"]]),
+    maintenant,
+  });
+  assert.deepEqual(b.map((x) => [x.nom, x.raison, x.module || null]), [
+    ["Bob", "overdue", "Facture contestée"],
+    ["Ana", "struggling", "Objection prix"],
+    ["Ana", "inactive", null],
+  ]);
+  assert.equal(b[2].jours, 11);
+});

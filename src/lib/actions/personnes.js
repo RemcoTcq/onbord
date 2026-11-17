@@ -15,6 +15,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion, exigerAdminOrg } from "@/lib/org";
 import { envoyerNouveauxModules, envoyerModuleValide } from "@/lib/assignations";
+import { etapeVersClients, blocages } from "@/lib/accueil";
+import { listerCompetences, normaliserNom } from "@/lib/competences";
 
 const nomDe = (p) => [p?.first_name, p?.last_name].filter(Boolean).join(" ") || p?.email || "";
 
@@ -269,11 +271,11 @@ export async function tableauOnboarding() {
 
     const [{ data: profils }, { data: assig }, { data: runs }, { data: modules }] = await Promise.all([
       admin.from("users").select("id, email, first_name, last_name").in("id", ids),
-      admin.from("assignments").select("id, learner_id, module_id, status, best_score").eq("organization_id", ctx.orgId),
+      admin.from("assignments").select("id, learner_id, module_id, status, best_score, due_at, created_at").eq("organization_id", ctx.orgId),
       admin.from("candidate_runs")
         .select("id, learner_id, assignment_id, status, started_at, submitted_at, run_scores(overall, criterion_scores)")
         .in("learner_id", ids),
-      admin.from("modules").select("id, title").eq("organization_id", ctx.orgId),
+      admin.from("modules").select("id, title, criteria, archived_at").eq("organization_id", ctx.orgId),
     ]);
     const titre = new Map((modules || []).map((m) => [m.id, m.title]));
     const moduleDe = new Map((assig || []).map((a) => [a.id, a.module_id]));
@@ -319,19 +321,35 @@ export async function tableauOnboarding() {
       learners: ids.map((id) => {
         const a = (assig || []).filter((x) => x.learner_id === id);
         const r = notees.filter((x) => x.learner_id === id);
+        const lifecycle = (membres || []).find((m) => m.user_id === id)?.lifecycle || "onboarding";
+        const valides = a.filter((x) => x.status === "validated").length;
         return {
           userId: id,
           nom: nomDe(parId.get(id)),
-          lifecycle: (membres || []).find((m) => m.user_id === id)?.lifecycle || "onboarding",
+          lifecycle,
+          etape: etapeVersClients({ lifecycle, assignes: a.length, valides }),
           assignes: a.length,
-          valides: a.filter((x) => x.status === "validated").length,
+          valides,
+          aValider: a.filter((x) => x.status === "passed").length,
           moyenne: moyenne(r.map((x) => x.note)),
           essais: notes.filter((x) => x.learner_id === id).length,
           minutes: notes.filter((x) => x.learner_id === id).reduce((s, x) => s + minutes(x), 0),
         };
       }),
       dansLeTemps: [...parSemaine.entries()].sort().map(([semaineDu, xs]) => ({ semaineDu, moyenne: moyenne(xs), essais: xs.length })),
-      competences: [...parCompetence.entries()].map(([nom, xs]) => ({ nom, moyenne: moyenne(xs), mesures: xs.length })).sort((a, b) => a.moyenne - b.moyenne),
+      // Chaque compétence, avec les simulations (non archivées) qui la notent :
+      // c'est à elles qu'on renvoie la personne pour la travailler.
+      competences: [...parCompetence.entries()].map(([nom, xs]) => ({
+        nom, moyenne: moyenne(xs), mesures: xs.length,
+        simulations: (modules || []).filter((m) => !m.archived_at && listerCompetences(m.criteria || {}).some((c) => normaliserNom(c.name) === normaliserNom(nom)))
+          .map((m) => ({ id: m.id, titre: m.title })),
+      })).sort((a, b) => a.moyenne - b.moyenne),
+      blocages: blocages({
+        learners: ids.map((id) => ({ id, nom: nomDe(parId.get(id)) })),
+        assignations: assig || [],
+        essais: notes.map((r) => ({ learner_id: r.learner_id, assignment_id: r.assignment_id, status: r.status, started_at: r.started_at })),
+        titres: titre,
+      }),
       modules: [...parModule.entries()].map(([id, rs]) => ({
         id, titre: titre.get(id) || "", essais: rs.length, moyenne: moyenne(rs.filter((x) => x.note != null).map((x) => x.note)),
       })).sort((a, b) => b.essais - a.essais),

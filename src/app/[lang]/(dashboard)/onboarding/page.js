@@ -1,26 +1,70 @@
 "use client";
 
-// Le tableau de bord de l'onboarding (phase 2) : moyennes de l'organisation,
-// progression par learner, scores dans le temps, score par compétence, essais
-// par module, temps passé, modules validés et assignés. Et le réglage de
-// validation automatique (admin).
+// Onboarding → Vue d'ensemble (refaite le 17/11/2026). Elle répond d'abord à
+// la question du manager : QUI EST PRÊT POUR DE VRAIS CLIENTS, ET QUI BLOQUE ?
+//   • le chemin vers les vrais clients, en trois colonnes (en onboarding,
+//     presque prêtes, prêtes) — lib/accueil.js, etapeVersClients ;
+//   • ce qui bloque, personne par personne, avec la simulation en cause ;
+//   • les compétences les plus faibles de l'équipe, et les simulations qui
+//     les travaillent ;
+//   • puis les scores dans le temps, les résultats par simulation, et le
+//     réglage de validation automatique (admin).
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, ChevronRight, CalendarClock, TriangleAlert, Clock, Award, BadgeCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { formatDateShort } from "@/lib/i18n/format";
+import { initials } from "@/components/ui/ds";
 import { tableauOnboarding, getReglagesOnboarding, reglerAutoValidation } from "@/lib/actions/personnes";
 
-function Barre({ valeur }) {
+const COLONNES = ["onboarding", "almost", "ready"];
+const NB_COMPETENCES = 5;
+const ICONES_BLOCAGE = { overdue: CalendarClock, struggling: TriangleAlert, inactive: Clock };
+
+function Barre({ valeur, largeur = 120 }) {
   const v = Math.max(0, Math.min(100, valeur ?? 0));
   const couleur = v >= 75 ? "var(--ds-green)" : v >= 50 ? "var(--ds-amber)" : "var(--ds-red)";
   return (
-    <span style={{ display: "inline-block", width: 120, height: 6, borderRadius: 99, background: "var(--ds-line)", overflow: "hidden", verticalAlign: "middle" }}>
+    <span style={{ display: "inline-block", width: largeur, height: 6, borderRadius: 99, background: "var(--ds-line)", overflow: "hidden", verticalAlign: "middle", flex: "none" }}>
       <span style={{ display: "block", width: `${v}%`, height: "100%", background: couleur }} />
     </span>
+  );
+}
+
+/** Une personne dans sa colonne : progression, score moyen, ce qui l'attend. */
+function CartePersonne({ l, k }) {
+  const pct = l.assignes ? Math.round((l.valides / l.assignes) * 100) : 0;
+  const aDeclarer = l.etape === "almost" && l.assignes > 0 && l.valides === l.assignes;
+  return (
+    <Link href={`/onboarding/personnes/${l.userId}`} className="ds-panel" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, textDecoration: "none", color: "inherit" }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <span className="ds-avatar">{initials(...String(l.nom || "?").split(" "))}</span>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <b style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.nom}</b>
+          <span className="ds-muted" style={{ fontSize: 12 }}>
+            {l.moyenne != null ? k("averageShort", { score: l.moyenne }) : k("noAttemptYet")} · {k("attemptsShort", { count: l.essais })}
+          </span>
+        </span>
+        <ChevronRight size={14} color="var(--ds-ink-6)" />
+      </span>
+      {l.assignes > 0 ? (
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ds-ink-3)" }}>
+          <span className="ds-meter ds-meter-thin" style={{ flex: 1 }}><span style={{ width: `${pct}%` }} /></span>
+          {k("validatedOf", { valides: l.valides, assignes: l.assignes })}
+        </span>
+      ) : (
+        <span className="ds-muted" style={{ fontSize: 12 }}>{k("nothingAssigned")}</span>
+      )}
+      {(aDeclarer || l.aValider > 0) && (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {aDeclarer && <span className="ds-chip ds-chip-green" style={{ gap: 5 }}><Award size={12} /> {k("toDeclare")}</span>}
+          {l.aValider > 0 && <span className="ds-chip ds-chip-blue" style={{ gap: 5 }}><BadgeCheck size={12} /> {k("toValidate", { count: l.aValider })}</span>}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -36,6 +80,7 @@ export default function OnboardingPage() {
     setD(tab.success ? tab : { erreur: true });
     setReglages(reg.success ? reg : null);
   }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     charger();
@@ -48,29 +93,39 @@ export default function OnboardingPage() {
   }
 
   const tuile = (libelle, valeur) => (
-    <div className="ds-panel" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+    <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <span className="ds-muted" style={{ fontSize: 12 }}>{libelle}</span>
-      <b style={{ fontSize: 22, fontWeight: 600 }}>{valeur}</b>
+      <span className="ds-stat" style={{ fontSize: 24 }}>{valeur}</span>
     </div>
   );
 
+  const raison = (b) => {
+    if (b.raison === "overdue") return k("blocked.overdue", { module: b.module, date: formatDateShort(b.date, locale) });
+    if (b.raison === "struggling") return k("blocked.struggling", { module: b.module, count: b.essais });
+    return k("blocked.inactive", { count: b.jours });
+  };
+
   return (
     <>
-      <PageHeader title={k("title")} />
-      <div className="ds-body" style={{ maxWidth: 1080, display: "flex", flexDirection: "column", gap: 16 }}>
-        {!d && <Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} />}
+      <PageHeader title={k("title")} actions={
+        <Link href="/simulations/creer?usage=onboarding" className="ds-btn ds-btn-primary"><Plus size={15} strokeWidth={2.2} /> {k("createSimulation")}</Link>
+      } />
+      <div className="ds-body" style={{ maxWidth: 1180, display: "flex", flexDirection: "column", gap: 16 }}>
+        {!d && <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} /></div>}
         {d?.erreur && <p className="ds-sub">{k("error")}</p>}
         {d?.vide && (
-          <div className="ds-panel" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <p className="ds-sub">{k("empty")}</p>
-            <div style={{ display: "flex", gap: 8 }}>
+          <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <p className="ds-sub" style={{ margin: 0 }}>{k("empty")}</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Link href="/simulations/creer?usage=onboarding" className="ds-btn">{k("toModules")}</Link>
               <Link href="/onboarding/personnes" className="ds-btn ds-btn-primary">{k("toPeople")}</Link>
             </div>
           </div>
         )}
+
         {d?.synthese && (
           <>
+            {/* ── Chiffres clés ── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
               {tuile(k("learners"), d.synthese.learners)}
               {tuile(k("ready"), d.synthese.prets)}
@@ -80,68 +135,131 @@ export default function OnboardingPage() {
               {tuile(k("time"), k("minutes", { count: d.synthese.minutes }))}
             </div>
 
-            <section className="ds-panel">
-              <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{k("byLearner")}</h2>
-              <div className="ds-inset" style={{ padding: 0 }}>
-                {d.learners.map((l, i) => (
-                  <Link key={l.userId} href={`/onboarding/personnes/${l.userId}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderTop: i ? "1px solid var(--ds-line)" : "none", textDecoration: "none", color: "inherit", fontSize: 13 }}>
-                    <b style={{ flex: 1, fontWeight: 600 }}>{l.nom}</b>
-                    <span className="ds-chip">{t(`dashboard.onb.people.lifecycle.${l.lifecycle}`)}</span>
-                    <span style={{ width: 110 }}>{k("validatedOf", { valides: l.valides, assignes: l.assignes })}</span>
-                    <span style={{ width: 160 }}><Barre valeur={l.moyenne} /> {l.moyenne != null ? `${l.moyenne} %` : "—"}</span>
-                    <span className="ds-muted" style={{ width: 120, textAlign: "right" }}>{k("attemptsShort", { count: l.essais })} · {k("minutes", { count: l.minutes })}</span>
-                  </Link>
-                ))}
+            {/* ── Vers de vrais clients ── */}
+            <section aria-labelledby="ds-chemin" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <h2 id="ds-chemin" className="ds-h2">{k("path.title")}</h2>
+                <span className="ds-muted" style={{ fontSize: 13 }}>{k("path.hint")}</span>
+              </span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, alignItems: "start" }}>
+                {COLONNES.map((col) => {
+                  const gens = d.learners.filter((l) => l.etape === col);
+                  return (
+                    <div key={col} className="ds-card" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, background: "var(--ds-page)" }}>
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 4px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 13 }}>
+                          <span className={`ds-dot ${col === "ready" ? "ds-dot-green" : col === "almost" ? "ds-dot-amber" : "ds-dot-blue"}`} />
+                          {k(`path.${col}`)}
+                        </span>
+                        <span className="ds-chip">{gens.length}</span>
+                      </span>
+                      <span className="ds-muted" style={{ fontSize: 12, padding: "0 4px" }}>{k(`path.${col}Hint`)}</span>
+                      {gens.length === 0
+                        ? <span className="ds-muted" style={{ fontSize: 12, padding: "10px 4px", textAlign: "center" }}>—</span>
+                        : gens.map((l) => <CartePersonne key={l.userId} l={l} k={k} />)}
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
-              <section className="ds-panel">
-                <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{k("overTime")}</h2>
-                <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                  {!d.dansLeTemps.length && <p className="ds-sub">{k("noScores")}</p>}
-                  {d.dansLeTemps.map((s) => (
-                    <div key={s.semaineDu} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 110 }}>{k("weekOf", { date: formatDateShort(s.semaineDu, locale) })}</span>
-                      <Barre valeur={s.moyenne} /> <span>{s.moyenne} %</span>
-                      <span className="ds-muted">({k("attemptsShort", { count: s.essais })})</span>
-                    </div>
-                  ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 16, alignItems: "start" }}>
+              {/* ── Qui bloque ── */}
+              <section className="ds-card" aria-labelledby="ds-bloque" style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
+                  <h2 id="ds-bloque" className="ds-h2">{k("blocked.title")}</h2>
+                  <span className="ds-muted" style={{ fontSize: 13 }}>{k("blocked.hint")}</span>
                 </div>
+                {d.blocages.length === 0 ? (
+                  <div className="ds-empty" style={{ padding: "16px 16px 22px" }}>{k("blocked.none")}</div>
+                ) : (
+                  <ul style={{ margin: 0, padding: "0 8px 8px", listStyle: "none" }}>
+                    {d.blocages.map((b, i) => {
+                      const Icone = ICONES_BLOCAGE[b.raison];
+                      return (
+                        <li key={`${b.learnerId}-${b.raison}-${b.moduleId || i}`} style={{ borderTop: "1px solid var(--ds-line-3)" }}>
+                          <Link href={`/onboarding/personnes/${b.learnerId}`} className="ds-row-link" style={{ gap: 12 }}>
+                            <span className="ds-icon-tile" style={{ background: "var(--ds-amber)", width: 28, height: 28, flex: "none" }}><Icone size={14} strokeWidth={2.2} /></span>
+                            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 500 }}>{b.nom}</span>
+                              <span style={{ fontSize: 12, color: "var(--ds-ink-4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{raison(b)}</span>
+                            </span>
+                            <ChevronRight size={14} color="var(--ds-ink-6)" />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </section>
-              <section className="ds-panel">
-                <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{k("bySkill")}</h2>
-                <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                  {!d.competences.length && <p className="ds-sub">{k("noScores")}</p>}
-                  {d.competences.map((c) => (
-                    <div key={c.nom} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{c.nom}</span>
-                      <Barre valeur={c.moyenne} /> <span style={{ width: 44, textAlign: "right" }}>{c.moyenne} %</span>
-                    </div>
-                  ))}
+
+              {/* ── Compétences à travailler ── */}
+              <section className="ds-card" aria-labelledby="ds-competences" style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
+                  <h2 id="ds-competences" className="ds-h2">{k("skills.title")}</h2>
+                  <span className="ds-muted" style={{ fontSize: 13 }}>{k("skills.hint")}</span>
                 </div>
+                {d.competences.length === 0 ? (
+                  <div className="ds-empty" style={{ padding: "16px 16px 22px" }}>{k("noScores")}</div>
+                ) : (
+                  <ul style={{ margin: 0, padding: "0 16px 14px", listStyle: "none", display: "flex", flexDirection: "column", gap: 12 }}>
+                    {d.competences.slice(0, NB_COMPETENCES).map((c) => (
+                      <li key={c.nom} style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 10, borderTop: "1px solid var(--ds-line-3)" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                          <span style={{ flex: 1, minWidth: 0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis" }}>{c.nom}</span>
+                          <Barre valeur={c.moyenne} largeur={90} />
+                          <span className="ds-mono" style={{ width: 40, textAlign: "right" }}>{c.moyenne} %</span>
+                        </span>
+                        {c.simulations.length > 0 ? (
+                          <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontSize: 12 }}>
+                            <span className="ds-muted">{k("skills.workedBy")}</span>
+                            {c.simulations.slice(0, 3).map((s) => (
+                              <Link key={s.id} href={`/onboarding/modules/${s.id}`} className="ds-chip" style={{ maxWidth: 260 }} title={s.titre}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.titre}</span></Link>
+                            ))}
+                          </span>
+                        ) : (
+                          <Link href="/simulations/creer?usage=onboarding" className="ds-link" style={{ fontSize: 12 }}>{k("skills.create")}</Link>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             </div>
 
-            <section className="ds-panel">
-              <h2 className="ds-h2" style={{ padding: "10px 10px 0" }}>{k("byModule")}</h2>
-              <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
-                {!d.modules.length && <p className="ds-sub">{k("noScores")}</p>}
-                {d.modules.map((m) => (
-                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ flex: 1 }}>{m.titre}</span>
-                    <span className="ds-muted">{k("attemptsShort", { count: m.essais })}</span>
-                    <Barre valeur={m.moyenne} /> <span style={{ width: 44, textAlign: "right" }}>{m.moyenne != null ? `${m.moyenne} %` : "—"}</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 16, alignItems: "start" }}>
+              {/* ── Scores dans le temps ── */}
+              <section className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <h2 className="ds-h2">{k("overTime")}</h2>
+                {!d.dansLeTemps.length && <p className="ds-sub" style={{ margin: 0 }}>{k("noScores")}</p>}
+                {d.dansLeTemps.map((s) => (
+                  <div key={s.semaineDu} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                    <span style={{ width: 120 }}>{k("weekOf", { date: formatDateShort(s.semaineDu, locale) })}</span>
+                    <Barre valeur={s.moyenne} /> <span className="ds-mono">{s.moyenne} %</span>
+                    <span className="ds-muted">({k("attemptsShort", { count: s.essais })})</span>
                   </div>
                 ))}
-              </div>
-            </section>
+              </section>
+
+              {/* ── Par simulation ── */}
+              <section className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <h2 className="ds-h2">{k("byModule")}</h2>
+                {!d.modules.length && <p className="ds-sub" style={{ margin: 0 }}>{k("noScores")}</p>}
+                {d.modules.map((m) => (
+                  <Link key={m.id} href={`/onboarding/modules/${m.id}`} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "inherit", textDecoration: "none" }}>
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.titre}</span>
+                    <span className="ds-muted">{k("attemptsShort", { count: m.essais })}</span>
+                    <Barre valeur={m.moyenne} largeur={90} /> <span className="ds-mono" style={{ width: 40, textAlign: "right" }}>{m.moyenne != null ? `${m.moyenne} %` : "—"}</span>
+                  </Link>
+                ))}
+              </section>
+            </div>
           </>
         )}
 
         {reglages && (
-          <section className="ds-panel" style={{ display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
-            <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+          <section className="ds-card ds-card-pad" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: 2 }}>
               <b style={{ fontWeight: 600 }}>{k("autoValidate")}</b>
               <span className="ds-sub">{k("autoValidateHint")}</span>
             </span>
