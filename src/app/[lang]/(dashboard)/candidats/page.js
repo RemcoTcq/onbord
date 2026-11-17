@@ -2,9 +2,12 @@
 
 // Hiring → Candidates (phase 5) : tous les candidats de l'organisation, toutes
 // offres confondues, avec une recherche et un filtre par offre. Chaque ligne
-// ouvre la fiche candidat habituelle, sous son offre.
+// ouvre la fiche candidat habituelle, sous son offre. Le filtre « À décider »
+// (17/11/2026, ?filtre=adecider depuis l'accueil) ne garde que ceux qui ont
+// terminé sans décision, les meilleurs scores d'abord.
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Search, ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import PageHeader from "@/components/layout/PageHeader";
@@ -13,6 +16,7 @@ import { formatDateShort } from "@/lib/i18n/format";
 import { scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
 import { listerCandidatsOrganisation } from "@/lib/actions/candidate";
 import Select from "@/components/ui/Select";
+import { estADecider } from "@/lib/accueil";
 
 // Mêmes tons que la liste des candidats d'une offre (jobs/[id]/page.js).
 const TON_STATUT = {
@@ -26,10 +30,11 @@ const sansAccents = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, 
 
 export default function CandidatsPage() {
   const { t, locale } = useI18n();
-  const k = (cle) => t(`dashboard.candidatesAll.${cle}`);
+  const k = (cle, vars) => t(`dashboard.candidatesAll.${cle}`, vars);
   const [candidats, setCandidats] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [offre, setOffre] = useState("");
+  const [aDecider, setADecider] = useState(useSearchParams().get("filtre") === "adecider");
 
   useEffect(() => {
     let annule = false;
@@ -45,16 +50,24 @@ export default function CandidatsPage() {
 
   const visibles = useMemo(() => {
     const q = sansAccents(recherche.trim());
-    return (candidats || []).filter((c) => (!offre || c.job_id === offre)
+    const l = (candidats || []).filter((c) => (!offre || c.job_id === offre)
+      && (!aDecider || estADecider(c))
       && (!q || sansAccents(`${c.first_name} ${c.last_name} ${c.email} ${c.poste}`).includes(q)));
-  }, [candidats, recherche, offre]);
+    return aDecider ? l.sort((a, b) => (b.score_global ?? -1) - (a.score_global ?? -1)) : l;
+  }, [candidats, recherche, offre, aDecider]);
+  const nbADecider = useMemo(() => (candidats || []).filter(estADecider).length, [candidats]);
 
   return (
     <>
       <PageHeader title={k("title")} />
       <div className="ds-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <p className="ds-sub">{k("subtitle")}</p>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div role="radiogroup" aria-label={k("filter")} className="ds-seg" style={{ height: 34 }}>
+            {[[false, k("filterAll")], [true, k("filterToDecide", { count: nbADecider })]].map(([v, l]) => (
+              <button key={String(v)} type="button" role="radio" aria-checked={aDecider === v} className="ds-seg-item" style={{ height: 28, fontSize: 13 }} onClick={() => setADecider(v)}>{l}</button>
+            ))}
+          </div>
           <label className="ds-search" style={{ minWidth: 280, flex: "0 1 360px" }}>
             <Search size={15} strokeWidth={2} />
             <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder={k("search")} aria-label={k("search")} />
@@ -71,7 +84,7 @@ export default function CandidatsPage() {
           <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} /></div>
         ) : !visibles.length ? (
           <div className="ds-empty" style={{ padding: "48px 20px" }}>
-            <span className="ds-empty-title">{candidats.length ? k("noMatch") : k("empty")}</span>
+            <span className="ds-empty-title">{!candidats.length ? k("empty") : aDecider && !nbADecider ? k("noneToDecide") : k("noMatch")}</span>
           </div>
         ) : (
           <div className="ds-table-wrap">

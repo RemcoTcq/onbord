@@ -47,6 +47,8 @@ const SEGMENTS = {
   resultats:      { en: "results" },
   // 16/11/2026 : l'entrée unique « Créer une simulation ».
   creer:          { en: "create" },
+  // 17/11/2026 : Recrutement → Vue d'ensemble (l'ancien accueil).
+  recrutement:    { en: "hiring" },
 };
 
 // Table inverse, construite une fois : "home" → "accueil" pour la locale en.

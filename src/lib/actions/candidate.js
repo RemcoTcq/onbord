@@ -361,7 +361,7 @@ export async function listerCandidatsOrganisation() {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('candidates')
-      .select('id, first_name, last_name, email, status, score_global, created_at, job_id, jobs!inner(title, deleted_at)')
+      .select('id, first_name, last_name, email, status, score_global, created_at, assessment_submitted_at, job_id, jobs!inner(title, deleted_at)')
       .is('jobs.deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1000);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
-import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users, UserSearch, ChevronDown } from "lucide-react";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users, UserSearch, ChevronDown, ChartColumn } from "lucide-react";
 // Layers : « Simulations », l'entrée commune au recrutement et à l'onboarding.
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
@@ -77,6 +77,7 @@ export default function Sidebar() {
       { href: "/simulations", label: t("dashboard.nav.simulations"), icon: icone(Layers), actif: pathname.startsWith("/simulations") || pathname.startsWith("/onboarding/modules") },
     ] },
     { cle: "hiring", label: t("dashboard.nav.hiring"), items: [
+      { href: "/recrutement", label: t("dashboard.nav.overview"), icon: icone(ChartColumn), actif: pathname === "/recrutement" },
       {
         href: "/jobs",
         label: t("dashboard.nav.jobs"),

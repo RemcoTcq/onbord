@@ -1,0 +1,76 @@
+// L'accueil (17/11/2026) : la liste « À faire » et les résumés, lib/accueil.js.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { calculerAFaire, resumer, estADecider } from "../src/lib/accueil.js";
+
+const maintenant = new Date("2026-11-17T12:00:00Z");
+const ilYa = (jours) => new Date(maintenant.getTime() - jours * 86400000).toISOString();
+
+test("accueil : un candidat est à décider s'il a terminé et que personne n'a tranché", () => {
+  assert.equal(estADecider({ status: "scored", score_global: 70 }), true);
+  assert.equal(estADecider({ status: "soumis", assessment_submitted_at: ilYa(1) }), true);
+  assert.equal(estADecider({ status: "shortlisted", score_global: 80 }), false);
+  assert.equal(estADecider({ status: "rejected", score_global: 20 }), false);
+  assert.equal(estADecider({ status: "invited" }), false);
+});
+
+test("accueil : chaque situation donne sa ligne, et une seule personne mène à sa fiche", () => {
+  const learners = [
+    { id: "a", nom: "Ana", lifecycle: "onboarding" },
+    { id: "b", nom: "Bob", lifecycle: "onboarding" },
+    { id: "c", nom: "Cléo", lifecycle: "ready" },
+    { id: "d", nom: "Dan", lifecycle: "onboarding" },
+  ];
+  const assignations = [
+    { id: "x1", learner_id: "a", status: "passed", created_at: ilYa(2) },
+    { id: "x2", learner_id: "b", status: "validated", created_at: ilYa(20) },
+    { id: "x3", learner_id: "c", status: "validated", created_at: ilYa(20) },
+    { id: "x4", learner_id: "d", status: "in_progress", due_at: ilYa(1), created_at: ilYa(30) },
+    { id: "x5", learner_id: "a", status: "assigned", created_at: ilYa(1) },
+  ];
+  const essais = [
+    ...[1, 2, 3].map((i) => ({ learner_id: "d", assignment_id: "x4", status: "scored", started_at: ilYa(10 + i) })),
+    { learner_id: "a", assignment_id: "x1", status: "scored", started_at: ilYa(2) },
+  ];
+  const lignes = calculerAFaire({
+    candidats: [{ status: "scored", score_global: 60 }, { status: "shortlisted", score_global: 90 }],
+    simulations: [{ status: "pending_review", href: "/onboarding/modules/m1" }, { status: "published", href: "/jobs/j1/experience" }],
+    learners, assignations, essais, maintenant,
+  });
+  const parCle = Object.fromEntries(lignes.map((l) => [l.cle, l]));
+  assert.deepEqual(lignes.map((l) => l.cle), ["candidatesToReview", "attemptsToValidate", "readyToDeclare", "overdue", "struggling", "inactive", "toPublish"]);
+  assert.equal(parCle.candidatesToReview.n, 1);
+  assert.deepEqual(parCle.attemptsToValidate, { cle: "attemptsToValidate", n: 1, noms: ["Ana"], href: "/onboarding/personnes/a" });
+  assert.deepEqual(parCle.readyToDeclare.noms, ["Bob"], "Cléo est déjà déclarée prête");
+  assert.deepEqual(parCle.overdue.noms, ["Dan"]);
+  assert.deepEqual(parCle.struggling.noms, ["Dan"]);
+  assert.deepEqual(parCle.inactive.noms, ["Dan"], "Ana a essayé il y a 2 jours");
+  assert.equal(parCle.toPublish.href, "/onboarding/modules/m1");
+});
+
+test("accueil : rien à faire, aucune ligne ; plusieurs personnes mènent à la liste", () => {
+  assert.deepEqual(calculerAFaire({ maintenant }), []);
+  const learners = ["a", "b", "c", "d"].map((id) => ({ id, nom: id.toUpperCase(), lifecycle: "onboarding" }));
+  const assignations = learners.map((l, i) => ({ id: `x${i}`, learner_id: l.id, status: "passed", created_at: ilYa(1) }));
+  const [l] = calculerAFaire({ learners, assignations, maintenant });
+  assert.equal(l.n, 4);
+  assert.equal(l.noms.length, 3);
+  assert.equal(l.href, "/onboarding/personnes");
+});
+
+test("accueil : les résumés comptent ce qu'il faut", () => {
+  const r = resumer({
+    jobs: [{ status: "active" }, { status: "closed" }],
+    candidats: [
+      { assessment_status: "in_progress" },
+      { assessment_status: "submitted", assessment_submitted_at: ilYa(2), status: "scored", score_global: 50 },
+      { assessment_status: "submitted", assessment_submitted_at: ilYa(12), status: "rejected", score_global: 10 },
+    ],
+    learners: [{ lifecycle: "ready" }, { lifecycle: "onboarding" }],
+    assignations: [{ status: "validated" }, { status: "assigned" }],
+    essais: [{ note: 40 }, { note: 61 }, { note: null }],
+    maintenant,
+  });
+  assert.deepEqual(r.recrutement, { offres: 1, enCours: 1, terminesSemaine: 1, aDecider: 1 });
+  assert.deepEqual(r.onboarding, { personnes: 2, pretes: 1, moyenne: 51, validees: 1, assignees: 2 });
+});
