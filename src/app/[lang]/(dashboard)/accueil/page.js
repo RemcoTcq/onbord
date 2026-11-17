@@ -38,14 +38,15 @@ const LIGNES = {
   creditsLow: { icone: CircleArrowUp, alerte: true },
 };
 
-// Les actions rapides, dans l'ordre où on s'en sert.
+// Les actions rapides, dans l'ordre où on s'en sert. Toutes à égalité :
+// même carte, même icône, même hauteur (demande de Remco).
 const ACTIONS = [
-  { cle: "createSimulation", href: "/simulations/creer", icone: Sparkles, couleur: "var(--ds-blue)", principale: true },
-  { cle: "createJob", href: "/jobs/nouveau", icone: Briefcase, couleur: "#4C74E0" },
-  { cle: "createPersona", href: "/bibliotheque/personnages", icone: Contact, couleur: "#7FA0F0" },
-  { cle: "inviteHire", href: "/onboarding/personnes", icone: UserPlus, couleur: "#4C74E0" },
-  { cle: "hiringReports", href: "/recrutement", icone: ChartColumn, couleur: "#7FA0F0" },
-  { cle: "onboardingReports", href: "/onboarding", icone: GraduationCap, couleur: "var(--ds-blue)" },
+  { cle: "createSimulation", href: "/simulations/creer", icone: Sparkles },
+  { cle: "createJob", href: "/jobs/nouveau", icone: Briefcase },
+  { cle: "createPersona", href: "/bibliotheque/personnages", icone: Contact },
+  { cle: "inviteHire", href: "/onboarding/personnes", icone: UserPlus },
+  { cle: "hiringReports", href: "/recrutement", icone: ChartColumn },
+  { cle: "onboardingReports", href: "/onboarding", icone: GraduationCap },
 ];
 
 export default function Accueil() {
@@ -99,13 +100,10 @@ export default function Accueil() {
       {/* ── Actions rapides ── */}
       <section aria-labelledby="ds-actions" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="ds-actions" className="sr-only">{k("quick.title")}</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
-          {ACTIONS.map(({ cle, href, icone: Icone, couleur, principale }) => (
-            <Link key={cle} href={href} className="ds-card ds-card-pad accueil-action" style={{
-              display: "flex", alignItems: "flex-start", gap: 12, textDecoration: "none", color: "inherit",
-              borderColor: principale ? "var(--ds-blue)" : undefined, background: principale ? "var(--ds-blue-06)" : undefined,
-            }}>
-              <span className="ds-icon-tile" style={{ background: couleur, width: 34, height: 34, flex: "none" }}><Icone size={16} strokeWidth={2.2} /></span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gridAutoRows: "1fr", gap: 12 }}>
+          {ACTIONS.map(({ cle, href, icone: Icone }) => (
+            <Link key={cle} href={href} className="ds-card ds-card-pad accueil-action" style={{ display: "flex", alignItems: "flex-start", gap: 12, textDecoration: "none", color: "inherit" }}>
+              <span className="ds-icon-tile" style={{ background: "var(--ds-blue)", width: 34, height: 34, flex: "none" }}><Icone size={16} strokeWidth={2.2} /></span>
               <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                 <b style={{ fontWeight: 600, fontSize: 14 }}>{k(`quick.${cle}`)}</b>
                 <span className="ds-muted" style={{ fontSize: 12.5, lineHeight: 1.45 }}>{k(`quick.${cle}Hint`)}</span>
