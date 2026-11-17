@@ -18,11 +18,11 @@ import { coerceUiLocale } from "@/lib/i18n/config";
 import { localiserChemin } from "@/lib/i18n/routes";
 import { emailNouveauxModules, emailModuleValide } from "@/lib/emailsApplication";
 import { issueEssai, adresseDeTest } from "@/lib/essais";
+import { urlPublique } from "@/lib/urlPublique";
 
 /** Lien absolu vers une page de l'application, dans la langue du destinataire. */
 function lienApp(locale, chemin) {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${base}/${locale}${localiserChemin(chemin, locale)}`;
+  return `${urlPublique()}/${locale}${localiserChemin(chemin, locale)}`;
 }
 
 /** Le learner à qui écrire, et l'organisation qui signe. */

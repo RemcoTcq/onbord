@@ -43,13 +43,14 @@ import { emailInvitation } from "@/lib/emailsApplication";
 import { coerceUiLocale } from "@/lib/i18n/config";
 import { lacunesDuRecrutement, adresseDeTest } from "@/lib/essais";
 import { consommer, ipDe, SEUILS } from "@/lib/rateLimit";
+import { urlPublique } from "@/lib/urlPublique";
 
 const DUREE_INVITATION_JOURS = 7;
 
 const hacher = (jeton) => createHash("sha256").update(jeton).digest("hex");
 const adresseValide = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 const lienInvitation = (locale, jeton) =>
-  `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/${locale}/invitation/${jeton}`;
+  `${urlPublique()}/${locale}/invitation/${jeton}`;
 
 /** L'adresse a-t-elle déjà un compte Onbord ? (public.users porte l'e-mail.) */
 async function compteExiste(admin, email) {
