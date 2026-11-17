@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/org";
 import { localiserChemin } from "@/lib/i18n/routes";
+import { alignerLangueProfil } from "@/lib/i18n/alignerLangue";
 import EnTeteLearner from "@/components/learner/EnTeteLearner";
 import { ToastProvider } from "@/components/ui/Toast";
 import "../../globals.css";
@@ -14,6 +15,8 @@ export default async function LearnerLayout({ children, params }) {
   const ctx = await getOrgContext();
   if (!ctx) redirect(`/${lang}${localiserChemin("/login", lang)}`);
   if (ctx.orgRole !== "learner") redirect(`/${lang}${localiserChemin("/accueil", lang)}`);
+  // Le retour d'un essai se rédige dans la langue du profil : elle suit celle de l'écran.
+  await alignerLangueProfil(ctx.supabase, ctx.user.id, lang);
   return (
     <ToastProvider>
       <div className="ds" style={{ minHeight: "100vh", background: "var(--ds-page)" }}>

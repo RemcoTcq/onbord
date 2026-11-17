@@ -6,6 +6,7 @@ import { DEFAULT_PRIMARY, getContrastColor, primaryBtn } from "./candidateUi";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/lib/supabase/client";
 import { savePersonaCallVideo } from "@/lib/actions/run";
+import { afficherIndications } from "@/lib/indicationsJeu";
 
 // Sandbox « persona » — un interlocuteur joué par l'IA : un prospect, un client
 // mécontent, un collaborateur, un manager. Deux modes :
@@ -789,7 +790,9 @@ function PersonaCall({ persona, conv, token, stepId, primary }) {
           setConnexionRT(false);
         },
         onMessage: ({ message, role }) => {
-          const texte = String(message || "").trim();
+          // Les indications de jeu (« [impatient] ») : traduites dans la langue
+          // de l'appel, jamais affichées en anglais brut (lib/indicationsJeu.js).
+          const texte = role === "user" ? String(message || "").trim() : afficherIndications(message, persona?.language || locale);
           if (!texte) return;
           // La réplique d'ouverture est déjà affichée (elle fait partie de la fiche).
           if (role === "agent" && !ouvertureVue) {

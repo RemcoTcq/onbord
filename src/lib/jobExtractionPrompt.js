@@ -74,10 +74,11 @@ Pour le champ "priority" des skills, utilisez UNIQUEMENT "must_have", "nice_to_h
 "nice_to_have" UNIQUEMENT quand l'offre présente explicitement la compétence comme un atout (« un plus », « souhaité », « idéalement », « apprécié », « nice to have », « is a plus », « bij voorkeur »…). En cas de doute, "ambiguous" — jamais "nice_to_have" par défaut : une compétence secondaire testée en trop coûte moins cher qu'une compétence critique jamais testée.
 
 RÈGLE ABSOLUE POUR LES SKILLS ET LES LANGUES — LISEZ ATTENTIVEMENT :
-1. Si l'utilisateur a fourni une description courte avec des mots-clés de compétences (ex: React, SQL, Python), vous DEVEZ ABSOLUMENT les extraire dans hard_skills. Ne les ignorez jamais.
-2. Soyez exhaustif : extrayez TOUTES les compétences (hard et soft) présentes ou sous-entendues dans le texte. Ne vous limitez pas.
-3. Vous devez TOUJOURS inclure la "preuve" (le champ evidence) c'est-à-dire l'extrait exact du texte original qui justifie l'extraction de cette compétence.
-4. INTERDICTION FORMELLE de lister les langues (ex: Anglais, Français, Néerlandais, English, etc.) dans les "hard_skills" ou "soft_skills". Les langues doivent figurer UNIQUEMENT dans le tableau "languages".
+1. Onbord évalue le candidat dans des CONVERSATIONS DE TRAVAIL simulées — un appel téléphonique, un appel vidéo, un chat ou un e-mail avec un interlocuteur. N'extrayez QUE les compétences qui se montrent dans une telle conversation : prospecter et engager la bonne personne, mener une découverte, présenter une offre, traiter une objection, négocier, conclure, comprendre et résoudre le problème d'un client, désamorcer un client mécontent, rédiger un message clair et convaincant, écouter, s'adapter à son interlocuteur…
+2. N'extrayez JAMAIS la maîtrise d'un OUTIL ou d'un LOGICIEL — CRM (HubSpot, Salesforce, Pipedrive…), tableur, outil de ticketing, suite bureautique, langage informatique —, ni un diplôme, une certification, un permis ou une tâche administrative (mettre à jour le CRM, faire du reporting). Elles ne se testent pas en conversation, et ce n'est pas sur elles qu'on juge un commercial ou un support. Même si l'offre les exige, laissez-les de côté.
+3. Parmi les compétences qui se testent en conversation, soyez complet : extrayez toutes celles que l'offre présente ou sous-entend.
+4. Vous devez TOUJOURS inclure la "preuve" (le champ evidence) c'est-à-dire l'extrait exact du texte original qui justifie l'extraction de cette compétence.
+5. INTERDICTION FORMELLE de lister les langues (ex: Anglais, Français, Néerlandais, English, etc.) dans les "hard_skills" ou "soft_skills". Les langues doivent figurer UNIQUEMENT dans le tableau "languages".
 
 ${rappelLangueExtraction(uiLocale, contenu)}
 `;

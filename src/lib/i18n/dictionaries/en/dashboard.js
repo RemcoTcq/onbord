@@ -9,7 +9,6 @@ const dashboard = {
     settings: "Settings",
     signOut: "Sign out",
     menu: "Menu",
-    recentJobs: "Recent jobs",
     search: "Search",
     searchPlaceholder: "Search…",
     collapse: "Collapse menu",

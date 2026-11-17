@@ -112,8 +112,6 @@
 .navLabel { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .count { font-size: 12px; color: var(--ds-ink-4); font-weight: 400; }
 
-.recent { height: 34px; }
-.recentActive, .recentActive:hover { background: #FFFFFF; border-color: var(--ds-line); color: var(--ds-ink); font-weight: 500; }
 
 /* ── Menu replié ── */
 .navClosed { display: flex; flex-direction: column; gap: 4px; }

@@ -7,7 +7,6 @@ import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, C
 // Layers : « Simulations », l'entrée commune au recrutement et à l'onboarding.
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
-import { jobDot } from "@/components/ui/ds";
 import styles from "./Sidebar.module.css";
 
 // Maison pleine de la maquette : Lucide n'en a qu'une version au trait.
@@ -32,7 +31,6 @@ const CLE_OUVERT = "onbord_sidebar_open";
 // Les groupes repliés par l'utilisateur (phase 5). Un groupe qui contient la
 // page ouverte s'affiche toujours déplié.
 const CLE_GROUPES = "onbord_sidebar_groupes_replies";
-const NB_RECENTS = 5;
 
 export default function Sidebar() {
   const t = useT();
@@ -62,8 +60,6 @@ export default function Sidebar() {
   }
 
   const ouverts = jobs.filter((j) => j.status === "active");
-  const recents = ouverts.slice(0, NB_RECENTS);
-  const jobCourant = pathname.match(/^\/jobs\/([^/]+)/)?.[1];
 
   const taille = open ? 16 : 17;
   const icone = (Icone) => <Icone size={taille} strokeWidth={1.8} />;
@@ -82,7 +78,7 @@ export default function Sidebar() {
         href: "/jobs",
         label: t("dashboard.nav.jobs"),
         icon: icone(Briefcase),
-        actif: pathname === "/jobs" || (pathname.startsWith("/jobs/") && !recents.some((j) => j.id === jobCourant)),
+        actif: pathname === "/jobs" || pathname.startsWith("/jobs/"),
         count: ouverts.length || null,
       },
       { href: "/candidats", label: t("dashboard.nav.candidates"), icon: icone(UserSearch), actif: pathname.startsWith("/candidats") },
@@ -170,21 +166,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      {recents.length > 0 && (
-        <div className={styles.group}>
-          <span className={styles.groupLabel}>{t("dashboard.nav.recentJobs")}</span>
-          {recents.map((job) => {
-            const courant = job.id === jobCourant;
-            return (
-              <Link key={job.id} href={`/jobs/${job.id}`} aria-current={courant ? "page" : undefined} className={`${styles.navItem} ${styles.recent} ${courant ? styles.recentActive : ""}`}>
-                <span className="ds-square" style={{ background: jobDot(job.id) }} />
-                <span className={styles.navLabel}>{job.title || t("dashboard.jobs.untitled")}</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
 
       <div className={styles.grow} />
 

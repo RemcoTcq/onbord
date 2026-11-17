@@ -249,7 +249,7 @@ export function consignePersona(persona, nomLangue, toursRestants, { realtime = 
   const forme = realtime
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases), comme au téléphone. Jamais de liste ni de mise en forme.
 - Si tu n'as vraiment pas compris, fais répéter, comme au téléphone.
-- Ton humeur suit ta fiche, mais tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.
+- Ton humeur part de ta fiche puis ÉVOLUE (voir « ton humeur évolue » plus bas), et tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.
 ${secretRealtime(persona)}`
     : appel
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases). Jamais de liste, de titre, de mise en forme, d'emoji ni de parenthèse : tout est prononcé tel quel.
@@ -263,6 +263,7 @@ COMMENT TU JOUES :
 - Tu restes dans le personnage du début à la fin. Tu ne dis jamais que tu es une IA, tu ne commentes pas l'exercice, tu ne donnes aucun conseil au candidat.
 ${forme}
 - Tu réagis à ce que le candidat ${realtime ? "dit" : "écrit"} vraiment. S'il est flou, tu restes flou ; s'il est maladroit ou insistant, tu te refermes un peu ; s'il est précis et à l'écoute, tu t'ouvres.
+${regleHumeur(realtime)}
 - Tu n'inventes pas de faits majeurs qui contrediraient ce qui précède. Pour un détail secondaire qu'on te demande, tu réponds de façon plausible et cohérente.
 ${realtime
     ? `- C'est au candidat de proposer la suite (rendez-vous, démo, second appel, accord) : tu ne la proposes pas à sa place.
@@ -273,6 +274,17 @@ ${realtime
     : `- Quand la conversation arrive à une fin naturelle — accord obtenu, rendez-vous fixé, ou tu y mets un terme parce que l'échange ne mène nulle part — écris ta dernière réplique puis, sur une ligne seule, ${SENTINELLE_FIN}`}
 ${!realtime && toursRestants <= 2 ? `- Le temps presse : il reste au plus ${toursRestants} message(s) au candidat. Amène l'échange vers sa fin, comme le ferait quelqu'un qui doit raccrocher.\n` : ""}
 LANGUE — CONSIGNE PRIORITAIRE : tu t'exprimes en ${nomLangue}, la langue de ce personnage. Ta fiche ci-dessus (personnalité, informations cachées, objections, limites) peut être rédigée dans une autre langue, celle du recruteur qui l'a relue : tu en restitues le SENS en ${nomLangue}, jamais les mots tels quels. Si le candidat ${realtime ? "te parle" : "t'écrit"} dans une autre langue, tu réagis comme le ferait cette personne, et tu continues en ${nomLangue}.`;
+}
+
+// L'humeur qui ÉVOLUE (17/11/2026). L'humeur de la fiche était lue comme un
+// état fixe : un prospect « impatient » d'un appel à froid l'est resté du
+// premier au dernier mot, y compris en posant des questions qui montraient
+// qu'il s'intéressait (constaté par Remco, appel en néerlandais). Une vraie
+// personne change de ton selon ce qu'on lui dit : c'est même ce que l'exercice
+// mesure.
+function regleHumeur(realtime) {
+  return `- TON HUMEUR ÉVOLUE, comme celle d'une vraie personne. Celle de ta fiche est ton point de départ, pas un état fixe. Chaque fois que le candidat fait quelque chose de juste — il se présente clairement, va droit au but, pose une question pertinente, montre qu'il a compris ton problème —, tu te détends d'un cran : de l'impatience à l'attention, de l'attention à l'intérêt, de l'intérêt à l'ouverture. S'il est flou, lent, insistant ou maladroit, tu te refermes d'un cran.
+- Ne joue jamais la même émotion du début à la fin : après deux ou trois bonnes répliques du candidat, ton humeur de départ s'est nettement adoucie. Et reste cohérent : quand tu poses une vraie question, c'est que tu commences à t'intéresser — ton ton le montre, il n'est plus excédé.${realtime ? "\n- Tes indications de ton (entre crochets) suivent cette évolution : plus d'impatience ni d'agacement une fois que le candidat t'a intéressé." : ""}`;
 }
 
 // Ce que le modèle vocal ne doit jamais dire. La fiche est rédigée à la

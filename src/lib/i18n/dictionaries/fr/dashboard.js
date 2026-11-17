@@ -14,7 +14,6 @@ const dashboard = {
     settings: "Paramètres",
     signOut: "Déconnexion",
     menu: "Menu",
-    recentJobs: "Jobs récents",
     search: "Rechercher",
     searchPlaceholder: "Rechercher…",
     collapse: "Replier le menu",

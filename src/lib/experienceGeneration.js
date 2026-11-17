@@ -127,36 +127,38 @@ export const REGLES_CHECKPOINTS = `   c) Chaque sous-dimension reçoit 3 à 5 CH
 // plan) a été retiré le 16/11/2026 : Onbord simule des CONVERSATIONS — chat,
 // e-mail, appel vidéo, appel téléphonique. Une étape « document » déjà écrite
 // reste lisible et notée.
-const SANDBOXES_PROPOSEES = ["email", "client_reply", "inbox", "persona"];
-const listeGuillemets = (kinds) => kinds.map((k) => `"${k}"`).join(", ");
+//
+// 17/11/2026 (Remco) : en recrutement aussi, QUATRE CANAUX ET RIEN D'AUTRE —
+// appel téléphonique, appel vidéo, chat (sandbox "persona", modes phone, call,
+// chat) et e-mail (sandbox "email"). Plus de boîte de réception, de réponse à
+// un message client à part, de QCM, de vidéo face caméra ni de question écrite :
+// un commercial se juge à la façon dont il contacte et convainc les gens, pas à
+// sa maîtrise d'un outil. Les étapes de ces types déjà écrites restent lisibles,
+// notées, et retouchables sans changer de type.
+const SANDBOXES_PROPOSEES = ["email", "persona"];
 
 const REGLES_ETAPE = `3. INTERDICTION des questions rétrospectives auto-déclaratives ("décrivez une situation où vous avez…", "racontez une expérience passée…", "parlez-moi d'une fois où…"). Elles recréent le biais du CV déclaratif que ce produit doit éviter : on mesure ce que le candidat FAIT maintenant, pas ce qu'il dit avoir fait.
-4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était (ex. : "Un prospect vous dit en visio : '…'. Répondez-lui maintenant, directement."). Jamais un récit après coup.
-5. LA BONNE PREUVE POUR CHAQUE COMPÉTENCE. Avant d'écrire une étape, demande-toi quel GESTE DE TRAVAIL montre le mieux la compétence qu'elle doit noter — pas quel format est le plus simple à écrire. Repères :
-   - écrire à un client, un prospect, un partenaire, un collègue (ton, clarté, persuasion écrite) → sandbox "email" ou "client_reply" ;
-   - conduire un ÉCHANGE à l'oral sur plusieurs tours — appel à froid, découverte, objections, négociation, escalade client, feedback ou conflit avec un collaborateur → sandbox "persona" (un appel avec un interlocuteur joué par l'IA, qui a ses objections et des informations à faire sortir). C'est la meilleure preuve des métiers où tout se joue en conversation ;
-   - un échange qui se vit réellement PAR ÉCRIT (chat de support, messagerie interne, message LinkedIn) → sandbox "persona" en mode "chat" ;
-   - une prise de parole d'une traite — pitch, présentation, posture, aisance orale, message vidéo → "video", mise en situation jouée en direct (règle 4) ;
-   - prioriser, s'organiser, arbitrer entre des demandes concurrentes, tenir sous la charge → sandbox "inbox" (boîte de réception) ;
-   - une connaissance qui se vérifie mieux par une question fermée → "classic_qcm", avec parcimonie.
-   Un must-have central gagne à être observé dans DEUX gestes différents (l'écrit et l'oral, la priorisation et la réponse). AU PLUS UN step de chacune des sandboxes ${listeGuillemets(["inbox", "persona"])} par expérience.
-   "response_format" par défaut : "text" pour l'écrit et pour toutes les sandboxes (${SANDBOXES_PROPOSEES.join(", ")} — même en appel : c'est la transcription qui est notée) ; "video" pour l'oral, TOUJOURS sous forme de mise en situation jouée en direct (règle 4) ; "qcm" pour un QCM. Le recruteur pourra changer ce défaut ; propose le plus pertinent.
+4. Pour un signal oral/relationnel, utilise une MISE EN SITUATION JOUÉE EN DIRECT : place le candidat dans une scène concrète et fais-le RÉPONDRE DANS L'INSTANT, comme s'il y était — un appel ou un chat avec l'interlocuteur joué par l'IA, qui réagit à ce qu'il dit. Jamais un récit après coup.
+5. QUATRE CANAUX, ET RIEN D'AUTRE. Chaque étape est UNE CONVERSATION de travail, menée sur l'un de ces quatre canaux :
+   - APPEL TÉLÉPHONIQUE → sandbox "persona", persona_mode "phone" : appel à froid, relance, support au téléphone — voix seule ;
+   - APPEL VIDÉO → sandbox "persona", persona_mode "call" : rendez-vous de découverte, démonstration, négociation, point client, escalade ;
+   - CHAT → sandbox "persona", persona_mode "chat" : chat de support, message LinkedIn, messagerie — un échange écrit sur plusieurs tours ;
+   - E-MAIL → sandbox "email" : un premier message à un prospect, une relance, une réponse à un client mécontent (dans ce cas, le message reçu est dans config.context et l'objet commence par « Re : »).
+   Avant d'écrire une étape, demande-toi quelle conversation montre le mieux la compétence qu'elle doit noter, et sur quel canal ce métier la mène vraiment. Un commercial se juge à la façon dont il contacte les bonnes personnes et les convainc ; un support, à la façon dont il comprend et règle le problème du client.
+   INTERDIT : un QCM, une question de connaissance, une réponse vidéo face caméra sans interlocuteur, une boîte de réception à trier, et toute étape qui évalue la maîtrise d'un OUTIL (CRM, HubSpot, Salesforce, tableur, logiciel métier). Ces compétences-là ne se testent pas ici : laisse-les de côté, même si elles figurent dans la liste.
+   Un must-have central gagne à être observé sur DEUX canaux différents (l'écrit et l'oral). Un même canal revient au plus deux fois dans le parcours.
+   "kind" vaut toujours "task" et "response_format" toujours "text" — même en appel : c'est la transcription qui est notée.
 6. COMPÉTENCES ET GRILLE DE CHAQUE ÉTAPE.
    a) "skills_tested" : les IDENTIFIANTS (entre crochets dans la liste des compétences validées) des compétences que l'étape teste — une ou plusieurs, de tiers différents quand un même geste s'y prête. Recopie-les TELS QUELS. Jamais une compétence hors de cette liste. "skill_assessed" : le NOM de la compétence principale (celle du premier identifiant).
    b) Pour CHAQUE étape "question" ou "task", décompose ce que « bien réussir » veut dire ici en 2 à 3 SOUS-DIMENSIONS observables — une vraie décomposition, pas une liste de critères plats. Ex. : une réponse à une objection en visio se décompose en "Gestion de l'objection", "Clarté du pitch sous pression", "Orientation vers la suite". Chaque sous-dimension porte "skill_ids" : le ou les identifiants, pris dans "skills_tested", de la compétence qu'elle note.
 ${REGLES_CHECKPOINTS}
    h) Un checkpoint peut porter son propre "skill_id" quand il note une AUTRE compétence de "skills_tested" que sa sous-dimension (ex. : un checkpoint de ton commercial dans un e-mail adressé à un coéquipier).
-   Une étape "classic_qcm" n'a pas de sous-dimensions (corrigée automatiquement), mais elle porte ses "skills_tested".
-7. Propose "ai_assistant_allowed" = true sur AU MOINS DEUX étapes de type "task" (le recruteur pourra désactiver ; on veut plusieurs points de mesure de l'usage de l'IA). Mets false pour les questions de connaissance pure et les QCM.
+7. Propose "ai_assistant_allowed" = true sur les étapes écrites (e-mail, chat) — le recruteur pourra désactiver ; on veut des points de mesure de l'usage de l'IA. Mets false pour les appels (téléphone, vidéo) : on y parle en direct.
 8. "sandbox_kind" : ${SANDBOXES_PROPOSEES.map((k) => `"${k}"`).join(" | ")} pour les tâches, sinon "none".
    Quand sandbox_kind != "none", enrichis "config" avec le contexte de la sandbox :
    - Pour "email" : config.to (le destinataire : nom, fonction, entreprise), config.subject (l'objet s'il est imposé, par exemple une réponse « Re : … » ; chaîne vide si c'est au candidat de l'écrire — jamais un texte entre crochets), config.context (la fiche remise au candidat : qui est le destinataire, où, pourquoi lui écrire — c'est tout ce que le candidat saura de lui). Les trois sont rédigés dans la langue de la scène quand elle diffère de celle du parcours (voir l'exception de langue en tête)
-   - Pour "client_reply" : config.client_message (le message client auquel le candidat doit répondre, rédigé de manière réaliste)
-   - Pour "inbox" : config.inbox_brief — UNE SEULE PHRASE : la boîte de qui, quel moment, quelle contrainte de temps. Les messages seront produits dans un second temps ; ne les génère PAS ici.
    - Pour "persona" : config.persona_brief — UNE SEULE PHRASE : qui est l'interlocuteur, dans quelle situation, ce que le candidat doit obtenir — et config.persona_mode : "call" (un appel vidéo, le cas général), "phone" (un appel téléphonique, voix seule : appel à froid, support au téléphone, relance) ou "chat" (un échange écrit). Le personnage complet sera produit dans un second temps ; ne le génère PAS ici.
-   QUAND CHOISIR "inbox" : le poste reçoit des demandes concurrentes qu'il faut arbitrer — customer success, support client, account management, sales manager ou support manager (escalades, demandes de l'équipe).
-   QUAND CHOISIR "persona" : le poste se joue en conversation — SDR, BDR, account executive, account management, customer success, support client, management d'une équipe commerciale ou support. Préfère-le à une vidéo dès que la compétence se prouve en réagissant à l'autre (objection, information à obtenir, désaccord) plutôt qu'en parlant seul.
-   NE PAS choisir une de ces sandboxes pour un poste où le geste ne se retrouve pas dans le quotidien. Leur "response_format" est toujours "text".`;
+   Leur "response_format" est toujours "text".`;
 
 // ─── L'offre, telle qu'elle entre dans les prompts ───────────────────────────
 // Le défaut que ce bloc corrige, remonté à l'usage : une offre de vente
@@ -274,10 +276,10 @@ const REGLES_QCM = `RÈGLES QCM ANTI-BIAIS :
 // doit apparaître dans les deux sorties, sinon une étape régénérée perd
 // silencieusement un champ que la génération complète produisait.
 const SCHEMA_STEP = `    {
-      "kind": "question|task|classic_qcm",
+      "kind": "task",
       "title": "Titre court",
       "prompt": "Énoncé lu tel quel au candidat (vouvoiement)",
-      "response_format": "text|video|qcm|choice",
+      "response_format": "text",
       "sandbox_kind": "${["none", ...SANDBOXES_PROPOSEES].join("|")}",
       "ai_assistant_allowed": true,
       "config": {},
@@ -320,22 +322,17 @@ ${companyBlock}
 
 ${REGLE_ANCRAGE_OFFRE}
 ${additionalContext ? `\nMATÉRIAU DU RECRUTEUR — issu de l'échange de conception, ET IL PRIME SUR TOUT LE RESTE :\n${additionalContext}\n\nCOMMENT T'EN SERVIR — c'est ce qui sépare un parcours que le recruteur reconnaît d'un parcours générique :\n- Les passages entre guillemets sont SES MOTS. Reprends-les TELS QUELS dans les énoncés, les messages client et les sources des mises en situation : le nom exact de son produit, la formulation exacte d'une objection, le vocabulaire de son marché. Ne les paraphrase pas, ne les traduis pas en langue de bois professionnelle.\n- S'il a raconté une situation qu'il a vécue, BÂTIS LA TÂCHE DESSUS plutôt que d'en inventer une autre. C'est la situation dont tu sais qu'elle arrive vraiment dans cette entreprise.\n- Un scénario qu'on pourrait recopier tel quel sur l'offre d'un concurrent est un scénario raté, même s'il respecte toutes les règles ci-dessous.\n` : ""}
-CONSTRUIS une expérience composée d'étapes ordonnées. Types d'étape ("kind") :
-- "question" : question ciblée sur une compétence (connaissance ou jugement appliqué), réponse courte — JAMAIS un récit d'expérience passée.
-- "task" : tâche courte et réaliste inspirée du poste (écrire à un client, répondre à une situation, mener une conversation). C'est le cœur de la preuve.
-- "classic_qcm" : QCM quand une connaissance se teste mieux ainsi et qu'aucune tâche n'est pertinente.
+CONSTRUIS une expérience composée d'étapes ordonnées. Chaque étape est une "task" : une CONVERSATION de travail réaliste, inspirée du poste, sur l'un des quatre canaux de la règle 5 — appel téléphonique, appel vidéo, chat ou e-mail.
 
 Ne génère jamais d'étape de filtre qualificatif (langue, expérience minimale, diplôme, localisation) — ce filtre existe déjà ailleurs dans le parcours, avant cette expérience. Toutes les étapes que tu génères ici évaluent une compétence, aucune n'élimine sur un critère administratif.
 
 RÈGLES :
-1. DIMENSIONNE LE PARCOURS SUR LES MUST-HAVE. Chaque compétence MUST-HAVE doit être notée par au moins un checkpoint quelque part dans le parcours. Regroupe plusieurs must-have dans un même exercice quand c'est cohérent (une réponse à une objection peut noter à la fois la gestion de l'objection, la clarté et l'orientation vers la suite) : c'est ce qui garde le parcours court. Vise 3 à 5 étapes, 5 à 20 minutes. Si les must-have distincts, regroupés au mieux, imposent davantage d'étapes, génère-les quand même : ne sacrifie JAMAIS la couverture d'un must-have pour tenir la durée — le recruteur en sera prévenu et tranchera.
+1. DIMENSIONNE LE PARCOURS SUR LES MUST-HAVE. Chaque compétence MUST-HAVE doit être notée par au moins un checkpoint quelque part dans le parcours. Regroupe plusieurs must-have dans un même exercice quand c'est cohérent (une réponse à une objection peut noter à la fois la gestion de l'objection, la clarté et l'orientation vers la suite) : c'est ce qui garde le parcours court. Vise 2 à 4 étapes, 5 à 20 minutes. Si les must-have distincts, regroupés au mieux, imposent davantage d'étapes, génère-les quand même : ne sacrifie JAMAIS la couverture d'un must-have pour tenir la durée — le recruteur en sera prévenu et tranchera.
    Les NICE-TO-HAVE n'ont JAMAIS d'étape dédiée. Ajoute-les en sous-dimension ou en checkpoint secondaire seulement s'ils s'intègrent naturellement à une étape déjà prévue pour un must-have. Sinon, ne les teste pas : ce n'est pas un défaut.
-2. Inclus AU MOINS DEUX "task" réalistes ancrées dans le métier et le contexte entreprise. C'est le cœur de la preuve.
+2. Chaque étape est ancrée dans le métier et le contexte entreprise : la personne en face, ce que le candidat doit obtenir d'elle, sont ceux de CE poste.
 ${REGLES_ETAPE}
-9. DIVERSITÉ DES KINDS : ne génère JAMAIS plus de 2 étapes du même kind "question" d'affilée. Varie entre task, question et classic_qcm.
+9. DIVERSITÉ DES CANAUX : quand le parcours a plusieurs étapes, varie les canaux selon ce que le métier fait vraiment (par exemple un e-mail de prospection, puis l'appel qui suit).
 ${REGLE_FIL_ROUGE}
-
-${REGLES_QCM}
 
 ${REGLE_GUILLEMETS}
 
@@ -346,8 +343,7 @@ Réponds UNIQUEMENT avec un JSON valide :
   "steps": [
 ${SCHEMA_STEP}
   ]
-}
-Pour "classic_qcm", mets dans "config": { "options": ["A","B","C","D"], "correct_index": 0 } — "sub_dimensions" reste vide ([]) et "skill_assessed" aussi (""), mais "skills_tested" porte la compétence que le QCM vérifie.`;
+}`;
 }
 
 // ─── Prompt de la 2e passe : la boîte de réception d'un step "inbox" ──────────
@@ -1015,8 +1011,8 @@ export function normaliserEtape(s, competences) {
  * invention du modèle — retombe en tâche écrite, même repli qu'une 2e passe
  * ratée. Modifie l'étape en place.
  */
-function neutraliserTypeRetire(s) {
-  if (s?.sandbox_kind && s.sandbox_kind !== "none" && !SANDBOXES_PROPOSEES.includes(s.sandbox_kind)) s.sandbox_kind = "none";
+function neutraliserTypeRetire(s, garder = null) {
+  if (s?.sandbox_kind && s.sandbox_kind !== "none" && s.sandbox_kind !== garder && !SANDBOXES_PROPOSEES.includes(s.sandbox_kind)) s.sandbox_kind = "none";
   if (s?.response_format === "code") s.response_format = "text";
   return s;
 }
@@ -1603,10 +1599,12 @@ ${REGLES_ETAPE}
 
 ${REGLES_QCM}
 
+Une étape ÉCRITE AVANT la règle des quatre canaux (QCM, question, vidéo, boîte de réception) garde son type tant que la consigne ne demande pas d'en changer ; si elle demande d'en changer, elle passe sur l'un des quatre canaux.
+
 CAS PARTICULIER DES SANDBOXES "inbox" ET "persona" :
 - Si l'étape est déjà dans l'une de ces sandboxes, sa scène détaillée (messages de la boîte, fiche du personnage) EXISTE DÉJÀ et n'est pas reproduite ci-dessus. Laisse "config" vide : elle sera conservée telle quelle.
 - Mets "regenerate_scenario": true UNIQUEMENT si la consigne impose de refaire cette scène (changer la situation, les messages, le personnage). C'est un second appel au modèle : ne le demande pas pour une simple retouche d'énoncé.
-- Si tu fais PASSER l'étape dans l'une de ces sandboxes, mets dans "config" son brief d'une phrase — "inbox_brief" ou "persona_brief" (avec "persona_mode") — et "regenerate_scenario": true.
+- Si tu fais PASSER l'étape en "persona", mets dans "config" son brief d'une phrase — "persona_brief" (avec "persona_mode") — et "regenerate_scenario": true. Ne fais jamais passer une étape en "inbox".
 
 ${REGLE_GUILLEMETS}
 
@@ -1797,7 +1795,8 @@ export async function runStepRegeneration(stepId, instruction, { model } = {}) {
       sub_dimensions: grilleFournie ? (regenere.sub_dimensions || regenere.criteria) : (step.criteria || []),
     }, competences);
     const nomsCompetences = new Map(competences.map((c) => [c.id, c.name]));
-    neutraliserTypeRetire(nouveau);
+    // Une étape d'un type retiré (boîte de réception…) se retouche sans en changer.
+    neutraliserTypeRetire(nouveau, step.sandbox_kind);
 
     // ── config : on FUSIONNE, on ne remplace pas ─────────────────────────────
     // Le modèle ne renvoie que ce qu'il a l'intention de changer, et il a toutes
