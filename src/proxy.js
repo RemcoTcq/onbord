@@ -55,6 +55,31 @@ function localeDuNavigateur(header) {
 export async function proxy(request) {
   const { pathname, search } = request.nextUrl;
 
+  // ── 0) Action serveur RENVOYÉE par Next ───────────────────────────────────
+  // Next envoie les actions d'une page une par une, à l'adresse COURANTE. Qui
+  // change de page avant la fin de la file envoie les dernières actions de
+  // l'ancienne page à la nouvelle, qui ne les connaît pas : Next les renvoie
+  // alors lui-même, par un fetch interne marqué `x-action-forwarded`, vers le
+  // chemin de la page qui les contient — chemin du SYSTÈME DE FICHIERS, avec
+  // son segment littéral « [lang] » (/[lang]/accueil). La redirection de
+  // langue ci-dessous en faisait une 307, que Next traduisait en réponse vide :
+  // « An unexpected response was received from the server » (17/11/2026).
+  // On remplace le segment par une vraie langue, sans redirection. Next
+  // n'exécute que l'action sur une requête renvoyée (aucun rendu de page) :
+  // les autres segments dynamiques peuvent rester littéraux.
+  if (request.headers.get("x-action-forwarded") && request.headers.get("next-action")) {
+    const brut = decodeURIComponent(pathname);
+    if (brut === "/[lang]" || brut.startsWith("/[lang]/")) {
+      const cookie = request.cookies.get(LOCALE_COOKIE)?.value;
+      const locale = UI_LOCALES.includes(cookie) ? cookie : DEFAULT_UI_LOCALE;
+      const url = request.nextUrl.clone();
+      url.pathname = `/${locale}${brut.slice("/[lang]".length)}`;
+      const entetes = new Headers(request.headers);
+      entetes.set(LOCALE_HEADER, locale);
+      return NextResponse.rewrite(url, { request: { headers: entetes } });
+    }
+  }
+
   // ── 1) Langue ─────────────────────────────────────────────────────────────
   const prefixe = localeDuChemin(pathname);
 
