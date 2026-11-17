@@ -87,6 +87,12 @@ export function configurationAgent(persona, stepId, langue, nomLangue) {
       },
     },
     tts: { voice_id: voixDuPersonnage(persona) },
+    // PATIENT (18/11/2026) : en réglage normal, l'agent prenait la parole à la
+    // première pause du candidat, n'entendait que la moitié de sa réponse et
+    // reposait sa question (« non, moi je vous ai demandé… »), constaté par
+    // Remco et son cofondateur. Un candidat qui réfléchit en parlant marque des
+    // pauses : l'agent attend la fin de la phrase.
+    turn: { turn_eagerness: "patient" },
     conversation: { max_duration_seconds: DUREE_MAX_APPEL_S },
   };
   const platform_settings = {

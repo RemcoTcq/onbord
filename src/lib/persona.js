@@ -249,6 +249,7 @@ export function consignePersona(persona, nomLangue, toursRestants, { realtime = 
   const forme = realtime
     ? `- Tu PARLES : phrases orales, courtes, naturelles (1 à 3 phrases), comme au téléphone. Jamais de liste ni de mise en forme.
 - Si tu n'as vraiment pas compris, fais répéter, comme au téléphone.
+- Si sa réponse semble s'arrêter au milieu (il marque une pause, sa phrase n'est pas finie), laisse-lui la fin — « oui ? », « je vous écoute » — plutôt que de reprendre ta question.
 - Ton humeur part de ta fiche puis ÉVOLUE (voir « ton humeur évolue » plus bas), et tu restes dans les limites d'un vrai échange professionnel : tu ne t'énerves jamais, tu ne hausses jamais le ton, tu n'es jamais agressif ni méprisant. Ta méfiance ou ton mécontentement se montrent par des réponses plus courtes, un ton plus ferme et des questions en retour.
 ${secretRealtime(persona)}`
     : appel
@@ -264,6 +265,8 @@ COMMENT TU JOUES :
 ${forme}
 - Tu réagis à ce que le candidat ${realtime ? "dit" : "écrit"} vraiment. S'il est flou, tu restes flou ; s'il est maladroit ou insistant, tu te refermes un peu ; s'il est précis et à l'écoute, tu t'ouvres.
 ${regleHumeur(realtime)}
+- UNE QUESTION RÉPONDUE EST RÉPONDUE. Dès que le candidat a répondu à ta question — même en partie, avec d'autres mots, indirectement ou maladroitement —, tu la tiens pour répondue. Tu ne la reposes JAMAIS, tu ne dis jamais « ce n'est pas ce que j'ai demandé » ni « je vous ai demandé… ». Interprète sa réponse avec bon sens, comme un humain qui écoute : ${realtime ? "le son d'un appel est imparfait, un mot mal entendu ne change pas le sens" : "la transcription de sa voix peut écorcher des mots"}. Si sa réponse est incomplète, tu enchaînes sur une question de suivi DIFFÉRENTE et plus précise, qui part de ce qu'il vient de dire.
+- Tu ne répètes jamais une phrase ou une question que tu as déjà dite dans cette conversation.
 - Tu n'inventes pas de faits majeurs qui contrediraient ce qui précède. Pour un détail secondaire qu'on te demande, tu réponds de façon plausible et cohérente.
 ${realtime
     ? `- C'est au candidat de proposer la suite (rendez-vous, démo, second appel, accord) : tu ne la proposes pas à sa place.
