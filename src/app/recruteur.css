@@ -828,3 +828,25 @@ html.ds, html.ds body { background: var(--ds-page); }
 /* Accueil (17/11/2026) : les actions rapides réagissent au survol. */
 .accueil-action { transition: border-color .15s, box-shadow .15s, transform .15s; }
 .accueil-action:hover { border-color: var(--ds-blue); box-shadow: var(--ds-shadow-pop); transform: translateY(-1px); }
+
+/* Création pas à pas (17/11/2026) : la frise des étapes, puis une étape par
+   page, centrée, avec Retour / Continuer en bas. */
+.etapes-creation { overflow-x: auto; padding: 14px 20px; border-bottom: 1px solid var(--ds-line); background: #fff; }
+.etapes-creation ol { list-style: none; margin: 0 auto; padding: 0; display: flex; align-items: center; gap: 10px; max-width: 900px; min-width: max-content; }
+.etapes-creation li { display: flex; align-items: center; }
+.etapes-creation-item { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; color: var(--ds-ink-3); background: none; border: 0; padding: 4px 6px; border-radius: 8px; white-space: nowrap; text-decoration: none; }
+.etapes-creation li[aria-current="step"] .etapes-creation-item { color: var(--ds-ink); font-weight: 600; }
+.etapes-creation-lien { cursor: pointer; }
+.etapes-creation-lien:hover { background: var(--ds-hover-row); color: var(--ds-ink); }
+.etapes-creation-num { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex: none; border: 1px solid var(--ds-line); color: var(--ds-ink-5); background: #fff; }
+.etapes-creation-num[data-etat="active"] { background: var(--ds-blue); border-color: var(--ds-blue); color: #fff; }
+.etapes-creation-num[data-etat="faite"] { background: var(--ds-green); border-color: var(--ds-green); color: #fff; }
+.etapes-creation-trait { flex: 1 1 24px; min-width: 16px; height: 1px; background: var(--ds-line); }
+.etapes-creation-trait[data-fait] { background: var(--ds-green); }
+.creation-page { flex: 1; display: flex; justify-content: center; padding: 36px 20px 40px; }
+.creation-etape { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 20px; }
+.creation-etape-large { max-width: 940px; }
+.creation-titre { margin: 0; font-weight: 600; font-size: 26px; letter-spacing: -0.03em; line-height: 1.15; }
+.creation-aide { margin: 6px 0 0; color: var(--ds-ink-3); font-size: 15px; line-height: 1.5; }
+.creation-pied { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 4px; }
+@media (max-width: 640px) { .creation-page { padding: 24px 16px 32px; } .creation-titre { font-size: 22px; } }

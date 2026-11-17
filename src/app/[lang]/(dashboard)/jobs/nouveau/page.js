@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/lib/i18n/navigation";
 import { ArrowRight, Loader2, AlertCircle, UploadCloud, FileText, Paperclip, AlignLeft, Globe, Info } from "lucide-react";
 import { analyzeJobDescription } from "@/lib/actions/job";
@@ -12,6 +13,7 @@ import { useI18n, tNodes } from "@/lib/i18n/I18nProvider";
 import { coerceExperienceLocale, EXPERIENCE_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
+import EtapesCreation from "@/components/simulations/EtapesCreation";
 import { saveAssessmentConfig } from "@/lib/actions/assessment";
 import { questionsParDefaut, questionsDuJob, noeudsAvecQuestions } from "@/lib/questionsPreselection";
 
@@ -40,6 +42,9 @@ export default function NouvelleDemandePage() {
 
   
   const fileInputRef = useRef(null);
+  // Venu de « Créer une simulation » (17/11/2026) : la frise reprend l'étape
+  // de l'usage, déjà faite, et le fil d'Ariane ramène aux simulations.
+  const depuisSimulations = useSearchParams().get("depuis") === "simulations";
   const router = useRouter();
   const { toast } = useToast();
 
@@ -295,9 +300,14 @@ export default function NouvelleDemandePage() {
   };
 
   const occupe = isAnalyzing || isParsingFile || isFetchingUrl;
-  const etapes = [
-    { n: 1, label: t("dashboard.jobCreate.steps.job") },
-    { n: 2, label: t("dashboard.jobCreate.steps.details") },
+  // La frise : l'offre, ses compétences, puis la simulation, construite avec
+  // l'agent sur la page de l'offre une fois l'offre validée.
+  const decalage = depuisSimulations ? 1 : 0;
+  const frise = [
+    ...(depuisSimulations ? [{ cle: "usage", label: t("dashboard.sims.new.steps.usage"), href: "/simulations/creer?usage=hiring" }] : []),
+    { cle: "job", label: t("dashboard.jobCreate.steps.job") },
+    { cle: "details", label: t("dashboard.jobCreate.steps.details") },
+    { cle: "simulation", label: t("dashboard.sims.new.steps.simulation") },
   ];
 
   // Le bouton principal suit la source choisie : analyser le texte, ouvrir le
@@ -314,18 +324,14 @@ export default function NouvelleDemandePage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: t("dashboard.nav.jobs"), href: "/jobs" }]}
-        title={t("dashboard.nav.newJob")}
-        actions={
-          <ol aria-label={t("dashboard.jobCreate.stepsLabel")} className="ds-seg" style={{ listStyle: "none", margin: 0, fontSize: 13 }}>
-            {etapes.map((e) => (
-              <li key={e.n} aria-current={currentStep === e.n ? "step" : undefined} className="ds-seg-item" aria-selected={currentStep === e.n} style={{ cursor: "default", gap: 6 }}>
-                <span className="ds-mono" style={{ fontSize: 11, color: currentStep === e.n ? "var(--ds-blue)" : "var(--ds-ink-5)" }}>{e.n}</span>
-                {e.label}
-              </li>
-            ))}
-          </ol>
-        }
+        crumbs={depuisSimulations ? [{ label: t("dashboard.sims.title"), href: "/simulations" }] : [{ label: t("dashboard.nav.jobs"), href: "/jobs" }]}
+        title={depuisSimulations ? t("dashboard.sims.new.title") : t("dashboard.nav.newJob")}
+      />
+      <EtapesCreation
+        etapes={frise}
+        courante={currentStep - 1 + decalage}
+        onAller={(i) => setCurrentStep(i - decalage + 1)}
+        label={t("dashboard.jobCreate.stepsLabel")}
       />
 
       {/* ── Étape 1 : l'offre ── */}
