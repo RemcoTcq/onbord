@@ -9,6 +9,7 @@ import { DELAI_CORBEILLE_JOURS, purgerOffre } from "@/lib/jobPurge";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { genererBrouillonFeedback, versionPourStatut } from "@/lib/candidateFeedback";
+import { listerCompetences, rangerParCompetence } from "@/lib/competences";
 
 // Digue serveur : aucun candidat n'est créé sur une offre qui n'a rien à lui
 // faire passer. Le blocage d'interface ne suffit pas — un lien public déjà
@@ -444,7 +445,10 @@ export async function getCandidateDetail(candidateId) {
       // substance (ni note, ni justification, ni corrigé — seulement les
       // réponses brutes). On accepte les deux formes par sécurité.
       const rs = Array.isArray(expRun.run_scores) ? expRun.run_scores[0] : expRun.run_scores;
-      for (const c of rs?.criterion_scores || []) { (critByStep[c.step_id] ||= []).push(c); }
+      // Chaque critère sous SA compétence, y compris sur les passages notés
+      // avant le 17/11/2026 (lib/competences.js, rangerParCompetence).
+      const competencesOffre = listerCompetences(candidate.jobs?.extracted_criteria || {});
+      for (const c of rangerParCompetence(rs?.criterion_scores, competencesOffre)) { (critByStep[c.step_id] ||= []).push(c); }
       const aiByStep = {};
       for (const m of rAiMsgs || []) { (aiByStep[m.step_id] ||= []).push(m); }
 

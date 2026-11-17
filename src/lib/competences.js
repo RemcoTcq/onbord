@@ -233,6 +233,25 @@ export function calculerCouverture(steps, competences) {
  * Tier d'un ensemble de compétences : must-have dès qu'une l'est.
  * `null` si aucune n'est reconnue — l'appelant décide du repli.
  */
+/**
+ * Range chaque score de critère sous SA compétence : la première de ses
+ * skill_ids, retrouvée dans la liste de l'offre ou du module (17/11/2026).
+ * Auparavant, tout critère d'une étape était rangé sous la compétence
+ * principale de l'étape, même quand il en notait une autre. Lu à l'affichage,
+ * ce rangement corrige aussi les passages notés avant : rien n'est renoté.
+ * À défaut d'identifiant retrouvé (runs antérieurs aux identifiants,
+ * compétence renommée depuis), le skill_name enregistré reste.
+ * @param {Array} scores `run_scores.criterion_scores`
+ * @param {Array} competences `listerCompetences(...)`
+ */
+export function rangerParCompetence(scores, competences) {
+  const noms = new Map((competences || []).map((c) => [c.id, c.name]));
+  return (scores || []).map((c) => {
+    const nom = noms.get(c?.skill_ids?.[0]);
+    return nom && nom !== c.skill_name ? { ...c, skill_name: nom } : c;
+  });
+}
+
 export function tierDesIds(ids, competences) {
   const parId = new Map((competences || []).map((c) => [c.id, c.tier]));
   const tiers = (ids || []).map((id) => parId.get(id)).filter(Boolean);

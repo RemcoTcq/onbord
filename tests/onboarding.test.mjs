@@ -279,3 +279,20 @@ test("grille : ce qui ne peut pas s'enregistrer est refusé avec une raison", as
   const r = appliquerGrille({ ...base, criteres: [{ name: "Vide", skills: ["a"], checkpoints: [] }, { name: "C", skills: ["a"], checkpoints: [{ description: "x" }] }] });
   assert.equal(r.stepCriteria.length, 1);
 });
+
+// ── 17/11/2026 : chaque critère rangé sous SA compétence ────────────────────
+
+test("rangement : un critère va sous sa propre compétence, pas sous celle de l'étape", async () => {
+  const { rangerParCompetence, listerCompetences } = await import("../src/lib/competences.js");
+  const competences = listerCompetences({ hard_skills: [{ name: "Cold Calling", priority: "must_have" }], soft_skills: [{ name: "Curiosity", priority: "nice_to_have" }] });
+  const scores = [
+    { step_id: "e1", skill_name: "Cold Calling", skill_ids: ["h:cold-calling"], sub_dimension_name: "Accroche" },
+    { step_id: "e1", skill_name: "Cold Calling", skill_ids: ["s:curiosity", "h:cold-calling"], sub_dimension_name: "Questions" },
+    { step_id: "e1", skill_name: "Ancienne", skill_ids: ["h:renommee"], sub_dimension_name: "Inconnue" },
+    { step_id: "e1", skill_name: "Pré-016", sub_dimension_name: "Sans ids" },
+  ];
+  const r = rangerParCompetence(scores, competences);
+  assert.deepEqual(r.map((c) => c.skill_name), ["Cold Calling", "Curiosity", "Ancienne", "Pré-016"]);
+  assert.equal(r[0], scores[0], "un score déjà bien rangé n'est pas recopié");
+  assert.equal(scores[1].skill_name, "Cold Calling", "l'entrée n'est pas modifiée");
+});

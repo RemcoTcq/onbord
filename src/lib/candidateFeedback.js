@@ -38,7 +38,7 @@ import anthropic from "./anthropic";
 import { createAdminClient } from "@/lib/supabase/server";
 import { coerceExperienceLocale, LOCALE_NAMES_FR } from "@/lib/i18n/config";
 import { computeAiCost } from "@/lib/constants/aiPricing";
-import { MUST, NICE } from "@/lib/competences";
+import { MUST, NICE, listerCompetences, rangerParCompetence } from "@/lib/competences";
 import { brandingPublic } from "@/lib/org";
 
 // Sonnet : le choix de quoi dire est fait en code, plus haut ; le modèle ne
@@ -319,7 +319,7 @@ export async function genererBrouillonFeedback(candidateId, version) {
 
   const { data: candidat } = await admin
     .from("candidates")
-    .select("id, first_name, jobs!inner(title, experience_locale, user_id, organization_id)")
+    .select("id, first_name, jobs!inner(title, experience_locale, user_id, organization_id, extracted_criteria)")
     .eq("id", candidateId)
     .single();
   if (!candidat) return { success: false, error: "Candidat introuvable" };
@@ -346,7 +346,8 @@ export async function genererBrouillonFeedback(candidateId, version) {
     .from("experience_steps").select("id, title").eq("experience_id", run.experience_id);
   const titresEtapes = Object.fromEntries((etapes || []).map((s) => [s.id, s.title || ""]));
 
-  const matiere = selectionnerMatiere(rs.criterion_scores, titresEtapes);
+  const scores = rangerParCompetence(rs.criterion_scores, listerCompetences(candidat.jobs.extracted_criteria || {}));
+  const matiere = selectionnerMatiere(scores, titresEtapes);
   const points = matiere[version];
   const maintenant = () => new Date().toISOString();
 
