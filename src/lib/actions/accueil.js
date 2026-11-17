@@ -1,13 +1,12 @@
 "use server";
 
 // L'ACCUEIL (17/11/2026) : ce qui attend une action, sur le recrutement et
-// l'onboarding, et un résumé de chacun. Le calcul vit dans lib/accueil.js.
+// l'onboarding, et les simulations ACTIVES à suivre. Les chiffres de chaque
+// métier vivent dans sa vue d'ensemble. Le calcul vit dans lib/accueil.js.
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { exigerGestion } from "@/lib/org";
-import { calculerAFaire, resumer } from "@/lib/accueil";
-
-const NB_RECENTES = 5;
+import { calculerAFaire, aTermine, estADecider } from "@/lib/accueil";
 
 export async function vueAccueil() {
   try {
@@ -17,7 +16,7 @@ export async function vueAccueil() {
 
     const [{ data: jobs }, { data: modules }, { data: membres }, { data: assignations }] = await Promise.all([
       admin.from("jobs").select("id, title, status, created_at").eq("organization_id", ctx.orgId).is("deleted_at", null),
-      admin.from("modules").select("id, title, channel, updated_at").eq("organization_id", ctx.orgId).is("archived_at", null),
+      admin.from("modules").select("id, title, channel, locale, updated_at").eq("organization_id", ctx.orgId).is("archived_at", null),
       admin.from("organization_members").select("user_id, lifecycle").eq("organization_id", ctx.orgId).eq("role", "learner"),
       admin.from("assignments").select("id, learner_id, module_id, status, due_at, created_at").eq("organization_id", ctx.orgId),
     ]);
@@ -61,18 +60,31 @@ export async function vueAccueil() {
       return { learner_id: r.learner_id, assignment_id: r.assignment_id, status: r.status, started_at: r.started_at, note: s?.overall ?? null };
     });
 
-    // Les simulations touchées en dernier, les deux usages mêlés.
-    const recentes = [
-      ...(jobs || []).map((j) => ({ id: j.id, usage: "hiring", titre: j.title, date: j.created_at, href: `/jobs/${j.id}`, statut: parJob.get(j.id)?.status || null })),
-      ...(modules || []).map((m) => ({ id: m.id, usage: "onboarding", titre: m.title, date: m.updated_at, href: `/onboarding/modules/${m.id}`, statut: parModule.get(m.id)?.status || null, canal: m.channel })),
-    ].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, NB_RECENTES);
+    // Les simulations ACTIVES, les deux usages mêlés, les plus récentes
+    // d'abord : une offre ouverte qui a sa simulation, un module d'onboarding
+    // dont la simulation est générée. Chacune avec de quoi la suivre.
+    const actives = [
+      ...(jobs || []).filter((j) => j.status === "active" && parJob.has(j.id)).map((j) => {
+        const siens = (candidats || []).filter((c) => c.job_id === j.id);
+        return {
+          id: j.id, usage: "hiring", titre: j.title, date: j.created_at, href: `/jobs/${j.id}`, statut: parJob.get(j.id).status,
+          suivi: { candidats: siens.length, termines: siens.filter(aTermine).length, aDecider: siens.filter(estADecider).length },
+        };
+      }),
+      ...(modules || []).filter((m) => parModule.has(m.id)).map((m) => {
+        const siennes = (assignations || []).filter((a) => a.module_id === m.id);
+        return {
+          id: m.id, usage: "onboarding", titre: m.title, date: m.updated_at, href: `/onboarding/modules/${m.id}`, statut: parModule.get(m.id).status, canal: m.channel,
+          suivi: { assignes: siennes.length, valides: siennes.filter((a) => a.status === "validated").length },
+        };
+      }),
+    ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
     return {
       success: true,
       aFaire: calculerAFaire({ candidats: candidats || [], simulations, learners, assignations: assignations || [], essais }),
-      resume: resumer({ jobs: jobs || [], candidats: candidats || [], learners, assignations: assignations || [], essais }),
-      recentes,
-      demarrage: { recrute: jobIds.length > 0, forme: moduleIds.length > 0 || learnerIds.length > 0 },
+      actives,
+      recrute: jobIds.length > 0,
     };
   } catch (error) {
     console.error("vueAccueil :", error);

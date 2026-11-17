@@ -95,27 +95,6 @@ export function calculerAFaire({ candidats = [], simulations = [], learners = []
   return lignes.filter(Boolean);
 }
 
-/** Les deux résumés de l'accueil. */
-export function resumer({ jobs = [], candidats = [], learners = [], assignations = [], essais = [], maintenant = new Date() }) {
-  const semaine = maintenant.getTime() - 7 * JOUR;
-  const notes = essais.filter((e) => e.note != null).map((e) => e.note);
-  return {
-    recrutement: {
-      offres: jobs.filter((j) => j.status === "active").length,
-      enCours: candidats.filter((c) => !aTermine(c) && c.assessment_status === "in_progress").length,
-      terminesSemaine: candidats.filter((c) => c.assessment_submitted_at && new Date(c.assessment_submitted_at).getTime() >= semaine).length,
-      aDecider: candidats.filter(estADecider).length,
-    },
-    onboarding: {
-      personnes: learners.length,
-      pretes: learners.filter((l) => l.lifecycle === "ready").length,
-      moyenne: notes.length ? Math.round(notes.reduce((s, n) => s + n, 0) / notes.length) : null,
-      validees: assignations.filter((a) => a.status === "validated").length,
-      assignees: assignations.length,
-    },
-  };
-}
-
 // ── La vue d'ensemble de l'onboarding ──────────────────────────────────────
 
 /**

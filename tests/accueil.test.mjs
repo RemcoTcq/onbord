@@ -1,7 +1,7 @@
 // L'accueil (17/11/2026) : la liste « À faire » et les résumés, lib/accueil.js.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculerAFaire, resumer, estADecider } from "../src/lib/accueil.js";
+import { calculerAFaire, estADecider } from "../src/lib/accueil.js";
 
 const maintenant = new Date("2026-11-17T12:00:00Z");
 const ilYa = (jours) => new Date(maintenant.getTime() - jours * 86400000).toISOString();
@@ -56,23 +56,6 @@ test("accueil : rien à faire, aucune ligne ; plusieurs personnes mènent à la 
   assert.equal(l.n, 4);
   assert.equal(l.noms.length, 3);
   assert.equal(l.href, "/onboarding/personnes");
-});
-
-test("accueil : les résumés comptent ce qu'il faut", () => {
-  const r = resumer({
-    jobs: [{ status: "active" }, { status: "closed" }],
-    candidats: [
-      { assessment_status: "in_progress" },
-      { assessment_status: "submitted", assessment_submitted_at: ilYa(2), status: "scored", score_global: 50 },
-      { assessment_status: "submitted", assessment_submitted_at: ilYa(12), status: "rejected", score_global: 10 },
-    ],
-    learners: [{ lifecycle: "ready" }, { lifecycle: "onboarding" }],
-    assignations: [{ status: "validated" }, { status: "assigned" }],
-    essais: [{ note: 40 }, { note: 61 }, { note: null }],
-    maintenant,
-  });
-  assert.deepEqual(r.recrutement, { offres: 1, enCours: 1, terminesSemaine: 1, aDecider: 1 });
-  assert.deepEqual(r.onboarding, { personnes: 2, pretes: 1, moyenne: 51, validees: 1, assignees: 2 });
 });
 
 test("onboarding : l'étape vers les vrais clients", async () => {

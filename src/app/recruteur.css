@@ -824,3 +824,7 @@ html.ds, html.ds body { background: var(--ds-page); }
 /* Lien d'action en texte bleu (« Afficher plus »…) */
 .ds-link { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--ds-blue); cursor: pointer; align-self: flex-start; }
 .ds-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Accueil (17/11/2026) : les actions rapides réagissent au survol. */
+.accueil-action { transition: border-color .15s, box-shadow .15s, transform .15s; }
+.accueil-action:hover { border-color: var(--ds-blue); box-shadow: var(--ds-shadow-pop); transform: translateY(-1px); }
