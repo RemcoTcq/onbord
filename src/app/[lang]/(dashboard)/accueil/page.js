@@ -44,7 +44,7 @@ const ACTIONS = [
   { cle: "createSimulation", href: "/simulations/creer", icone: Sparkles },
   { cle: "createJob", href: "/jobs/nouveau", icone: Briefcase },
   { cle: "createPersona", href: "/bibliotheque/personnages", icone: Contact },
-  { cle: "inviteHire", href: "/onboarding/personnes", icone: UserPlus },
+  { cle: "inviteHire", href: "/onboarding/personnes?inviter=1", icone: UserPlus },
   { cle: "hiringReports", href: "/recrutement", icone: ChartColumn },
   { cle: "onboardingReports", href: "/onboarding", icone: GraduationCap },
 ];
@@ -94,7 +94,6 @@ export default function Accueil() {
         <h1 style={{ margin: 0, fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--ds-ink)" }}>
           {prenom ? k("welcome", { name: prenom }) : k("welcomeNoName")}
         </h1>
-        <p className="ds-sub" style={{ margin: 0, fontSize: 15 }}>{k("welcomeHint")}</p>
       </header>
 
       {/* ── Actions rapides ── */}

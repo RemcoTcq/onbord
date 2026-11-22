@@ -110,7 +110,6 @@
 .navItem:hover { background: rgba(20, 32, 74, 0.05); }
 .navItem.active { background: var(--ds-nav-active); color: var(--ds-ink); font-weight: 500; }
 .navLabel { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.count { font-size: 12px; color: var(--ds-ink-4); font-weight: 400; }
 
 
 /* ── Menu replié ── */

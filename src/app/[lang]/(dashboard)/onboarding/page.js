@@ -7,21 +7,22 @@
 //   • ce qui bloque, personne par personne, avec la simulation en cause ;
 //   • les compétences les plus faibles de l'équipe, et les simulations qui
 //     les travaillent ;
-//   • puis les scores dans le temps, les résultats par simulation, et le
-//     réglage de validation automatique (admin).
+//   • c'est tout. Allégée le 20/11/2026 (Remco, « trop chargé ») : quatre
+//     chiffres au lieu de six, plus de scores dans le temps ni de résultats par
+//     simulation (la liste des simulations donne leur note moyenne), et la
+//     validation automatique est partie dans Paramètres → Onboarding.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Plus, ChevronRight, CalendarClock, TriangleAlert, Clock, Award, BadgeCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/layout/PageHeader";
 import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { formatDateShort } from "@/lib/i18n/format";
 import { initials } from "@/components/ui/ds";
-import { tableauOnboarding, getReglagesOnboarding, reglerAutoValidation } from "@/lib/actions/personnes";
+import { tableauOnboarding } from "@/lib/actions/personnes";
 
 const COLONNES = ["onboarding", "almost", "ready"];
-const NB_COMPETENCES = 5;
+const NB_COMPETENCES = 3;
 const ICONES_BLOCAGE = { overdue: CalendarClock, struggling: TriangleAlert, inactive: Clock };
 
 function Barre({ valeur, largeur = 120 }) {
@@ -45,7 +46,7 @@ function CartePersonne({ l, k }) {
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <b style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.nom}</b>
           <span className="ds-muted" style={{ fontSize: 12 }}>
-            {l.moyenne != null ? k("averageShort", { score: l.moyenne }) : k("noAttemptYet")} · {k("attemptsShort", { count: l.essais })}
+            {l.moyenne != null ? k("averageShort", { score: l.moyenne }) : k("noAttemptYet")}
           </span>
         </span>
         <ChevronRight size={14} color="var(--ds-ink-6)" />
@@ -70,27 +71,14 @@ function CartePersonne({ l, k }) {
 
 export default function OnboardingPage() {
   const { t, locale } = useI18n();
-  const { toast } = useToast();
   const k = (cle, vars) => t(`dashboard.onb.dashboard.${cle}`, vars);
   const [d, setD] = useState(null);
-  const [reglages, setReglages] = useState(null);
-
-  const charger = useCallback(async () => {
-    const [tab, reg] = await Promise.all([tableauOnboarding(), getReglagesOnboarding()]);
-    setD(tab.success ? tab : { erreur: true });
-    setReglages(reg.success ? reg : null);
-  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    charger();
-  }, [charger]);
-
-  async function basculer() {
-    const res = await reglerAutoValidation(!reglages.autoValidate);
-    if (!res.success) return toast(k("error"), "error");
-    setReglages({ ...reglages, autoValidate: !reglages.autoValidate });
-  }
+    let annule = false;
+    tableauOnboarding().then((tab) => { if (!annule) setD(tab.success ? tab : { erreur: true }); });
+    return () => { annule = true; };
+  }, []);
 
   const tuile = (libelle, valeur) => (
     <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -126,20 +114,17 @@ export default function OnboardingPage() {
         {d?.synthese && (
           <>
             {/* ── Chiffres clés ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
               {tuile(k("learners"), d.synthese.learners)}
               {tuile(k("ready"), d.synthese.prets)}
               {tuile(k("average"), d.synthese.moyenne != null ? `${d.synthese.moyenne} %` : "—")}
               {tuile(k("validated"), `${d.synthese.valides} / ${d.synthese.assignes}`)}
-              {tuile(k("attempts"), d.synthese.essais)}
-              {tuile(k("time"), k("minutes", { count: d.synthese.minutes }))}
             </div>
 
             {/* ── Vers de vrais clients ── */}
             <section aria-labelledby="ds-chemin" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <h2 id="ds-chemin" className="ds-h2">{k("path.title")}</h2>
-                <span className="ds-muted" style={{ fontSize: 13 }}>{k("path.hint")}</span>
               </span>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, alignItems: "start" }}>
                 {COLONNES.map((col) => {
@@ -153,7 +138,6 @@ export default function OnboardingPage() {
                         </span>
                         <span className="ds-chip">{gens.length}</span>
                       </span>
-                      <span className="ds-muted" style={{ fontSize: 12, padding: "0 4px" }}>{k(`path.${col}Hint`)}</span>
                       {gens.length === 0
                         ? <span className="ds-muted" style={{ fontSize: 12, padding: "10px 4px", textAlign: "center" }}>—</span>
                         : gens.map((l) => <CartePersonne key={l.userId} l={l} k={k} />)}
@@ -168,7 +152,6 @@ export default function OnboardingPage() {
               <section className="ds-card" aria-labelledby="ds-bloque" style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
                   <h2 id="ds-bloque" className="ds-h2">{k("blocked.title")}</h2>
-                  <span className="ds-muted" style={{ fontSize: 13 }}>{k("blocked.hint")}</span>
                 </div>
                 {d.blocages.length === 0 ? (
                   <div className="ds-empty" style={{ padding: "16px 16px 22px" }}>{k("blocked.none")}</div>
@@ -197,7 +180,6 @@ export default function OnboardingPage() {
               <section className="ds-card" aria-labelledby="ds-competences" style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
                   <h2 id="ds-competences" className="ds-h2">{k("skills.title")}</h2>
-                  <span className="ds-muted" style={{ fontSize: 13 }}>{k("skills.hint")}</span>
                 </div>
                 {d.competences.length === 0 ? (
                   <div className="ds-empty" style={{ padding: "16px 16px 22px" }}>{k("noScores")}</div>
@@ -213,7 +195,7 @@ export default function OnboardingPage() {
                         {c.simulations.length > 0 ? (
                           <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontSize: 12 }}>
                             <span className="ds-muted">{k("skills.workedBy")}</span>
-                            {c.simulations.slice(0, 3).map((s) => (
+                            {c.simulations.slice(0, 2).map((s) => (
                               <Link key={s.id} href={`/onboarding/modules/${s.id}`} className="ds-chip" style={{ maxWidth: 260 }} title={s.titre}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.titre}</span></Link>
                             ))}
                           </span>
@@ -227,47 +209,9 @@ export default function OnboardingPage() {
               </section>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 16, alignItems: "start" }}>
-              {/* ── Scores dans le temps ── */}
-              <section className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <h2 className="ds-h2">{k("overTime")}</h2>
-                {!d.dansLeTemps.length && <p className="ds-sub" style={{ margin: 0 }}>{k("noScores")}</p>}
-                {d.dansLeTemps.map((s) => (
-                  <div key={s.semaineDu} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                    <span style={{ width: 120 }}>{k("weekOf", { date: formatDateShort(s.semaineDu, locale) })}</span>
-                    <Barre valeur={s.moyenne} /> <span className="ds-mono">{s.moyenne} %</span>
-                    <span className="ds-muted">({k("attemptsShort", { count: s.essais })})</span>
-                  </div>
-                ))}
-              </section>
-
-              {/* ── Par simulation ── */}
-              <section className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <h2 className="ds-h2">{k("byModule")}</h2>
-                {!d.modules.length && <p className="ds-sub" style={{ margin: 0 }}>{k("noScores")}</p>}
-                {d.modules.map((m) => (
-                  <Link key={m.id} href={`/onboarding/modules/${m.id}`} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "inherit", textDecoration: "none" }}>
-                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.titre}</span>
-                    <span className="ds-muted">{k("attemptsShort", { count: m.essais })}</span>
-                    <Barre valeur={m.moyenne} largeur={90} /> <span className="ds-mono" style={{ width: 40, textAlign: "right" }}>{m.moyenne != null ? `${m.moyenne} %` : "—"}</span>
-                  </Link>
-                ))}
-              </section>
-            </div>
           </>
         )}
 
-        {reglages && (
-          <section className="ds-card ds-card-pad" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: 2 }}>
-              <b style={{ fontWeight: 600 }}>{k("autoValidate")}</b>
-              <span className="ds-sub">{k("autoValidateHint")}</span>
-            </span>
-            <button type="button" className={`ds-btn ${reglages.autoValidate ? "ds-btn-primary" : ""}`} onClick={basculer} disabled={!reglages.peutModifier}>
-              {reglages.autoValidate ? k("on") : k("off")}
-            </button>
-          </section>
-        )}
       </div>
     </>
   );

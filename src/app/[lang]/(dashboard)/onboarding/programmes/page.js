@@ -72,7 +72,6 @@ export default function ProgrammesPage() {
         <button type="button" className="ds-btn ds-btn-primary" onClick={() => setEdition({ ...VIDE })}><Plus size={14} /> {k("new")}</button>
       } />
       <div className="ds-body" style={{ maxWidth: 980, display: "flex", flexDirection: "column", gap: 16 }}>
-        <p className="ds-sub">{k("subtitle")}</p>
 
         {edition && (
           <form onSubmit={enregistrer} className="ds-panel">

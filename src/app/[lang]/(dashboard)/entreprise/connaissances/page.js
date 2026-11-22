@@ -167,7 +167,6 @@ export default function KnowledgePage() {
     <>
       {entete}
       <div className="ds-body" style={{ maxWidth: 860, display: "flex", flexDirection: "column", gap: 16 }}>
-        <p className="ds-sub">{k("subtitle")}</p>
 
         {donnees.erreur ? (
           <div className="ds-panel"><p className="ds-sub" style={{ padding: 10 }}>{k("errors.generic")}</p></div>

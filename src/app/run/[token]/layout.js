@@ -1,6 +1,9 @@
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { buildDictionary } from "@/lib/i18n/dictionaries";
 import { resolveUiLocale } from "@/lib/i18n/server";
+import { titrePage } from "@/lib/i18n/titrePage";
+
+export const generateMetadata = titrePage("run");
 
 // La page du parcours est un composant client : elle ne peut pas porter de
 // config de segment. Ce layout existe pour poser `maxDuration`, qui s'applique

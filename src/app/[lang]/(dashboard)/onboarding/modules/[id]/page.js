@@ -7,7 +7,8 @@
 //     avant de commencer, ce que le personnage cache et objecte, la grille de
 //     notation et « À retenir » — chaque partie se retouche dans l'éditeur
 //     d'étape ;
-//   • tester (une fois), publier, assigner à des personnes ;
+//   • tester (une fois), publier, assigner à des personnes (la fenêtre
+//     partagée avec Onboarding → Modules, components/onboarding/FenetreAssigner) ;
 //   • les réglages, et la suppression définitive.
 
 import { useState, useEffect, useCallback, useRef, use } from "react";
@@ -19,17 +20,24 @@ import PageHeader from "@/components/layout/PageHeader";
 import { LocaleLink as Link, useRouter } from "@/lib/i18n/navigation";
 import { EXPERIENCE_LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 import { getModule, majModule, supprimerModule, impactSuppressionModule } from "@/lib/actions/modules";
-import { listerPersonnes, assigner } from "@/lib/actions/personnes";
 import { publishExperience } from "@/lib/actions/experience";
 import GenerationFeed, { streamModuleGeneration, translateFeedError } from "@/components/assessment/GenerationFeed";
-import { StatusBadge } from "@/components/experience/ui";
 import TesterSimulation from "@/components/experience/TesterSimulation";
 import { initials } from "@/components/ui/ds";
 import GrilleNotation from "@/components/simulations/GrilleNotation";
 import Select from "@/components/ui/Select";
+import FenetreAssigner from "@/components/onboarding/FenetreAssigner";
 
 const DIFFICULTES = ["easy", "medium", "hard"];
 const ICONES_CANAL = { chat: MessageSquare, email: Mail, call: Video, phone: Phone };
+const TONS_ETAT = { published: "ds-chip-green", pending_review: "ds-chip-amber" };
+
+/** Le canal d'une étape : l'écrit (e-mail, et les anciennes réponses à un client), ou le mode de la conversation (appel vidéo par défaut). */
+function canalEtape(s) {
+  if (["email", "client_reply", "inbox"].includes(s.sandbox_kind)) return "email";
+  const mode = s.config?.persona_mode || s.config?.persona?.mode;
+  return ["chat", "phone"].includes(mode) ? mode : "call";
+}
 
 function Bloc({ titre, children, action }) {
   return (
@@ -74,9 +82,7 @@ export default function ModulePage({ params }) {
   const [envoi, setEnvoi] = useState(false);
   const [evenements, setEvenements] = useState([]);
   const [generation, setGeneration] = useState(false);
-  const [personnes, setPersonnes] = useState(null);
-  const [choisies, setChoisies] = useState(new Set());
-  const [assignation, setAssignation] = useState(false);
+  const [fenetre, setFenetre] = useState(false);
   const lance = useRef(false);
 
   const charger = useCallback(async () => {
@@ -101,7 +107,6 @@ export default function ModulePage({ params }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     charger();
-    listerPersonnes().then((r) => setPersonnes(r.success ? r.personnes : []));
   }, [charger]);
 
   // Arrivée depuis la création (?generer=1) : la génération part toute seule, une fois.
@@ -137,33 +142,29 @@ export default function ModulePage({ params }) {
     const res = await supprimerModule(id);
     if (!res.success) return toast(k("errors.generic"), "error");
     toast(p("deleted"), "success");
-    router.push("/simulations");
+    router.push("/onboarding/modules");
   }
 
-  async function assignerChoisies() {
-    setAssignation(true);
-    let n = 0;
-    for (const learnerId of choisies) {
-      const res = await assigner({ learnerId, moduleIds: [id] });
-      if (res.success) n += res.nouvelles || 0;
-    }
-    setAssignation(false);
-    setChoisies(new Set());
+  const fermerFenetre = useCallback(() => setFenetre(false), []);
+  function apresAssignation(n, complet) {
+    if (complet) setFenetre(false);
     toast(p("assigned", { count: n }), "success");
     charger();
   }
 
-  const crumbs = [{ label: t("dashboard.sims.title"), href: "/simulations?usage=onboarding" }];
+  const crumbs = [{ label: t("dashboard.nav.modules"), href: "/onboarding/modules" }];
   if (!donnees) return (<><PageHeader crumbs={crumbs} title="…" /><div style={{ display: "flex", justifyContent: "center", padding: 48 }}><Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} /></div></>);
   if (donnees.erreur) return (<><PageHeader crumbs={crumbs} title={k("notFound")} /><div className="ds-body"><p className="ds-sub">{k("notFound")}</p></div></>);
 
   const { module, experience, steps, personnage, assignations } = donnees;
   const set = (cle) => (e) => setForm((f) => ({ ...f, [cle]: e.target.value }));
-  const canal = module.channel || "call";
-  const IconeCanal = ICONES_CANAL[canal] || Video;
+  // Les canaux des étapes, dans l'ordre — pas le seul canal choisi à la création :
+  // un module peut enchaîner un appel et un e-mail de suivi.
+  const canaux = steps.length ? [...new Set(steps.map(canalEtape))] : [module.channel || "call"];
+  const etat = experience ? (["published", "pending_review"].includes(experience.status) ? experience.status : "draft") : "toBuild";
+  const numero = (step) => steps.findIndex((x) => x.id === step.id) + 1;
   // Régénérer garde l'interlocuteur : le personnage choisi, sinon celui de la version courante.
   const personaCourant = module.persona_id || steps.find((s) => s.config?.persona_id)?.config.persona_id || null;
-  const dejaAssignes = new Set((assignations || []).map((a) => a.learner_id));
   const publiee = experience?.status === "published";
 
   return (
@@ -181,12 +182,15 @@ export default function ModulePage({ params }) {
 
         {/* ── En-tête : canal, rôle, langue, état ─────────────────────────── */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <span className="ds-chip" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconeCanal size={13} /> {t(`dashboard.sims.channels.${canal}.title`)}</span>
+          {canaux.map((cn) => {
+            const Icone = ICONES_CANAL[cn] || Video;
+            return <span key={cn} className="ds-chip" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icone size={13} /> {t(`dashboard.sims.channels.${cn}.title`)}</span>;
+          })}
           {module.target_role && <span className="ds-chip">{module.target_role}</span>}
           <span className="ds-chip">{LOCALE_LABELS[module.locale] || module.locale}</span>
           <span className="ds-chip">{k(`difficulty.${module.difficulty}`)}</span>
           <span className="ds-chip">{k("minScoreShort", { score: module.min_score })}</span>
-          {experience && <StatusBadge status={experience.status} />}
+          <span className={`ds-chip ${TONS_ETAT[etat] || ""}`}>{k(`etat.${etat}`)}</span>
           <span style={{ flex: 1 }} />
           <button type="button" className="ds-btn" onClick={() => lancerGeneration(personaCourant)} disabled={generation}>
             {generation ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={14} />}
@@ -206,7 +210,13 @@ export default function ModulePage({ params }) {
           return (
             <section key={s.id} className="ds-panel">
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px 0" }}>
-                <h2 className="ds-h2" style={{ flex: 1 }}>{s.title || p("preview")}</h2>
+                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, color: "var(--ds-blue)" }}>
+                    {(() => { const Icone = ICONES_CANAL[canalEtape(s)] || Video; return <Icone size={12} />; })()}
+                    {p("step", { n: numero(s), canal: t(`dashboard.sims.channels.${canalEtape(s)}.title`) })}
+                  </span>
+                  <h2 className="ds-h2">{s.title || p("preview")}</h2>
+                </span>
                 <Link href={`/onboarding/modules/${id}/etapes/${s.id}`} className="ds-btn"><Pencil size={14} /> {p("edit")}</Link>
               </div>
               <div className="ds-inset" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
@@ -227,6 +237,8 @@ export default function ModulePage({ params }) {
                       <p style={{ fontSize: 13, lineHeight: 1.55 }}>{[c.to && `${p("to")} ${c.to}`, c.subject && `${p("subject")} ${c.subject}`].filter(Boolean).join(" · ")}</p>
                       {c.context && <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{c.context}</p>}
                     </Bloc>
+                  ) : s.sandbox_kind === "client_reply" ? (
+                    c.client_message && <Bloc titre={p("clientMessage")}><p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{typeof c.client_message === "string" ? c.client_message : [c.client_message.from, c.client_message.subject, c.client_message.body].filter(Boolean).join("\n")}</p></Bloc>
                   ) : perso && (
                     <>
                       {perso.context && <Bloc titre={p("context")}><p style={{ fontSize: 13, lineHeight: 1.55 }}>{perso.context}</p></Bloc>}
@@ -243,7 +255,6 @@ export default function ModulePage({ params }) {
               {c.a_retenir?.length > 0 && (
                 <div className="ds-inset">
                   <Bloc titre={p("takeaways")}>
-                    <p className="ds-help" style={{ marginTop: -2 }}>{p("takeawaysHint")}</p>
                     {puces(c.a_retenir)}
                   </Bloc>
                 </div>
@@ -262,6 +273,7 @@ export default function ModulePage({ params }) {
             ailleurs={pointsAilleurs(steps, s.id)}
             verrouillee={Boolean(experience.locked_at)}
             onSaved={charger}
+            etape={steps.length > 1 ? p("scorecardOf", { n: numero(s), titre: s.title || p("preview") }) : null}
           />
         ))}
 
@@ -270,32 +282,18 @@ export default function ModulePage({ params }) {
           <section className="ds-panel">
             <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
               <h2 className="ds-h2">{p("assignTitle")}</h2>
-              <p className="ds-sub">{publiee ? p("assignHint") : p("assignAfterPublish")}</p>
+              {!publiee && <p className="ds-sub">{p("assignAfterPublish")}</p>}
             </div>
-            <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {personnes === null && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
-              {personnes?.length === 0 && (
-                <p className="ds-sub">{p("noPeople")} <Link href="/onboarding/personnes" className="ds-link">{p("invite")}</Link></p>
-              )}
-              {(personnes || []).map((pe) => {
-                const deja = dejaAssignes.has(pe.userId);
-                return (
-                  <label key={pe.userId} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: deja ? "default" : "pointer", opacity: deja ? 0.6 : 1 }}>
-                    <input type="checkbox" disabled={deja || !publiee} checked={deja || choisies.has(pe.userId)}
-                      onChange={() => setChoisies((s) => { const n = new Set(s); if (n.has(pe.userId)) n.delete(pe.userId); else n.add(pe.userId); return n; })} />
-                    <span style={{ flex: 1 }}>{pe.nom || pe.email}</span>
-                    {deja && <span className="ds-chip">{p("alreadyAssigned")}</span>}
-                  </label>
-                );
-              })}
+            <div className="ds-inset" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--ds-ink-3)" }}>
+                {(assignations || []).length
+                  ? k("assignedCount", { count: assignations.length })
+                  : k("assignedNobody")}
+              </span>
+              <button type="button" className="ds-btn ds-btn-primary" onClick={() => setFenetre(true)} disabled={!publiee}>
+                <UserPlus size={14} /> {k("assignOpen")}
+              </button>
             </div>
-            {publiee && personnes?.length > 0 && (
-              <div className="ds-panel-foot">
-                <button type="button" className="ds-btn ds-btn-primary" onClick={assignerChoisies} disabled={assignation || !choisies.size}>
-                  {assignation ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <UserPlus size={14} />} {p("assign", { count: choisies.size })}
-                </button>
-              </div>
-            )}
           </section>
         )}
 
@@ -321,6 +319,7 @@ export default function ModulePage({ params }) {
           </div>
         </form>
       </div>
+      {fenetre && <FenetreAssigner moduleId={id} titre={module.title} onFermer={fermerFenetre} onAssigne={apresAssignation} />}
     </>
   );
 }

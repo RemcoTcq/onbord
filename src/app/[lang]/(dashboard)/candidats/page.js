@@ -61,7 +61,6 @@ export default function CandidatsPage() {
     <>
       <PageHeader title={k("title")} />
       <div className="ds-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <p className="ds-sub">{k("subtitle")}</p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div role="radiogroup" aria-label={k("filter")} className="ds-seg" style={{ height: 34 }}>
             {[[false, k("filterAll")], [true, k("filterToDecide", { count: nbADecider })]].map(([v, l]) => (

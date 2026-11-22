@@ -80,7 +80,6 @@ export default function LacunesRecrutement({ userId, recrutement, onAssigne }) {
       </div>
       <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
         {!lacunes.length && <p className="ds-sub">{k("empty")}</p>}
-        {lacunes.length > 0 && <p className="ds-help">{k("gapsHint")}</p>}
         {lacunes.map((l, i) => (
           <div key={i} style={{ display: "flex", gap: 10 }}>
             <span className="ds-mono" style={{ color: COULEUR[l.score], flexShrink: 0 }}>{l.score}/2</span>

@@ -7,7 +7,7 @@ import { getCompanyProfile, updateCompanyProfile, fetchAndAnalyzeWebsite } from 
 import { useToast } from "@/components/ui/Toast";
 import {
   Loader2, Building2, Globe, Target, Briefcase, Users,
-  Wand2, Lock, TrendingUp
+  Wand2, Lock
 } from "lucide-react";
 
 export default function CompanyProfilePage() {
@@ -23,7 +23,6 @@ export default function CompanyProfilePage() {
   const [targetMarket, setTargetMarket] = useState("");
   const [industry, setIndustry] = useState("");
   const [domain, setDomain] = useState("");
-  const [recruitmentHabits, setRecruitmentHabits] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -35,7 +34,6 @@ export default function CompanyProfilePage() {
         setTargetMarket(res.profile.target_market || "");
         setIndustry(res.profile.industry || "");
         setDomain(res.profile.domain || "");
-        setRecruitmentHabits(res.profile.recruitment_habits || "");
       }
       setLoading(false);
     }
@@ -70,7 +68,6 @@ export default function CompanyProfilePage() {
       target_market: targetMarket,
       industry,
       domain,
-      recruitment_habits: recruitmentHabits,
     });
     if (result.success) {
       toast(t("dashboard.companyProfile.saved"), "success");
@@ -103,7 +100,6 @@ export default function CompanyProfilePage() {
             <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Building2 size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.companyProfile.title")}
             </h2>
-            <p className="ds-sub">{t("dashboard.companyProfile.subtitle")}</p>
           </div>
 
           {/* Bandeau informatif */}
@@ -161,19 +157,8 @@ export default function CompanyProfilePage() {
               </label>
             </div>
           </div>
-        </section>
-
-        {/* Habitudes de recrutement */}
-        <section className="ds-panel">
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "10px 10px 0" }}>
-            <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Users size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.companyProfile.habits")}
-            </h2>
-            <p className="ds-sub">{t("dashboard.companyProfile.habitsPlaceholder")} {t("dashboard.companyProfile.habitsHelp")}</p>
-          </div>
-          <div className="ds-inset">
-            <textarea className="ds-textarea" value={recruitmentHabits} onChange={(e) => setRecruitmentHabits(e.target.value)} placeholder={t("dashboard.companyProfile.habitsExample")} rows={5} aria-label={t("dashboard.companyProfile.habits")} />
-          </div>
+          {/* « Habitudes de recrutement » et « Tendances observées » retirées le
+              20/11/2026 (Remco) : Connaissances d'entreprise couvre la même chose. */}
           <div className="ds-panel-foot">
             <button type="submit" className="ds-btn ds-btn-primary" disabled={saving}>
               {saving && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
@@ -182,17 +167,6 @@ export default function CompanyProfilePage() {
           </div>
         </section>
 
-        {/* Tendances observées — à venir, après le premier recrutement */}
-        <section className="ds-panel" style={{ opacity: 0.85 }}>
-          <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px 0" }}>
-            <TrendingUp size={16} style={{ color: "var(--ds-ink-4)" }} /> {t("dashboard.companyProfile.observedTrends")}
-          </h2>
-          <div className="ds-inset ds-empty" style={{ padding: "22px 16px" }}>
-            <Lock size={16} />
-            <span className="ds-empty-title">{t("dashboard.companyProfile.afterFirstHire")}</span>
-            <span style={{ maxWidth: 360 }}>{t("dashboard.companyProfile.afterFirstHireHelp")}</span>
-          </div>
-        </section>
       </form>
     </>
   );

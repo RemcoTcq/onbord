@@ -66,7 +66,6 @@ export default function PersonasPage() {
         <button type="button" className="ds-btn ds-btn-primary" onClick={() => setNouvelle({ name: "" })}><Plus size={15} /> {k("new")}</button>
       )} />
       <div className="ds-body" style={{ maxWidth: 980, display: "flex", flexDirection: "column", gap: 16 }}>
-        <p className="ds-sub">{k("subtitle")}</p>
 
         {nouvelle && (
           <form onSubmit={creer} className="ds-panel">

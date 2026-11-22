@@ -80,7 +80,6 @@ export default function BillingPage() {
           <h2 className="ds-h2" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <CreditCard size={16} style={{ color: "var(--ds-blue)" }} /> {t("dashboard.billing.title")}
           </h2>
-          <p className="ds-sub">{t("dashboard.billing.subtitle")}</p>
         </div>
         <div className="ds-inset" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>

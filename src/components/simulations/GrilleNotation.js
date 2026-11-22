@@ -28,7 +28,7 @@ const nouvelleCle = (p) => `${p}-n${++compteur}-${Date.now().toString(36)}`;
 // `ailleurs` : les points de contrôle des AUTRES étapes de la simulation, par
 // compétence (une ancienne simulation peut en avoir plusieurs) — une compétence
 // notée ailleurs n'est pas « non notée ».
-export default function GrilleNotation({ moduleId, step, criteria, verrouillee = false, ailleurs = {}, onSaved }) {
+export default function GrilleNotation({ moduleId, step, criteria, verrouillee = false, ailleurs = {}, onSaved, etape = null }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const k = (cle, vars) => t(`dashboard.sims.grid.${cle}`, vars);
@@ -82,8 +82,10 @@ export default function GrilleNotation({ moduleId, step, criteria, verrouillee =
     <section className="ds-panel">
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 10px 0", flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: "1 1 360px" }}>
+          {/* Une grille par étape : l'étiquette dit laquelle (page d'un module, 20/11/2026). */}
+          {etape && <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, color: "var(--ds-blue)" }}>{etape}</span>}
           <h2 className="ds-h2">{k("title")}</h2>
-          <p className="ds-sub">{k("subtitle")}</p>
+
         </div>
         <span className="ds-chip">{k("pointsCount", { count: totalPoints })}</span>
       </div>

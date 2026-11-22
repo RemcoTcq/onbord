@@ -10,8 +10,7 @@ import { LocaleLink as Link } from "@/lib/i18n/navigation";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { formatDateShort } from "@/lib/i18n/format";
 import { createClient } from "@/lib/supabase/client";
-import { getUserCreditInfo } from "@/lib/actions/usage";
-import { Plus, Briefcase, Users, CircleArrowUp, Maximize2, ChevronRight, Calendar, Loader2 } from "lucide-react";
+import { Plus, Briefcase, Users, Maximize2, ChevronRight, Calendar, Loader2 } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import CopyJobLink from "@/components/jobs/CopyJobLink";
 import { jobDot, scoreTone, initials, candidateStatusLabel } from "@/components/ui/ds";
@@ -19,7 +18,6 @@ import Select from "@/components/ui/Select";
 import { aTermine, estADecider, STATUTS_DECIDES } from "@/lib/accueil";
 
 const NB_CANDIDATS = 6;
-const SEUIL_CREDITS_BAS = 10;
 const RETENUS = ["shortlisted", "next_step"];
 
 // ── Dates de la période ─────────────────────────────────────────────────────
@@ -91,7 +89,6 @@ export default function VueRecrutement() {
   const { t, locale } = useI18n();
   const h = (cle, vars) => t(`dashboard.hiringOverview.${cle}`, vars);
   const [jobs, setJobs] = useState([]);
-  const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [periode, setPeriode] = useState("week");
   const [jourActif, setJourActif] = useState(null);
@@ -103,14 +100,11 @@ export default function VueRecrutement() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) { setLoading(false); return; }
 
-      const [credits, { data }] = await Promise.all([
-        getUserCreditInfo(),
-        supabase
-          .from("jobs")
-          .select("id, title, status, location, contract_type, work_mode, created_at, candidates(id, first_name, last_name, email, status, assessment_status, score_global, created_at, assessment_submitted_at)")
-          .order("created_at", { ascending: false }),
-      ]);
-      setUsage(credits);
+      // Les crédits restants vivent sur l'accueil (Remco, 20/11/2026).
+      const { data } = await supabase
+        .from("jobs")
+        .select("id, title, status, location, contract_type, work_mode, created_at, candidates(id, first_name, last_name, email, status, assessment_status, score_global, created_at, assessment_submitted_at)")
+        .order("created_at", { ascending: false });
       setJobs(data || []);
       setLoading(false);
     }
@@ -158,12 +152,6 @@ export default function VueRecrutement() {
       </>
     );
   }
-
-  const illimite = !!usage?.illimite;
-  const total = usage?.credits_allocated ?? 0;
-  const restants = usage?.credits_balance ?? 0;
-  const utilises = Math.max(0, total - restants);
-  const pctUtilises = total > 0 ? Math.min(100, Math.round((utilises / total) * 100)) : 0;
 
   // Graphique
   const max = Math.max(4, ...activite.map((a) => Math.max(a.inv, a.done)));
@@ -219,35 +207,6 @@ export default function VueRecrutement() {
             </span>
           </div>
 
-          <div className="ds-card ds-card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, fontWeight: 500 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <span className="ds-icon-tile" style={{ background: "#7FA0F0" }}><CircleArrowUp size={13} strokeWidth={2.2} /></span>
-                {t("dashboard.home.credits")}
-              </span>
-              {!illimite && (
-                <span className="ds-muted" style={{ fontSize: 12, fontWeight: 400 }}>
-                  {t("dashboard.home.creditsUsedOf", { used: utilises, total })}
-                </span>
-              )}
-            </span>
-            {illimite ? (
-              <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span className="ds-stat">∞</span>
-                <span className="ds-muted" style={{ fontSize: 12 }}>{usage?.planLabel}</span>
-              </span>
-            ) : (
-              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ display: "flex", alignItems: "baseline", gap: 8, flex: "none" }}>
-                  <span className="ds-stat">{restants}</span>
-                  <span className="ds-muted" style={{ fontSize: 12 }}>{t("dashboard.home.creditsLeft")}</span>
-                </span>
-                <span role="meter" aria-label={t("dashboard.home.credits")} aria-valuemin={0} aria-valuemax={total} aria-valuenow={utilises} className="ds-meter" style={{ flex: 1 }}>
-                  <span style={{ width: `${pctUtilises}%`, background: restants <= SEUIL_CREDITS_BAS ? "var(--ds-amber)" : undefined }} />
-                </span>
-              </span>
-            )}
-          </div>
         </div>
       </section>
 
@@ -256,7 +215,6 @@ export default function VueRecrutement() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <h2 id="ds-entonnoir" className="ds-h2">{h("funnel")}</h2>
-            <span className="ds-muted" style={{ fontSize: 13 }}>{h("funnelHint")}</span>
           </span>
           <Link href="/jobs" aria-label={t("dashboard.home.seeAllJobs")} title={t("dashboard.home.seeAllJobs")} className="ds-icon-btn ds-icon-btn-outline">
             <Maximize2 size={15} strokeWidth={2} />

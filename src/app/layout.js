@@ -18,22 +18,21 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-// Métadonnées résolues par langue. Elles servent aussi aux aperçus de lien
-// partagés par le recruteur, d'où la traduction plutôt qu'un titre figé.
+// Métadonnées résolues par langue. Chaque page pose son propre titre
+// (lib/i18n/titrePage.js), affiché « Connexion · Onbord » grâce au gabarit ;
+// une page qui n'en pose pas affiche « Onbord ». La description sert aux
+// aperçus de lien : elle dit ce que fait Onbord, sans slogan.
 const META = {
-  fr: {
-    title: "Onbord — Recrutement intelligent",
-    description: "Plateforme de qualification automatique des candidatures par IA",
-  },
-  en: {
-    title: "Onbord — Smarter hiring",
-    description: "AI-powered platform for automatic candidate screening",
-  },
+  fr: "Onbord entraîne et évalue vos équipes commerciales et support par des simulations de vraies conversations : appels, e-mails, chats. Pour recruter, et pour former.",
+  en: "Onbord trains and assesses your sales and support teams with simulations of real conversations: calls, emails, chats. To hire, and to onboard.",
 };
 
 export async function generateMetadata() {
   const locale = await resolveUiLocale();
-  return META[locale] || META.fr;
+  return {
+    title: { default: "Onbord", template: "%s · Onbord" },
+    description: META[locale] || META.fr,
+  };
 }
 
 export default async function RootLayout({ children }) {

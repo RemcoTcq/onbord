@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LocaleLink as Link, stripLocale } from "@/lib/i18n/navigation";
-import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Users, UserSearch, ChevronDown, ChartColumn } from "lucide-react";
+import { Briefcase, Search, Settings, PanelLeftClose, PanelLeftOpen, BookOpen, Contact, GraduationCap, Layers, ListOrdered, Puzzle, Users, UserSearch, ChevronDown, ChartColumn } from "lucide-react";
 // Layers : « Simulations », l'entrée commune au recrutement et à l'onboarding.
 import { useT } from "@/lib/i18n/I18nProvider";
 import { useShell } from "./ShellContext";
@@ -36,7 +36,7 @@ export default function Sidebar() {
   const t = useT();
   // Chemin canonique (français, sans préfixe) : comparable aux href du code.
   const pathname = stripLocale(usePathname());
-  const { jobs, openSearch } = useShell();
+  const { openSearch } = useShell();
   // Lecture directe au premier rendu : le cadre n'affiche le menu qu'après la
   // vérification de session, côté client — pas de rendu serveur à accorder.
   const [open, setOpen] = useState(() => {
@@ -59,8 +59,6 @@ export default function Sidebar() {
     try { localStorage.setItem(CLE_OUVERT, next ? "1" : "0"); } catch {}
   }
 
-  const ouverts = jobs.filter((j) => j.status === "active");
-
   const taille = open ? 16 : 17;
   const icone = (Icone) => <Icone size={taille} strokeWidth={1.8} />;
   // Le menu : l'accueil et les SIMULATIONS (toutes, quel que soit leur usage,
@@ -70,7 +68,7 @@ export default function Sidebar() {
   const groupes = [
     { cle: "accueil", items: [
       { href: "/accueil", label: t("dashboard.nav.home"), icon: <HomeIcon size={taille} />, actif: pathname === "/accueil" },
-      { href: "/simulations", label: t("dashboard.nav.simulations"), icon: icone(Layers), actif: pathname.startsWith("/simulations") || pathname.startsWith("/onboarding/modules") },
+      { href: "/simulations", label: t("dashboard.nav.simulations"), icon: icone(Layers), actif: pathname.startsWith("/simulations") },
     ] },
     { cle: "hiring", label: t("dashboard.nav.hiring"), items: [
       { href: "/recrutement", label: t("dashboard.nav.overview"), icon: icone(ChartColumn), actif: pathname === "/recrutement" },
@@ -79,13 +77,13 @@ export default function Sidebar() {
         label: t("dashboard.nav.jobs"),
         icon: icone(Briefcase),
         actif: pathname === "/jobs" || pathname.startsWith("/jobs/"),
-        count: ouverts.length || null,
       },
       { href: "/candidats", label: t("dashboard.nav.candidates"), icon: icone(UserSearch), actif: pathname.startsWith("/candidats") },
     ] },
     { cle: "onboarding", label: t("dashboard.nav.onboarding"), items: [
       { href: "/onboarding", label: t("dashboard.nav.overview"), icon: icone(GraduationCap), actif: pathname === "/onboarding" },
       { href: "/onboarding/personnes", label: t("dashboard.nav.people"), icon: icone(Users), actif: pathname.startsWith("/onboarding/personnes") },
+      { href: "/onboarding/modules", label: t("dashboard.nav.modules"), icon: icone(Puzzle), actif: pathname.startsWith("/onboarding/modules") },
       { href: "/onboarding/programmes", label: t("dashboard.nav.programs"), icon: icone(ListOrdered), actif: pathname.startsWith("/onboarding/programmes") },
     ] },
     { cle: "company", label: t("dashboard.nav.company"), items: [
@@ -97,7 +95,6 @@ export default function Sidebar() {
     <Link key={it.href} href={it.href} aria-current={it.actif ? "page" : undefined} className={`${styles.navItem} ${it.actif ? styles.active : ""}`}>
       {it.icon}
       <span className={styles.navLabel}>{it.label}</span>
-      {it.count != null && <span className={styles.count}>{it.count}</span>}
     </Link>
   );
   const parametresActif = pathname.startsWith("/compte");

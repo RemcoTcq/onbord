@@ -103,7 +103,6 @@ export default function SimulationsPage() {
         <Link href="/simulations/creer" className="ds-btn ds-btn-primary"><Plus size={15} strokeWidth={2.2} /> {k("create")}</Link>
       } />
       <div className="ds-body">
-        <p className="ds-sub" style={{ maxWidth: 760 }}>{k("subtitle")}</p>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div role="tablist" aria-label={k("filterLabel")} className="ds-seg">
             {USAGES.map((u) => (

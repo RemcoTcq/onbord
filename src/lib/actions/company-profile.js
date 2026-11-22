@@ -29,8 +29,6 @@ export async function getCompanyProfile() {
         target_market: data?.company_ai_context?.target_market || "",
         industry: data?.company_ai_context?.industry || "",
         domain: data?.company_ai_context?.domain || "",
-        recruitment_habits: data?.company_ai_context?.recruitment_habits || "",
-        observed_trends: data?.company_ai_context?.observed_trends || "",
       },
     };
   } catch (error) {
@@ -59,8 +57,6 @@ export async function updateCompanyProfile(profileData) {
           target_market: profileData.target_market || "",
           industry: profileData.industry || "",
           domain: profileData.domain || "",
-          recruitment_habits: profileData.recruitment_habits || "",
-          observed_trends: profileData.observed_trends || "",
         },
       })
       .eq("id", ctx.orgId);
