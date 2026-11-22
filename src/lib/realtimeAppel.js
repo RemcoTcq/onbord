@@ -26,7 +26,18 @@ import crypto from "node:crypto";
 import { consignePersona } from "@/lib/persona";
 import { voixDuPersonnage } from "@/lib/constants/voix";
 
-export const MODELE_REALTIME = process.env.ELEVENLABS_REALTIME_MODEL || "eleven_realtime_v1_mini";
+// MAX par défaut (20/11/2026). Mini tournait en boucle : sur un appel de
+// support (Sibelga), il a redit neuf fois mot pour mot la même objection malgré
+// les bonnes réponses du candidat, gardé « [impatient] » jusqu'au merci final et
+// répété dix fois son au revoir sans raccrocher (conversations du 20/11, lues
+// chez ElevenLabs). Rejoué en test : Max ne se répète plus et fait évoluer son
+// ton. Quelques centimes de plus par appel. ELEVENLABS_REALTIME_MODEL permet de
+// revenir à Mini.
+export const MODELE_REALTIME = process.env.ELEVENLABS_REALTIME_MODEL || "eleven_realtime_v1_max";
+// Jamais 0 (la valeur par défaut chez ElevenLabs) : à température nulle, une
+// phrase dite une fois devient la plus probable et revient à l'identique, voix
+// comprise — la boucle du 20/11.
+const TEMPERATURE_PERSONNAGE = 0.7;
 // Plafond de sécurité, pas la durée visée : c'est le personnage qui écourte
 // selon le type d'appel (consignePersona) — un appel à froid en 1 à 3 minutes,
 // une démo jusqu'à 10 (Remco, 21/10/2026).
@@ -81,6 +92,7 @@ export function configurationAgent(persona, stepId, langue, nomLangue) {
         prompt: consignePersona(persona, nomLangue, persona.max_turns, {
           realtime: true, dureeMaxMinutes: Math.round(DUREE_MAX_APPEL_S / 60),
         }),
+        temperature: TEMPERATURE_PERSONNAGE,
         built_in_tools: {
           end_call: { type: "system", name: "end_call", description: "", params: { system_tool_type: "end_call" } },
         },
