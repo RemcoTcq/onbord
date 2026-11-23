@@ -84,15 +84,18 @@ const PAGES = [
   { key: "simulations", ancre: "work" },
   { key: "how", ancre: "how" },
   { key: "scoring", ancre: "proof" },
-  { path: "/pricing", key: "pricing" },
 ];
 
 // L'ordre de la barre (10/11/2026, demande directe) : Solutions, Pricing,
 // Resources. Le menu « Product » a quitté la barre ; PRODUIT et son entrée
 // de DEROULANTS restent, inutilisés, et le menu mobile garde ses trois ancres.
+// ⚠️ Pricing RETIRÉ le 23/11/2026 (demande directe) : le barème est en cours
+// de recalcul, aucun prix ne doit être visible d'ici là. Pour le remettre :
+// `{ path: "/pricing", key: "pricing" }` dans PAGES et ici, la route dans
+// routes.js, le lien du pied de page, la page (historique git), et retirer la
+// redirection de next.config.mjs.
 const BARRE = [
   { menu: "solutions" },
-  { page: PAGES.find((p) => p.key === "pricing") },
   { menu: "resources" },
 ];
 

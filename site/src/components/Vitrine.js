@@ -8,10 +8,11 @@ import { UserSearch, GradCap } from "./Icons";
 // Le bas du hero : le choix Recrutement / Onboarding, et la plateforme dans
 // son cadre (05/11/2026, demande directe).
 //
-// ⚠️ L'ONGLET ONBOARDING MONTRE ENCORE LA FENÊTRE DU RECRUTEMENT. L'onboarding
-// n'est pas construit dans l'application ; son visuel arrivera avec lui. Le
-// clic est déjà là, pour que la mise en page ne bouge pas ce jour-là : il
-// suffira de rendre autre chose que <AppPeek> pour `onboarding`.
+// Chaque onglet a ses écrans, qui défilent dans la même fenêtre (AppPeek.js) :
+// le recrutement (vue d'ensemble, candidats, rapport) et, depuis le
+// 23/11/2026, l'onboarding (vue d'ensemble, personnes, fiche d'une recrue),
+// recopiés de l'application. Avant, l'onglet Onboarding montrait la fenêtre
+// du recrutement : l'onboarding n'était pas encore construit.
 //
 // C'est un vrai jeu d'onglets (même motif que Steps.js) : `role="tablist"`,
 // `aria-selected`, panneau lié par `aria-controls`. Changer d'onglet remonte
@@ -21,7 +22,7 @@ import { UserSearch, GradCap } from "./Icons";
 const VUES = ["recruitment", "onboarding"];
 const ICONES = { recruitment: UserSearch, onboarding: GradCap };
 
-export default function Vitrine({ tabs, a, shortlist, score }) {
+export default function Vitrine({ tabs, a, o, shortlist, score }) {
   const [vue, setVue] = useState(VUES[0]);
 
   return (
@@ -47,7 +48,7 @@ export default function Vitrine({ tabs, a, shortlist, score }) {
         })}
       </div>
       <div className="vitrine__cadre" role="tabpanel" id="vitrine-panneau" aria-labelledby={`vitrine-${vue}`}>
-        <AppPeek key={vue} a={a} shortlist={shortlist} score={score} />
+        <AppPeek key={vue} vue={vue} a={a} o={o} shortlist={shortlist} score={score} />
       </div>
     </>
   );

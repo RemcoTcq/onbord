@@ -1,25 +1,21 @@
 import { Cam, Check, FileText, Mail, Message } from "./Icons";
-import { IcMail, IcMessage, IcPhone, IcSend, Statut } from "./AppUi";
+import { IcCheck, IcChevron, IcPhone, IcRotate, IcSend, Statut } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les visuels des pages « Solutions » (10/11/2026, demande directe) : le
 // recrutement, l'onboarding et le SaaS B2B. Chacun est une CARTE au style de
 // la plateforme, posée dans le cadre clair des étapes de « How it works »
 // (`.cas__cadre`), et réutilise ses briques (`fl-*`, `ap-*`). Les écrans
-// entiers de la plateforme (candidats classés, modules d'une recrue) sont la
-// fenêtre de Moments (`AppFenetre`), pas un composant d'ici.
+// entiers de la plateforme (candidats classés, fiche d'une recrue, tableau
+// des personnes) sont la fenêtre de Moments (`AppFenetre`), pas un composant
+// d'ici.
 //
 // Décoratifs : la carte est `aria-hidden`, le cadre porte la description
 // (`role="img"`), rien n'est cliquable. Les libellés repris de l'application
 // sont ceux de ses dictionnaires (« Situation: », « Online », « Your message
 // to… », « To », « Subject », « Sent on… »).
-//
-// ⚠️ Règle 2 : l'ONBOARDING N'EXISTE PAS ENCORE dans l'application. Les
-// cartes de module (ModuleCarte, Recrues) sont des projections, comme
-// l'écran d'onboarding de Moments.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ICONES = { call: IcPhone, email: IcMail, chat: IcMessage };
 const CANAUX = { video: Cam, phone: IcPhone, chat: Message, email: Mail };
 
 /** La conversation du candidat avec le client simulé, en cours (chat). */
@@ -66,50 +62,110 @@ export function Retour({ t, body }) {
   );
 }
 
-/** Un module d'onboarding : son format, ses réglages, et ce sur quoi il est
- *  construit. `t.updated` : la pastille « Updated » (page SaaS). */
-export function ModuleCarte({ t }) {
-  const Icone = ICONES[t.kind] || IcPhone;
+// ── L'onboarding, recopié de l'application (23/11/2026) ─────────────────────
+// Trois cartes, chacune la copie d'un bloc d'une vraie page (racine du dépôt) :
+//   • Documents → Entreprise › Connaissances, le bloc « Documents »
+//     (app/[lang]/(dashboard)/entreprise/connaissances/page.js) ;
+//   • Module    → la page d'un module (onboarding/modules/[id]/page.js) :
+//     ses pastilles, « Régénérer », puis l'étape et son personnage ;
+//   • Essai     → ce que la recrue voit après un essai
+//     (components/essai/RetourEssai.js) : score face au seuil, compétence par
+//     compétence, chaque point attendu noté 0, 1 ou 2 avec sa phrase.
+
+/** Les documents de l'entreprise : utilisés, ou mis de côté. */
+export function Documents({ t }) {
   return (
-    <div className="fl-card" aria-hidden="true">
-      <div className="fl-persona">
-        <span className="mc__ic"><Icone size={17} /></span>
-        <p><b>{t.title}</b><span>{t.sub}</span></p>
-        <span className={`fl-tag${t.updated ? " mc__updated" : ""}`}>{t.tag}</span>
+    <div className="fl-card obc" aria-hidden="true">
+      <div className="obc__head">
+        <b>{t.title}</b>
+        <span className="obc__small">{t.count}</span>
       </div>
-      <div className="fl-props">
-        {t.rows.map((r) => (
-          <p key={r.label}><span>{r.label}</span><b>{r.value}</b></p>
+      <div className="obc__inset">
+        {t.docs.map((d) => (
+          <div className={`obc__doc${d.on ? "" : " obc__doc--off"}`} key={d.title}>
+            <FileText size={17} />
+            <span className="obc__stack">
+              <b>{d.title}</b>
+              <span className="obc__small">{d.meta}</span>
+            </span>
+            <span className="obc__check"><i className={d.on ? "is-on" : ""}>{d.on ? <IcCheck size={10} /> : null}</i>{d.on ? t.inUse : t.aside}</span>
+          </div>
         ))}
       </div>
-      <p className="fl-from">{t.builtFrom}</p>
-      <p className="fl-sources">
-        {t.sources.map((x) => <span key={x}><FileText size={12} />{x}</span>)}
-      </p>
     </div>
   );
 }
 
-/** Les nouvelles recrues et où elles en sont : la carte de Lucas en tête,
- *  avec sa barre « Ready for day one », puis deux autres. */
-export function Recrues({ t }) {
+/** La page d'un module : pastilles, « Régénérer », l'étape et son personnage. */
+export function Module({ t }) {
+  const Icone = CANAUX[t.channel] || IcPhone;
   return (
-    <div className="fl-card rc" aria-hidden="true">
-      <p className="rc__title">{t.title}</p>
-      {t.people.map((p) => (
-        <div className={`rc__row${p.main ? " rc__row--main" : ""}`} key={p.name}>
-          <span className="ap-avatar">{p.initials}</span>
-          <span className="rc__who">
-            <b>{p.name}</b>
-            <span>{p.role}</span>
+    <div className="fl-card obc" aria-hidden="true">
+      <div className="obc__head">
+        <span className="obc__crumb">{t.crumb}<IcChevron size={14} /></span>
+        <b className="obc__h1">{t.title}</b>
+      </div>
+      <div className="obc__chips">
+        <span className="obc__chip"><Icone size={12} />{t.channelName}</span>
+        {t.chips.map((c) => <span className="obc__chip" key={c}>{c}</span>)}
+        <span className="obc__chip obc__chip--green">{t.state}</span>
+      </div>
+      <span className="obc__btn"><IcRotate size={13} />{t.regenerate}</span>
+      <div className="obc__inset obc__step">
+        <span className="obc__eyebrow"><Icone size={12} />{t.step}</span>
+        <b>{t.stepTitle}</b>
+        <span className="obc__persona">
+          <span className="ap-avatar">{t.persona.initials}</span>
+          <span className="obc__stack">
+            <b>{t.persona.name}</b>
+            <span className="obc__small">{t.persona.role}</span>
+            <span>{t.persona.personality}</span>
           </span>
-          <Statut t={p.tone}>{p.state}</Statut>
-          <span className="rc__prog">
-            <span className="rc__line"><b>{p.label}</b><span>{p.modules}</span></span>
-            <span className="rc__track"><i style={{ width: `${p.pct}%` }} /></span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Ce que la recrue voit après un essai noté. */
+export function Essai({ t }) {
+  return (
+    <div className="fl-card obc" aria-hidden="true">
+      <div className="obc__head">
+        <span className="obc__eyebrowGrey">{t.attempt}</span>
+        <b className="obc__h1">{t.title}</b>
+      </div>
+      <div className="obc__inset obc__score">
+        <span className="obc__stack">
+          <span className="obc__small">{t.scoreLabel}</span>
+          <b className="obc__stat">{t.score} %</b>
+        </span>
+        <span className="obc__meterCol">
+          <span className="obc__meter"><i style={{ width: `${t.score}%` }} /></span>
+          <span className="obc__small">{t.passMark}</span>
+        </span>
+        <span className="obc__chip obc__chip--green">{t.passed}</span>
+      </div>
+      <div className="obc__head obc__head--sub">
+        <b>{t.skills}</b>
+        <span className="obc__small">{t.hint}</span>
+      </div>
+      <div className="obc__inset">
+        <span className="obc__skill">
+          <b>{t.skill}</b>
+          <span className="obc__meter obc__meter--thin"><i style={{ width: `${t.skillScore}%` }} /></span>
+          <span className="obc__mono">{t.skillScore} %</span>
+        </span>
+        {t.points.map((p) => (
+          <span className="obc__pt" key={p.d}>
+            <span className={`obc__mono obc__pt--${p.s}`}>{p.s}/2</span>
+            <span className="obc__stack">
+              {p.d}
+              <i>{p.v}</i>
+            </span>
           </span>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

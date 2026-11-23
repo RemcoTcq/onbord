@@ -6,9 +6,9 @@
 
 const home = {
   meta: {
-    title: "Onbord | Des simulations de poste pour recruter sur les compétences",
+    title: "Onbord | Des simulations de poste pour recruter et intégrer vos équipes clients",
     description:
-      "Onbord transforme une offre d'emploi en simulation de poste. Les candidats font le vrai travail, et vous obtenez une évaluation des compétences, preuve à l'appui pour chaque note.",
+      "Onbord construit des simulations de vos postes sales, customer success et support. Recrutez sur une évaluation des compétences, preuve à l'appui pour chaque note, puis préparez vos nouvelles recrues avant leur premier client.",
   },
 
   hero: {
@@ -59,15 +59,23 @@ const home = {
     },
     app: {
       // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
-      alt: "L'interface recruteur d'Onbord : le tableau de bord, les candidats classés par score global, et le rapport d'un candidat.",
+      alt: "L'interface recruteur d'Onbord : la vue d'ensemble du recrutement, les candidats classés par score global, et le rapport d'un candidat.",
       pct: "{n} %",
       me: "LV",
       nav: {
         search: "Rechercher…",
         menu: "Menu",
-        home: "Tableau de bord",
+        home: "Accueil",
+        simulations: "Simulations",
+        hiring: "Recrutement",
+        overview: "Vue d'ensemble",
         jobs: "Jobs",
-        recent: "Jobs récents",
+        candidates: "Candidats",
+        onboarding: "Onboarding",
+        people: "Personnes",
+        modules: "Modules",
+        programs: "Programmes",
+        company: "Entreprise",
         settings: "Paramètres",
       },
       jobs: [
@@ -116,7 +124,7 @@ const home = {
         quote: "« {q} »",
       },
       home: {
-        title: "Tableau de bord",
+        title: "Vue d'ensemble du recrutement",
         newJob: "Nouveau job",
         hello: "Bonjour Laura",
         figures: [
@@ -178,31 +186,90 @@ const home = {
         title: "Des recrues prêtes avant leur premier jour.",
         lede: "Elles traversent les vraies situations du poste, module par module, et vous voyez où chacune en est avant son premier client.",
         link: "Découvrir l'onboarding",
-        alt: "Un parcours d'onboarding Onbord : un nouvel account executive fait cinq simulations de poste avant son premier jour.",
+        alt: "La fiche d'une nouvelle recrue dans Onbord : les modules assignés à Lucas Martens, trois validés, et son dernier essai avec chaque point attendu et les mots qui le prouvent.",
       },
     ],
+    // Les écrans d'onboarding, recopiés de l'application le 23/11/2026 :
+    // même forme que l'anglais, libellés du dictionnaire français de
+    // l'application (dashboard.js, `onb`).
     onboardingApp: {
-      alt: "Un parcours d'onboarding Onbord : un nouvel account executive fait cinq simulations de poste avant son premier jour.",
-      initials: "LM",
-      name: "Lucas Martens",
-      nav: "Onboarding",
-      role: "Account executive",
-      starts: "Arrive le 16 nov.",
-      onTrack: "Dans les temps",
-      ready: "Prêt pour le premier jour",
-      progress: "{done} modules sur {total}",
-      colModule: "Module",
-      colScore: "Score",
-      colStatus: "Statut",
-      pct: "{n} %",
-      states: { done: "Terminé", current: "En cours", todo: "À faire" },
-      modules: [
-        { kind: "call", title: "Appel de découverte avec un prospect", format: "Appel en direct", min: "15 min", state: "done", score: "82" },
-        { kind: "email", title: "Répondre à une objection sur le prix", format: "E-mail", min: "10 min", state: "done", score: "71" },
-        { kind: "inbox", title: "Trier la boîte du lundi matin", format: "Boîte de réception", min: "10 min", state: "current" },
-        { kind: "document", title: "Préparer une proposition de renouvellement", format: "Document", min: "15 min", state: "todo" },
-        { kind: "chat", title: "Calmer un client mécontent par chat", format: "Chat", min: "10 min", state: "todo" },
+      alt: "L'onboarding d'Onbord : les nouvelles recrues en route vers de vrais clients, la liste des personnes et leur avancée, et les modules et essais d'une recrue.",
+      team: [
+        { initials: "EP", name: "Emma Peeters", email: "emma.peeters@brightline.io", col: "onboarding", valides: 2, assignes: 5, avg: 64, since: "5 nov." },
+        { initials: "LM", name: "Lucas Martens", email: "lucas.martens@brightline.io", col: "almost", valides: 3, assignes: 5, avg: 77, since: "3 nov.", toValidate: true },
+        { initials: "NJ", name: "Noah Janssens", email: "noah.janssens@brightline.io", col: "onboarding", valides: 1, assignes: 4, avg: 48, since: "10 nov." },
+        { initials: "SC", name: "Sofia Claes", email: "sofia.claes@brightline.io", col: "almost", valides: 4, assignes: 4, avg: 81, since: "27 oct.", toDeclare: true },
+        { initials: "RD", name: "Ruben De Smet", email: "ruben.desmet@brightline.io", col: "ready", valides: 5, assignes: 5, avg: 84, since: "13 oct." },
+        { initials: "HW", name: "Hanna Wouters", email: "hanna.wouters@brightline.io", col: "ready", valides: 4, assignes: 4, avg: 79, since: "20 oct." },
       ],
+      overview: {
+        title: "Vue d'ensemble de l'onboarding",
+        create: "Créer une simulation",
+        tiles: [["Nouvelles recrues", "6"], ["Prêtes", "2"], ["Score moyen", "72 %"], ["Simulations validées", "19 / 27"]],
+        path: "Vers de vrais clients",
+        cols: { onboarding: "En onboarding", almost: "Presque prêtes", ready: "Prêtes" },
+        average: "{n} % de moyenne",
+        validatedOf: "{v} / {a} validés",
+        toDeclare: "À déclarer prête",
+        toValidate: "1 essai à valider",
+        stuckTitle: "Qui bloque",
+        stuck: [
+          { kind: "struggling", name: "Noah Janssens", why: "2 essais sous le seuil — Calmer un client mécontent par chat" },
+          { kind: "overdue", name: "Emma Peeters", why: "Échéance dépassée le 20 nov. — Appel de renouvellement avec un client hésitant" },
+        ],
+        skillsTitle: "Compétences à travailler",
+        workedBy: "Travaillée par",
+        skills: [
+          { name: "Traiter les objections", n: 58, sim: "Répondre à une objection sur le prix" },
+          { name: "Convenir d'une prochaine étape", n: 63, sim: "Appel de découverte avec un prospect" },
+          { name: "Apaiser un client mécontent", n: 66, sim: "Calmer un client mécontent par chat" },
+        ],
+      },
+      people: {
+        title: "Personnes",
+        invite: "Inviter une personne",
+        tabs: { onboarding: "En onboarding", ready: "Prêtes" },
+        search: "Rechercher une personne",
+        colPerson: "Personne",
+        colStage: "Étape",
+        colProgress: "Modules validés",
+        colAverage: "Note moyenne",
+        colSince: "Arrivée le",
+      },
+      person: {
+        name: "Lucas Martens",
+        sub: "lucas.martens@brightline.io · En onboarding",
+        markReady: "Marquer comme prête",
+        assign: "Assigner",
+        assignments: "Modules assignés",
+        attemptsTitle: "Essais",
+        validate: "Valider",
+        unvalidate: "Annuler la validation",
+        status: { validated: "Validé", passed: "Seuil atteint", in_progress: "En cours", assigned: "Assigné" },
+        modules: [
+          { title: "Appel de découverte avec un prospect", meta: "2 essais · meilleur score 82 % (seuil 70 %)", status: "validated" },
+          { title: "Répondre à une objection sur le prix", meta: "1 essai · meilleur score 74 % (seuil 70 %)", status: "validated" },
+          { title: "Appel de renouvellement avec un client hésitant", meta: "2 essais · meilleur score 75 % (seuil 70 %)", status: "validated" },
+          { title: "Calmer un client mécontent par chat", meta: "1 essai · meilleur score 75 % (seuil 70 %)", status: "passed" },
+          { title: "Présenter les nouveaux tarifs", meta: "0 essai · seuil 70 % · échéance le 5 déc.", status: "assigned" },
+        ],
+        attempts: [
+          { title: "Calmer un client mécontent par chat", meta: "essai 1 · 21 nov.", score: "75 %" },
+          { title: "Appel de renouvellement avec un client hésitant", meta: "essai 2 · 18 nov.", score: "75 %" },
+          { title: "Appel de renouvellement avec un client hésitant", meta: "essai 1 · 14 nov.", score: "58 %" },
+          { title: "Répondre à une objection sur le prix", meta: "essai 1 · 10 nov.", score: "74 %" },
+        ],
+        open: {
+          summary: "Lucas a reconnu tout de suite le double prélèvement et donné une date pour le remboursement. Il a expliqué la cause en termes techniques dont le client n'avait pas besoin.",
+          criterion: "Apaiser un client mécontent · 75 %",
+          points: [
+            { s: 2, d: "Reconnaît le problème avant de l'expliquer", v: "« Je suis désolé, être prélevé deux fois, c'est bien la dernière chose dont vous avez besoin. »" },
+            { s: 1, d: "Explique ce qui s'est passé avec des mots simples", v: "« C'est un webhook rejoué sur notre synchro de facturation. »" },
+            { s: 2, d: "S'engage sur une correction datée", v: "« Vous verrez le remboursement sur votre carte d'ici jeudi. »" },
+            { s: 1, d: "Vérifie que le client est satisfait avant de conclure", v: "« Je peux vous aider pour autre chose ? »" },
+          ],
+        },
+      },
     },
   },
 

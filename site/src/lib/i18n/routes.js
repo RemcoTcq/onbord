@@ -37,11 +37,6 @@ const SEGMENTS = {
     fr: "/free-simulation",
     nl: "/free-simulation",
   },
-  "/pricing": {
-    en: "/pricing",
-    fr: "/tarifs",
-    nl: "/tarieven",
-  },
   // La page « métiers business » (12/10/2026) : ce qu'Onbord fait passer
   // AUJOURD'HUI. La page tech a été retirée le 14/10/2026 : elle n'est plus
   // qu'une entrée « bientôt » non cliquable du menu (Header.js). Ne remettez

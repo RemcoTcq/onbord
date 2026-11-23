@@ -48,7 +48,6 @@ export default function Footer({ locale, common }) {
             <ul className="footer__links">
               <li><Link href={`/${locale}#how`}>{n.how}</Link></li>
               <li><Link href={`/${locale}#faq`}>{f.faq}</Link></li>
-              <li><Link href={href("/pricing", locale)}>{n.pricing}</Link></li>
             </ul>
           </div>
 

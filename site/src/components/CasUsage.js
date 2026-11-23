@@ -8,7 +8,7 @@ import TryModal from "./TryModal";
 import Faq from "./Faq";
 import { AppFenetre } from "./AppPeek";
 import { Rapport } from "./Etapes";
-import { Conversation, ModuleCarte, QuatreCanaux, Recrues, Retour } from "./CasVisuels";
+import { Conversation, Documents, Essai, Module, QuatreCanaux, Retour } from "./CasVisuels";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Le gabarit des trois pages « Solutions » (10/11/2026, demande directe) :
@@ -72,11 +72,14 @@ export default async function CasUsage({ locale, cle }) {
     report: (l) => carte(<Rapport t={{ ...h.flow.report, ...v.report }} />, l),
     cands: (l) => fenetre("cands", l),
     feedback: (l) => carte(<Retour t={v.feedback} body={c.mocks.feedback.tabs[1].body} />, l),
+    // L'onboarding (23/11/2026) : des copies de l'application, plus des
+    // projections. La fiche d'une recrue, ses documents d'entreprise, ce
+    // qu'elle voit après un essai, le tableau des personnes, un module.
     modules: (l) => fenetre("onboarding", l),
-    source: (l) => carte(<ModuleCarte t={v.source} />, l),
-    done: (l) => carte(<Rapport t={v.done} />, l),
-    ready: (l) => carte(<Recrues t={v.ready} />, l),
-    updated: (l) => carte(<ModuleCarte t={v.updated} />, l),
+    source: (l) => carte(<Documents t={v.source} />, l),
+    done: (l) => carte(<Essai t={v.done} />, l),
+    ready: (l) => fenetre("people", l),
+    updated: (l) => carte(<Module t={v.updated} />, l),
     channels: (l) => carte(<QuatreCanaux t={v.channels} />, l),
   };
 

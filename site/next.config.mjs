@@ -30,6 +30,13 @@ const nextConfig = {
       // catégorie et leurs deux articles renvoient à toutes les ressources.
       { source: "/:lang/resources/comparisons", destination: "/:lang/resources", permanent: false },
       { source: "/:lang/resources/comparisons/:slug", destination: "/:lang/resources", permanent: false },
+      // La page des tarifs, retirée le 23/11/2026 « pour le moment » : le
+      // barème est recalculé. Ses adresses (et les anciennes traduites)
+      // mènent à la démo, où le prix se discute de vive voix.
+      { source: "/pricing", destination: "/en/demo", permanent: false },
+      { source: "/:lang/pricing", destination: "/:lang/demo", permanent: false },
+      { source: "/:lang/tarifs", destination: "/:lang/demo", permanent: false },
+      { source: "/:lang/tarieven", destination: "/:lang/demo", permanent: false },
     ];
   },
 };

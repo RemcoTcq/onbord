@@ -26,10 +26,12 @@
 //   4. NI PRIX NI CRÉDITS. `next` sort vers /pricing, et c'est tout.
 
 const home = {
+  // Le titre d'onglet du 23/11/2026 (demande directe) : il ne disait que le
+  // recrutement, alors qu'Onbord fait aussi l'onboarding. Les deux moments.
   meta: {
-    title: "Onbord | Job simulations to hire on real skills, not CVs",
+    title: "Onbord | Job simulations to hire and onboard customer-facing teams",
     description:
-      "Onbord turns any job posting into a job simulation. Candidates do the real work of the role, and you get a skills assessment with evidence behind every score.",
+      "Onbord builds job simulations of your sales, customer success and support roles. Hire on a skills assessment with evidence behind every score, then get new hires ready before they meet a customer.",
   },
 
   hero: {
@@ -91,15 +93,24 @@ const home = {
     },
     app: {
       // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
-      alt: "Onbord's recruiter interface: the dashboard, candidates ranked by overall score, and a candidate report.",
+      alt: "Onbord's recruiter interface: the hiring overview, candidates ranked by overall score, and a candidate report.",
       pct: "{n}%",
       me: "LV",
+      // Le menu de l'application depuis le 16/11/2026 (dashboard.js, `nav`).
       nav: {
         search: "Search…",
         menu: "Menu",
-        home: "Dashboard",
+        home: "Home",
+        simulations: "Simulations",
+        hiring: "Hiring",
+        overview: "Overview",
         jobs: "Jobs",
-        recent: "Recent jobs",
+        candidates: "Candidates",
+        onboarding: "Onboarding",
+        people: "People",
+        modules: "Modules",
+        programs: "Programs",
+        company: "Company",
         settings: "Settings",
       },
       jobs: [
@@ -148,7 +159,7 @@ const home = {
         quote: "“{q}”",
       },
       home: {
-        title: "Dashboard",
+        title: "Hiring overview",
         newJob: "New job",
         hello: "Hello Laura",
         figures: [
@@ -204,9 +215,9 @@ const home = {
   // reste de la règle : aucune de ces lignes n'invente un reproche, chacune
   // redit dans un autre format ce que la page affirme déjà ailleurs.
   // ── « Two moments that matter » (05/11/2026), Moments.js ────────────────
-  // Texte PROVISOIRE, à reprendre au copywriting. ⚠️ Règle 2 : l'onboarding
-  // n'existe PAS ENCORE dans l'application ; son visuel (onboardingApp) est
-  // une projection, seuls les formats de ses modules existent déjà.
+  // Texte PROVISOIRE, à reprendre au copywriting. L'onboarding est dans
+  // l'application depuis le 17/11/2026 : ses écrans (onboardingApp) sont
+  // recopiés de ses pages depuis le 23/11/2026 (voir AppPeek.js).
   moments: {
     title: "Two moments that matter",
     items: [
@@ -224,31 +235,93 @@ const home = {
         title: "Get new hires ready before day one.",
         lede: "They work through the real situations of the role, module by module, and you see where each one stands before they meet a customer.",
         link: "Explore onboarding",
-        alt: "An Onbord onboarding program: a new account executive works through five job simulations before their first day.",
+        alt: "A new hire's page in Onbord: Lucas Martens's assigned modules, three validated, and the latest attempt with each checkpoint and the words behind it.",
       },
     ],
+    // Les écrans d'onboarding de la fenêtre (AppPeek.js), recopiés de
+    // l'application le 23/11/2026 : libellés de dashboard.js (`onb`), blocs
+    // et ordre de ses pages. ⚠️ Les tirets « — » de `stuck` sont ceux de
+    // l'interface : la règle 2 bis tolère la typographie des maquettes.
+    // Les chiffres se recoupent : la vue d'ensemble totalise `team`, et
+    // Lucas a 3 modules validés sur 5, comme sur sa fiche.
     onboardingApp: {
-      alt: "An Onbord onboarding program: a new account executive works through five job simulations before their first day.",
-      initials: "LM",
-      name: "Lucas Martens",
-      nav: "Onboarding",
-      role: "Account executive",
-      starts: "Starts on 16 Nov",
-      onTrack: "On track",
-      ready: "Ready for day one",
-      progress: "{done} of {total} modules",
-      colModule: "Module",
-      colScore: "Score",
-      colStatus: "Status",
-      pct: "{n}%",
-      states: { done: "Completed", current: "In progress", todo: "Not started" },
-      modules: [
-        { kind: "call", title: "Discovery call with a new prospect", format: "Live call", min: "15 min", state: "done", score: "82" },
-        { kind: "email", title: "Answer a pricing objection", format: "Email", min: "10 min", state: "done", score: "71" },
-        { kind: "inbox", title: "Sort a Monday-morning inbox", format: "Inbox", min: "10 min", state: "current" },
-        { kind: "document", title: "Prepare a renewal proposal", format: "Document", min: "15 min", state: "todo" },
-        { kind: "chat", title: "Calm an unhappy client in chat", format: "Chat", min: "10 min", state: "todo" },
+      alt: "Onbord's onboarding: new hires on their way to real customers, the list of people and their progress, and a new hire's modules and attempts.",
+      team: [
+        { initials: "EP", name: "Emma Peeters", email: "emma.peeters@brightline.io", col: "onboarding", valides: 2, assignes: 5, avg: 64, since: "5 Nov" },
+        { initials: "LM", name: "Lucas Martens", email: "lucas.martens@brightline.io", col: "almost", valides: 3, assignes: 5, avg: 77, since: "3 Nov", toValidate: true },
+        { initials: "NJ", name: "Noah Janssens", email: "noah.janssens@brightline.io", col: "onboarding", valides: 1, assignes: 4, avg: 48, since: "10 Nov" },
+        { initials: "SC", name: "Sofia Claes", email: "sofia.claes@brightline.io", col: "almost", valides: 4, assignes: 4, avg: 81, since: "27 Oct", toDeclare: true },
+        { initials: "RD", name: "Ruben De Smet", email: "ruben.desmet@brightline.io", col: "ready", valides: 5, assignes: 5, avg: 84, since: "13 Oct" },
+        { initials: "HW", name: "Hanna Wouters", email: "hanna.wouters@brightline.io", col: "ready", valides: 4, assignes: 4, avg: 79, since: "20 Oct" },
       ],
+      overview: {
+        title: "Onboarding overview",
+        create: "Create a simulation",
+        tiles: [["New hires", "6"], ["Ready", "2"], ["Average score", "72 %"], ["Simulations validated", "19 / 27"]],
+        path: "Towards real customers",
+        cols: { onboarding: "Onboarding", almost: "Almost ready", ready: "Ready" },
+        average: "{n}% average",
+        validatedOf: "{v} / {a} validated",
+        toDeclare: "Ready to declare",
+        toValidate: "1 attempt to validate",
+        stuckTitle: "Who's stuck",
+        stuck: [
+          { kind: "struggling", name: "Noah Janssens", why: "2 attempts below the pass mark — Calm an unhappy customer in chat" },
+          { kind: "overdue", name: "Emma Peeters", why: "Due 20 Nov — Renewal call with a hesitant customer" },
+        ],
+        skillsTitle: "Skills to work on",
+        workedBy: "Practised in",
+        skills: [
+          { name: "Handling objections", n: 58, sim: "Answer a pricing objection" },
+          { name: "Agreeing a next step", n: 63, sim: "Discovery call with a new prospect" },
+          { name: "Calming a frustrated customer", n: 66, sim: "Calm an unhappy customer in chat" },
+        ],
+      },
+      people: {
+        title: "People",
+        invite: "Invite a person",
+        tabs: { onboarding: "Onboarding", ready: "Ready" },
+        search: "Search for a person",
+        colPerson: "Person",
+        colStage: "Stage",
+        colProgress: "Modules validated",
+        colAverage: "Average score",
+        colSince: "Joined",
+      },
+      person: {
+        name: "Lucas Martens",
+        sub: "lucas.martens@brightline.io · Onboarding",
+        markReady: "Mark as ready",
+        assign: "Assign",
+        assignments: "Assigned modules",
+        attemptsTitle: "Attempts",
+        validate: "Validate",
+        unvalidate: "Undo validation",
+        status: { validated: "Validated", passed: "Pass mark reached", in_progress: "In progress", assigned: "Assigned" },
+        modules: [
+          { title: "Discovery call with a new prospect", meta: "2 attempts · best score 82% (pass mark 70%)", status: "validated" },
+          { title: "Answer a pricing objection", meta: "1 attempt · best score 74% (pass mark 70%)", status: "validated" },
+          { title: "Renewal call with a hesitant customer", meta: "2 attempts · best score 75% (pass mark 70%)", status: "validated" },
+          { title: "Calm an unhappy customer in chat", meta: "1 attempt · best score 75% (pass mark 70%)", status: "passed" },
+          { title: "Present the new pricing", meta: "0 attempts · pass mark 70% · due 5 Dec", status: "assigned" },
+        ],
+        attempts: [
+          { title: "Calm an unhappy customer in chat", meta: "attempt 1 · 21 Nov", score: "75 %" },
+          { title: "Renewal call with a hesitant customer", meta: "attempt 2 · 18 Nov", score: "75 %" },
+          { title: "Renewal call with a hesitant customer", meta: "attempt 1 · 14 Nov", score: "58 %" },
+          { title: "Answer a pricing objection", meta: "attempt 1 · 10 Nov", score: "74 %" },
+        ],
+        open: {
+          summary: "Lucas owned the double charge straight away and gave a date for the refund. He explained the cause in technical terms the customer didn't need.",
+          criterion: "Calming a frustrated customer · 75 %",
+          points: [
+            { s: 2, d: "Acknowledges the problem before explaining it", v: "“I'm sorry, being charged twice is the last thing you need.”" },
+            { s: 1, d: "Explains what happened in plain words", v: "“It was a webhook retry on our billing sync.”" },
+            { s: 2, d: "Commits to a dated fix", v: "“You'll see the refund on your card by Thursday.”" },
+            { s: 1, d: "Checks the customer is satisfied before closing", v: "“Is there anything else I can help with?”" },
+          ],
+        },
+      },
     },
   },
 

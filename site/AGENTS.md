@@ -35,6 +35,30 @@ npm install      # la première fois seulement
 npm run dev      # http://localhost:3001
 ```
 
+## ⚠️ Mise à jour du 23/11/2026 (demande directe)
+
+- **`/pricing` est RETIRÉE « pour le moment »** : le barème est en cours de
+  recalcul et aucun prix faux ne doit circuler. La page, son entrée de barre
+  (`PAGES`/`BARRE` dans Header.js), son lien du pied de page et sa route
+  (`routes.js`, donc le plan du site) sont partis ; `/pricing`, `/tarifs` et
+  `/tarieven` redirigent (307) vers `/demo` (`next.config.mjs`). `PlanTable.js`,
+  `lib/pricing.js` et `pages.pricing` restent, en sommeil, pour la remettre.
+  Tout ce qui suit sur `/pricing` décrit l'état d'avant.
+- **le titre d'onglet de l'accueil** dit les deux moments : « Onbord | Job
+  simulations to hire and onboard customer-facing teams » (`home.meta`),
+  description comprise. Il ne disait que le recrutement.
+- **l'ONBOARDING EXISTE dans l'application** (en prod depuis le 17/11/2026).
+  Ses visuels ne sont plus des projections mais des COPIES de ses pages :
+  l'onglet Onboarding du hero fait défiler la vue d'ensemble, les personnes
+  et la fiche d'une recrue (AppPeek.js, `home.moments.onboardingApp`) ; la
+  fenêtre de Moments montre la fiche de Lucas Martens ; `/new-hire-onboarding`
+  et `/b2b-saas` montrent les documents de l'entreprise, ce que la recrue voit
+  après un essai, le tableau des personnes et la page d'un module
+  (CasVisuels.js). Le menu de TOUTES les fenêtres est celui de l'application
+  (Accueil, Simulations, Recrutement, Onboarding, Entreprise). Partout plus
+  bas où ce fichier dit « l'onboarding n'existe pas encore », c'est l'état
+  d'avant. Quand l'application change, on resynchronise à la main.
+
 ## L'intention du site
 
 Un site **clair, minimaliste, posé sur un quadrillage**. La référence, ce sont

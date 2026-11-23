@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Icons";
-import { IcCap, IcFile, IcInbox, IcPhone, IcArrow, IcCalendar, IcCheckDone, IcChevron, IcChevronDown, IcExpand, IcGear, IcHome, IcJobs, IcLink, IcMail, IcMessage, IcPanel, IcPlus, IcSearch, IcTrash, IcUsers, Note, PASTILLES, Statut, ton } from "./AppUi";
+import { IcAlert, IcArrow, IcAward, IcCalendar, IcCalendarClock, IcCap, IcChart, IcCheckCircle, IcCheckDone, IcChevron, IcChevronDown, IcExpand, IcGear, IcHome, IcJobs, IcLayers, IcLink, IcListOrdered, IcMail, IcMessage, IcPanel, IcPlus, IcPuzzle, IcSearch, IcTrash, IcUserPlus, IcUserSearch, IcUsers, Note, PASTILLES, Statut, ton } from "./AppUi";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La fenêtre de la plateforme, dans le hero. Ses écrans défilent tout seuls.
@@ -50,14 +50,25 @@ const DESIGN_PETIT = 880;
 
 // Les écrans, dans l'ordre où ils défilent, et le temps passé sur chacun.
 const ECRANS = ["home", "cands", "report"];
+// Ceux de l'onglet Onboarding (23/11/2026) : la vue d'ensemble, les
+// personnes, la fiche d'une nouvelle recrue.
+const ECRANS_OB = ["obHome", "people", "person"];
 const ROTATION = 5000;
 
 // ── Les morceaux communs à tous les écrans ──────────────────────────────────
 
-/** Le menu de gauche. `actif` : "home" (tableau de bord), "onboarding" ou
- *  l'indice du job. `onboarding` : le libellé de l'entrée Onboarding, posée
- *  seulement dans les fenêtres de « Two moments that matter » (AppFenetre). */
-function Menu({ a, actif, onboarding }) {
+/** Le menu de gauche, celui de l'application depuis le 16/11/2026
+ *  (src/components/layout/Sidebar.js, racine du dépôt) : l'accueil et les
+ *  simulations, puis un groupe par métier, Recrutement et Onboarding, puis
+ *  l'Entreprise. Le groupe Entreprise est REPLIÉ, comme l'application permet
+ *  de le faire : déplié, le menu ne tenait plus dans les 640px de la fenêtre.
+ *  `actif` : "hiring" (vue d'ensemble du recrutement), "jobs", "onboarding"
+ *  (vue d'ensemble de l'onboarding) ou "people". */
+function Menu({ a, actif }) {
+  const n = a.nav;
+  const item = (cle, Icone, label) => (
+    <span className={`ap-nav${actif === cle ? " ap-nav--on" : ""}`}><Icone />{label}</span>
+  );
   return (
     <aside className="ap-side">
       <div className="ap-brand">
@@ -66,26 +77,33 @@ function Menu({ a, actif, onboarding }) {
       </div>
       <div className="ap-search">
         <IcSearch size={15} />
-        <span>{a.nav.search}</span>
+        <span>{n.search}</span>
         <kbd>⌘K</kbd>
       </div>
-      <div className="ap-group">
-        <span className="ap-label">{a.nav.menu}</span>
-        <span className={`ap-nav${actif === "home" ? " ap-nav--on" : ""}`}><IcHome />{a.nav.home}</span>
-        <span className="ap-nav"><IcJobs /><span className="ap-grow">{a.nav.jobs}</span><span className="ap-count">{a.jobs.length}</span></span>
-        {onboarding ? <span className={`ap-nav${actif === "onboarding" ? " ap-nav--on" : ""}`}><IcCap />{onboarding}</span> : null}
-      </div>
-      <div className="ap-group">
-        <span className="ap-label">{a.nav.recent}</span>
-        {a.jobs.map((j, i) => (
-          <span className={`ap-nav ap-nav--job${actif === i ? " ap-nav--cur" : ""}`} key={j.title}>
-            <i style={{ background: PASTILLES[i % PASTILLES.length] }} />
-            <span className="ap-ell">{j.title}</span>
-          </span>
-        ))}
+      <div className="ap-menu">
+        <div className="ap-group">
+          {item("home", IcHome, n.home)}
+          {item("simulations", IcLayers, n.simulations)}
+        </div>
+        <div className="ap-group">
+          <span className="ap-label ap-label--group">{n.hiring}<IcChevronDown size={14} /></span>
+          {item("hiring", IcChart, n.overview)}
+          {item("jobs", IcJobs, n.jobs)}
+          {item("candidates", IcUserSearch, n.candidates)}
+        </div>
+        <div className="ap-group">
+          <span className="ap-label ap-label--group">{n.onboarding}<IcChevronDown size={14} /></span>
+          {item("onboarding", IcCap, n.overview)}
+          {item("people", IcUsers, n.people)}
+          {item("modules", IcPuzzle, n.modules)}
+          {item("programs", IcListOrdered, n.programs)}
+        </div>
+        <div className="ap-group">
+          <span className="ap-label ap-label--group ap-label--closed">{n.company}<IcChevronDown size={14} /></span>
+        </div>
       </div>
       <span className="ap-grow" />
-      <span className="ap-nav"><IcGear />{a.nav.settings}</span>
+      <span className="ap-nav"><IcGear />{n.settings}</span>
     </aside>
   );
 }
@@ -383,61 +401,226 @@ function EcranAccueil({ a, liste }) {
   );
 }
 
-// ── Écran : le parcours d'onboarding d'une nouvelle recrue ────────────────
-// ⚠️ Cet écran N'EXISTE PAS ENCORE dans l'application (règle 2 de
-// site/AGENTS.md) : c'est une projection, construite avec les briques de
-// l'interface recruteur (en-tête, carte, tableau) pour qu'elle ait l'air de
-// venir du même logiciel. Les FORMATS des modules existent tous.
-const OB_ICONES = { call: IcPhone, email: IcMail, inbox: IcInbox, document: IcFile, chat: IcMessage };
-const OB_STATUT = { done: "ok", current: "cur", todo: "wait" };
+// ── Les écrans de l'ONBOARDING (23/11/2026) ──────────────────────────────
+// L'onboarding est dans l'application depuis le 17/11/2026 : ces trois
+// écrans sont RECOPIÉS de ses pages, plus imaginés (l'écran d'avant, une
+// recrue et cinq modules « inbox » ou « document », était une projection
+// faite avant qu'il existe). Leur source, racine du dépôt :
+//   • la vue d'ensemble → app/[lang]/(dashboard)/onboarding/page.js ;
+//   • les personnes     → onboarding/personnes/page.js ;
+//   • une personne      → onboarding/personnes/[userId]/page.js.
+// Mêmes libellés (dashboard.js, `onb`), mêmes blocs, même ordre. Les
+// personnes et leurs chiffres viennent de `o.team`, une seule liste pour les
+// trois écrans : la vue d'ensemble, le tableau et la fiche se recoupent.
+// Ce qui ressemble à un bouton est un <span>, comme partout dans la fenêtre.
+const OB_COLONNES = ["onboarding", "almost", "ready"];
+const OB_BLOCAGES = { overdue: IcCalendarClock, struggling: IcAlert };
 
-function EcranOnboarding({ a, o }) {
-  const faits = o.modules.filter((x) => x.state === "done").length;
-  const total = o.modules.length;
+/** Le pourcentage de modules validés d'une personne. */
+const avance = (p) => Math.round((p.valides / p.assignes) * 100);
+
+/** Une personne dans sa colonne de « Towards real customers ». */
+function CartePersonne({ p, v }) {
+  return (
+    <span className="ob-pcard">
+      <span className="ob-pTop">
+        <span className="ap-avatar">{p.initials}</span>
+        <span className="ap-stack ap-grow">
+          <b className="ap-strong">{p.name}</b>
+          <span className="ob-small">{v.average.replace("{n}", p.avg)}</span>
+        </span>
+        <IcChevron size={14} />
+      </span>
+      <span className="ob-prog ob-small">
+        <span className="ob-meter"><i style={{ width: `${avance(p)}%` }} /></span>
+        {v.validatedOf.replace("{v}", p.valides).replace("{a}", p.assignes)}
+      </span>
+      {p.toDeclare || p.toValidate ? (
+        <span className="ob-chips">
+          {p.toDeclare ? <span className="ob-chip ob-chip--green"><IcAward size={12} />{v.toDeclare}</span> : null}
+          {p.toValidate ? <span className="ob-chip ob-chip--blue"><IcCheckCircle size={12} />{v.toValidate}</span> : null}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** Onboarding → Vue d'ensemble : quatre chiffres, le chemin vers de vrais
+ *  clients en trois colonnes, qui bloque, les compétences à travailler. */
+function EcranVueOnboarding({ a, o }) {
+  const v = o.overview;
   return (
     <>
-      <Tete a={a} chemin={[o.nav]} titre={o.name}>
-        <Statut t="ok">{o.onTrack}</Statut>
+      <Tete a={a} titre={v.title}>
+        <span className="ap-btn ap-btn--blue"><IcPlus size={15} />{v.create}</span>
       </Tete>
       <div className="ap-body">
-        <div className="ap-card ap-card--pad ob__summary">
-          <span className="ap-who">
-            <span className="ap-avatar ap-avatar--big">{o.initials}</span>
-            <span className="ap-stack">
-              <b className="ap-strong">{o.role}</b>
-              <span className="ap-sub">{o.starts}</span>
-            </span>
-          </span>
-          <div className="ob__progress">
-            <span className="ob__progLine">
-              <b>{o.ready}</b>
-              <span className="ap-sub">{o.progress.replace("{done}", faits).replace("{total}", total)}</span>
-            </span>
-            <span className="ob__track"><i style={{ width: `${(faits / total) * 100}%` }} /></span>
-          </div>
+        <div className="ob-tiles">
+          {v.tiles.map(([label, n]) => (
+            <span className="ob-tile" key={label}><span className="ob-small">{label}</span><b>{n}</b></span>
+          ))}
         </div>
-        <div className="ap-table">
-          <div className="ap-tr ap-tr--head ob__tr">
-            <span />
-            <span>{o.colModule}</span>
-            <span>{o.colStatus}</span>
-            <span>{o.colScore}</span>
-          </div>
-          {o.modules.map((x) => {
-            const Icone = OB_ICONES[x.kind];
+        <b className="ap-h2">{v.path}</b>
+        <div className="ob-cols">
+          {OB_COLONNES.map((col) => {
+            const gens = o.team.filter((p) => p.col === col);
             return (
-              <div className={`ap-tr ob__tr ob__tr--${x.state}`} key={x.title}>
-                <span className="ob__icon"><Icone size={16} /></span>
-                <span className="ap-stack">
-                  <b className="ap-strong ap-ell">{x.title}</b>
-                  <span className="ap-sub">{x.format} · {x.min}</span>
+              <div className="ob-col" key={col}>
+                <span className="ob-colHead">
+                  <span><i className={`ob-dot ob-dot--${col}`} />{v.cols[col]}</span>
+                  <span className="ap-chip">{gens.length}</span>
                 </span>
-                <span><Statut t={OB_STATUT[x.state]}>{o.states[x.state]}</Statut></span>
-                <span>{x.score ? <Note fmt={o.pct} n={x.score} /> : <span className="ap-dash">-</span>}</span>
+                {gens.map((p) => <CartePersonne p={p} v={v} key={p.name} />)}
               </div>
             );
           })}
         </div>
+        <div className="ob-duo">
+          <div className="ob-box">
+            <b className="ap-h2">{v.stuckTitle}</b>
+            {v.stuck.map((s) => {
+              const Icone = OB_BLOCAGES[s.kind];
+              return (
+                <span className="ob-li" key={s.name}>
+                  <span className="ob-alertIc"><Icone size={14} /></span>
+                  <span className="ap-stack ap-grow">
+                    <span className="ap-strong">{s.name}</span>
+                    <span className="ob-small ap-ell">{s.why}</span>
+                  </span>
+                  <IcChevron size={14} />
+                </span>
+              );
+            })}
+          </div>
+          <div className="ob-box">
+            <b className="ap-h2">{v.skillsTitle}</b>
+            {v.skills.map((s) => (
+              <span className="ob-skill" key={s.name}>
+                <span className="ob-skillLine">
+                  <span className="ap-strong ap-grow">{s.name}</span>
+                  <span className={`ap-meter ap-meter--short ap-meter--${ton(s.n)}`}><i style={{ width: `${s.n}%` }} /></span>
+                  <span className="ob-mono">{s.n} %</span>
+                </span>
+                <span className="ob-chips ob-small">{v.workedBy}<span className="ap-chip">{s.sim}</span></span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Onboarding → Personnes : l'onglet « en onboarding » et le tableau. */
+function EcranPersonnes({ a, o }) {
+  const p = o.people;
+  const enCours = o.team.filter((x) => x.col !== "ready").sort((x, y) => x.name.localeCompare(y.name));
+  return (
+    <>
+      <Tete a={a} titre={p.title}>
+        <span className="ap-btn ap-btn--blue"><IcUserPlus size={15} />{p.invite}</span>
+      </Tete>
+      <div className="ap-body">
+        <div className="ap-toolbar ob-toolbar">
+          <span className="ob-seg">
+            <span className="ob-segItem ob-segItem--on">{p.tabs.onboarding}<i>{enCours.length}</i></span>
+            <span className="ob-segItem">{p.tabs.ready}<i>{o.team.length - enCours.length}</i></span>
+          </span>
+          <span className="ap-field"><IcSearch size={15} />{p.search}</span>
+        </div>
+        <div className="ap-table">
+          <div className="ap-tr ap-tr--head ob-ptr">
+            <span>{p.colPerson}</span>
+            <span>{p.colStage}</span>
+            <span>{p.colProgress}</span>
+            <span>{p.colAverage}</span>
+            <span>{p.colSince}</span>
+            <span />
+          </div>
+          {enCours.map((x) => (
+            <div className="ap-tr ob-ptr" key={x.name}>
+              <span className="ap-who">
+                <span className="ap-avatar">{x.initials}</span>
+                <span className="ap-stack">
+                  <span className="ap-strong ap-ell">{x.name}</span>
+                  <span className="ap-sub ap-ell">{x.email}</span>
+                </span>
+              </span>
+              <span><span className="ob-chip ob-chip--blue"><i className="ob-dot ob-dot--onboarding" />{p.tabs.onboarding}</span></span>
+              <span className="ob-prog">
+                <span className="ob-meter"><i style={{ width: `${avance(x)}%` }} /></span>
+                <span className="ob-mono">{x.valides} / {x.assignes}</span>
+              </span>
+              <span className={`ob-mono ob-score--${ton(x.avg)}`}>{x.avg} %</span>
+              <span className="ap-sub">{x.since}</span>
+              <span className="ap-dash"><IcChevron size={16} /></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Onboarding → une personne : ses modules assignés, puis ses essais, le
+ *  plus récent déplié sur ses points attendus et les phrases qui les prouvent. */
+function EcranPersonne({ a, o }) {
+  const q = o.person;
+  return (
+    <>
+      <Tete a={a} chemin={[o.people.title]} titre={q.name}>
+        <span className="ap-btn ap-btn--ghost"><IcCheckCircle size={14} />{q.markReady}</span>
+        <span className="ap-btn ap-btn--blue"><IcUserPlus size={14} />{q.assign}</span>
+      </Tete>
+      <div className="ap-body ob-page">
+        <p className="ap-sub">{q.sub}</p>
+        <section className="ob-panel">
+          <b className="ap-h2 ob-panelHead">{q.assignments}</b>
+          <div className="ob-inset">
+            {q.modules.map((m) => (
+              <div className="ob-arow" key={m.title}>
+                <span className="ap-stack ap-grow">
+                  <b className="ob-title">{m.title}</b>
+                  <span className="ob-small">{m.meta}</span>
+                </span>
+                <span className={`ob-chip ob-chip--${m.status}`}>{q.status[m.status]}</span>
+                <span className={`ap-btn ob-btn${m.status === "passed" ? " ap-btn--blue" : " ap-btn--ghost"}`}>
+                  {m.status === "validated" ? q.unvalidate : q.validate}
+                </span>
+                <span className="ob-icBtn"><IcTrash size={14} /></span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="ob-panel">
+          <b className="ap-h2 ob-panelHead">{q.attemptsTitle}</b>
+          <div className="ob-inset">
+            {q.attempts.map((r, i) => (
+              <div className="ob-run" key={`${r.title}${r.meta}`}>
+                <span className="ob-runHead">
+                  {i === 0 ? <IcChevronDown size={15} /> : <IcChevron size={15} />}
+                  <span className="ap-grow"><b className="ob-title">{r.title}</b> <span className="ob-muted">· {r.meta}</span></span>
+                  <span className="ob-mono">{r.score}</span>
+                </span>
+                {i === 0 ? (
+                  <div className="ob-runBody">
+                    <p>{q.open.summary}</p>
+                    <b>{q.open.criterion}</b>
+                    {q.open.points.map((pt) => (
+                      <span className="ob-pt" key={pt.d}>
+                        <span className={`ob-mono ob-pt--${pt.s}`}>{pt.s}/2</span>
+                        <span className="ap-stack">
+                          {pt.d}
+                          <i className="ob-quote">{pt.v}</i>
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );
@@ -448,8 +631,9 @@ function EcranOnboarding({ a, o }) {
 // sans rotation, posée dans un cadre clair qui la COUPE à droite et en bas,
 // à la manière du modèle de spott.io fourni par Remco. Le cadre a une taille
 // fixe : les deux moments ont donc exactement la même, et rien ne saute au
-// passage de l'un à l'autre (retour direct). Le menu porte l'entrée
-// Onboarding dans les DEUX fenêtres, pour la même raison.
+// passage de l'un à l'autre (retour direct).
+// `ecran` : "cands" (les candidats d'un job), "onboarding" (la fiche d'une
+// nouvelle recrue) ou "people" (le tableau des personnes).
 // --k : on montre VISIBLE px de l'application dans la largeur du cadre.
 const VISIBLE = 690;
 const VISIBLE_PETIT = 520;
@@ -477,16 +661,24 @@ export function AppFenetre({ a, ecran, shortlist, o, label }) {
   return (
     <div className="mo-frame" ref={ref} role="img" aria-label={label}>
       <div className="peek__win" aria-hidden="true">
-        <Menu a={a} actif={ecran === "onboarding" ? "onboarding" : 0} onboarding={o.nav} />
+        <Menu a={a} actif={MENU_ACTIF[ecran]} />
         <div className="ap-main">
-          {ecran === "onboarding" ? <EcranOnboarding a={a} o={o} /> : <EcranCandidats a={a} liste={shortlist} />}
+          {ecran === "onboarding" ? <EcranPersonne a={a} o={o} />
+            : ecran === "people" ? <EcranPersonnes a={a} o={o} />
+            : <EcranCandidats a={a} liste={shortlist} />}
         </div>
       </div>
     </div>
   );
 }
 
-export default function AppPeek({ a, shortlist, score }) {
+/** L'entrée du menu allumée pour chaque écran. */
+const MENU_ACTIF = { home: "hiring", cands: "jobs", report: "jobs", obHome: "onboarding", people: "people", person: "people", onboarding: "people" };
+
+/** `vue` : "recruitment" (les écrans d'ECRANS) ou "onboarding" (ECRANS_OB),
+ *  l'onglet choisi au-dessus de la fenêtre (Vitrine.js). `o` : les textes
+ *  des écrans d'onboarding (`home.moments.onboardingApp`). */
+export default function AppPeek({ a, o, vue = "recruitment", shortlist, score }) {
   const [actif, setActif] = useState(0);
   const scene = useRef(null);
   const survol = useRef(false);
@@ -535,19 +727,23 @@ export default function AppPeek({ a, shortlist, score }) {
   // fenêtre suspend le défilement : on peut lire un écran sans qu'il parte
   // sous les yeux. Sous « réduire les animations », rien ne bouge : le
   // tableau de bord reste affiché.
+  const liste = vue === "onboarding" ? ECRANS_OB : ECRANS;
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const minuteur = setInterval(() => {
-      if (!survol.current) setActif((i) => (i + 1) % ECRANS.length);
+      if (!survol.current) setActif((i) => (i + 1) % liste.length);
     }, ROTATION);
     return () => clearInterval(minuteur);
-  }, []);
+  }, [liste.length]);
 
-  const id = ECRANS[actif];
+  const id = liste[actif];
   const ecrans = {
-    home: <EcranAccueil a={a} liste={shortlist} />,
-    cands: <EcranCandidats a={a} liste={shortlist} />,
-    report: <EcranRapport a={a} liste={shortlist} score={score} />,
+    home: () => <EcranAccueil a={a} liste={shortlist} />,
+    cands: () => <EcranCandidats a={a} liste={shortlist} />,
+    report: () => <EcranRapport a={a} liste={shortlist} score={score} />,
+    obHome: () => <EcranVueOnboarding a={a} o={o} />,
+    people: () => <EcranPersonnes a={a} o={o} />,
+    person: () => <EcranPersonne a={a} o={o} />,
   };
 
   return (
@@ -559,13 +755,13 @@ export default function AppPeek({ a, shortlist, score }) {
       <div
         className="peek"
         role="img"
-        aria-label={a.alt}
+        aria-label={vue === "onboarding" ? o.alt : a.alt}
         onMouseEnter={() => { survol.current = true; }}
         onMouseLeave={() => { survol.current = false; }}
       >
         <div className="peek__win" aria-hidden="true">
-          <Menu a={a} actif={id === "home" ? "home" : 0} />
-          <div className="ap-main" key={id}>{ecrans[id]}</div>
+          <Menu a={a} actif={MENU_ACTIF[id]} />
+          <div className="ap-main" key={id}>{ecrans[id]()}</div>
         </div>
       </div>
     </div>

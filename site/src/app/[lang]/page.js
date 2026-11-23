@@ -147,7 +147,7 @@ export default async function Home({ params }) {
         </div>
 
         <div className="wrap vitrine">
-          <Vitrine tabs={h.hero.tabs} a={h.hero.app} shortlist={m.shortlist} score={m.score} />
+          <Vitrine tabs={h.hero.tabs} a={h.hero.app} o={h.moments.onboardingApp} shortlist={m.shortlist} score={m.score} />
         </div>
       </section>
 

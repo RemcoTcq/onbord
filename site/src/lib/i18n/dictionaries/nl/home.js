@@ -6,9 +6,9 @@
 
 const home = {
   meta: {
-    title: "Onbord | Werksimulaties om aan te werven op echte vaardigheden",
+    title: "Onbord | Werksimulaties om klantgerichte teams aan te werven en in te werken",
     description:
-      "Onbord zet elke vacature om in een werksimulatie. Kandidaten doen het echte werk, en u krijgt een vaardigheidsbeoordeling met bewijs achter elke score.",
+      "Onbord bouwt werksimulaties van uw sales-, customer success- en supportfuncties. Werf aan op een vaardigheidsbeoordeling met bewijs achter elke score, en bereid nieuwe medewerkers voor nog voor ze een klant spreken.",
   },
 
   hero: {
@@ -58,15 +58,25 @@ const home = {
     },
     app: {
       // Ce que la fenêtre montre, pour un lecteur d'écran (elle y est une image).
-      alt: "De recruiterinterface van Onbord: het dashboard, kandidaten gerangschikt op totaalscore, en het rapport van een kandidaat.",
+      alt: "De recruiterinterface van Onbord: het overzicht van de werving, kandidaten gerangschikt op totaalscore, en het rapport van een kandidaat.",
       pct: "{n}%",
       me: "LV",
+      // De applicatie heeft geen Nederlandse recruiterinterface: dit menu is
+      // vertaald naar het Engels en het Frans van de applicatie.
       nav: {
         search: "Zoeken…",
         menu: "Menu",
-        home: "Dashboard",
+        home: "Home",
+        simulations: "Simulaties",
+        hiring: "Werving",
+        overview: "Overzicht",
         jobs: "Jobs",
-        recent: "Recente jobs",
+        candidates: "Kandidaten",
+        onboarding: "Onboarding",
+        people: "Personen",
+        modules: "Modules",
+        programs: "Programma's",
+        company: "Bedrijf",
         settings: "Instellingen",
       },
       jobs: [
@@ -115,7 +125,7 @@ const home = {
         quote: "“{q}”",
       },
       home: {
-        title: "Dashboard",
+        title: "Overzicht werving",
         newJob: "Nieuwe job",
         hello: "Hallo Laura",
         figures: [
@@ -177,31 +187,90 @@ const home = {
         title: "Nieuwe medewerkers klaar vóór hun eerste dag.",
         lede: "Ze doorlopen de echte situaties van de functie, module per module, en u ziet waar elk van hen staat voor ze een klant spreken.",
         link: "Ontdek onboarding",
-        alt: "Een onboardingtraject in Onbord: een nieuwe account executive doorloopt vijf werksimulaties vóór de eerste werkdag.",
+        alt: "De pagina van een nieuwe medewerker in Onbord: de modules van Lucas Martens, drie gevalideerd, en de laatste poging met elk verwacht punt en de woorden die het bewijzen.",
       },
     ],
+    // De onboardingschermen, overgenomen uit de applicatie op 23/11/2026.
+    // Zelfde vorm als het Engels; de applicatie heeft geen Nederlandse
+    // recruiterinterface, de labels zijn vertaald naar haar Engels.
     onboardingApp: {
-      alt: "Een onboardingtraject in Onbord: een nieuwe account executive doorloopt vijf werksimulaties vóór de eerste werkdag.",
-      initials: "LM",
-      name: "Lucas Martens",
-      nav: "Onboarding",
-      role: "Account executive",
-      starts: "Start op 16 nov.",
-      onTrack: "Op schema",
-      ready: "Klaar voor dag één",
-      progress: "{done} van {total} modules",
-      colModule: "Module",
-      colScore: "Score",
-      colStatus: "Status",
-      pct: "{n}%",
-      states: { done: "Afgerond", current: "Bezig", todo: "Nog te doen" },
-      modules: [
-        { kind: "call", title: "Verkennend gesprek met een prospect", format: "Live gesprek", min: "15 min", state: "done", score: "82" },
-        { kind: "email", title: "Een prijsbezwaar beantwoorden", format: "E-mail", min: "10 min", state: "done", score: "71" },
-        { kind: "inbox", title: "De inbox van maandagochtend sorteren", format: "Inbox", min: "10 min", state: "current" },
-        { kind: "document", title: "Een verlengingsvoorstel voorbereiden", format: "Document", min: "15 min", state: "todo" },
-        { kind: "chat", title: "Een ontevreden klant kalmeren via chat", format: "Chat", min: "10 min", state: "todo" },
+      alt: "De onboarding van Onbord: nieuwe medewerkers op weg naar echte klanten, de lijst met personen en hun voortgang, en de modules en pogingen van een nieuwe medewerker.",
+      team: [
+        { initials: "EP", name: "Emma Peeters", email: "emma.peeters@brightline.io", col: "onboarding", valides: 2, assignes: 5, avg: 64, since: "5 nov." },
+        { initials: "LM", name: "Lucas Martens", email: "lucas.martens@brightline.io", col: "almost", valides: 3, assignes: 5, avg: 77, since: "3 nov.", toValidate: true },
+        { initials: "NJ", name: "Noah Janssens", email: "noah.janssens@brightline.io", col: "onboarding", valides: 1, assignes: 4, avg: 48, since: "10 nov." },
+        { initials: "SC", name: "Sofia Claes", email: "sofia.claes@brightline.io", col: "almost", valides: 4, assignes: 4, avg: 81, since: "27 okt.", toDeclare: true },
+        { initials: "RD", name: "Ruben De Smet", email: "ruben.desmet@brightline.io", col: "ready", valides: 5, assignes: 5, avg: 84, since: "13 okt." },
+        { initials: "HW", name: "Hanna Wouters", email: "hanna.wouters@brightline.io", col: "ready", valides: 4, assignes: 4, avg: 79, since: "20 okt." },
       ],
+      overview: {
+        title: "Overzicht onboarding",
+        create: "Simulatie maken",
+        tiles: [["Nieuwe medewerkers", "6"], ["Klaar", "2"], ["Gemiddelde score", "72%"], ["Gevalideerde simulaties", "19 / 27"]],
+        path: "Op weg naar echte klanten",
+        cols: { onboarding: "In onboarding", almost: "Bijna klaar", ready: "Klaar" },
+        average: "{n}% gemiddeld",
+        validatedOf: "{v} / {a} gevalideerd",
+        toDeclare: "Klaar te verklaren",
+        toValidate: "1 poging te valideren",
+        stuckTitle: "Wie zit vast",
+        stuck: [
+          { kind: "struggling", name: "Noah Janssens", why: "2 pogingen onder de drempel — Een ontevreden klant kalmeren via chat" },
+          { kind: "overdue", name: "Emma Peeters", why: "Deadline 20 nov. — Verlengingsgesprek met een twijfelende klant" },
+        ],
+        skillsTitle: "Vaardigheden om aan te werken",
+        workedBy: "Geoefend in",
+        skills: [
+          { name: "Bezwaren behandelen", n: 58, sim: "Een prijsbezwaar beantwoorden" },
+          { name: "Een volgende stap afspreken", n: 63, sim: "Verkennend gesprek met een prospect" },
+          { name: "Een ontevreden klant kalmeren", n: 66, sim: "Een ontevreden klant kalmeren via chat" },
+        ],
+      },
+      people: {
+        title: "Personen",
+        invite: "Persoon uitnodigen",
+        tabs: { onboarding: "In onboarding", ready: "Klaar" },
+        search: "Een persoon zoeken",
+        colPerson: "Persoon",
+        colStage: "Fase",
+        colProgress: "Gevalideerde modules",
+        colAverage: "Gemiddelde score",
+        colSince: "Gestart op",
+      },
+      person: {
+        name: "Lucas Martens",
+        sub: "lucas.martens@brightline.io · In onboarding",
+        markReady: "Als klaar markeren",
+        assign: "Toewijzen",
+        assignments: "Toegewezen modules",
+        attemptsTitle: "Pogingen",
+        validate: "Valideren",
+        unvalidate: "Validatie ongedaan maken",
+        status: { validated: "Gevalideerd", passed: "Drempel gehaald", in_progress: "Bezig", assigned: "Toegewezen" },
+        modules: [
+          { title: "Verkennend gesprek met een prospect", meta: "2 pogingen · beste score 82% (drempel 70%)", status: "validated" },
+          { title: "Een prijsbezwaar beantwoorden", meta: "1 poging · beste score 74% (drempel 70%)", status: "validated" },
+          { title: "Verlengingsgesprek met een twijfelende klant", meta: "2 pogingen · beste score 75% (drempel 70%)", status: "validated" },
+          { title: "Een ontevreden klant kalmeren via chat", meta: "1 poging · beste score 75% (drempel 70%)", status: "passed" },
+          { title: "De nieuwe tarieven voorstellen", meta: "0 pogingen · drempel 70% · deadline 5 dec.", status: "assigned" },
+        ],
+        attempts: [
+          { title: "Een ontevreden klant kalmeren via chat", meta: "poging 1 · 21 nov.", score: "75%" },
+          { title: "Verlengingsgesprek met een twijfelende klant", meta: "poging 2 · 18 nov.", score: "75%" },
+          { title: "Verlengingsgesprek met een twijfelende klant", meta: "poging 1 · 14 nov.", score: "58%" },
+          { title: "Een prijsbezwaar beantwoorden", meta: "poging 1 · 10 nov.", score: "74%" },
+        ],
+        open: {
+          summary: "Lucas erkende de dubbele afschrijving meteen en gaf een datum voor de terugbetaling. Hij legde de oorzaak uit in technische termen die de klant niet nodig had.",
+          criterion: "Een ontevreden klant kalmeren · 75%",
+          points: [
+            { s: 2, d: "Erkent het probleem voor het uit te leggen", v: "“Het spijt me, twee keer betalen is het laatste wat u nodig hebt.”" },
+            { s: 1, d: "Legt in eenvoudige woorden uit wat er gebeurde", v: "“Het was een herhaalde webhook in onze facturatiesync.”" },
+            { s: 2, d: "Belooft een oplossing met een datum", v: "“U ziet de terugbetaling tegen donderdag op uw kaart.”" },
+            { s: 1, d: "Checkt of de klant tevreden is voor het afsluiten", v: "“Kan ik u nog ergens anders mee helpen?”" },
+          ],
+        },
+      },
     },
   },
 
